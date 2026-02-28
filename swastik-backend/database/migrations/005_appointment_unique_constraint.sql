@@ -44,7 +44,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success', true,
         'appointment_id', v_appointment.id,
-        'booking_number', v_appointment.booking_number
+        'appointment_number', v_appointment.appointment_number
     );
 END;
 $$ LANGUAGE plpgsql;

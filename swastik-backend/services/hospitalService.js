@@ -224,8 +224,9 @@ const addReview = async (userId, hospitalId, reviewData) => {
   const { data: existingReview } = await supabaseAdmin
     .from('reviews')
     .select('id')
-    .eq('user_id', userId)
-    .eq('hospital_id', hospitalId)
+    .eq('patient_id', userId)
+    .eq('reviewable_type', 'hospital')
+    .eq('reviewable_id', hospitalId)
     .maybeSingle();
 
   if (existingReview) {
@@ -237,8 +238,9 @@ const addReview = async (userId, hospitalId, reviewData) => {
   const { data: review, error } = await supabaseAdmin
     .from('reviews')
     .insert({
-      user_id: userId,
-      hospital_id: hospitalId,
+      patient_id: userId,
+      reviewable_type: 'hospital',
+      reviewable_id: hospitalId,
       rating: reviewData.rating,
       comment: reviewData.comment,
     })
@@ -267,7 +269,8 @@ const addReview = async (userId, hospitalId, reviewData) => {
     const { data: allReviews } = await supabaseAdmin
       .from('reviews')
       .select('rating')
-      .eq('hospital_id', hospitalId);
+      .eq('reviewable_type', 'hospital')
+      .eq('reviewable_id', hospitalId);
 
     if (allReviews && allReviews.length > 0) {
       const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'patient' CHECK (role IN (
         'patient', 'doctor', 'hospital_owner', 'hospital_manager',
         'clinic_owner', 'pharmacy_owner', 'ambulance_operator',
+        'ambulance_driver', 'diagnostic_center_owner',
         'admin', 'super_admin'
     )),
     is_active BOOLEAN DEFAULT TRUE,
@@ -180,7 +181,7 @@ CREATE TABLE IF NOT EXISTS hospital_departments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hospital_id UUID REFERENCES hospitals(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    head_doctor_id UUID,
+    head_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
     description TEXT,
     floor_number TEXT,
     contact_extension TEXT,
@@ -264,7 +265,7 @@ CREATE TABLE IF NOT EXISTS doctor_reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id UUID REFERENCES doctors(id) ON DELETE CASCADE,
     patient_id UUID REFERENCES patients(id) ON DELETE SET NULL,
-    consultation_id UUID,
+    consultation_id UUID REFERENCES consultations(id) ON DELETE SET NULL,
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
     is_anonymous BOOLEAN DEFAULT FALSE,
@@ -980,6 +981,29 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8.1b Chat Sessions (chatbot conversation sessions)
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_key TEXT NOT NULL,
+    language TEXT DEFAULT 'en',
+    message_count INTEGER DEFAULT 0,
+    last_message_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8.1c Report Shares (track which doctors have access to patient reports)
+CREATE TABLE IF NOT EXISTS report_shares (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    shared_by UUID NOT NULL REFERENCES users(id),
+    shared_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at TIMESTAMPTZ,
+    UNIQUE (report_id, doctor_id)
+);
+
 -- 8.2 OTP Verifications
 CREATE TABLE IF NOT EXISTS otp_verifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1132,6 +1156,7 @@ ALTER TABLE emergency_requests DROP CONSTRAINT IF EXISTS emergency_requests_stat
 ALTER TABLE emergency_requests ADD CONSTRAINT emergency_requests_status_check
     CHECK (status IN (
         'pending', 'assigned', 'dispatched',
+        'broadcasting', 'accepted', 'timeout', 'no_ambulance',
         'en_route', 'en_route_pickup',
         'arrived', 'arrived_pickup',
         'picked_up', 'patient_onboard',
@@ -1315,7 +1340,7 @@ DECLARE
         'chat_messages', 'refresh_tokens', 'otp_verifications', 'audit_logs',
         'payments', 'emergency_contacts', 'family_members',
         'doctor_slots', 'doctor_reviews', 'ambulance_location_pings',
-        'reminders', 'patient_vitals'
+        'reminders', 'patient_vitals', 'chat_sessions', 'report_shares'
     ];
 BEGIN
     FOREACH tbl IN ARRAY tables
@@ -1367,12 +1392,12 @@ BEGIN
     END LOOP;
 END $$;
 
--- Generate unique number functions
+-- Generate unique number functions (using gen_random_uuid for collision resistance)
 CREATE OR REPLACE FUNCTION generate_order_number(prefix TEXT DEFAULT 'ORD')
 RETURNS TEXT AS $$
 BEGIN
     RETURN prefix || '-' || to_char(NOW(), 'YYYYMMDD') || '-' ||
-           lpad(floor(random() * 10000)::TEXT, 4, '0');
+           UPPER(SUBSTRING(gen_random_uuid()::text FROM 1 FOR 8));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1380,7 +1405,7 @@ CREATE OR REPLACE FUNCTION generate_appointment_number()
 RETURNS TEXT AS $$
 BEGIN
     RETURN 'APT-' || to_char(NOW(), 'YYYYMMDD') || '-' ||
-           lpad(floor(random() * 10000)::TEXT, 4, '0');
+           UPPER(SUBSTRING(gen_random_uuid()::text FROM 1 FOR 8));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1388,7 +1413,7 @@ CREATE OR REPLACE FUNCTION generate_prescription_number()
 RETURNS TEXT AS $$
 BEGIN
     RETURN 'RX-' || to_char(NOW(), 'YYYYMMDD') || '-' ||
-           lpad(floor(random() * 10000)::TEXT, 4, '0');
+           UPPER(SUBSTRING(gen_random_uuid()::text FROM 1 FOR 8));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1396,7 +1421,7 @@ CREATE OR REPLACE FUNCTION generate_emergency_number()
 RETURNS TEXT AS $$
 BEGIN
     RETURN 'SOS-' || to_char(NOW(), 'YYYYMMDD') || '-' ||
-           lpad(floor(random() * 10000)::TEXT, 4, '0');
+           UPPER(SUBSTRING(gen_random_uuid()::text FROM 1 FOR 8));
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1404,9 +1429,79 @@ CREATE OR REPLACE FUNCTION generate_diagnostic_booking_number()
 RETURNS TEXT AS $$
 BEGIN
     RETURN 'DCB-' || to_char(NOW(), 'YYYYMMDD') || '-' ||
-           lpad(floor(random() * 10000)::TEXT, 4, '0');
+           UPPER(SUBSTRING(gen_random_uuid()::text FROM 1 FOR 8));
 END;
 $$ LANGUAGE plpgsql;
+
+-- H7: Auto-assign number triggers for all *_number columns
+
+-- Auto-assign appointment_number
+CREATE OR REPLACE FUNCTION auto_assign_appointment_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.appointment_number IS NULL THEN
+        NEW.appointment_number := generate_appointment_number();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_appointment_number ON appointments;
+CREATE TRIGGER trg_appointment_number
+    BEFORE INSERT ON appointments
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_assign_appointment_number();
+
+-- Auto-assign prescription_number
+CREATE OR REPLACE FUNCTION auto_assign_prescription_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.prescription_number IS NULL THEN
+        NEW.prescription_number := generate_prescription_number();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prescription_number ON prescriptions;
+CREATE TRIGGER trg_prescription_number
+    BEFORE INSERT ON prescriptions
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_assign_prescription_number();
+
+-- Auto-assign request_number (emergency)
+CREATE OR REPLACE FUNCTION auto_assign_emergency_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.request_number IS NULL THEN
+        NEW.request_number := generate_emergency_number();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_emergency_number ON emergency_requests;
+CREATE TRIGGER trg_emergency_number
+    BEFORE INSERT ON emergency_requests
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_assign_emergency_number();
+
+-- Auto-assign order_number (pharmacy)
+CREATE OR REPLACE FUNCTION auto_assign_order_number()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.order_number IS NULL THEN
+        NEW.order_number := generate_order_number();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_order_number ON pharmacy_orders;
+CREATE TRIGGER trg_order_number
+    BEFORE INSERT ON pharmacy_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_assign_order_number();
 
 -- Auto-assign booking_number on INSERT if null
 CREATE OR REPLACE FUNCTION auto_assign_diagnostic_booking_number()

@@ -105,7 +105,7 @@ BEGIN
     WHERE constraint_name = 'hospitals_beds_non_negative'
   ) THEN
     ALTER TABLE hospitals ADD CONSTRAINT hospitals_beds_non_negative
-      CHECK (total_beds >= 0 AND available_beds >= 0);
+      CHECK (total_beds >= 0 AND beds_available >= 0);
   END IF;
 END $$;
 
@@ -202,9 +202,9 @@ CREATE INDEX IF NOT EXISTS idx_diagnostic_bookings_patient
 CREATE INDEX IF NOT EXISTS idx_pharmacy_inventory_pharmacy
   ON pharmacy_inventory (pharmacy_id, medicine_id);
 
--- Reviews: hospital_id for rating aggregation
-CREATE INDEX IF NOT EXISTS idx_reviews_hospital
-  ON reviews (hospital_id);
+-- Reviews: reviewable_type + reviewable_id for rating aggregation
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewable
+  ON reviews (reviewable_type, reviewable_id);
 
 -- ============================================================================
 -- M12: Replace random() with gen_random_uuid() for number generators

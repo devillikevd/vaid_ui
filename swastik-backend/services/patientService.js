@@ -60,8 +60,11 @@ class PatientService {
     const updateFields = { updated_at: new Date().toISOString() };
     if (updateData.name !== undefined) updateFields.name = String(updateData.name).trim().slice(0, 100);
     if (updateData.age !== undefined) {
-      const age = parseInt(updateData.age, 10);
-      if (!isNaN(age) && age >= 0 && age <= 150) updateFields.age = age;
+      // age is accepted from client but we store date_of_birth
+      // If client sends dateOfBirth directly, use that instead
+    }
+    if (updateData.dateOfBirth !== undefined || updateData.date_of_birth !== undefined) {
+      updateFields.date_of_birth = updateData.dateOfBirth || updateData.date_of_birth;
     }
     if (updateData.gender !== undefined) {
       const validGenders = ['male', 'female', 'other'];
@@ -79,7 +82,11 @@ class PatientService {
       const height = parseFloat(updateData.height);
       if (!isNaN(height) && height > 0 && height < 300) updateFields.height = height;
     }
-    if (updateData.location !== undefined) updateFields.location = String(updateData.location).trim().slice(0, 200);
+    if (updateData.location !== undefined) updateFields.address = String(updateData.location).trim().slice(0, 200);
+    if (updateData.address !== undefined) updateFields.address = String(updateData.address).trim().slice(0, 200);
+    if (updateData.city !== undefined) updateFields.city = String(updateData.city).trim().slice(0, 100);
+    if (updateData.state !== undefined) updateFields.state = String(updateData.state).trim().slice(0, 100);
+    if (updateData.pincode !== undefined) updateFields.pincode = String(updateData.pincode).trim().slice(0, 10);
     if (updateData.abhaNumber !== undefined) updateFields.abha_number = String(updateData.abhaNumber).trim().slice(0, 50);
 
     const { data: updatedPatient, error } = await supabaseAdmin
@@ -529,7 +536,7 @@ class PatientService {
         patient_id: patient.id,
         name: contactData.name,
         phone: contactData.phone,
-        relation: contactData.relation,
+        relationship: contactData.relation || contactData.relationship,
       })
       .select()
       .single();
@@ -583,10 +590,10 @@ class PatientService {
       .insert({
         patient_id: patient.id,
         name: memberData.name,
-        phone: memberData.phone,
-        relation: memberData.relation,
-        age: memberData.age,
+        relationship: memberData.relation || memberData.relationship,
+        date_of_birth: memberData.dateOfBirth || memberData.date_of_birth || null,
         gender: memberData.gender,
+        blood_group: memberData.bloodGroup || memberData.blood_group || null,
       })
       .select()
       .single();

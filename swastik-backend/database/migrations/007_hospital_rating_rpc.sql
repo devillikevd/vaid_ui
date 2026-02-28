@@ -11,5 +11,6 @@ AS $$
     COALESCE(AVG(rating)::NUMERIC, 0) AS avg_rating,
     COUNT(*)::BIGINT AS review_count
   FROM reviews
-  WHERE hospital_id = p_hospital_id;
+  WHERE reviewable_type = 'hospital'
+    AND reviewable_id = p_hospital_id;
 $$;
