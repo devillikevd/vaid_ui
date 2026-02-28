@@ -25,20 +25,19 @@ class WebRTCManager(
     companion object {
         private const val TAG = "WebRTCManager"
 
-        private val ICE_SERVERS = listOf(
+        /** Default STUN-only servers — used when backend ICE config is unavailable */
+        private val DEFAULT_ICE_SERVERS = listOf(
             PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-            PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
-            // TURN servers for NAT traversal (production: replace with your own)
-            PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-                .setUsername("openrelayproject")
-                .setPassword("openrelayproject")
-                .createIceServer(),
-            PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-                .setUsername("openrelayproject")
-                .setPassword("openrelayproject")
-                .createIceServer()
+            PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
         )
     }
+
+    /**
+     * ICE servers to use for peer connection. Should be set from backend
+     * response (e.g., GET /consultations/:id/ice-servers) before calling
+     * [createPeerConnection]. Falls back to STUN-only if not set.
+     */
+    var iceServers: List<PeerConnection.IceServer> = DEFAULT_ICE_SERVERS
 
     private var peerConnectionFactory: PeerConnectionFactory? = null
     private var peerConnection: PeerConnection? = null
@@ -151,7 +150,7 @@ class WebRTCManager(
     fun createPeerConnection() {
         val factory = peerConnectionFactory ?: return
 
-        val rtcConfig = PeerConnection.RTCConfiguration(ICE_SERVERS).apply {
+        val rtcConfig = PeerConnection.RTCConfiguration(iceServers).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
         }

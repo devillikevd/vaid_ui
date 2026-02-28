@@ -4,31 +4,31 @@
 -- ============================================================
 
 -- Appointments (upcoming, completed, today)
-INSERT INTO appointments (id, appointment_number, patient_id, doctor_id, hospital_id, department_id, appointment_date, appointment_time, duration_minutes, type, status, reason, notes, queue_number, payment_status, payment_amount, created_at)
+INSERT INTO appointments (id, appointment_number, patient_id, doctor_id, hospital_id, appointment_date, time_slot, duration_minutes, type, status, reason, notes, payment_status, consultation_fee, created_at)
 VALUES
     -- Upcoming appointment
     ('80000000-0000-0000-0000-000000000001', 'APT-20250201-0001',
      '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001',
-     '40000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001',
-     CURRENT_DATE + INTERVAL '3 days', '10:00', 30, 'in-person', 'confirmed',
-     'Regular checkup and blood pressure monitoring', NULL, 1, 'completed', 500.00, NOW() - INTERVAL '1 day'),
+     '40000000-0000-0000-0000-000000000001',
+     CURRENT_DATE + INTERVAL '3 days', '10:00', 30, 'in_person', 'confirmed',
+     'Regular checkup and blood pressure monitoring', NULL, 'paid', 500.00, NOW() - INTERVAL '1 day'),
     -- Completed appointment
     ('80000000-0000-0000-0000-000000000002', 'APT-20250115-0001',
      '20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002',
-     '40000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000003',
-     CURRENT_DATE - INTERVAL '15 days', '14:30', 30, 'in-person', 'completed',
+     '40000000-0000-0000-0000-000000000002',
+     CURRENT_DATE - INTERVAL '15 days', '14:30', 30, 'in_person', 'completed',
      'Chest pain and difficulty breathing', 'Patient reports occasional chest tightness during exercise',
-     3, 'completed', 800.00, NOW() - INTERVAL '20 days'),
+     'paid', 800.00, NOW() - INTERVAL '20 days'),
     -- Today's appointment
     ('80000000-0000-0000-0000-000000000003', 'APT-20250201-0002',
      '20000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000003',
-     '40000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000005',
+     '40000000-0000-0000-0000-000000000003',
      CURRENT_DATE, '11:00', 45, 'video', 'confirmed',
-     'Skin rash on hands and forearms for 2 weeks', NULL, 1, 'pending', 600.00, NOW() - INTERVAL '3 days')
+     'Skin rash on hands and forearms for 2 weeks', NULL, 'pending', 600.00, NOW() - INTERVAL '3 days')
 ON CONFLICT DO NOTHING;
 
 -- Consultation for completed appointment
-INSERT INTO consultations (id, appointment_id, patient_id, doctor_id, diagnosis, symptoms, examination_notes, follow_up_date, follow_up_notes, status, started_at, ended_at, created_at)
+INSERT INTO consultations (id, appointment_id, patient_id, doctor_id, diagnosis, symptoms, notes, follow_up_date, follow_up_notes, status, started_at, ended_at, created_at)
 VALUES
     ('81000000-0000-0000-0000-000000000001',
      '80000000-0000-0000-0000-000000000002',

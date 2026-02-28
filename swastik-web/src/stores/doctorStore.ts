@@ -309,7 +309,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 return;
             }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const apiData = (result.data as any)?.data ?? (result.data as any)?.slots ?? result.data ?? [];
+            const apiData = (result.data as any)?.slots ?? result.data ?? [];
             set({ schedule: Array.isArray(apiData) ? apiData : [], loadingSchedule: false });
         } catch (error) {
             console.error('Error fetching schedule:', error);
@@ -432,10 +432,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         try {
             const response = await consultationsApi.start(appointmentId);
             if (response.success) {
-                // Unwrap double-nested: fetchWithAuth wraps { data: { data: consultation } }
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const raw = response.data as any;
-                const data = raw?.data || raw;
+                const data = response.data as any;
                 const consultationId = data?.id || data?.consultation?.id || data?.consultationId;
                 get().fetchDashboardData();
                 return consultationId || 'started';

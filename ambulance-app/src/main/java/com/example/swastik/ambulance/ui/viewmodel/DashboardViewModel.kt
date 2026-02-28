@@ -62,6 +62,10 @@ class DashboardViewModel @Inject constructor(
     private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpired: SharedFlow<Unit> = _sessionExpired.asSharedFlow()
 
+    /** Emitted when patient sends updated GPS location during active emergency */
+    private val _patientLocationUpdate = MutableSharedFlow<String?>(extraBufferCapacity = 10)
+    val patientLocationUpdate: SharedFlow<String?> = _patientLocationUpdate.asSharedFlow()
+
     init {
         loadDashboard()
         observeSocketEvents()
@@ -109,6 +113,13 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             socketManager.sessionExpiredFlow.collect {
                 _sessionExpired.tryEmit(Unit)
+            }
+        }
+        // Patient location update — patient moved during active emergency, update pickup
+        viewModelScope.launch {
+            socketManager.patientLocationFlow.collect { data ->
+                _patientLocationUpdate.tryEmit(data)
+                _userMessage.tryEmit("📍 Patient location updated")
             }
         }
     }

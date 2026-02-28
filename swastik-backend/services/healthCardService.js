@@ -152,12 +152,11 @@ class HealthCardService {
       supabaseAdmin
         .from('patients')
         .select(`
-          id, name, date_of_birth, age, gender, blood_group,
-          weight, height, location, abha_number,
-          medical_conditions, allergies, chronic_diseases,
+          id, name, date_of_birth, gender, blood_group,
+          weight, height, address, city, state, abha_number,
+          medical_conditions, allergies, chronic_conditions,
           current_medications, medical_history,
           insurance_provider, insurance_id,
-          profile_image_url,
           user:users(email, phone)
         `)
         .eq('id', patientId)
@@ -167,11 +166,10 @@ class HealthCardService {
       supabaseAdmin
         .from('prescriptions')
         .select(`
-          id, prescription_number, diagnosis, medications,
-          notes, valid_from, valid_until, status, is_active,
-          created_at,
+          id, notes, is_active, created_at,
           doctor:doctors(id, name, specialization),
-          consultation:consultations(id, chief_complaint, findings)
+          consultation:consultations(id, chief_complaint, notes),
+          prescription_medicines(id, medicine_name, dosage, frequency, duration, instructions, quantity)
         `)
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
@@ -181,11 +179,11 @@ class HealthCardService {
       supabaseAdmin
         .from('reports')
         .select(`
-          id, title, report_type, lab_name, test_date, report_date,
-          result_status, summary, doctor_notes, file_url, parameters
+          id, name, type, lab_name, test_date, result_date,
+          status, doctor_notes, file_url, file_size, parameters
         `)
         .eq('patient_id', patientId)
-        .order('test_date', { ascending: false })
+        .order('report_date', { ascending: false })
         .limit(20),
 
       // 4. Vitals (last 30 entries)
@@ -204,7 +202,7 @@ class HealthCardService {
       supabaseAdmin
         .from('consultations')
         .select(`
-          id, chief_complaint, findings, diagnosis, advice,
+          id, chief_complaint, notes, diagnosis, advice,
           diagnosis_codes, follow_up_required, follow_up_date,
           status, started_at, ended_at,
           doctor:doctors(id, name, specialization)
@@ -232,24 +230,27 @@ class HealthCardService {
       throw new ApiError(404, 'Patient record not found');
     }
 
+    // Compute age from date_of_birth
+    const dob = patient.date_of_birth ? new Date(patient.date_of_birth) : null;
+    const computedAge = dob ? Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
     return {
       patient: {
         name: patient.name,
-        age: patient.age,
+        age: computedAge,
         dateOfBirth: patient.date_of_birth,
         gender: patient.gender,
         bloodGroup: patient.blood_group,
         weight: patient.weight,
         height: patient.height,
-        location: patient.location,
+        address: [patient.address, patient.city, patient.state].filter(Boolean).join(', ') || null,
         abhaNumber: patient.abha_number,
-        profileImageUrl: patient.profile_image_url,
         phone: patient.user?.phone,
         email: patient.user?.email,
         // Critical medical info
         allergies: patient.allergies || [],
         medicalConditions: patient.medical_conditions || [],
-        chronicDiseases: patient.chronic_diseases || [],
+        chronicConditions: patient.chronic_conditions || [],
         currentMedications: patient.current_medications || [],
         medicalHistory: patient.medical_history || [],
         insuranceProvider: patient.insurance_provider,
@@ -257,29 +258,25 @@ class HealthCardService {
       },
       prescriptions: (prescriptionsResult.data || []).map(rx => ({
         id: rx.id,
-        prescriptionNumber: rx.prescription_number,
-        diagnosis: rx.diagnosis,
-        medications: rx.medications,
         notes: rx.notes,
-        validFrom: rx.valid_from,
-        validUntil: rx.valid_until,
-        status: rx.status,
         isActive: rx.is_active,
         createdAt: rx.created_at,
+        medications: rx.prescription_medicines || [],
         doctor: rx.doctor ? { name: rx.doctor.name, specialization: rx.doctor.specialization } : null,
         chiefComplaint: rx.consultation?.chief_complaint,
+        consultationNotes: rx.consultation?.notes,
       })),
       reports: (reportsResult.data || []).map(r => ({
         id: r.id,
-        title: r.title,
-        type: r.report_type,
+        name: r.name,
+        type: r.type,
         labName: r.lab_name,
         testDate: r.test_date,
-        reportDate: r.report_date,
-        resultStatus: r.result_status,
-        summary: r.summary,
+        resultDate: r.result_date,
+        status: r.status,
         doctorNotes: r.doctor_notes,
         fileUrl: r.file_url,
+        fileSize: r.file_size,
         parameters: r.parameters,
       })),
       vitals: (vitalsResult.data || []).map(v => ({
@@ -298,7 +295,7 @@ class HealthCardService {
       consultations: (consultationsResult.data || []).map(c => ({
         id: c.id,
         chiefComplaint: c.chief_complaint,
-        findings: c.findings,
+        notes: c.notes,
         diagnosis: c.diagnosis,
         advice: c.advice,
         diagnosisCodes: c.diagnosis_codes,

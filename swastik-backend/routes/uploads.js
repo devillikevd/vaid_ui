@@ -9,6 +9,7 @@ const router = express.Router();
 const { authenticate: authenticateToken } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const { ApiError } = require('../middleware/errorHandler');
+const { supabaseAdmin } = require('../config/supabase');
 const {
     validateMagicBytes,
     ALLOWED_IMAGE_MIMES,
@@ -119,7 +120,7 @@ router.post('/report', authenticateToken, upload.single('file'), validateMagicBy
  * @desc Upload prescription document
  * @access Private (Doctor only)
  */
-router.post('/prescription', authenticateToken, requireRole(ROLES.DOCTOR), upload.single('file'), async (req, res, next) => {
+router.post('/prescription', authenticateToken, requireRole(ROLES.DOCTOR), upload.single('file'), validateMagicBytes(ALLOWED_MEDICAL_MIMES), async (req, res, next) => {
     try {
         if (!req.file) {
             throw new ApiError(400, 'No file uploaded');
@@ -145,7 +146,7 @@ router.post('/prescription', authenticateToken, requireRole(ROLES.DOCTOR), uploa
  * @desc Upload video file
  * @access Private
  */
-router.post('/video', authenticateToken, upload.single('file'), async (req, res, next) => {
+router.post('/video', authenticateToken, upload.single('file'), validateMagicBytes(ALLOWED_VIDEO_MIMES), async (req, res, next) => {
     try {
         if (!req.file) {
             throw new ApiError(400, 'No file uploaded');
@@ -169,7 +170,7 @@ router.post('/video', authenticateToken, upload.single('file'), async (req, res,
  * @desc Upload license/verification document
  * @access Private (Providers only)
  */
-router.post('/license', authenticateToken, upload.single('file'), async (req, res, next) => {
+router.post('/license', authenticateToken, upload.single('file'), validateMagicBytes(ALLOWED_DOC_MIMES), async (req, res, next) => {
     try {
         if (!req.file) {
             throw new ApiError(400, 'No file uploaded');
@@ -194,7 +195,7 @@ router.post('/license', authenticateToken, upload.single('file'), async (req, re
  * @desc Upload entity image (hospital, clinic, pharmacy)
  * @access Private (Entity owners)
  */
-router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.CLINIC_OWNER, ROLES.PHARMACY_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.ADMIN, ROLES.SUPER_ADMIN), upload.single('file'), async (req, res, next) => {
+router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.CLINIC_OWNER, ROLES.PHARMACY_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER, ROLES.ADMIN, ROLES.SUPER_ADMIN), upload.single('file'), validateMagicBytes(ALLOWED_IMAGE_MIMES), async (req, res, next) => {
     try {
         if (!req.file) {
             throw new ApiError(400, 'No file uploaded');
@@ -223,7 +224,7 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
  * @desc Upload multiple files
  * @access Private
  */
-router.post('/multiple', authenticateToken, upload.array('files', 10), async (req, res, next) => {
+router.post('/multiple', authenticateToken, upload.array('files', 10), validateMagicBytes(ALLOWED_DOC_MIMES), async (req, res, next) => {
     try {
         if (!req.files || req.files.length === 0) {
             throw new ApiError(400, 'No files uploaded');
@@ -259,9 +260,53 @@ router.get('/presigned-download', authenticateToken, async (req, res, next) => {
             throw new ApiError(400, 'File name is required');
         }
 
-        // C8 Fix: Verify user owns this file (file path contains user ID) or is admin
-        if (!fileName.includes(req.user.id) && !['admin', 'super_admin'].includes(req.user.role)) {
-            throw new ApiError(403, 'You do not have permission to access this file');
+        // Security: Verify user has access to this file
+        // 1. File belongs to the user (file path contains their user ID)
+        // 2. User is an admin
+        // 3. User is a doctor with an active/completed consultation with the file's patient
+        const isOwner = fileName.includes(req.user.id);
+        const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+
+        if (!isOwner && !isAdmin) {
+            // Check if the user is a doctor who has consulted with this patient
+            let hasAccess = false;
+            if (req.user.role === 'doctor') {
+                try {
+                    const { data: doctor } = await supabaseAdmin
+                        .from('doctors')
+                        .select('id')
+                        .eq('user_id', req.user.id)
+                        .single();
+
+                    if (doctor) {
+                        // Check report_shares for explicit access
+                        const { data: shares } = await supabaseAdmin
+                            .from('report_shares')
+                            .select('id')
+                            .eq('shared_with_doctor_id', doctor.id)
+                            .limit(1);
+
+                        if (shares && shares.length > 0) {
+                            hasAccess = true;
+                        } else {
+                            // Check if doctor has any consultation with a patient whose ID is in the file path
+                            const { data: consultations } = await supabaseAdmin
+                                .from('consultations')
+                                .select('id')
+                                .eq('doctor_id', doctor.id)
+                                .in('status', ['in_progress', 'completed'])
+                                .limit(1);
+                            hasAccess = consultations && consultations.length > 0;
+                        }
+                    }
+                } catch (e) {
+                    // Swallow lookup errors — deny access by default
+                }
+            }
+
+            if (!hasAccess) {
+                throw new ApiError(403, 'You do not have permission to access this file');
+            }
         }
 
         const url = await getPresignedUrl(fileName, parseInt(expiry) || 3600);

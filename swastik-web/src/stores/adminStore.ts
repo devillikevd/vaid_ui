@@ -113,11 +113,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                 set({ error: response.error || 'Failed to fetch dashboard', loadingDashboard: false, isLoading: false });
                 return;
             }
-            const raw = response.data as Record<string, unknown>;
-            // fetchWithAuth wraps server JSON as { success, data: <body> }
-            // Backend returns { success, data: { stats, providerCounts, ... } }
-            // So real payload is at raw.data (double-nested)
-            const data = (raw.data as Record<string, unknown>) || raw;
+            const data = response.data as Record<string, unknown>;
             set({
                 stats: (data.stats as AdminDashboardStats) || null,
                 providerCounts: (data.providerCounts as ProviderCounts) || null,
@@ -138,9 +134,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         try {
             const response = await adminApi.getPendingApprovals(type);
             if (response.success) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const responseData = response.data as any;
-                const rawData = responseData?.data || responseData;
+                const rawData = response.data as any;
 
                 let providers: PendingProvider[] = [];
 
@@ -176,9 +170,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         try {
             const response = await adminApi.getProviderDetails(type, id);
             if (response.success) {
-                // Unwrap double-nested data from fetchWithAuth + backend { data: provider }
-                const raw = response.data as Record<string, unknown>;
-                return (raw.data || raw) as PendingProvider;
+                return response.data as PendingProvider;
             }
             return null;
         } catch {

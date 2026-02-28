@@ -248,9 +248,7 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 set({ error: response.error || 'Failed to load booking', loadingSelectedBooking: false });
                 return;
             }
-            // Unwrap double-nested: fetchWithAuth wraps { data: { data: booking } }
-            const raw = response.data as Record<string, unknown>;
-            set({ selectedBooking: (raw.data || raw) as DiagnosticBooking, loadingSelectedBooking: false });
+            set({ selectedBooking: response.data as DiagnosticBooking, loadingSelectedBooking: false });
         } catch (error) {
             console.error('Error fetching booking:', error);
             set({ error: 'Failed to load booking.', loadingSelectedBooking: false });

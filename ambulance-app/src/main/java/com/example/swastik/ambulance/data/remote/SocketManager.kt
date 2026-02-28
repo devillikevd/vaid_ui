@@ -50,6 +50,10 @@ class SocketManager @Inject constructor() {
     private val _sessionExpiredFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpiredFlow: SharedFlow<Unit> = _sessionExpiredFlow.asSharedFlow()
 
+    /** Patient GPS location update — patient moved during active emergency */
+    private val _patientLocationFlow = MutableSharedFlow<String?>(extraBufferCapacity = 10)
+    val patientLocationFlow: SharedFlow<String?> = _patientLocationFlow.asSharedFlow()
+
     /** Callback invoked on (re)connect — allows replaying queued actions */
     var onConnectCallback: (() -> Unit)? = null
 
@@ -134,6 +138,12 @@ class SocketManager @Inject constructor() {
             socket?.on("ambulance:location-update") { args ->
                 Log.d(TAG, "Ambulance location update received")
                 _requestUpdatedFlow.tryEmit(args.firstOrNull()?.toString())
+            }
+
+            // Listen for patient location updates — patient moved during active emergency
+            socket?.on("patient:location-update") { args ->
+                Log.d(TAG, "Patient location update received — pickup location may have changed")
+                _patientLocationFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
             socket?.connect()

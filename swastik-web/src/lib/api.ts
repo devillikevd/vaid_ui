@@ -132,7 +132,10 @@ export async function fetchWithAuth<T>(
             return { success: false, error: friendlyError };
         }
 
-        return { success: true, data };
+        // Unwrap: backend returns { success, data: { ... } }.
+        // Return the inner `data` payload so stores don't double-nest.
+        const payload = data?.data !== undefined ? data.data : data;
+        return { success: true, data: payload };
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
             console.error('API Timeout:', endpoint);
