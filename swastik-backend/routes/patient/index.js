@@ -124,16 +124,38 @@ router.post('/vitals',
       return res.status(404).json({ success: false, message: 'Patient profile not found' });
     }
 
+    // Map type+value to the correct column in patient_vitals table
+    const vitalInsert = {
+      patient_id: patient.id,
+      recorded_by: req.user.id,
+      notes: req.body.notes || null,
+      recorded_at: new Date().toISOString(),
+    };
+    const val = parseFloat(req.body.value);
+    switch (req.body.type) {
+      case 'heart_rate': vitalInsert.heart_rate = Math.round(val); break;
+      case 'blood_pressure': {
+        // Expect value as "120/80" or separate systolic/diastolic
+        if (typeof req.body.value === 'string' && req.body.value.includes('/')) {
+          const [sys, dia] = req.body.value.split('/').map(Number);
+          vitalInsert.blood_pressure_systolic = Math.round(sys);
+          vitalInsert.blood_pressure_diastolic = Math.round(dia);
+        } else {
+          vitalInsert.blood_pressure_systolic = Math.round(val);
+          vitalInsert.blood_pressure_diastolic = req.body.diastolic ? Math.round(parseFloat(req.body.diastolic)) : null;
+        }
+        break;
+      }
+      case 'temperature': vitalInsert.temperature = val; break;
+      case 'blood_sugar': vitalInsert.blood_sugar = val; break;
+      case 'oxygen_saturation': vitalInsert.oxygen_level = val; break;
+      case 'weight': vitalInsert.weight = val; break;
+      case 'height': vitalInsert.height = val; break;
+    }
+
     const { data, error } = await supabaseAdmin
       .from('patient_vitals')
-      .insert({
-        patient_id: patient.id,
-        type: req.body.type,
-        value: req.body.value,
-        unit: req.body.unit || null,
-        notes: req.body.notes || null,
-        recorded_at: new Date().toISOString(),
-      })
+      .insert(vitalInsert)
       .select('*')
       .single();
 
@@ -683,8 +705,8 @@ router.post('/reviews',
       }
 
       if (req.body.hospitalId) {
-        // Hospital review — use hospitalService.addReview (has duplicate check + rating aggregate)
-        const result = await hospitalService.addReview(req.body.hospitalId, req.user.id, {
+        // Hospital review — use hospitalService.addReview(userId, hospitalId, reviewData)
+        const result = await hospitalService.addReview(req.user.id, req.body.hospitalId, {
           rating: req.body.rating,
           comment: req.body.comment || '',
         });

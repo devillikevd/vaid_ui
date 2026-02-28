@@ -438,12 +438,12 @@ const getActiveEmergencies = async (page = 1, limit = 20) => {
 
 // Reassign emergency
 const reassignEmergency = async (emergencyId, operatorId, adminId, reason) => {
+  // Update operator assignment and record reassignment in status_history
   const { data, error } = await supabaseAdmin
     .from('emergency_requests')
     .update({
       operator_id: operatorId,
-      reassigned_by: adminId,
-      reassign_reason: reason,
+      admin_notes: `Reassigned by admin: ${reason || 'No reason provided'}`,
       updated_at: new Date().toISOString(),
     })
     .eq('id', emergencyId)
@@ -454,18 +454,18 @@ const reassignEmergency = async (emergencyId, operatorId, adminId, reason) => {
   return { data, message: 'Emergency reassigned' };
 };
 
-// Get expiring documents
+// Get expiring documents (check ambulance operator licenses)
 const getExpiringDocuments = async (days = 30) => {
   const futureDate = new Date();
   futureDate.setDate(futureDate.getDate() + days);
 
-  const { data: doctors } = await supabaseAdmin
-    .from('doctors')
+  const { data: operators } = await supabaseAdmin
+    .from('ambulance_operators')
     .select('id, name, license_expiry, user_id')
     .lte('license_expiry', futureDate.toISOString())
     .gte('license_expiry', new Date().toISOString());
 
-  return { doctors: doctors || [] };
+  return { operators: operators || [] };
 };
 
 // Analytics

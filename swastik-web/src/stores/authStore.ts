@@ -127,15 +127,17 @@ export const useAuthStore = create<AuthState>()(
                         };
                     }
 
+                    const accessTk = tokens.accessToken || tokens.token;
+                    const refreshTk = tokens.refreshToken;
+
                     // Set role cookie for middleware route protection
+                    // Set token cookie for middleware JWT expiry validation
                     // Remember me: 30 days, otherwise: session only (browser close)
                     if (typeof document !== 'undefined') {
                         const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 days vs 1 day
                         document.cookie = `swastik-role=${user.role}; path=/; max-age=${maxAge}; SameSite=Strict`;
+                        document.cookie = `swastik-token=${accessTk}; path=/; max-age=${maxAge}; SameSite=Strict`;
                     }
-
-                    const accessTk = tokens.accessToken || tokens.token;
-                    const refreshTk = tokens.refreshToken;
 
                     // Sync tokens to api.ts module + localStorage for fetchWithAuth
                     syncTokens(accessTk, refreshTk);
@@ -179,6 +181,7 @@ export const useAuthStore = create<AuthState>()(
             logout: () => {
                 if (typeof document !== 'undefined') {
                     document.cookie = 'swastik-role=; path=/; max-age=0';
+                    document.cookie = 'swastik-token=; path=/; max-age=0';
                 }
                 // Sync clear to api.ts module + localStorage
                 syncClearTokens();

@@ -220,11 +220,20 @@ const getHospitalById = async (id) => {
 
 // Add review
 const addReview = async (userId, hospitalId, reviewData) => {
+  // Resolve patient_id from user_id (reviews FK references patients, not users)
+  const { data: patientRow } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const patientId = patientRow?.id || userId; // fallback to userId if no patient profile
+
   // Prevent duplicate reviews from the same user for the same hospital
   const { data: existingReview } = await supabaseAdmin
     .from('reviews')
     .select('id')
-    .eq('patient_id', userId)
+    .eq('patient_id', patientId)
     .eq('reviewable_type', 'hospital')
     .eq('reviewable_id', hospitalId)
     .maybeSingle();
@@ -238,7 +247,7 @@ const addReview = async (userId, hospitalId, reviewData) => {
   const { data: review, error } = await supabaseAdmin
     .from('reviews')
     .insert({
-      patient_id: userId,
+      patient_id: patientId,
       reviewable_type: 'hospital',
       reviewable_id: hospitalId,
       rating: reviewData.rating,

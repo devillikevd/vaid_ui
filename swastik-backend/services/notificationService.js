@@ -251,7 +251,6 @@ const registerDevice = async (userId, fcmToken, deviceType) => {
     .from('users')
     .update({
       fcm_token: fcmToken,
-      device_type: deviceType,
     })
     .eq('id', userId);
 

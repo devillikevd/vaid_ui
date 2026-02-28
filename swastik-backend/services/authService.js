@@ -125,7 +125,6 @@ const createRoleProfile = async (userId, role, data) => {
         await supabaseAdmin.from('patients').insert({
           user_id: userId,
           name: data.name,
-          phone: data.phone,
           blood_group: data.bloodGroup,
           date_of_birth: data.dateOfBirth,
           gender: data.gender,
@@ -136,7 +135,6 @@ const createRoleProfile = async (userId, role, data) => {
         await supabaseAdmin.from('doctors').insert({
           user_id: userId,
           name: data.name,
-          phone: data.phone,
           specialization: data.specialization || 'General',
           license_number: data.licenseNumber || data.license_number,
           experience_years: parseInt(data.experienceYears || data.experience_years || '0', 10),
@@ -210,6 +208,7 @@ const createRoleProfile = async (userId, role, data) => {
       case 'ambulance_operator':
         await supabaseAdmin.from('ambulance_operators').insert({
           user_id: userId,
+          name: data.name || data.companyName || 'Unnamed Operator',
           company_name: data.companyName || data.name,
           phone: data.phone,
           is_active: false,

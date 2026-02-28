@@ -332,13 +332,12 @@ class AmbulanceService {
 
     const updateData = { status };
 
-    if (status === 'arrived') {
-      updateData.arrived_at = new Date().toISOString();
-    } else if (status === 'picked_up') {
-      updateData.picked_up_at = new Date().toISOString();
-      updateData.destination_hospital_id = data.hospitalId;
-      updateData.destination_latitude = data.destinationLatitude;
-      updateData.destination_longitude = data.destinationLongitude;
+    if (status === 'arrived' || status === 'arrived_pickup') {
+      updateData.pickup_arrived_at = new Date().toISOString();
+    } else if (status === 'picked_up' || status === 'patient_onboard') {
+      updateData.patient_loaded_at = new Date().toISOString();
+      if (data.hospitalId) updateData.destination_hospital_id = data.hospitalId;
+      if (data.destinationAddress) updateData.destination_address = data.destinationAddress;
     } else if (status === 'completed') {
       updateData.completed_at = new Date().toISOString();
 
