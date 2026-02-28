@@ -1,0 +1,410 @@
+require('dotenv').config();
+
+const express = require('express');
+const http = require('http');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const { Server } = require('socket.io');
+const crypto = require('crypto');
+
+const config = require('./config');
+const compression = require('compression');
+const { initializeBucket } = require('./config/minio');
+const { connectMongoDB } = require('./config/mongodb');
+const { connectRedis } = require('./config/redis');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { initializeSocketIO } = require('./sockets');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const patientRoutes = require('./routes/patient');
+const doctorRoutes = require('./routes/doctor');
+const appointmentRoutes = require('./routes/appointment');
+const consultationRoutes = require('./routes/consultation');
+const hospitalRoutes = require('./routes/hospital');
+const ambulanceRoutes = require('./routes/ambulance');
+const medicineRoutes = require('./routes/medicine');
+const chatbotRoutes = require('./routes/chatbot');
+const reportRoutes = require('./routes/report');
+const notificationRoutes = require('./routes/notifications');
+const adminRoutes = require('./routes/enhancedAdmin');
+const pharmacyRoutes = require('./routes/pharmacy');
+const hospitalManagerRoutes = require('./routes/hospitalManager');
+const clinicRoutes = require('./routes/clinic');
+const diagnosticCenterRoutes = require('./routes/diagnosticCenter');
+const uploadRoutes = require('./routes/uploads');
+const healthCardRoutes = require('./routes/healthCard');
+
+// Create Express app
+const app = express();
+const server = http.createServer(app);
+
+// Socket.IO setup
+const io = new Server(server, {
+  cors: {
+    origin: [config.frontendWebUrl, config.frontendDoctorWebUrl, config.frontendAppUrl],
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+// I7: Socket.IO Redis adapter for horizontal scaling
+if (config.redis.ioredisUrl) {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter');
+    const Redis = require('ioredis');
+    const pubClient = new Redis(config.redis.ioredisUrl, {
+      lazyConnect: true,
+      maxRetriesPerRequest: 3,
+      retryStrategy: (times) => Math.min(times * 200, 5000),
+    });
+    const subClient = pubClient.duplicate();
+
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log('✅ Socket.IO Redis adapter connected');
+      })
+      .catch((err) => {
+        console.warn('⚠️  Socket.IO Redis adapter failed (falling back to in-memory):', err.message);
+      });
+  } catch (err) {
+    console.warn('⚠️  @socket.io/redis-adapter not available:', err.message);
+  }
+}
+
+// Initialize Socket.IO
+initializeSocketIO(io);
+
+// Initialize event emitter with Socket.IO instance
+const eventEmitter = require('./services/eventEmitter');
+eventEmitter.setIO(io);
+
+// Make io accessible to routes
+app.set('io', io);
+
+
+// CORS - MUST come before all other middleware
+const allowedOrigins = [
+  config.frontendWebUrl,
+  config.frontendDoctorWebUrl,
+  config.frontendAppUrl,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://10.0.2.2:3000', // Android Emulator (Docker/Standard)
+  'http://10.0.2.2:5001', // Android Emulator (Local Fallback)
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is allowed
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow any localhost in development only
+    if (config.env === 'development' && origin.match(/^http:\/\/localhost:\d+$/)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('CORS not allowed'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+}));
+
+// Security middleware (after CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+// Response compression — 60-80% bandwidth reduction for JSON/text responses
+// Critical for low-bandwidth rural areas
+app.use(compression({
+  level: 6, // Good balance between speed and compression ratio
+  threshold: 1024, // Only compress responses > 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  },
+}));
+
+// Request ID for tracing
+app.use((req, res, next) => {
+  req.id = req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
+// Request Logging (non-health endpoints)
+app.use((req, res, next) => {
+  if (req.path === '/health' || req.path === '/api/health') return next();
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 2000 || res.statusCode >= 500) {
+      console.warn(`[SLOW/ERR] ${req.method} ${req.path} ${res.statusCode} ${duration}ms [${req.id}]`);
+    }
+  });
+  next();
+});
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.maxRequests,
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later.',
+  },
+  standardHeaders: true,  // Return rate limit info in `RateLimit-*` headers
+  legacyHeaders: false,
+  // Skip rate limiting for health check endpoint
+  skip: (req) => req.path === '/health',
+});
+app.use('/api/', limiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Logging
+if (config.env === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Health check — I17: Verify backing stores for production readiness
+app.get('/health', async (req, res) => {
+  const checks = { server: 'ok' };
+  let overallStatus = 'ok';
+
+  // Check Supabase (PostgreSQL)
+  try {
+    const { supabaseAdmin } = require('./config/supabase');
+    const { error } = await supabaseAdmin.from('users').select('id').limit(1);
+    checks.supabase = error ? 'degraded' : 'ok';
+  } catch {
+    checks.supabase = 'down';
+    overallStatus = 'degraded';
+  }
+
+  // Check Redis
+  try {
+    const { cacheGet, cacheSet } = require('./config/redis');
+    await cacheSet('health:ping', 'pong', 10);
+    const val = await cacheGet('health:ping');
+    checks.redis = val === 'pong' ? 'ok' : 'degraded';
+  } catch {
+    checks.redis = 'down';
+    // Redis is optional, don't degrade overall
+  }
+
+  // Check MongoDB
+  try {
+    const mongoose = require('mongoose');
+    checks.mongodb = mongoose.connection.readyState === 1 ? 'ok' : 'disconnected';
+  } catch {
+    checks.mongodb = 'unknown';
+  }
+
+  const statusCode = overallStatus === 'ok' ? 200 : 503;
+  res.status(statusCode).json({
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    environment: config.env,
+    uptime: process.uptime(),
+    checks,
+  });
+});
+
+// API info
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'Swastik Healthcare API',
+    version: '1.0.0',
+    description: 'Complete healthcare platform for patients and doctors',
+    documentation: '/api/docs',
+  });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/consultations', consultationRoutes);
+app.use('/api/hospitals', hospitalRoutes);
+app.use('/api/ambulances', ambulanceRoutes);
+app.use('/api/medicines', medicineRoutes);
+app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/hospital-manager', hospitalManagerRoutes);
+app.use('/api/clinics', clinicRoutes);
+app.use('/api/diagnostic-centers', diagnosticCenterRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/api/health-card', healthCardRoutes);
+
+// Error handling
+app.use(notFound);
+app.use(errorHandler);
+
+// Initialize services and start server
+const startServer = async () => {
+  try {
+    // Initialize MongoDB (optional - continues if fails)
+    await connectMongoDB();
+
+    // Initialize Redis (optional - continues if fails)
+    await connectRedis();
+
+    // Initialize MinIO bucket
+    await initializeBucket();
+
+    // Recover any broadcasts stuck from a previous server restart
+    try {
+      const dispatchService = require('./services/dispatchService');
+      await dispatchService.recoverBroadcasts();
+    } catch (err) {
+      console.warn('⚠️  Broadcast recovery failed (non-fatal):', err.message);
+    }
+
+    // Start server
+    const PORT = config.port;
+    server.listen(PORT, () => {
+      // Start consultation timeout cron
+      startConsultationTimeoutCron();
+      console.log(`
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║   🏥 SWASTIK Healthcare API Server                               ║
+║                                                                  ║
+║   Environment: ${config.env.padEnd(47)}║
+║   Port: ${PORT.toString().padEnd(55)}║
+║   URL: http://localhost:${PORT.toString().padEnd(42)}║
+║                                                                  ║
+║   📡 API Endpoints:                                              ║
+║   ├─ Auth:          POST /api/auth/login, /register              ║
+║   ├─ Patients:      GET  /api/patients/profile, /dashboard       ║
+║   ├─ Doctors:       GET  /api/doctors, /api/doctors/:id          ║
+║   ├─ Appointments:  POST /api/appointments                       ║
+║   ├─ Consultations: POST /api/consultations/:id/start            ║
+║   ├─ Hospitals:     GET  /api/hospitals/nearby                   ║
+║   ├─ Ambulances:    POST /api/ambulances/request (SOS)           ║
+║   ├─ Medicines:     GET  /api/medicines/search                   ║
+║   ├─ Chatbot:       POST /api/chatbot/message                    ║
+║   ├─ Reports:       GET  /api/reports                            ║
+║   └─ Notifications: GET  /api/notifications                      ║
+║                                                                  ║
+║   🔌 WebSocket Events:                                           ║
+║   ├─ ambulance:track      - Track ambulance location             ║
+║   ├─ ambulance:location   - Update ambulance location            ║
+║   ├─ video:join           - Join video consultation              ║
+║   ├─ video:offer/answer   - WebRTC signaling                     ║
+║   └─ chat:message         - In-consultation chat                 ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+      `);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// I19: Consultation timeout cron — mark stale 'in_progress' consultations as 'timed_out'
+let consultationTimeoutInterval;
+const startConsultationTimeoutCron = () => {
+  consultationTimeoutInterval = setInterval(async () => {
+    try {
+      const { supabaseAdmin } = require('./config/supabase');
+      const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours
+      const { data, error } = await supabaseAdmin
+        .from('consultations')
+        .update({ status: 'timed_out', ended_at: new Date().toISOString() })
+        .eq('status', 'in_progress')
+        .lt('started_at', cutoff)
+        .select('id');
+
+      if (!error && data?.length > 0) {
+        console.log(`[Cron] Timed out ${data.length} stale consultations`);
+      }
+    } catch (err) {
+      console.error('[Cron] Consultation timeout error:', err.message);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
+};
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// I18: Graceful shutdown — close all connections cleanly
+const gracefulShutdown = async (signal) => {
+  console.log(`${signal} received. Shutting down gracefully...`);
+
+  // Stop accepting new connections
+  server.close(async () => {
+    try {
+      // Stop cron
+      if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
+
+      // Close Socket.IO
+      if (io) {
+        io.close();
+        console.log('✅ Socket.IO closed');
+      }
+
+      // Close MongoDB
+      try {
+        const mongoose = require('mongoose');
+        if (mongoose.connection.readyState === 1) {
+          await mongoose.connection.close();
+          console.log('✅ MongoDB closed');
+        }
+      } catch { /* ignore */ }
+
+      console.log('Process terminated.');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during shutdown:', err);
+      process.exit(1);
+    }
+  });
+
+  // Force kill after 15 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 15000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Start the server
+startServer();
+
+module.exports = { app, server, io };

@@ -1,0 +1,146 @@
+# Docker Compose for SWASTIK Healthcare Platform
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ==================== BACKEND API ====================
+  backend:
+    build:
+      context: ./swastik-backend
+      dockerfile: Dockerfile
+    container_name: swastik-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    env_file:
+      - ./swastik-backend/.env
+    depends_on:
+      - minio
+    volumes:
+      - ./swastik-backend:/app
+      - /app/node_modules
+    networks:
+      - swastik-network
+    restart: unless-stopped
+
+  # ==================== WEB PORTAL ====================
+  web:
+    build:
+      context: ./swastik-web
+      dockerfile: Dockerfile
+    container_name: swastik-web
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+    env_file:
+      - ./swastik-web/.env.local
+    depends_on:
+      - backend
+    volumes:
+      - ./swastik-web:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - swastik-network
+    restart: unless-stopped
+
+  # ==================== MINIO (Object Storage) ====================
+  minio:
+    image: minio/minio:latest
+    container_name: swastik-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - swastik-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # ==================== REDIS (Caching/Sessions) ====================
+  # Optional: Use if not using Upstash
+  redis:
+    image: redis:7-alpine
+    container_name: swastik-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - swastik-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # ==================== MONGODB (High-volume data) ====================
+  # Optional: Use if not using MongoDB Atlas
+  mongodb:
+    image: mongo:7
+    container_name: swastik-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: swastik
+      MONGO_INITDB_ROOT_PASSWORD: swastik123
+      MONGO_INITDB_DATABASE: swastik_healthcare
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - swastik-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # ==================== NGINX (Reverse Proxy) ====================
+  nginx:
+    image: nginx:alpine
+    container_name: swastik-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - web
+    networks:
+      - swastik-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+networks:
+  swastik-network:
+    driver: bridge
+
+volumes:
+  minio_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
