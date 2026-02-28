@@ -156,3 +156,69 @@ CREATE INDEX IF NOT EXISTS idx_patient_vitals_patient ON patient_vitals(patient_
 CREATE INDEX IF NOT EXISTS idx_patient_vitals_recorded_by ON patient_vitals(recorded_by);
 CREATE INDEX IF NOT EXISTS idx_patient_vitals_recorded_at ON patient_vitals(recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_patient_vitals_consultation ON patient_vitals(consultation_id);
+
+-- ============================================================
+-- COMPOSITE & PARTIAL INDEXES (query optimization + constraints)
+-- ============================================================
+
+-- Appointments: composite for patient dashboard queries
+CREATE INDEX IF NOT EXISTS idx_appointments_patient_status
+  ON appointments(patient_id, status, appointment_date);
+
+-- Appointments: composite for doctor schedule queries
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date
+  ON appointments(doctor_id, appointment_date);
+
+-- Appointments: UNIQUE partial index to prevent double-booking
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_appointment
+  ON appointments(doctor_id, appointment_date, time_slot)
+  WHERE status IN ('scheduled', 'confirmed', 'in_progress');
+
+-- Consultations: partial index for stale consultation cleanup (cron)
+CREATE INDEX IF NOT EXISTS idx_consultations_status_started
+  ON consultations(status, started_at)
+  WHERE status = 'in_progress';
+
+-- Consultations: created_at for timeline queries
+CREATE INDEX IF NOT EXISTS idx_consultations_created_at ON consultations(created_at DESC);
+
+-- Reports: composite for patient records tab
+CREATE INDEX IF NOT EXISTS idx_reports_patient_date ON reports(patient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reports_patient_type ON reports(patient_id, type);
+CREATE INDEX IF NOT EXISTS idx_reports_patient_status ON reports(patient_id, status);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
+
+-- Prescriptions: composite for patient history
+CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_created
+  ON prescriptions(patient_id, created_at DESC);
+
+-- Prescription Medicines: lookup by prescription
+CREATE INDEX IF NOT EXISTS idx_prescription_medicines_prescription
+  ON prescription_medicines(prescription_id);
+
+-- Pharmacy Orders: composite for pharmacy dashboard
+CREATE INDEX IF NOT EXISTS idx_pharmacy_orders_pharmacy_status
+  ON pharmacy_orders(pharmacy_id, status);
+
+-- Report Shares
+CREATE INDEX IF NOT EXISTS idx_report_shares_report ON report_shares(report_id);
+CREATE INDEX IF NOT EXISTS idx_report_shares_doctor ON report_shares(doctor_id);
+
+-- Chat Sessions
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, created_at DESC);
+
+-- Refresh Tokens: partial index for active (non-revoked) tokens
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_active
+  ON refresh_tokens(token)
+  WHERE is_revoked = false;
+
+-- Emergency: dispatch-specific indexes
+CREATE INDEX IF NOT EXISTS idx_emergency_dispatch_mode ON emergency_requests(dispatch_mode);
+CREATE INDEX IF NOT EXISTS idx_emergency_broadcast_status
+  ON emergency_requests(status)
+  WHERE status IN ('pending', 'broadcasting', 'assigned');
+
+-- Ambulances: partial index for available units
+CREATE INDEX IF NOT EXISTS idx_ambulances_available
+  ON ambulances(status, is_active)
+  WHERE status = 'available' AND is_active = true;

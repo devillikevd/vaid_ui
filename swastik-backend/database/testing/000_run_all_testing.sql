@@ -53,6 +53,7 @@
 \i ../production/013_rls_policies.sql
 \i ../production/014_triggers_and_functions.sql
 \i ../production/015_views.sql
+\i ../production/016_migrations.sql
 
 -- Step 3: Seed test data
 \i 002_seed_users.sql

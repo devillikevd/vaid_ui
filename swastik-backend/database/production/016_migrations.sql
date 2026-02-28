@@ -74,3 +74,69 @@ ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS lifestyle_advice TEXT;
 ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS medicines JSONB DEFAULT '[]';
 
 ALTER TABLE pharmacy_orders ADD COLUMN IF NOT EXISTS prescription_url TEXT;
+
+-- Dispatch system columns on emergency_requests
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS dispatch_mode VARCHAR(30) DEFAULT 'sos_broadcast';
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS broadcast_round INTEGER DEFAULT 0;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS broadcast_ambulance_ids UUID[] DEFAULT '{}';
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS accepted_by UUID;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS assigned_by UUID;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS hospital_id UUID;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS rejection_count INTEGER DEFAULT 0;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS timeout_at TIMESTAMPTZ;
+
+-- ============================================================
+-- CHECK CONSTRAINTS (data integrity safety nets)
+-- ============================================================
+
+-- Dispatch mode validation
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'emergency_requests_dispatch_mode_check') THEN
+    ALTER TABLE emergency_requests ADD CONSTRAINT emergency_requests_dispatch_mode_check
+      CHECK (dispatch_mode IN ('sos_broadcast', 'hospital_controlled'));
+  END IF;
+END $$;
+
+-- Single patient profile per user
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'patients_user_id_unique') THEN
+    ALTER TABLE patients ADD CONSTRAINT patients_user_id_unique UNIQUE (user_id);
+  END IF;
+END $$;
+
+-- Single admin profile per user
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'admins_user_id_unique') THEN
+    ALTER TABLE admins ADD CONSTRAINT admins_user_id_unique UNIQUE (user_id);
+  END IF;
+END $$;
+
+-- Rating must be 1-5
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'reviews_rating_range') THEN
+    ALTER TABLE reviews ADD CONSTRAINT reviews_rating_range CHECK (rating >= 1 AND rating <= 5);
+  END IF;
+END $$;
+
+-- Hospital beds must be non-negative
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'hospitals_beds_non_negative') THEN
+    ALTER TABLE hospitals ADD CONSTRAINT hospitals_beds_non_negative
+      CHECK (total_beds >= 0 AND beds_available >= 0);
+  END IF;
+END $$;
+
+-- Pharmacy inventory quantity must be non-negative
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'pharmacy_inventory_qty_non_negative') THEN
+    ALTER TABLE pharmacy_inventory ADD CONSTRAINT pharmacy_inventory_qty_non_negative
+      CHECK (quantity >= 0);
+  END IF;
+END $$;
+
+-- Medicine price must be non-negative
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'medicines_price_positive') THEN
+    ALTER TABLE medicines ADD CONSTRAINT medicines_price_positive CHECK (price >= 0);
+  END IF;
+END $$;

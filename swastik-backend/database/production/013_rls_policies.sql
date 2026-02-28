@@ -31,3 +31,33 @@ BEGIN
         END;
     END LOOP;
 END $$;
+
+-- ============================================================
+-- Fine-grained RLS policies (beyond service_role bypass)
+-- ============================================================
+
+-- Report shares: patients can see shares they created, doctors can see shares to them
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'report_shares_patient_select') THEN
+    CREATE POLICY report_shares_patient_select ON report_shares
+      FOR SELECT USING (
+        shared_by = auth.uid()
+        OR doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())
+      );
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'report_shares_patient_insert') THEN
+    CREATE POLICY report_shares_patient_insert ON report_shares
+      FOR INSERT WITH CHECK (shared_by = auth.uid());
+  END IF;
+END $$;
+
+-- Chat sessions: users can only access their own sessions
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'chat_sessions_user') THEN
+    CREATE POLICY chat_sessions_user ON chat_sessions
+      FOR ALL USING (user_id = auth.uid());
+  END IF;
+END $$;
