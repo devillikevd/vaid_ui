@@ -71,8 +71,12 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
     } else {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
+  } else if (role === 'admin') {
+    // admin role can view all consultations (no filter)
+  } else {
+    // Unknown role — deny access to prevent data leak
+    return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
   }
-  // admin role can view all consultations (no filter)
 
   const { data, error, count } = await query
     .order('created_at', { ascending: false })

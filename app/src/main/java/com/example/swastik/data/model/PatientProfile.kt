@@ -34,15 +34,15 @@ data class PatientProfile(
 data class FamilyMember(
     val id: String,
     val name: String,
-    val relation: String,
-    @SerializedName("phone_number") val phoneNumber: String = ""
+    val relationship: String,
+    val phone: String = ""
 )
 
 data class EmergencyContact(
     val id: String,
     val name: String,
-    @SerializedName("phone_number") val phoneNumber: String,
-    val relation: String
+    val phone: String,
+    val relationship: String
 )
 
 data class SavedAddress(

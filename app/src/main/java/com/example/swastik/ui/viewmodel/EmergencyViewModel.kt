@@ -227,7 +227,7 @@ class EmergencyViewModel @Inject constructor(
                 longitude = state.longitude,
                 address = null,
                 emergencyType = emergencyType,
-                description = description
+                notes = description
             )
 
             when (val result = emergencyRepository.requestEmergency(request)) {

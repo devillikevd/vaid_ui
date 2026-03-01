@@ -77,30 +77,50 @@ data class EmergencyDto(
     val time: String?,
     val patientInfo: String?,
     val contactPhone: String?,
+    val requestNumber: String? = null,
     // Detail / raw DB fields (snake_case from Supabase)
     @SerializedName("emergency_type") val emergencyType: String?,
     @SerializedName("pickup_latitude") val latitude: Double?,
     @SerializedName("pickup_longitude") val longitude: Double?,
     @SerializedName("pickup_address") val address: String?,
-    @SerializedName("patient_name") val patientName: String?,
-    @SerializedName("patient_phone") val patientPhone: String?,
+    // Patient info — dashboard sends both camelCase and snake_case aliases;
+    // detail endpoint sends requester_name/requester_phone from raw DB.
+    @SerializedName(value = "patient_name", alternate = ["patientName"])
+    val patientName: String?,
+    @SerializedName(value = "patient_phone", alternate = ["patientPhone"])
+    val patientPhone: String?,
+    @SerializedName(value = "requester_name")
+    val requesterName: String?,
+    @SerializedName(value = "requester_phone")
+    val requesterPhone: String?,
     @SerializedName("contact_phone") val contactPhoneAlt: String?,
     val notes: String?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("ambulance_id") val ambulanceId: String?,
+    @SerializedName(value = "vehicle_id")
+    val vehicleId: String?,
     // Dispatch system fields
     @SerializedName("dispatch_mode") val dispatchMode: String?,
     @SerializedName("broadcast_round") val broadcastRound: Int?,
     @SerializedName("accepted_by") val acceptedBy: String?,
     @SerializedName("assigned_by") val assignedBy: String?
-)
+) {
+    /** Resolved patient name — prefers explicit patientName, falls back to requester_name */
+    val resolvedPatientName: String? get() = patientName ?: requesterName
+    /** Resolved patient phone */
+    val resolvedPatientPhone: String? get() = patientPhone ?: requesterPhone ?: contactPhone ?: contactPhoneAlt
+}
 
 data class VehicleDto(
     val id: String,
     val vehicleNumber: String,
     val driver: String?,
+    val driverPhone: String? = null,
     val status: String,
-    val currentLocation: String?
+    val type: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val currentLocation: String? = null
 )
 
 data class LocationUpdateRequest(
@@ -122,7 +142,7 @@ data class ApiResponse<T>(
 
 data class HistoryResponse(
     val success: Boolean,
-    val requests: List<EmergencyDto>?
+    val data: List<EmergencyDto>?
 )
 
 data class VehiclesResponse(

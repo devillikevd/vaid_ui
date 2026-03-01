@@ -879,8 +879,8 @@ private fun EmergencyContactsDialog(
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(contact.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Text(contact.phoneNumber, fontSize = 12.sp, color = Color.Gray)
-                                    Text(contact.relation, fontSize = 11.sp, color = Color(0xFFE53935))
+                                    Text(contact.phone, fontSize = 12.sp, color = Color.Gray)
+                                    Text(contact.relationship, fontSize = 11.sp, color = Color(0xFFE53935))
                                 }
                                 IconButton(onClick = { onDeleteContact(contact.id) }) {
                                     Icon(Icons.Outlined.Delete, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
@@ -1013,7 +1013,7 @@ private fun FamilyMembersDialog(
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(member.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Text(member.relation, fontSize = 12.sp, color = Color.Gray)
+                                    Text(member.relationship, fontSize = 12.sp, color = Color.Gray)
                                 }
                                 IconButton(onClick = { onDeleteMember(member.id) }) {
                                     Icon(Icons.Outlined.Delete, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))

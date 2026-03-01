@@ -126,9 +126,10 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 set({ error: response.error || 'Failed to load tests', loadingTests: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                tests: (data.tests || data.data || []) as DiagnosticTest[],
+                tests: (Array.isArray(rawData) ? rawData : (rawData as any)?.tests || (rawData as any)?.data || []) as DiagnosticTest[],
                 loadingTests: false,
             });
         } catch (error) {
@@ -193,8 +194,9 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 set({ error: response.error || 'Failed to load bookings', loadingBookings: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const raw = (data.bookings || data.data || []) as DiagnosticBooking[];
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
+            const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
             // I16: Deduplicate by booking ID
             const seen = new Set<string>();
             const deduped = raw.filter(b => {
@@ -220,8 +222,9 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 set({ error: response.error || 'Failed to load results', loadingResults: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const raw = (data.bookings || data.data || []) as DiagnosticBooking[];
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
+            const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
             // I16: Deduplicate by booking ID — API may return duplicates
             const seen = new Set<string>();
             const deduped = raw.filter(r => {

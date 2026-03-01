@@ -86,7 +86,7 @@ class AmbulanceRepository @Inject constructor(
         return try {
             val response = apiService.getRequestHistory(status)
             if (response.isSuccessful) {
-                Result.success(response.body()?.requests ?: emptyList())
+                Result.success(response.body()?.data ?: emptyList())
             } else {
                 Result.failure(Exception("Failed to load history"))
             }
@@ -234,7 +234,11 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                val msg = response.body()?.message ?: "Failed to change password"
+                val msg = try {
+                    val body = response.errorBody()?.string()
+                    if (body != null) org.json.JSONObject(body).optString("message", "Failed to change password")
+                    else "Failed to change password"
+                } catch (_: Exception) { "Failed to change password" }
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {

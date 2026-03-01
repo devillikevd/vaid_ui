@@ -9,6 +9,8 @@ const doctorService = require('../../services/doctorService');
 const reportService = require('../../services/reportService');
 const dispatchService = require('../../services/dispatchService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { supabaseAdmin } = require('../../config/supabase');
+const eventEmitter = require('../../services/eventEmitter');
 
 const router = express.Router();
 
@@ -67,7 +69,6 @@ router.get('/dashboard',
 // Get own vitals history
 router.get('/vitals',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { page = 1, limit = 20 } = req.query;
 
     const { data: patient } = await supabaseAdmin
@@ -90,9 +91,15 @@ router.get('/vitals',
 
     if (error) throw error;
 
+    // Normalize: DB uses 'oxygen_level' but API/frontend expect 'oxygen_saturation'
+    const normalized = (data || []).map(v => ({
+      ...v,
+      oxygen_saturation: v.oxygen_level ?? v.oxygen_saturation ?? null,
+    }));
+
     res.json({
       success: true,
-      data: data || [],
+      data: normalized,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -113,7 +120,6 @@ router.post('/vitals',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { data: patient } = await supabaseAdmin
       .from('patients')
       .select('id')
@@ -162,7 +168,6 @@ router.post('/vitals',
     if (error) throw error;
 
     // Emit real-time event so doctor dashboard gets notified
-    const eventEmitter = require('../../services/eventEmitter');
     eventEmitter.emit('vitals:recorded', {
       patientId: patient.id,
       userId: req.user.id,
@@ -322,7 +327,6 @@ router.get('/doctors/recommended',
     const { limit = 8 } = req.query;
 
     // Get patient ID for the recommendation engine
-    const { supabaseAdmin } = require('../../config/supabase');
     const { data: patient } = await supabaseAdmin
       .from('patients')
       .select('id')
@@ -382,7 +386,6 @@ router.get('/doctors/:id/slots',
 router.get('/prescriptions',
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
-    const { supabaseAdmin } = require('../../config/supabase');
 
     // Resolve patient record ID from user ID
     const { data: patient } = await supabaseAdmin
@@ -461,7 +464,6 @@ router.get('/prescriptions',
 // Get prescription by ID
 router.get('/prescriptions/:id',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients').select('id').eq('user_id', req.user.id).single();
@@ -537,7 +539,6 @@ router.post('/prescriptions/:id/forward-to-pharmacy',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients').select('id').eq('user_id', req.user.id).single();
@@ -622,7 +623,7 @@ router.post('/emergency',
   [
     body('latitude').isFloat().withMessage('Valid latitude is required'),
     body('longitude').isFloat().withMessage('Valid longitude is required'),
-    body('emergencyType').optional().isIn(['general', 'cardiac', 'accident', 'pregnancy', 'other']),
+    body('emergencyType').optional().isIn(['medical', 'general', 'cardiac', 'accident', 'trauma', 'pregnancy', 'other']),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -635,7 +636,6 @@ router.post('/emergency',
 router.get('/emergency/active',
   asyncHandler(async (req, res) => {
     try {
-      const { supabaseAdmin } = require('../../config/supabase');
       // Resolve patient record ID from user ID
       const { data: patient } = await supabaseAdmin
         .from('patients')
@@ -691,7 +691,6 @@ router.post('/reviews',
   validate,
   asyncHandler(async (req, res) => {
     try {
-      const { supabaseAdmin } = require('../../config/supabase');
       const hospitalService = require('../../services/hospitalService');
 
       // Resolve patient record from user
@@ -757,7 +756,6 @@ router.post('/reviews',
 // Get my orders
 router.get('/orders',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { page = 1, limit = 20, status } = req.query;
 
     const { data: patient } = await supabaseAdmin
@@ -800,7 +798,6 @@ router.get('/orders',
 // Get single order
 router.get('/orders/:id',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -830,7 +827,6 @@ router.get('/orders/:id',
 // Cancel order
 router.patch('/orders/:id/cancel',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -868,7 +864,6 @@ router.patch('/orders/:id/cancel',
     if (error) throw error;
 
     // Notify pharmacy
-    const eventEmitter = require('../../services/eventEmitter');
     const { data: pharmacy } = await supabaseAdmin
       .from('pharmacies')
       .select('owner_id')
@@ -892,7 +887,6 @@ router.patch('/orders/:id/cancel',
 // Get my diagnostic bookings
 router.get('/diagnostic-bookings',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { page = 1, limit = 20, status } = req.query;
 
     const { data: patient } = await supabaseAdmin
@@ -939,7 +933,6 @@ router.get('/diagnostic-bookings',
 // Get single diagnostic booking
 router.get('/diagnostic-bookings/:id',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -973,7 +966,6 @@ router.get('/diagnostic-bookings/:id',
 // Cancel diagnostic booking
 router.patch('/diagnostic-bookings/:id/cancel',
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
 
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -1009,7 +1001,6 @@ router.patch('/diagnostic-bookings/:id/cancel',
 
     if (error) throw error;
 
-    const eventEmitter = require('../../services/eventEmitter');
     eventEmitter.emitDiagnosticBookingStatusUpdated({
       ...data,
       patient_id: req.user.id,

@@ -471,21 +471,36 @@ class AmbulanceService {
   async getRequestHistory(userId, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
 
-    // Resolve patient table FK from user_id (patient_id in emergency_requests is FK to patients table)
-    const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).single();
-    const patientTableId = patient?.id;
-    if (!patientTableId) {
-      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
-    }
+    // Try to resolve the user as a patient first
+    const { data: patient } = await supabaseAdmin
+      .from('patients').select('id').eq('user_id', userId).single();
 
-    const { data: requests, count, error } = await supabaseAdmin
+    // Also try to resolve the user as an ambulance driver
+    const { data: ambulance } = await supabaseAdmin
+      .from('ambulances').select('id').eq('driver_user_id', userId).single();
+
+    // Build the query — filter by patient_id OR ambulance_id depending on who's calling
+    let query = supabaseAdmin
       .from('emergency_requests')
       .select(`
         *,
         vehicle:ambulances(vehicle_number, driver_name, vehicle_type),
         hospital:hospitals(name, address)
-      `, { count: 'exact' })
-      .eq('patient_id', patientTableId)
+      `, { count: 'exact' });
+
+    if (patient?.id && ambulance?.id) {
+      // User is both — unlikely but handle it: return requests for either
+      query = query.or(`patient_id.eq.${patient.id},ambulance_id.eq.${ambulance.id}`);
+    } else if (patient?.id) {
+      query = query.eq('patient_id', patient.id);
+    } else if (ambulance?.id) {
+      query = query.eq('ambulance_id', ambulance.id);
+    } else {
+      // User is neither patient nor driver — return empty
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+
+    const { data: requests, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -494,7 +509,7 @@ class AmbulanceService {
     }
 
     return {
-      requests: requests || [],
+      data: requests || [],
       pagination: {
         page,
         limit,

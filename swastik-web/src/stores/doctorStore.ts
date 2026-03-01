@@ -4,10 +4,14 @@ import { doctorApi, appointmentsApi, consultationsApi } from '../lib/api';
 // ==================== Types ====================
 
 export interface DoctorDashboardStats {
-    todaysAppointments: number;
-    completed: number;
-    pending: number;
-    todaysEarnings: number;
+    totalPatientsToday: number;
+    completedToday: number;
+    earningsToday: number;
+    /** Legacy aliases for UI compatibility */
+    todaysAppointments?: number;
+    completed?: number;
+    pending?: number;
+    todaysEarnings?: number;
 }
 
 export interface Appointment {
@@ -205,7 +209,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             }
             const data = response.data as Record<string, unknown>;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rawToday = (data.todaysAppointments as any[]) || [];
+            const rawToday = ((data.todayAppointments || data.todaysAppointments) as any[]) || [];
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rawUpcoming = (data.upcomingAppointments as any[]) || [];
             set({
@@ -233,10 +237,12 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array;
+            // pagination is preserved as response.pagination
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rawAppointments = (data.appointments || data.data || []) as any[];
-            const pagination = data.pagination as Record<string, number> | undefined;
+            const rawData = response.data;
+            const rawAppointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as any[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             const mapped = rawAppointments.map(mapAppointment);
             set({
                 appointments: page === 1 ? mapped : [...get().appointments, ...mapped],
@@ -262,9 +268,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 set({ error: response.error || 'Failed to load consultations', loadingConsultations: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
+            const consultationsList = Array.isArray(rawData) ? rawData : (rawData as any)?.consultations || (rawData as any)?.data || [];
             set({
-                consultations: (data.consultations || data.data || []) as Consultation[],
+                consultations: consultationsList as Consultation[],
                 loadingConsultations: false,
             });
         } catch (error) {
@@ -281,9 +289,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 set({ error: response.error || 'Failed to load patients', loadingPatients: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const patients = (data.patients || data.data || []) as DoctorPatient[];
-            const pagination = data.pagination as Record<string, number> | undefined;
+            // After fetchWithAuth unwrap, response.data IS the array;
+            // pagination is preserved as response.pagination
+            const rawData = response.data;
+            const patients = (Array.isArray(rawData) ? rawData : (rawData as any)?.patients || (rawData as any)?.data || []) as DoctorPatient[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 patients: page === 1 ? patients : [...get().patients, ...patients],
                 patientsPagination: pagination ? {
@@ -325,9 +335,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 set({ error: response.error || 'Failed to load prescriptions', loadingPrescriptions: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const prescriptions = (data.prescriptions || data.data || []) as Prescription[];
-            const pagination = data.pagination as Record<string, number> | undefined;
+            // After fetchWithAuth unwrap, response.data IS the array;
+            // pagination is preserved as response.pagination
+            const rawData = response.data;
+            const prescriptions = (Array.isArray(rawData) ? rawData : (rawData as any)?.prescriptions || (rawData as any)?.data || []) as Prescription[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 prescriptions: page === 1 ? prescriptions : [...get().prescriptions, ...prescriptions],
                 prescriptionsPagination: pagination ? {
@@ -352,9 +364,11 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 set({ error: response.error || 'Failed to load vitals', loadingVitals: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const vitals = (data.vitals || data.data || []) as PatientVitals[];
-            const pagination = data.pagination as Record<string, number> | undefined;
+            // After fetchWithAuth unwrap, response.data IS the array;
+            // pagination is preserved as response.pagination
+            const rawData = response.data;
+            const vitals = (Array.isArray(rawData) ? rawData : (rawData as any)?.vitals || (rawData as any)?.data || []) as PatientVitals[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 vitals: page === 1 ? vitals : [...get().vitals, ...vitals],
                 vitalsPagination: pagination ? {

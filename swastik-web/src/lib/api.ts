@@ -13,6 +13,16 @@ export interface ApiResponse<T = unknown> {
     data?: T;
     error?: string;
     message?: string;
+    pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext?: boolean;
+        hasPrev?: boolean;
+    };
+    /** Allow extra keys forwarded from backend (stats, departments, etc.) */
+    [key: string]: unknown;
 }
 
 export interface PaginatedResponse<T> {
@@ -133,10 +143,17 @@ export async function fetchWithAuth<T>(
             return { success: false, error: friendlyError };
         }
 
-        // Unwrap: backend returns { success, data: { ... } }.
-        // Return the inner `data` payload so stores don't double-nest.
-        const payload = data?.data !== undefined ? data.data : data;
-        return { success: true, data: payload };
+        // Unwrap: backend often returns { success, data: [...], pagination: {...} }
+        // or { success, ...serviceResult } where serviceResult = { data, pagination }.
+        // We extract the `data` payload for convenience but also preserve sibling
+        // keys (pagination, stats, etc.) so stores can access them.
+        if (data?.data !== undefined) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { success: _s, data: innerData, ...rest } = data;
+            // `rest` captures pagination, stats, or any other top-level keys
+            return { success: true, data: innerData, ...rest };
+        }
+        return { success: true, data };
     } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
             console.error('API Timeout:', endpoint);
@@ -653,7 +670,7 @@ export const appointmentsApi = {
         doctorId: string;
         date: string;
         timeSlot: string;
-        type: 'video' | 'clinic';
+        type: 'video' | 'clinic' | 'home_visit';
         reason?: string;
     }) =>
         fetchWithAuth('/appointments', {

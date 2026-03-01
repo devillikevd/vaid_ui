@@ -140,10 +140,10 @@ class PatientRepository @Inject constructor(
                         isVerified = patientData.isVerified,
                         linkedHospitals = patientData.linkedHospitals ?: 0,
                         familyMembers = patientData.familyMembers?.map {
-                            FamilyMember(id = it.id, name = it.name, relation = it.relation, phoneNumber = it.phoneNumber ?: "")
+                            FamilyMember(id = it.id, name = it.name, relationship = it.relationship, phone = it.phone ?: "")
                         } ?: emptyList(),
                         emergencyContacts = patientData.emergencyContacts?.map {
-                            EmergencyContact(id = it.id, name = it.name, phoneNumber = it.phoneNumber, relation = it.relation)
+                            EmergencyContact(id = it.id, name = it.name, phone = it.phone, relationship = it.relationship)
                         } ?: emptyList(),
                         savedAddresses = patientData.savedAddresses?.map {
                             SavedAddress(id = it.id, label = it.label, address = it.address, city = it.city ?: "", pincode = it.pincode ?: "", isDefault = it.isDefault)
@@ -308,10 +308,10 @@ class PatientRepository @Inject constructor(
                         isVerified = patientData.isVerified,
                         linkedHospitals = patientData.linkedHospitals ?: 0,
                         familyMembers = patientData.familyMembers?.map {
-                            FamilyMember(id = it.id, name = it.name, relation = it.relation, phoneNumber = it.phoneNumber ?: "")
+                            FamilyMember(id = it.id, name = it.name, relationship = it.relationship, phone = it.phone ?: "")
                         } ?: emptyList(),
                         emergencyContacts = patientData.emergencyContacts?.map {
-                            EmergencyContact(id = it.id, name = it.name, phoneNumber = it.phoneNumber, relation = it.relation)
+                            EmergencyContact(id = it.id, name = it.name, phone = it.phone, relationship = it.relationship)
                         } ?: emptyList(),
                         savedAddresses = patientData.savedAddresses?.map {
                             SavedAddress(id = it.id, label = it.label, address = it.address, city = it.city ?: "", pincode = it.pincode ?: "", isDefault = it.isDefault)
@@ -523,7 +523,7 @@ class PatientRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 val dto = response.body()?.data
                 if (dto != null) {
-                    val contact = EmergencyContact(id = dto.id, name = dto.name, phoneNumber = dto.phoneNumber, relation = dto.relation)
+                    val contact = EmergencyContact(id = dto.id, name = dto.name, phone = dto.phone, relationship = dto.relationship)
                     // Update local profile state
                     _patientProfile.value = _patientProfile.value?.let {
                         it.copy(emergencyContacts = it.emergencyContacts + contact)
@@ -571,7 +571,7 @@ class PatientRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 val dto = response.body()?.data
                 if (dto != null) {
-                    val member = FamilyMember(id = dto.id, name = dto.name, relation = dto.relation, phoneNumber = dto.phoneNumber ?: "")
+                    val member = FamilyMember(id = dto.id, name = dto.name, relationship = dto.relationship, phone = dto.phone ?: "")
                     _patientProfile.value = _patientProfile.value?.let {
                         it.copy(familyMembers = it.familyMembers + member)
                     }
@@ -705,7 +705,7 @@ class PatientRepository @Inject constructor(
     suspend fun registerDeviceForPush(fcmToken: String, platform: String = "android"): Result<Unit> {
         return try {
             val response = apiService.registerDevice(
-                com.example.swastik.data.remote.dto.RegisterDeviceRequest(token = fcmToken, platform = platform)
+                com.example.swastik.data.remote.dto.RegisterDeviceRequest(fcmToken = fcmToken, deviceType = platform)
             )
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.Success(Unit)
@@ -724,7 +724,7 @@ class PatientRepository @Inject constructor(
     suspend fun unregisterDeviceForPush(fcmToken: String, platform: String = "android"): Result<Unit> {
         return try {
             val response = apiService.unregisterDevice(
-                com.example.swastik.data.remote.dto.RegisterDeviceRequest(token = fcmToken, platform = platform)
+                com.example.swastik.data.remote.dto.RegisterDeviceRequest(fcmToken = fcmToken, deviceType = platform)
             )
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.Success(Unit)

@@ -116,9 +116,10 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                appointments: (data.appointments || data.data || []) as ClinicAppointment[],
+                appointments: (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as ClinicAppointment[],
                 loadingAppointments: false,
             });
         } catch (error) {
@@ -135,8 +136,9 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
                 set({ error: response.error || 'Failed to load doctors', loadingDoctors: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const doctorsList = (data.doctors || data.data || []) as ClinicDoctor[];
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
+            const doctorsList = (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || []) as ClinicDoctor[];
             set({
                 doctors: doctorsList,
                 staff: doctorsList,

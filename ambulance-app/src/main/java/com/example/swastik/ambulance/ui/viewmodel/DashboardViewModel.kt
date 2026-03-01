@@ -162,7 +162,7 @@ class DashboardViewModel @Inject constructor(
                     } else {
                         list.filter { e ->
                             when (status) {
-                                "active" -> e.status in listOf("pending", "requested", "broadcasting", "assigned", "accepted", "dispatched", "en_route", "arrived", "picked_up", "en_route_hospital", "arrived_hospital")
+                                "active" -> e.status in listOf("pending", "broadcasting", "assigned", "accepted", "en_route", "arrived", "picked_up", "en_route_hospital", "arrived_hospital")
                                 "completed" -> e.status in listOf("completed", "cancelled", "timeout", "no_ambulance")
                                 else -> true
                             }

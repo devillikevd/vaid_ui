@@ -229,15 +229,12 @@ class SocketManager @Inject constructor() {
     /**
      * Join the request-specific ambulance tracking room.
      * The patient app listens on this room for live location updates.
+     * Backend expects event 'ambulance:track' with a plain string requestId.
      */
     fun joinTrackingRoom(requestId: String) {
         if (!isConnected) return
         try {
-            val data = JSONObject().apply {
-                put("requestId", requestId)
-                put("userId", userId)
-            }
-            socket?.emit("ambulance:join", data)
+            socket?.emit("ambulance:track", requestId)
             Log.d(TAG, "Joined tracking room for request: $requestId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to join tracking room", e)

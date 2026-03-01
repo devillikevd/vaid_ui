@@ -28,7 +28,7 @@ data class EmergencyRequest(
     val longitude: Double,
     val address: String?,
     val emergencyType: String,
-    val description: String?
+    val notes: String?
 )
 
 data class ReviewRequest(
@@ -177,9 +177,7 @@ data class PatientDto(
     val profileImageUrl: String?,
     @SerializedName("is_verified")
     val isVerified: Boolean = false,
-    @SerializedName("emergency_contacts")
     val emergencyContacts: List<EmergencyContactDto>? = null,
-    @SerializedName("family_members")
     val familyMembers: List<FamilyMemberDto>? = null,
     @SerializedName("saved_addresses")
     val savedAddresses: List<SavedAddressDto>? = null,
@@ -190,17 +188,15 @@ data class PatientDto(
 data class EmergencyContactDto(
     val id: String,
     val name: String,
-    @SerializedName("phone_number")
-    val phoneNumber: String,
-    val relation: String
+    val phone: String,
+    val relationship: String
 )
 
 data class FamilyMemberDto(
     val id: String,
     val name: String,
-    val relation: String,
-    @SerializedName("phone_number")
-    val phoneNumber: String? = null
+    val relationship: String,
+    val phone: String? = null
 )
 
 data class SavedAddressDto(
@@ -215,16 +211,14 @@ data class SavedAddressDto(
 
 data class AddEmergencyContactRequest(
     val name: String,
-    @SerializedName("phone_number")
-    val phoneNumber: String,
+    val phone: String,
     val relation: String
 )
 
 data class AddFamilyMemberRequest(
     val name: String,
     val relation: String,
-    @SerializedName("phone_number")
-    val phoneNumber: String? = null
+    val phone: String? = null
 )
 
 data class UpdateProfileRequest(
@@ -240,9 +234,7 @@ data class UpdateProfileRequest(
 data class PatientDashboardResponse(
     val success: Boolean,
     val reminders: List<ReminderDto>?,
-    @SerializedName("upcoming_appointments")
     val upcomingAppointments: List<AppointmentDto>?,
-    @SerializedName("recent_consultations")
     val recentConsultations: List<ConsultationDto>?,
     val stats: PatientStatsDto?,
     val recommendedDoctors: List<RecommendedDoctorDto>?,
@@ -304,20 +296,19 @@ data class DoctorDto(
     val id: String,
     val name: String,
     val specialization: String,
-    val experience: Int,
-    val rating: Float,
+    @SerializedName("experience_years") val experience: Int = 0,
+    val rating: Float? = null,
     @SerializedName("consultation_fee")
-    val consultationFee: Int,
+    val consultationFee: Int = 0,
     @SerializedName("profile_image_url")
     val profileImageUrl: String?,
     val hospital: HospitalDto?,
     @SerializedName("is_available")
-    val isAvailable: Boolean
+    val isAvailable: Boolean = true
 )
 
 data class TimeSlotDto(
     val time: String,
-    @SerializedName("is_available")
     val isAvailable: Boolean
 )
 
@@ -554,9 +545,7 @@ data class NotificationDto(
 
 data class TokenResponse(
     val success: Boolean,
-    @SerializedName("access_token")
     val accessToken: String?,
-    @SerializedName("refresh_token")
     val refreshToken: String?
 )
 
@@ -622,8 +611,8 @@ data class TtsResponse(
 )
 
 data class RegisterDeviceRequest(
-    @SerializedName("fcm_token") val fcmToken: String,
-    @SerializedName("device_type") val deviceType: String = "android"
+    val fcmToken: String,
+    val deviceType: String = "android"
 )
 
 data class ChatMessageRequest(
@@ -904,11 +893,22 @@ data class DiagnosticBookingDto(
 data class VitalDto(
     val id: String,
     @SerializedName("patient_id") val patientId: String?,
-    val type: String,
-    val value: String,
-    val unit: String?,
-    val notes: String?,
-    @SerializedName("recorded_at") val recordedAt: String?
+    val type: String? = null,
+    val value: String? = null,
+    val unit: String? = null,
+    val notes: String? = null,
+    @SerializedName("recorded_at") val recordedAt: String? = null,
+    // Columnar vitals from DB — backend may return these instead of type/value
+    @SerializedName("heart_rate") val heartRate: Float? = null,
+    @SerializedName("blood_pressure_systolic") val bloodPressureSystolic: Float? = null,
+    @SerializedName("blood_pressure_diastolic") val bloodPressureDiastolic: Float? = null,
+    val temperature: Float? = null,
+    @SerializedName("oxygen_saturation") val oxygenSaturation: Float? = null,
+    @SerializedName("oxygen_level") val oxygenLevel: Float? = null,
+    @SerializedName("blood_sugar") val bloodSugar: Float? = null,
+    val weight: Float? = null,
+    val height: Float? = null,
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 data class CreateVitalRequest(

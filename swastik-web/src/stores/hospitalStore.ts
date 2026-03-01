@@ -5,9 +5,13 @@ import { hospitalApi } from '../lib/api';
 
 export interface HospitalDashboardStats {
     totalDoctors: number;
-    departments: number;
-    todaysAppointments: number;
-    bedCapacity: string;
+    todayAppointments: number;
+    totalAppointments: number;
+    totalPatients: number;
+    /** Legacy aliases for UI compatibility */
+    departments?: number;
+    todaysAppointments?: number;
+    bedCapacity?: string;
 }
 
 export interface Department {
@@ -85,10 +89,14 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 });
                 return;
             }
+            // Dashboard endpoint uses spread: { success, stats, recentAppointments, departments }
+            // When no `data` key exists, fetchWithAuth returns the whole body as response.data
             const data = response.data as Record<string, unknown>;
+            // Also check if stats/departments came as siblings on response itself
+            const resp = response as Record<string, unknown>;
             set({
-                stats: (data.stats as HospitalDashboardStats) || null,
-                departments: (data.departments as Department[]) || [],
+                stats: (data.stats || resp.stats || null) as HospitalDashboardStats | null,
+                departments: ((data.departments || resp.departments || []) as Department[]),
                 loadingDashboard: false,
                 isLoading: false,
             });
@@ -117,8 +125,9 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 const dashResponse = await hospitalApi.getDashboard();
                 if (dashResponse.success) {
                     const dData = dashResponse.data as Record<string, unknown>;
+                    const dResp = dashResponse as Record<string, unknown>;
                     set({
-                        departments: (dData.departments as Department[]) || [],
+                        departments: ((dData.departments || dResp.departments || []) as Department[]),
                         loadingDepartments: false,
                     });
                 } else {
@@ -192,9 +201,10 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 set({ error: response.error || 'Failed to load doctors', loadingDoctors: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                doctors: (data.doctors || data.data || []) as HospitalDoctor[],
+                doctors: (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || []) as HospitalDoctor[],
                 loadingDoctors: false,
             });
         } catch (error) {
@@ -211,9 +221,10 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                appointments: (data.appointments || data.data || []) as Record<string, unknown>[],
+                appointments: (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, unknown>[],
                 loadingAppointments: false,
             });
         } catch (error) {

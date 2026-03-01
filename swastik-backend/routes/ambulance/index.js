@@ -18,6 +18,7 @@ const { requireRole, ROLES } = require('../../middleware/rbac');
 const ambulanceService = require('../../services/ambulanceService');
 const dispatchService = require('../../services/dispatchService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { supabaseAdmin } = require('../../config/supabase');
 
 const router = express.Router();
 
@@ -168,7 +169,6 @@ router.get('/hospital/emergencies', authenticate,
 router.get('/dashboard', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { data: vehicles } = await supabaseAdmin.from('ambulances').select('*')
       .eq('operator_id', req.user.id).order('created_at', { ascending: false });
     const vehicleIds = (vehicles || []).map(v => v.id);
@@ -243,7 +243,6 @@ router.get('/dashboard', authenticate,
 router.get('/vehicles', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
     const { data: vehicles } = await supabaseAdmin.from('ambulances').select('*')
       .eq('operator_id', req.user.id).order('created_at', { ascending: false });
     res.json({ success: true, vehicles: (vehicles || []).map(v => ({
@@ -264,7 +263,6 @@ router.get('/track/:requestId', authenticate, asyncHandler(async (req, res) => {
 }));
 
 router.get('/request/:id', authenticate, asyncHandler(async (req, res) => {
-  const { supabaseAdmin } = require('../../config/supabase');
   const { data, error } = await supabaseAdmin.from('emergency_requests')
     .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude), patient:patients(id, name, phone, user_id)')
     .eq('id', req.params.id).single();

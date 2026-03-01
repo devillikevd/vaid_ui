@@ -146,9 +146,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 set({ error: response.error || 'Failed to load inventory', loadingInventory: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                inventory: (data.items || data.inventory || data.data || []) as InventoryItem[],
+                inventory: (Array.isArray(rawData) ? rawData : (rawData as any)?.items || (rawData as any)?.inventory || (rawData as any)?.data || []) as InventoryItem[],
                 loadingInventory: false,
             });
         } catch (error) {
@@ -165,9 +166,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 set({ error: response.error || 'Failed to load orders', loadingOrders: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
             set({
-                orders: (data.orders || data.data || []) as Order[],
+                orders: (Array.isArray(rawData) ? rawData : (rawData as any)?.orders || (rawData as any)?.data || []) as Order[],
                 loadingOrders: false,
             });
         } catch (error) {
@@ -184,8 +186,9 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 set({ error: response.error || 'Failed to load prescriptions', loadingPrescriptions: false });
                 return;
             }
-            const data = response.data as Record<string, unknown>;
-            const allPrescriptions = (data.prescriptions || data.data || []) as Prescription[];
+            // After fetchWithAuth unwrap, response.data IS the array
+            const rawData = response.data;
+            const allPrescriptions = (Array.isArray(rawData) ? rawData : (rawData as any)?.prescriptions || (rawData as any)?.data || []) as Prescription[];
             set({
                 prescriptions: allPrescriptions,
                 pendingPrescriptions: allPrescriptions.filter((p: Prescription) => p.status === 'pending'),

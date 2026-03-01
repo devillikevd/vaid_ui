@@ -99,38 +99,45 @@ const updateHospital = async (hospitalId, userId, updates) => {
 // Get doctors
 const getDoctors = async (hospitalId, userId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
+  const hasPostFilters = !!(filters.specialization || filters.search);
+
   let query = supabaseAdmin
     .from('hospital_doctors')
     .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_available, rating)', { count: 'exact' })
     .eq('hospital_id', hospitalId);
 
-  if (filters.specialization) {
-    // Filter after fetch since it's a joined field
+  if (hasPostFilters) {
+    // Fetch ALL rows (no pagination) so post-filters see the full dataset
+    const { data, error } = await query;
+    if (error) throw error;
+
+    let result = data || [];
+    if (filters.specialization) {
+      result = result.filter(d => d.doctor?.specialization === filters.specialization);
+    }
+    if (filters.search) {
+      const s = filters.search.toLowerCase();
+      result = result.filter(d => d.doctor?.name?.toLowerCase().includes(s));
+    }
+
+    const total = result.length;
+    const paginated = result.slice(offset, offset + limit);
+
+    return {
+      data: paginated,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
+  // No post-filters — paginate at DB level for efficiency
   const { data, error, count } = await query
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
 
-  let result = data || [];
-
-  // Apply post-filters on joined data
-  if (filters.specialization) {
-    result = result.filter(d => d.doctor?.specialization === filters.specialization);
-  }
-  if (filters.search) {
-    const s = filters.search.toLowerCase();
-    result = result.filter(d => d.doctor?.name?.toLowerCase().includes(s));
-  }
-
-  // When post-filters are active, pagination counts are inaccurate.
-  // Recalculate total based on actual filtered count.
-  const filteredTotal = (filters.specialization || filters.search) ? result.length : (count || 0);
-
   return {
-    data: result,
-    pagination: { page, limit, total: filteredTotal, totalPages: Math.ceil(filteredTotal / limit) },
+    data: data || [],
+    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
 

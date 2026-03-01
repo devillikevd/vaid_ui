@@ -49,6 +49,8 @@ router.post('/',
     if (req.user.role !== 'patient') {
       return res.status(403).json({ success: false, message: 'Only patients can book appointments' });
     }
+    // Normalize: 'in_person' is an alias for 'clinic' — store consistently
+    if (req.body.type === 'in_person') req.body.type = 'clinic';
     const appointment = await appointmentService.bookAppointment(req.user.id, req.body);
     res.status(201).json({ success: true, data: appointment });
   })

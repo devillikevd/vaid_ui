@@ -157,7 +157,7 @@ class PatientDashboardViewModel @Inject constructor(
                 longitude = longitude,
                 address = address,
                 emergencyType = emergencyType,
-                description = description
+                notes = description
             )
             
             when (val result = emergencyRepository.requestEmergency(request)) {
@@ -296,7 +296,7 @@ class PatientDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _profileUpdateState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.addEmergencyContact(
-                AddEmergencyContactRequest(name = name, phoneNumber = phone, relation = relation)
+                AddEmergencyContactRequest(name = name, phone = phone, relation = relation)
             )) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success
@@ -321,7 +321,7 @@ class PatientDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _profileUpdateState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.addFamilyMember(
-                AddFamilyMemberRequest(name = name, relation = relation, phoneNumber = phone)
+                AddFamilyMemberRequest(name = name, relation = relation, phone = phone)
             )) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success

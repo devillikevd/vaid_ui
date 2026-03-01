@@ -170,11 +170,6 @@ class AuthRepository @Inject constructor(
     fun getUserName(): String? = tokenManager.userName
 
     /**
-     * Get current user name.
-     */
-    fun getUserName(): String? = tokenManager.userName
-
-    /**
      * Get current authenticated user from the server.
      * GET /api/auth/me
      */
