@@ -5,8 +5,6 @@ import {
     CheckCircle,
     XCircle,
     Ban,
-    AlertTriangle,
-    Info
 } from 'lucide-react';
 import type { ApprovalStatus } from '@/stores/authStore';
 

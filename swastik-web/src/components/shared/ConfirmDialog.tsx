@@ -110,11 +110,13 @@ export function useConfirmDialog() {
         confirmLabel?: string;
         variant?: 'danger' | 'warning' | 'info';
         onConfirm: () => void | Promise<void>;
+        onCancel: () => void;
     }>({
         isOpen: false,
         title: '',
         message: '',
         onConfirm: () => {},
+        onCancel: () => {},
     });
 
     const confirm = useCallback(
@@ -132,6 +134,10 @@ export function useConfirmDialog() {
                         setState((prev) => ({ ...prev, isOpen: false }));
                         resolve(true);
                     },
+                    onCancel: () => {
+                        setState((prev) => ({ ...prev, isOpen: false }));
+                        resolve(false);
+                    },
                 });
             });
         },
@@ -139,8 +145,8 @@ export function useConfirmDialog() {
     );
 
     const cancel = useCallback(() => {
-        setState((prev) => ({ ...prev, isOpen: false }));
-    }, []);
+        state.onCancel();
+    }, [state]);
 
     return {
         dialogProps: {

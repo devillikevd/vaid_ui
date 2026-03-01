@@ -8,6 +8,8 @@ const pharmacyService = require('../services/pharmacyService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../utils/helpers');
+const { body, param, query: queryValidator } = require('express-validator');
+const { validate } = require('../middleware/validate');
 
 // Public routes
 router.get('/nearby', asyncHandler(async (req, res) => {
@@ -35,7 +37,18 @@ router.get('/nearby', asyncHandler(async (req, res) => {
 router.use(authenticate);
 
 // Register pharmacy (C9 Fix: restrict to pharmacy_owner role or new registrants)
-router.post('/register', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+// Fix #21: Add input validation
+router.post('/register', requireRole(ROLES.PHARMACY_OWNER), [
+    body('name').trim().notEmpty().withMessage('Pharmacy name is required').isLength({ max: 200 }),
+    body('phone').optional().trim().isLength({ max: 20 }),
+    body('address').optional().trim().isLength({ max: 500 }),
+    body('city').optional().trim().isLength({ max: 100 }),
+    body('state').optional().trim().isLength({ max: 100 }),
+    body('latitude').optional().isFloat({ min: -90, max: 90 }),
+    body('longitude').optional().isFloat({ min: -180, max: 180 }),
+    body('license_number').optional().trim().isLength({ max: 100 }),
+    validate,
+], asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.registerPharmacy(req.user.id, req.body);
     res.status(201).json({ success: true, data: pharmacy });
 }));
@@ -124,7 +137,13 @@ router.get('/inventory', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (
     res.json({ success: true, ...result });
 }));
 
-router.post('/inventory', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.post('/inventory', requireRole(ROLES.PHARMACY_OWNER), [
+    body('name').trim().notEmpty().withMessage('Medicine name is required').isLength({ max: 200 }),
+    body('quantity').optional().isInt({ min: 0 }).withMessage('Quantity must be non-negative'),
+    body('price').optional().isFloat({ min: 0 }).withMessage('Price must be non-negative'),
+    body('expiry_date').optional().isISO8601(),
+    validate,
+], asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     const item = await pharmacyService.addInventoryItem(pharmacy.id, req.user.id, req.body);
     res.status(201).json({ success: true, item });

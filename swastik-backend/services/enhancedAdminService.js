@@ -3,6 +3,7 @@
  * Complete admin management with approval workflows for all provider types
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
@@ -55,7 +56,7 @@ const getDashboard = async () => {
   const pendingTotal = (pendingDoctors || 0) + (pendingHospitals || 0) + (pendingPharmacies || 0)
     + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingAmbulances || 0);
 
-  return {
+  const dashboard = {
     // Flat stats for backward-compat
     totalUsers: totalUsers || 0,
     totalDoctors: totalDoctors || 0,
@@ -103,6 +104,10 @@ const getDashboard = async () => {
       ambulances: pendingAmbulances || 0,
     },
   };
+
+  // Cache for 60 seconds
+  await cacheSet('admin:dashboard', dashboard, 60);
+  return dashboard;
 };
 
 // Get pending approvals
@@ -147,9 +152,7 @@ const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
 const getProviderDetails = async (type, id) => {
   const table = PROVIDER_TABLES[type];
   if (!table) {
-    const err = new Error('Invalid provider type');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'Invalid provider type');
   }
 
   const { data, error } = await supabaseAdmin
@@ -159,9 +162,7 @@ const getProviderDetails = async (type, id) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Provider not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Provider not found');
   }
 
   return data;
@@ -170,7 +171,7 @@ const getProviderDetails = async (type, id) => {
 // Approve provider
 const approveProvider = async (type, id, adminId, notes) => {
   const table = PROVIDER_TABLES[type];
-  if (!table) throw Object.assign(new Error('Invalid provider type'), { statusCode: 400 });
+  if (!table) throw new ApiError(400, 'Invalid provider type');
 
   // Build update payload — only use columns that exist in the DB schema
   // All tables have: is_approved, approval_status, approval_notes, approved_by, approved_at
@@ -224,7 +225,7 @@ const approveProvider = async (type, id, adminId, notes) => {
 // Reject provider
 const rejectProvider = async (type, id, adminId, reason) => {
   const table = PROVIDER_TABLES[type];
-  if (!table) throw Object.assign(new Error('Invalid provider type'), { statusCode: 400 });
+  if (!table) throw new ApiError(400, 'Invalid provider type');
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -273,7 +274,7 @@ const rejectProvider = async (type, id, adminId, reason) => {
 // Suspend provider
 const suspendProvider = async (type, id, adminId, reason) => {
   const table = PROVIDER_TABLES[type];
-  if (!table) throw Object.assign(new Error('Invalid provider type'), { statusCode: 400 });
+  if (!table) throw new ApiError(400, 'Invalid provider type');
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -307,7 +308,7 @@ const suspendProvider = async (type, id, adminId, reason) => {
 // Reactivate provider
 const reactivateProvider = async (type, id, adminId, notes) => {
   const table = PROVIDER_TABLES[type];
-  if (!table) throw Object.assign(new Error('Invalid provider type'), { statusCode: 400 });
+  if (!table) throw new ApiError(400, 'Invalid provider type');
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -337,7 +338,7 @@ const reactivateProvider = async (type, id, adminId, notes) => {
 // Add admin note
 const addAdminNote = async (type, id, adminId, note, isInternal = true) => {
   const table = PROVIDER_TABLES[type];
-  if (!table) throw Object.assign(new Error('Invalid provider type'), { statusCode: 400 });
+  if (!table) throw new ApiError(400, 'Invalid provider type');
 
   // Append to existing notes
   const { data: existing } = await supabaseAdmin
@@ -387,9 +388,7 @@ const getUsers = async (filters = {}, page = 1, limit = 20) => {
 const updateUserStatus = async (adminUserId, userId, isActive, reason) => {
   // Prevent admin from deactivating themselves
   if (adminUserId === userId && !isActive) {
-    const err = new Error('You cannot deactivate your own account');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'You cannot deactivate your own account');
   }
 
   const { data, error } = await supabaseAdmin

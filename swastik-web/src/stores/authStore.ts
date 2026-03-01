@@ -311,6 +311,7 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
             if (store.isAuthenticated) {
                 if (typeof document !== 'undefined') {
                     document.cookie = 'swastik-role=; path=/; max-age=0';
+                    document.cookie = 'swastik-token=; path=/; max-age=0';
                 }
                 syncClearTokens();
                 useAuthStore.setState({
@@ -354,7 +355,7 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
         try { authChannel.postMessage({ type: 'LOGOUT' }); } catch { /* ignore */ }
     };
     // We subscribe to store changes to broadcast token refreshes
-    useAuthStore.subscribe((state, prevState) => {
+    const unsubSync = useAuthStore.subscribe((state, prevState) => {
         if (state.accessToken && state.accessToken !== prevState.accessToken && state.isAuthenticated) {
             try {
                 authChannel.postMessage({
@@ -376,4 +377,10 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
 
     // Override logout in the store
     useAuthStore.setState({ logout: patchedLogout } as Partial<AuthState>);
+
+    // Close channel on page unload to prevent resource leaks
+    window.addEventListener('beforeunload', () => {
+        unsubSync();
+        authChannel.close();
+    });
 }

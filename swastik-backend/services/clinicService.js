@@ -3,6 +3,7 @@
  * Clinic registration, management, doctors, appointments
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 
@@ -70,9 +71,7 @@ const getClinicById = async (id) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Clinic not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Clinic not found');
   }
   return data;
 };
@@ -113,9 +112,7 @@ const getClinicByOwner = async (userId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Clinic not found for this user');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Clinic not found for this user');
   }
   return data;
 };
@@ -131,9 +128,7 @@ const getDashboard = async (clinicId, userId) => {
     .single();
 
   if (!clinic) {
-    const err = new Error('Clinic not found or access denied');
-    err.statusCode = 403;
-    throw err;
+    throw new ApiError(403, 'Clinic not found or access denied');
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -250,7 +245,7 @@ const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit =
 // Get consultations for all doctors affiliated with this clinic
 const getConsultations = async (userId, page = 1, limit = 20, status) => {
   const clinic = await getClinicByOwner(userId);
-  if (!clinic) throw Object.assign(new Error('Clinic not found'), { statusCode: 404 });
+  if (!clinic) throw new ApiError(404, 'Clinic not found');
 
   // Get all doctor IDs affiliated with this clinic
   const { data: clinicDoctors } = await supabaseAdmin

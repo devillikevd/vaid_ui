@@ -57,6 +57,9 @@ function derivePriority(emergencyType) {
 
 class DispatchService {
   constructor() {
+    // Fix #47: In-memory Map is acceptable for single-instance deployment.
+    // On restart, recoverBroadcasts() re-arms timeouts from DB state.
+    // For multi-instance, migrate timeout tracking to Redis EXPIRE keys.
     this.pendingTimeouts = new Map(); // requestId → timeoutId
     this.ACCEPT_TIMEOUT_MS = 30_000;  // 30 s for each broadcast round
     this.MAX_BROADCAST_ROUNDS = 3;

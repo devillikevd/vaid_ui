@@ -3,6 +3,7 @@
  * Hospital owner/manager operations: profile, doctors, appointments, analytics
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 
 // Get hospital by owner/manager
 const getHospitalByOwner = async (userId) => {
@@ -32,9 +33,7 @@ const getHospitalByOwner = async (userId) => {
   }
 
   if (!hospital) {
-    const err = new Error('Hospital not found for this user');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Hospital not found for this user');
   }
 
   return hospital;
@@ -158,9 +157,7 @@ const inviteDoctor = async (hospitalId, userId, data) => {
       .single();
 
     if (!user) {
-      const err = new Error('No user found with this email');
-      err.statusCode = 404;
-      throw err;
+      throw new ApiError(404, 'No user found with this email');
     }
 
     const { data: doc } = await supabaseAdmin
@@ -172,9 +169,7 @@ const inviteDoctor = async (hospitalId, userId, data) => {
   }
 
   if (!doctor) {
-    const err = new Error('Doctor not found. Please verify the email or doctor ID.');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Doctor not found. Please verify the email or doctor ID.');
   }
 
   // Use resolved doctor.id (handles both direct-ID and email paths)
@@ -189,9 +184,7 @@ const inviteDoctor = async (hospitalId, userId, data) => {
     .single();
 
   if (existing) {
-    const err = new Error('Doctor is already associated with this hospital');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'Doctor is already associated with this hospital');
   }
 
   const { data: association, error } = await supabaseAdmin
@@ -300,9 +293,7 @@ const addManager = async (hospitalId, userId, managerData) => {
     .single();
 
   if (!user) {
-    const err = new Error('User not found with this email');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'User not found with this email');
   }
 
   // Check if user is already a manager for this hospital
@@ -314,17 +305,13 @@ const addManager = async (hospitalId, userId, managerData) => {
     .maybeSingle();
 
   if (existingManager) {
-    const err = new Error('This user is already a manager for this hospital');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'This user is already a manager for this hospital');
   }
 
   // Check if user already has a provider role that shouldn't be overwritten
   const protectedRoles = ['doctor', 'hospital_owner', 'pharmacy_owner', 'clinic_owner', 'diagnostic_center_owner', 'ambulance_operator', 'admin', 'super_admin'];
   if (protectedRoles.includes(user.role)) {
-    const err = new Error(`Cannot assign hospital_manager role: user already has role '${user.role}'. They must use a different account.`);
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, `Cannot assign hospital_manager role: user already has role '${user.role}'. They must use a different account.`);
   }
 
   // Update user role (only from patient or unset)
@@ -351,7 +338,7 @@ const addManager = async (hospitalId, userId, managerData) => {
 // Get consultations for all doctors affiliated with this hospital
 const getConsultations = async (userId, page = 1, limit = 20, status) => {
   const hospital = await getHospitalByOwner(userId);
-  if (!hospital) throw Object.assign(new Error('Hospital not found'), { statusCode: 404 });
+  if (!hospital) throw new ApiError(404, 'Hospital not found');
 
   // Get all doctor IDs affiliated with this hospital
   const { data: hospitalDoctors } = await supabaseAdmin

@@ -13,6 +13,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('./emailService');
@@ -295,29 +296,22 @@ const login = async (rawEmail, password) => {
     .single();
 
   if (error || !user) {
-    const err = new Error('Invalid email or password');
-    err.statusCode = 401;
-    throw err;
+    throw new ApiError(401, 'Invalid email or password');
   }
 
   if (!user.is_active) {
-    const err = new Error('Your account has been deactivated. Please contact support.');
-    err.statusCode = 403;
-    throw err;
+    throw new ApiError(403, 'Your account has been deactivated. Please contact support.');
   }
 
   if (!user.is_verified) {
-    const err = new Error('Please verify your email before logging in. Check your inbox for a verification link.');
-    err.statusCode = 403;
+    const err = new ApiError(403, 'Please verify your email before logging in. Check your inbox for a verification link.');
     err.code = 'EMAIL_NOT_VERIFIED';
     throw err;
   }
 
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) {
-    const err = new Error('Invalid email or password');
-    err.statusCode = 401;
-    throw err;
+    throw new ApiError(401, 'Invalid email or password');
   }
 
   const tokens = generateTokens(user);
@@ -365,15 +359,11 @@ const refreshToken = async (token) => {
 
     // Fix #12: Guard against null storedToken (token not found in DB)
     if (!storedToken) {
-      const err = new Error('Refresh token not found or already used');
-      err.statusCode = 401;
-      throw err;
+      throw new ApiError(401, 'Refresh token not found or already used');
     }
 
     if (storedToken.is_revoked) {
-      const err = new Error('Refresh token has been revoked');
-      err.statusCode = 401;
-      throw err;
+      throw new ApiError(401, 'Refresh token has been revoked');
     }
 
     const { data: user } = await supabaseAdmin
@@ -383,14 +373,11 @@ const refreshToken = async (token) => {
       .single();
 
     if (!user || !user.is_active) {
-      const err = new Error('User not found or inactive');
-      err.statusCode = 401;
-      throw err;
+      throw new ApiError(401, 'User not found or inactive');
     }
 
     if (!user.is_verified) {
-      const err = new Error('Email not verified');
-      err.statusCode = 403;
+      const err = new ApiError(403, 'Email not verified');
       err.code = 'EMAIL_NOT_VERIFIED';
       throw err;
     }
@@ -446,15 +433,11 @@ const logout = async (userId, refreshTokenValue) => {
 // ==================== Change Password ====================
 const changePassword = async (userId, currentPassword, newPassword) => {
   if (!newPassword || newPassword.length < 8) {
-    const err = new Error('New password must be at least 8 characters');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'New password must be at least 8 characters');
   }
 
   if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-    const err = new Error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
   }
 
   const { data: user } = await supabaseAdmin
@@ -464,16 +447,12 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     .single();
 
   if (!user) {
-    const err = new Error('User not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'User not found');
   }
 
   const isValid = await bcrypt.compare(currentPassword, user.password_hash);
   if (!isValid) {
-    const err = new Error('Current password is incorrect');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'Current password is incorrect');
   }
 
   const password_hash = await bcrypt.hash(newPassword, 12);
@@ -528,21 +507,15 @@ const resetPassword = async (token, newPassword) => {
     // Verify token is still valid in Redis (prevents reuse)
     const storedUserId = await cacheGet(`reset:${token}`);
     if (!storedUserId) {
-      const err = new Error('Reset link has already been used or expired');
-      err.statusCode = 400;
-      throw err;
+      throw new ApiError(400, 'Reset link has already been used or expired');
     }
 
     // Fix #20: Enforce password complexity (matching register/changePassword)
     if (!newPassword || newPassword.length < 8) {
-      const err = new Error('Password must be at least 8 characters');
-      err.statusCode = 400;
-      throw err;
+      throw new ApiError(400, 'Password must be at least 8 characters');
     }
     if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      const err = new Error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-      err.statusCode = 400;
-      throw err;
+      throw new ApiError(400, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
     }
 
     const password_hash = await bcrypt.hash(newPassword, 12);

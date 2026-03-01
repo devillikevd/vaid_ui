@@ -52,6 +52,7 @@ export const clearTokens = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         document.cookie = 'swastik-role=; path=/; max-age=0';
+        document.cookie = 'swastik-token=; path=/; max-age=0';
     }
 };
 

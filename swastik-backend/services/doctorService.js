@@ -103,74 +103,56 @@ class DoctorService {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Get today's appointments
-    const { data: todayAppointments } = await supabaseAdmin
-      .from('appointments')
-      .select(`
-        *,
-        patient:patients(id, name, age, gender, profile_image_url)
-      `)
-      .eq('doctor_id', doctor.id)
-      .eq('appointment_date', today)
-      .in('status', ['scheduled', 'confirmed', 'in_progress'])
-      .order('time_slot', { ascending: true });
+    // Fix #40: Run all dashboard queries in parallel instead of sequentially
+    const [
+      todayApptsResult,
+      upcomingApptsResult,
+      pendingApptsResult,
+      recentConsultResult,
+      totalPatientsResult,
+      completedTodayResult,
+      completedTodayApptsResult,
+    ] = await Promise.all([
+      supabaseAdmin.from('appointments')
+        .select('*, patient:patients(id, name, age, gender, profile_image_url)')
+        .eq('doctor_id', doctor.id).eq('appointment_date', today)
+        .in('status', ['scheduled', 'confirmed', 'in_progress'])
+        .order('time_slot', { ascending: true }),
+      supabaseAdmin.from('appointments')
+        .select('*, patient:patients(id, name, age, gender)')
+        .eq('doctor_id', doctor.id).gt('appointment_date', today)
+        .in('status', ['scheduled', 'confirmed'])
+        .order('appointment_date', { ascending: true }).limit(10),
+      supabaseAdmin.from('appointments')
+        .select('*', { count: 'exact' })
+        .eq('doctor_id', doctor.id).eq('status', 'scheduled')
+        .gte('appointment_date', today),
+      supabaseAdmin.from('consultations')
+        .select('*, patient:patients(id, name), appointment:appointments(type)')
+        .eq('doctor_id', doctor.id)
+        .order('created_at', { ascending: false }).limit(5),
+      supabaseAdmin.from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('doctor_id', doctor.id).eq('appointment_date', today),
+      supabaseAdmin.from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('doctor_id', doctor.id).eq('appointment_date', today)
+        .eq('status', 'completed'),
+      supabaseAdmin.from('appointments')
+        .select('id, fee')
+        .eq('doctor_id', doctor.id).eq('appointment_date', today)
+        .eq('status', 'completed'),
+    ]);
 
-    // Get upcoming appointments
-    const { data: upcomingAppointments } = await supabaseAdmin
-      .from('appointments')
-      .select(`
-        *,
-        patient:patients(id, name, age, gender)
-      `)
-      .eq('doctor_id', doctor.id)
-      .gt('appointment_date', today)
-      .in('status', ['scheduled', 'confirmed'])
-      .order('appointment_date', { ascending: true })
-      .limit(10);
+    const todayAppointments = todayApptsResult.data || [];
+    const upcomingAppointments = upcomingApptsResult.data || [];
+    const pendingCount = pendingApptsResult.count || 0;
+    const recentConsultations = recentConsultResult.data || [];
+    const totalPatientsToday = totalPatientsResult.count || 0;
+    const completedToday = completedTodayResult.count || 0;
+    const completedTodayAppts = completedTodayApptsResult.data || [];
 
-    // Get pending appointments (need confirmation)
-    const { data: pendingAppointments, count: pendingCount } = await supabaseAdmin
-      .from('appointments')
-      .select('*', { count: 'exact' })
-      .eq('doctor_id', doctor.id)
-      .eq('status', 'scheduled')
-      .gte('appointment_date', today);
-
-    // Get recent consultations
-    const { data: recentConsultations } = await supabaseAdmin
-      .from('consultations')
-      .select(`
-        *,
-        patient:patients(id, name),
-        appointment:appointments(type)
-      `)
-      .eq('doctor_id', doctor.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    // Get stats
-    const { count: totalPatientsToday } = await supabaseAdmin
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-      .eq('doctor_id', doctor.id)
-      .eq('appointment_date', today);
-
-    const { count: completedToday } = await supabaseAdmin
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-      .eq('doctor_id', doctor.id)
-      .eq('appointment_date', today)
-      .eq('status', 'completed');
-
-    // Get earnings for today based on completed appointments’ actual fee
-    const { data: completedTodayAppts } = await supabaseAdmin
-      .from('appointments')
-      .select('id, fee')
-      .eq('doctor_id', doctor.id)
-      .eq('appointment_date', today)
-      .eq('status', 'completed');
-
-    const totalEarningsToday = (completedTodayAppts || []).reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
+    const totalEarningsToday = completedTodayAppts.reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
 
     return {
       doctor: {
@@ -179,13 +161,13 @@ class DoctorService {
         specialization: doctor.specialization,
         isAvailable: doctor.is_available,
       },
-      todayAppointments: todayAppointments || [],
-      upcomingAppointments: upcomingAppointments || [],
-      pendingCount: pendingCount || 0,
-      recentConsultations: recentConsultations || [],
+      todayAppointments,
+      upcomingAppointments,
+      pendingCount,
+      recentConsultations,
       stats: {
-        totalPatientsToday: totalPatientsToday || 0,
-        completedToday: completedToday || 0,
+        totalPatientsToday,
+        completedToday,
         earningsToday: totalEarningsToday,
       },
     };

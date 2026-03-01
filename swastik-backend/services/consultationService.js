@@ -3,6 +3,7 @@
  * Handles video consultations, prescriptions, and consultation history
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const config = require('../config');
 
@@ -98,9 +99,7 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     .single();
 
   if (!doctor) {
-    const err = new Error('Doctor profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Doctor profile not found');
   }
 
   // C7: Atomic start — creates consultation + updates appointment in one transaction
@@ -115,9 +114,7 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     const reasons = {
       appointment_not_found: 'Valid appointment not found',
     };
-    const err = new Error(reasons[rpcResult?.reason] || 'Failed to start consultation');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, reasons[rpcResult?.reason] || 'Failed to start consultation');
   }
 
   const consultation = rpcResult.consultation;
@@ -171,9 +168,7 @@ const joinConsultation = async (patientUserId, idParam) => {
   }
 
   if (error || !consultation) {
-    const err = new Error('Active consultation not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Active consultation not found');
   }
 
   return consultation;
@@ -188,25 +183,19 @@ const getConsultation = async (userId, role, consultationId) => {
     .single();
 
   if (error || !consultation) {
-    const err = new Error('Consultation not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Consultation not found');
   }
 
   // Authorization: verify requesting user is the doctor or patient of this consultation
   if (role === 'doctor') {
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).single();
     if (!doctor || consultation.doctor_id !== doctor.id) {
-      const err = new Error('Unauthorized to view this consultation');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   } else if (role === 'patient') {
     const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).single();
     if (!patient || consultation.patient_id !== patient.id) {
-      const err = new Error('Unauthorized to view this consultation');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   } else if (role === 'hospital_owner') {
     // Scope: consultation's doctor must belong to one of the owner's hospitals
@@ -214,9 +203,7 @@ const getConsultation = async (userId, role, consultationId) => {
     const hospitalIds = (hospitals || []).map(h => h.id);
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('id', consultation.doctor_id).in('hospital_id', hospitalIds).maybeSingle();
     if (!doctor) {
-      const err = new Error('Unauthorized to view this consultation');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   } else if (role === 'clinic_owner') {
     // Scope: consultation's doctor must belong to one of the owner's clinics
@@ -224,9 +211,7 @@ const getConsultation = async (userId, role, consultationId) => {
     const clinicIds = (clinics || []).map(c => c.id);
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('id', consultation.doctor_id).in('clinic_id', clinicIds).maybeSingle();
     if (!doctor) {
-      const err = new Error('Unauthorized to view this consultation');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   }
   // admin role can view any consultation
@@ -243,9 +228,7 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
     .single();
 
   if (!doctor) {
-    const err = new Error('Doctor profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Doctor profile not found');
   }
 
   // C7: Atomic end — updates consultation + appointment in one transaction
@@ -260,9 +243,7 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
   if (rpcError) throw rpcError;
 
   if (!rpcResult?.success) {
-    const err = new Error('Consultation not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Consultation not found or unauthorized');
   }
 
   const consultation = rpcResult.consultation;
@@ -293,9 +274,7 @@ const leaveConsultation = async (patientUserId, consultationId) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // Verify patient is a participant
@@ -307,9 +286,7 @@ const leaveConsultation = async (patientUserId, consultationId) => {
     .single();
 
   if (!consultation) {
-    const err = new Error('Consultation not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Consultation not found or unauthorized');
   }
 
   // Get doctor's user_id for notification
@@ -347,17 +324,13 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
     .single();
 
   if (!consultation) {
-    const err = new Error('Consultation not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Consultation not found or unauthorized');
   }
 
   // Allow prescriptions only during active or recently completed consultations
   const allowedStatuses = ['in_progress', 'completed'];
   if (!allowedStatuses.includes(consultation.status)) {
-    const err = new Error(`Cannot add prescription to a ${consultation.status} consultation`);
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, `Cannot add prescription to a ${consultation.status} consultation`);
   }
 
   // Fix #32: Generate a unique prescription number with crypto-secure randomness (8 chars)
@@ -522,7 +495,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     .eq('user_id', doctorUserId)
     .single();
 
-  if (!doctor) throw Object.assign(new Error('Doctor profile not found'), { statusCode: 403 });
+  if (!doctor) throw new ApiError(403, 'Doctor profile not found');
 
   const { data: consultation } = await supabaseAdmin
     .from('consultations')
@@ -531,11 +504,11 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     .eq('doctor_id', doctor.id)
     .single();
 
-  if (!consultation) throw Object.assign(new Error('Consultation not found or unauthorized'), { statusCode: 404 });
+  if (!consultation) throw new ApiError(404, 'Consultation not found or unauthorized');
 
   // Only allow AI assist on active consultations (prevent token abuse on old consultations)
   if (consultation.status !== 'in_progress') {
-    throw Object.assign(new Error('AI assistant is only available during active consultations'), { statusCode: 400 });
+    throw new ApiError(400, 'AI assistant is only available during active consultations');
   }
 
   // 2. Rate limit: 50 AI requests per doctor per day
@@ -544,7 +517,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     const count = await redis.incr(rateLimitKey);
     if (count === 1) await redis.expire(rateLimitKey, 86400);
     if (count > 50) {
-      throw Object.assign(new Error('Daily AI assistant limit reached (50/day). Resets at midnight.'), { statusCode: 429 });
+      throw new ApiError(429, 'Daily AI assistant limit reached (50/day). Resets at midnight.');
     }
   }
 
@@ -645,7 +618,7 @@ RULES:
         latencyMs: fallback.latencyMs,
       };
     } catch (fallbackErr) {
-      throw Object.assign(new Error('AI assistant temporarily unavailable'), { statusCode: 503 });
+      throw new ApiError(503, 'AI assistant temporarily unavailable');
     }
   }
 

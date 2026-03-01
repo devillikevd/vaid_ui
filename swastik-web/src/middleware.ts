@@ -44,6 +44,17 @@ const ROLE_LOGIN: Record<string, string> = {
     pharmacy_owner: '/login/pharmacy',
 };
 
+// Route prefix → login slug mapping (single source of truth)
+const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
+    '/admin': 'admin',
+    '/doctor': 'doctor',
+    '/hospital': 'hospital',
+    '/clinic': 'clinic',
+    '/diagnostic-center': 'diagnostic-center',
+    '/pharmacy': 'pharmacy',
+    '/consultation': 'doctor', // Default consultation login to doctor portal
+};
+
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -61,16 +72,6 @@ export function middleware(request: NextRequest) {
 
     // No role cookie → redirect to appropriate login
     if (!role) {
-        // Map route prefixes to the correct login slug
-        const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
-            '/admin': 'admin',
-            '/doctor': 'doctor',
-            '/hospital': 'hospital',
-            '/clinic': 'clinic',
-            '/diagnostic-center': 'diagnostic-center',
-            '/pharmacy': 'pharmacy',
-            '/consultation': 'doctor', // Default consultation login to doctor portal
-        };
         const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
 
         // Patient routes → redirect to landing page (patients use mobile app)
@@ -101,7 +102,7 @@ export function middleware(request: NextRequest) {
     const token = request.cookies.get('swastik-token')?.value;
     if (token && isJwtExpiredServer(token)) {
         // Token expired — clear cookies and redirect to login
-        const loginSlug = ROUTE_TO_LOGIN_SLUG_MAP[matchedPrefix] || matchedPrefix.replace('/', '');
+        const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
         const loginUrl = new URL(`/login/${loginSlug}`, request.url);
         loginUrl.searchParams.set('redirect', pathname);
         loginUrl.searchParams.set('expired', '1');
@@ -113,17 +114,6 @@ export function middleware(request: NextRequest) {
 
     return NextResponse.next();
 }
-
-// Route to login slug map (used in multiple places)
-const ROUTE_TO_LOGIN_SLUG_MAP: Record<string, string> = {
-    '/admin': 'admin',
-    '/doctor': 'doctor',
-    '/hospital': 'hospital',
-    '/clinic': 'clinic',
-    '/diagnostic-center': 'diagnostic-center',
-    '/pharmacy': 'pharmacy',
-    '/consultation': 'doctor',
-};
 
 export const config = {
     matcher: [

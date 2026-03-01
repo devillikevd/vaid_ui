@@ -3,6 +3,7 @@
  * Medicine catalog, search, availability, alternatives
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { logSearch } = require('../utils/auditLogger');
@@ -76,9 +77,7 @@ const getMedicineById = async (id) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Medicine not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Medicine not found');
   }
 
   // Increment search count (ignore errors if column doesn't exist)

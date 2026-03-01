@@ -2,12 +2,8 @@
  * Utility Helpers
  */
 
-/**
- * Async handler wrapper for route handlers
- */
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+// Fix #49: Re-export asyncHandler from errorHandler to eliminate duplicate definition
+const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
  * Pagination helper — validates & clamps page/limit to safe positive integers
@@ -55,19 +51,12 @@ const formatDate = (date) => {
 
 /**
  * Calculate distance between two coordinates (Haversine formula)
+ * @deprecated Use utils/geo.js calculateDistance() instead — it uses geolib for accuracy.
+ * Kept for backward compatibility but delegates to geo.js.
  */
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  const { calculateDistance: geoCalc } = require('./geo');
+  return geoCalc({ latitude: lat1, longitude: lon1 }, { latitude: lat2, longitude: lon2 });
 };
 
 /**

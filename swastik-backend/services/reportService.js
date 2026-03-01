@@ -3,6 +3,7 @@
  * Medical reports, prescriptions, doctor sharing
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { deleteFile } = require('../config/minio');
 
 // Report types (sync)
@@ -65,9 +66,7 @@ const uploadReport = async (userId, file, metadata) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // Upload file to MinIO
@@ -109,9 +108,7 @@ const getReportById = async (userId, reportId) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   const { data, error } = await supabaseAdmin
@@ -122,9 +119,7 @@ const getReportById = async (userId, reportId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Report not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Report not found');
   }
 
   return data;
@@ -139,9 +134,7 @@ const deleteReport = async (userId, reportId) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // M6 Fix: Fetch report first to get file_url for MinIO cleanup
@@ -153,9 +146,7 @@ const deleteReport = async (userId, reportId) => {
     .single();
 
   if (!report) {
-    const err = new Error('Report not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Report not found');
   }
 
   const { error } = await supabaseAdmin
@@ -190,9 +181,7 @@ const shareReportWithDoctor = async (userId, reportId, doctorId) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // Verify report belongs to patient
@@ -204,9 +193,7 @@ const shareReportWithDoctor = async (userId, reportId, doctorId) => {
     .single();
 
   if (!report) {
-    const err = new Error('Report not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Report not found');
   }
 
   // Share report via report_shares table
@@ -222,9 +209,7 @@ const shareReportWithDoctor = async (userId, reportId, doctorId) => {
   if (error) {
     console.warn('Share via report_shares failed:', error.message);
     // Graceful fallback: log the intent even if table has issues
-    const err = new Error('Failed to share report');
-    err.statusCode = 500;
-    throw err;
+    throw new ApiError(500, 'Failed to share report');
   }
 
   return { message: 'Report shared with doctor' };
@@ -273,9 +258,7 @@ const getPrescriptionById = async (userId, prescriptionId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Prescription not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Prescription not found');
   }
 
   return data;
@@ -290,9 +273,7 @@ const addReportParameters = async (doctorUserId, reportId, parameters) => {
     .single();
 
   if (!doctor) {
-    const err = new Error('Doctor profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Doctor profile not found');
   }
 
   // Authorization: verify the report exists and the doctor has treated this patient
@@ -303,9 +284,7 @@ const addReportParameters = async (doctorUserId, reportId, parameters) => {
     .single();
 
   if (!report) {
-    const err = new Error('Report not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Report not found');
   }
 
   // Check doctor has an appointment or consultation with this patient
@@ -327,9 +306,7 @@ const addReportParameters = async (doctorUserId, reportId, parameters) => {
       .maybeSingle();
 
     if (!hasShare) {
-      const err = new Error('You are not authorized to update this report. You must have a patient relationship or the report must be shared with you.');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'You are not authorized to update this report. You must have a patient relationship or the report must be shared with you.');
     }
   }
 

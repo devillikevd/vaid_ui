@@ -3,6 +3,7 @@
  * Inventory, orders, analytics for pharmacy owners
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
@@ -90,9 +91,7 @@ const getPharmacyByOwner = async (userId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Pharmacy not found for this user');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Pharmacy not found for this user');
   }
 
   return data;
@@ -330,9 +329,7 @@ const createOrder = async (patientUserId, orderData) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // Batch-fetch all inventory items in one query instead of N+1

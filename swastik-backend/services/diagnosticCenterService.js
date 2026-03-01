@@ -3,6 +3,7 @@
  * Registration, management, tests catalog, appointments, and results
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
@@ -73,9 +74,7 @@ const getDiagnosticCenterById = async (id) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Diagnostic center not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Diagnostic center not found');
   }
   return data;
 };
@@ -127,9 +126,7 @@ const getDiagnosticCenterByOwner = async (userId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Diagnostic center not found for this user');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Diagnostic center not found for this user');
   }
   return data;
 };
@@ -346,9 +343,7 @@ const getBookingById = async (centerId, bookingId) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Booking not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Booking not found');
   }
   return data;
 };
@@ -375,9 +370,7 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   if (current) {
     const allowed = VALID_STATUS_TRANSITIONS[current.status] || [];
     if (!allowed.includes(status)) {
-      const err = new Error(`Cannot transition from '${current.status}' to '${status}'`);
-      err.statusCode = 400;
-      throw err;
+      throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
     }
   }
 

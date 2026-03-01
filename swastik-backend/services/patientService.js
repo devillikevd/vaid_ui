@@ -59,10 +59,6 @@ class PatientService {
     // Whitelist approach to prevent mass-assignment
     const updateFields = { updated_at: new Date().toISOString() };
     if (updateData.name !== undefined) updateFields.name = String(updateData.name).trim().slice(0, 100);
-    if (updateData.age !== undefined) {
-      // age is accepted from client but we store date_of_birth
-      // If client sends dateOfBirth directly, use that instead
-    }
     if (updateData.dateOfBirth !== undefined || updateData.date_of_birth !== undefined) {
       updateFields.date_of_birth = updateData.dateOfBirth || updateData.date_of_birth;
     }

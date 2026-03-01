@@ -253,8 +253,8 @@ class HealthCardService {
         chronicConditions: patient.chronic_conditions || [],
         currentMedications: patient.current_medications || [],
         medicalHistory: patient.medical_history || [],
-        insuranceProvider: patient.insurance_provider,
-        insuranceId: patient.insurance_id,
+        // Fix #36: Redact insurance details — PHI not needed for clinical viewing
+        insuranceProvider: patient.insurance_provider ? 'On file' : null,
       },
       prescriptions: (prescriptionsResult.data || []).map(rx => ({
         id: rx.id,
@@ -275,8 +275,7 @@ class HealthCardService {
         resultDate: r.result_date,
         status: r.status,
         doctorNotes: r.doctor_notes,
-        fileUrl: r.file_url,
-        fileSize: r.file_size,
+        // Fix #36: Do NOT expose file_url in public health card — prevents unauthenticated file access
         parameters: r.parameters,
       })),
       vitals: (vitalsResult.data || []).map(v => ({

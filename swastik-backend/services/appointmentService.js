@@ -3,6 +3,7 @@
  * Handles booking, scheduling, cancellation, and rescheduling
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 
 // Get appointments for a user (patient or doctor)
@@ -103,9 +104,7 @@ const bookAppointment = async (patientId, appointmentData) => {
     .single();
 
   if (!patient) {
-    const err = new Error('Patient profile not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Patient profile not found');
   }
 
   // Verify doctor exists
@@ -116,9 +115,7 @@ const bookAppointment = async (patientId, appointmentData) => {
     .single();
 
   if (!doctor) {
-    const err = new Error('Doctor not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Doctor not found');
   }
 
   // Atomic conflict-check + insert via PostgreSQL RPC (prevents double-booking race condition)
@@ -136,17 +133,13 @@ const bookAppointment = async (patientId, appointmentData) => {
   if (rpcError) {
     // Fallback: unique index will also catch double-booking (23505 = unique_violation)
     if (rpcError.code === '23505') {
-      const err = new Error('This time slot is already booked');
-      err.statusCode = 409;
-      throw err;
+      throw new ApiError(409, 'This time slot is already booked');
     }
     throw rpcError;
   }
 
   if (!rpcResult?.success) {
-    const err = new Error('This time slot is already booked');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'This time slot is already booked');
   }
 
   // Fetch the full appointment with relations
@@ -201,25 +194,19 @@ const getAppointmentById = async (userId, role, appointmentId) => {
     .single();
 
   if (error || !appointment) {
-    const err = new Error('Appointment not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Appointment not found');
   }
 
   // Authorization: verify requesting user is the doctor or patient of this appointment
   if (role === 'patient') {
     const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).single();
     if (!patient || appointment.patient_id !== patient.id) {
-      const err = new Error('Unauthorized to view this appointment');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this appointment');
     }
   } else if (role === 'doctor') {
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).single();
     if (!doctor || appointment.doctor_id !== doctor.id) {
-      const err = new Error('Unauthorized to view this appointment');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to view this appointment');
     }
   }
   // hospital_owner, clinic_owner, admin roles can view any appointment
@@ -254,16 +241,12 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .single();
 
   if (!current) {
-    const err = new Error('Appointment not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Appointment not found or unauthorized');
   }
 
   const allowed = VALID_TRANSITIONS[current.status];
   if (!allowed || !allowed.includes(status)) {
-    const err = new Error(`Cannot transition from '${current.status}' to '${status}'`);
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
   }
 
   const { data: appointment, error } = await supabaseAdmin
@@ -275,9 +258,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .single();
 
   if (error || !appointment) {
-    const err = new Error('Appointment not found or unauthorized');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Appointment not found or unauthorized');
   }
 
   // Resolve patient user_id for correct Socket.IO routing
@@ -317,9 +298,7 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
     .single();
 
   if (error || !appointment) {
-    const err = new Error('Appointment not found or cannot be cancelled');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Appointment not found or cannot be cancelled');
   }
 
   // Resolve doctor user_id for correct Socket.IO routing
@@ -347,32 +326,24 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .single();
 
   if (!existingAppt) {
-    const err = new Error('Appointment not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Appointment not found');
   }
 
   // Only allow rescheduling of scheduled/confirmed appointments
   if (!['scheduled', 'confirmed'].includes(existingAppt.status)) {
-    const err = new Error('Only scheduled or confirmed appointments can be rescheduled');
-    err.statusCode = 400;
-    throw err;
+    throw new ApiError(400, 'Only scheduled or confirmed appointments can be rescheduled');
   }
 
   // Authorization: verify the requesting user owns this appointment
   if (role === 'patient') {
     const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).single();
     if (!patient || existingAppt.patient_id !== patient.id) {
-      const err = new Error('Unauthorized to reschedule this appointment');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to reschedule this appointment');
     }
   } else if (role === 'doctor') {
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).single();
     if (!doctor || existingAppt.doctor_id !== doctor.id) {
-      const err = new Error('Unauthorized to reschedule this appointment');
-      err.statusCode = 403;
-      throw err;
+      throw new ApiError(403, 'Unauthorized to reschedule this appointment');
     }
   }
   // admin, hospital_owner, clinic_owner can reschedule any
@@ -388,9 +359,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .limit(1);
 
   if (conflicts && conflicts.length > 0) {
-    const err = new Error('The new time slot is already booked');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'The new time slot is already booked');
   }
 
   // Atomic update: re-check status hasn't changed since our read (TOCTOU guard)
@@ -408,9 +377,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     .single();
 
   if (error || !appointment) {
-    const err = new Error('Appointment was modified by another request. Please try again.');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'Appointment was modified by another request. Please try again.');
   }
 
   // Resolve both user_ids for correct Socket.IO routing

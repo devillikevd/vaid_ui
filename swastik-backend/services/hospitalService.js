@@ -3,6 +3,7 @@
  * Public hospital/facility discovery, search, and reviews
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 
@@ -210,9 +211,7 @@ const getHospitalById = async (id) => {
     .single();
 
   if (error || !data) {
-    const err = new Error('Hospital not found');
-    err.statusCode = 404;
-    throw err;
+    throw new ApiError(404, 'Hospital not found');
   }
 
   return data;
@@ -239,9 +238,7 @@ const addReview = async (userId, hospitalId, reviewData) => {
     .maybeSingle();
 
   if (existingReview) {
-    const err = new Error('You have already reviewed this hospital');
-    err.statusCode = 409;
-    throw err;
+    throw new ApiError(409, 'You have already reviewed this hospital');
   }
 
   const { data: review, error } = await supabaseAdmin
