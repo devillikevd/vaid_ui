@@ -288,7 +288,7 @@ const addManager = async (hospitalId, userId, managerData) => {
   // Find user by email
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, name, email')
+    .select('id, name, email, role')
     .eq('email', email)
     .single();
 

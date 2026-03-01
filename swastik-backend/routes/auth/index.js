@@ -197,45 +197,14 @@ router.get('/me',
 // Update current user profile
 router.put('/me',
   authenticate,
+  [
+    body('name').optional().isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
+    body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+  ],
+  validate,
   asyncHandler(async (req, res) => {
-    const { supabaseAdmin } = require('../../config/supabase');
-    const { name, phone } = req.body;
-
-    if (!name && !phone) {
-      return res.status(400).json({ success: false, message: 'No valid fields to update' });
-    }
-
-    // Update phone on users table if provided
-    if (phone) {
-      const { error } = await supabaseAdmin
-        .from('users')
-        .update({ phone })
-        .eq('id', req.user.id);
-      if (error) throw error;
-    }
-
-    // Update name in role-specific table if provided
-    if (name) {
-      const roleTableMap = {
-        patient: { table: 'patients', col: 'user_id' },
-        doctor: { table: 'doctors', col: 'user_id' },
-        hospital_owner: { table: 'users', col: 'id' },
-        hospital_manager: { table: 'hospital_managers', col: 'user_id' },
-        pharmacy_owner: { table: 'users', col: 'id' },
-        clinic_owner: { table: 'users', col: 'id' },
-        diagnostic_center_owner: { table: 'users', col: 'id' },
-        ambulance_operator: { table: 'ambulance_operators', col: 'user_id' },
-        ambulance_driver: { table: 'users', col: 'id' },
-        admin: { table: 'admins', col: 'user_id' },
-        super_admin: { table: 'admins', col: 'user_id' },
-      };
-      const mapping = roleTableMap[req.user.role];
-      if (mapping) {
-        await supabaseAdmin.from(mapping.table).update({ name }).eq(mapping.col, req.user.id);
-      }
-    }
-
-    res.json({ success: true, message: 'Profile updated' });
+    const result = await authService.updateProfile(req.user.id, req.user.role, req.body);
+    res.json({ success: true, ...result });
   })
 );
 

@@ -8,10 +8,10 @@ const eventEmitter = require('./eventEmitter');
 const config = require('../config');
 
 // Redis client for doctor AI rate limiting
-let redis;
+let cacheIncr;
 try {
-  redis = require('../config/redis');
-} catch { redis = null; }
+  ({ cacheIncr } = require('../config/redis'));
+} catch { cacheIncr = null; }
 
 // MongoDB for doctor AI conversation memory + audit trail
 let getDb;
@@ -512,11 +512,10 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
   }
 
   // 2. Rate limit: 50 AI requests per doctor per day
-  if (redis) {
+  if (cacheIncr) {
     const rateLimitKey = `doctor_ai:${doctorUserId}:${new Date().toISOString().slice(0, 10)}`;
-    const count = await redis.incr(rateLimitKey);
-    if (count === 1) await redis.expire(rateLimitKey, 86400);
-    if (count > 50) {
+    const count = await cacheIncr(rateLimitKey, 86400);
+    if (count !== null && count > 50) {
       throw new ApiError(429, 'Daily AI assistant limit reached (50/day). Resets at midnight.');
     }
   }

@@ -168,9 +168,10 @@ router.post('/vitals',
       userId: req.user.id,
       vital: data,
     });
-    // Also notify via Socket.IO to any listening doctor
+    // Notify only the patient's own doctors via Socket.IO (scoped, not global broadcast)
     if (eventEmitter.io) {
-      eventEmitter.io.emit('vitals:new', {
+      // Emit to the patient's own room so only their connected doctors receive it
+      eventEmitter.io.to(`patient:${req.user.id}`).emit('vitals:new', {
         patientId: patient.id,
         vital: data,
       });

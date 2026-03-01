@@ -544,6 +544,42 @@ const resetPassword = async (token, newPassword) => {
   }
 };
 
+// Update current user profile (name, phone)
+const updateProfile = async (userId, role, updates) => {
+  const { name, phone } = updates;
+  if (!name && !phone) {
+    throw new ApiError(400, 'No valid fields to update');
+  }
+
+  // Update phone on users table
+  if (phone) {
+    const { error } = await supabaseAdmin.from('users').update({ phone }).eq('id', userId);
+    if (error) throw error;
+  }
+
+  // Update name in role-specific table (and always on users table for consistency)
+  if (name) {
+    // Always update users.name as the canonical display name
+    await supabaseAdmin.from('users').update({ name }).eq('id', userId);
+
+    // Also update role-specific profile table if applicable
+    const roleTableMap = {
+      patient: 'patients',
+      doctor: 'doctors',
+      hospital_manager: 'hospital_managers',
+      ambulance_operator: 'ambulance_operators',
+      admin: 'admins',
+      super_admin: 'admins',
+    };
+    const profileTable = roleTableMap[role];
+    if (profileTable) {
+      await supabaseAdmin.from(profileTable).update({ name }).eq('user_id', userId);
+    }
+  }
+
+  return { message: 'Profile updated' };
+};
+
 module.exports = {
   register,
   login,
@@ -554,4 +590,5 @@ module.exports = {
   changePassword,
   forgotPassword,
   resetPassword,
+  updateProfile,
 };

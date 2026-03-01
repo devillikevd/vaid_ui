@@ -252,8 +252,34 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
   };
 };
 
+// Valid order status transitions
+const ORDER_STATUS_TRANSITIONS = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['processing', 'cancelled'],
+  processing: ['ready', 'cancelled'],
+  ready: ['dispatched', 'delivered', 'cancelled'],
+  dispatched: ['delivered'],
+  delivered: [],
+  cancelled: [],
+};
+
 // Update order status
 const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => {
+  // Fetch current order to validate transition
+  const { data: current, error: fetchError } = await supabaseAdmin
+    .from('pharmacy_orders')
+    .select('status')
+    .eq('id', orderId)
+    .eq('pharmacy_id', pharmacyId)
+    .single();
+
+  if (fetchError || !current) throw new ApiError(404, 'Order not found');
+
+  const allowed = ORDER_STATUS_TRANSITIONS[current.status] || [];
+  if (!allowed.includes(status)) {
+    throw new ApiError(400, `Cannot transition order from '${current.status}' to '${status}'`);
+  }
+
   const { data, error } = await supabaseAdmin
     .from('pharmacy_orders')
     .update({

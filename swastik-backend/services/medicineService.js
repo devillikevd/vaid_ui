@@ -105,13 +105,16 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
   // Filter by distance
   return inventory
     .filter(i => i.pharmacy?.latitude && i.pharmacy?.longitude)
-    .map(i => ({
-      pharmacy: i.pharmacy,
-      quantity: i.quantity,
-      price: i.price,
-      distance: calculateDistance({ latitude, longitude }, { latitude: i.pharmacy.latitude, longitude: i.pharmacy.longitude }),
-      distanceText: formatDistance(calculateDistance({ latitude, longitude }, { latitude: i.pharmacy.latitude, longitude: i.pharmacy.longitude })),
-    }))
+    .map(i => {
+      const dist = calculateDistance({ latitude, longitude }, { latitude: i.pharmacy.latitude, longitude: i.pharmacy.longitude });
+      return {
+        pharmacy: i.pharmacy,
+        quantity: i.quantity,
+        price: i.price,
+        distance: dist,
+        distanceText: formatDistance(dist),
+      };
+    })
     .filter(i => i.distance <= radius)
     .sort((a, b) => a.distance - b.distance);
 };

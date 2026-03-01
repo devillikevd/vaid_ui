@@ -543,6 +543,53 @@ const getSystemHealth = async () => {
   };
 };
 
+// Valid emergency status transitions
+const EMERGENCY_STATUS_TRANSITIONS = {
+  pending: ['assigned', 'dispatched', 'cancelled'],
+  assigned: ['dispatched', 'en_route', 'cancelled'],
+  dispatched: ['en_route', 'cancelled'],
+  en_route: ['arrived', 'cancelled'],
+  arrived: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+// Update emergency status with state machine validation
+const updateEmergencyStatus = async (emergencyId, status, adminId) => {
+  const { data: current, error: fetchError } = await supabaseAdmin
+    .from('emergency_requests')
+    .select('status')
+    .eq('id', emergencyId)
+    .single();
+
+  if (fetchError || !current) throw new ApiError(404, 'Emergency request not found');
+
+  const allowed = EMERGENCY_STATUS_TRANSITIONS[current.status] || [];
+  if (!allowed.includes(status)) {
+    throw new ApiError(400, `Cannot transition emergency from '${current.status}' to '${status}'`);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('emergency_requests')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', emergencyId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+
+  logAudit({
+    userId: adminId,
+    userRole: 'admin',
+    action: 'emergency.status_update',
+    entityType: 'emergency_request',
+    entityId: emergencyId,
+    details: { from: current.status, to: status },
+  });
+
+  return { data, message: `Emergency status updated to '${status}'` };
+};
+
 module.exports = {
   getDashboard,
   getPendingApprovals,
@@ -556,6 +603,7 @@ module.exports = {
   updateUserStatus,
   getActiveEmergencies,
   reassignEmergency,
+  updateEmergencyStatus,
   getExpiringDocuments,
   getAnalytics,
   getAuditLogs,

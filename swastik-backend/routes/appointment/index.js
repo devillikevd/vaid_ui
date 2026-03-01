@@ -108,6 +108,10 @@ router.delete('/:id',
 
 // Cancel appointment via PUT (Android app compatibility)
 router.put('/:id/cancel',
+  [
+    body('reason').optional().isString(),
+  ],
+  validate,
   asyncHandler(async (req, res) => {
     if (req.user.role !== 'patient') {
       return res.status(403).json({ success: false, message: 'Only patients can cancel their appointments' });

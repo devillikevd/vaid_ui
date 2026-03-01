@@ -213,19 +213,8 @@ router.patch('/emergencies/:id/status', [
 ], asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-
-    const { supabaseAdmin } = require('../config/supabase');
-
-    const { data, error } = await supabaseAdmin
-        .from('emergency_requests')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) throw error;
-
-    res.json({ success: true, data });
+    const result = await enhancedAdminService.updateEmergencyStatus(id, status, req.user.id);
+    res.json({ success: true, ...result });
 }));
 
 // ==================== COMPLIANCE ====================
