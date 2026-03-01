@@ -6,6 +6,17 @@
 const nodemailer = require('nodemailer');
 const config = require('../config');
 
+// Fix #11: HTML escape utility to prevent XSS in email templates
+const escapeHtml = (str) => {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // ==================== Transporter Setup ====================
 let transporter = null;
 let initFailed = false;
@@ -84,7 +95,7 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
       </div>
       
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-        <h2 style="color: #1f2937; margin-top: 0;">Welcome, ${name}! 👋</h2>
+        <h2 style="color: #1f2937; margin-top: 0;">Welcome, ${escapeHtml(name)}! 👋</h2>
         <p style="color: #4b5563; line-height: 1.6;">
           Thank you for joining Swastik Healthcare. To get started, please verify your email address by clicking the button below:
         </p>
@@ -115,7 +126,7 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
     to: email,
     subject: 'Verify Your Email — Swastik Healthcare',
     html,
-    text: `Welcome to Swastik Healthcare, ${name}! Verify your email by visiting: ${verifyUrl}`,
+    text: `Welcome to Swastik Healthcare, ${escapeHtml(name)}! Verify your email by visiting: ${verifyUrl}`,
   });
 };
 
@@ -134,7 +145,7 @@ const sendPasswordResetEmail = async (email, name, resetToken) => {
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
         <h2 style="color: #1f2937; margin-top: 0;">Password Reset Request</h2>
         <p style="color: #4b5563; line-height: 1.6;">
-          Hi ${name || 'there'}, we received a request to reset your password. Click the button below to set a new one:
+          Hi ${escapeHtml(name || 'there')}, we received a request to reset your password. Click the button below to set a new one:
         </p>
         
         <div style="text-align: center; margin: 30px 0;">
@@ -178,8 +189,8 @@ const sendNotificationEmail = async (email, name, notification) => {
       </div>
       
       <div style="background: #ffffff; padding: 25px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-        <h2 style="color: #1f2937; margin-top: 0;">${notification.title}</h2>
-        <p style="color: #4b5563; line-height: 1.6;">${notification.message}</p>
+        <h2 style="color: #1f2937; margin-top: 0;">${escapeHtml(notification.title)}</h2>
+        <p style="color: #4b5563; line-height: 1.6;">${escapeHtml(notification.message)}</p>
         
         <div style="text-align: center; margin: 25px 0;">
           <a href="${config.frontendWebUrl}" 
@@ -218,7 +229,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
       emoji: '❌',
       color: '#DC2626',
       title: 'Account Not Approved',
-      message: `Unfortunately, your ${role.replace(/_/g, ' ')} account was not approved at this time.${notes ? ` Reason: ${notes}` : ''}`,
+      message: `Unfortunately, your ${role.replace(/_/g, ' ')} account was not approved at this time.${notes ? ` Reason: ${escapeHtml(notes)}` : ''}`,
     },
     review: {
       emoji: '🔍',
@@ -242,7 +253,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
         </div>
         <h2 style="color: ${cfg.color}; text-align: center; margin-top: 0;">${cfg.title}</h2>
         <p style="color: #4b5563; line-height: 1.6; text-align: center;">
-          Hi ${name}, ${cfg.message}
+          Hi ${escapeHtml(name)}, ${cfg.message}
         </p>
         
         ${status === 'approved' ? `

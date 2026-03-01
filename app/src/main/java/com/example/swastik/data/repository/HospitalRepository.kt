@@ -86,25 +86,29 @@ class HospitalRepository @Inject constructor(
         longitude: Double,
         radius: Int = 5
     ): List<MedicalFacility> {
-        val response = apiService.getPharmaciesFromHospitals(latitude, longitude, radius)
-        if (response.isSuccessful && response.body()?.success == true) {
-            return response.body()?.data?.map { pharmacy ->
-                val distKm = pharmacy.distance?.toDouble() ?: 0.0
-                MedicalFacility(
-                    id = pharmacy.id,
-                    name = pharmacy.name,
-                    type = FacilityType.MEDICAL_STORE,
-                    address = pharmacy.address ?: "",
-                    distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
-                    distanceKm = distKm,
-                    rating = pharmacy.rating ?: 0f,
-                    reviewCount = pharmacy.totalReviews ?: 0,
-                    latitude = pharmacy.latitude ?: 0.0,
-                    longitude = pharmacy.longitude ?: 0.0,
-                    phone = pharmacy.phone ?: "",
-                    isOpen = pharmacy.isOpen ?: true
-                )
-            } ?: emptyList()
+        try {
+            val response = apiService.getPharmaciesFromHospitals(latitude, longitude, radius)
+            if (response.isSuccessful && response.body()?.success == true) {
+                return response.body()?.data?.map { pharmacy ->
+                    val distKm = pharmacy.distance?.toDouble() ?: 0.0
+                    MedicalFacility(
+                        id = pharmacy.id,
+                        name = pharmacy.name,
+                        type = FacilityType.MEDICAL_STORE,
+                        address = pharmacy.address ?: "",
+                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distanceKm = distKm,
+                        rating = pharmacy.rating ?: 0f,
+                        reviewCount = pharmacy.totalReviews ?: 0,
+                        latitude = pharmacy.latitude ?: 0.0,
+                        longitude = pharmacy.longitude ?: 0.0,
+                        phone = pharmacy.phone ?: "",
+                        isOpen = pharmacy.isOpen ?: true
+                    )
+                } ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Network error for pharmacies: ${e.message}")
         }
         return emptyList()
     }
@@ -117,26 +121,30 @@ class HospitalRepository @Inject constructor(
         longitude: Double,
         radius: Int = 5
     ): List<MedicalFacility> {
-        val response = apiService.getClinicsFromHospitals(latitude, longitude, radius)
-        if (response.isSuccessful && response.body()?.success == true) {
-            return response.body()?.data?.map { clinic ->
-                val distKm = clinic.distance?.toDouble() ?: 0.0
-                MedicalFacility(
-                    id = clinic.id,
-                    name = clinic.name,
-                    type = FacilityType.CLINIC,
-                    address = clinic.address ?: "",
-                    distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
-                    distanceKm = distKm,
-                    rating = clinic.rating ?: 0f,
-                    reviewCount = clinic.totalReviews ?: 0,
-                    latitude = clinic.latitude ?: 0.0,
-                    longitude = clinic.longitude ?: 0.0,
-                    phone = clinic.phone ?: "",
-                    isOpen = clinic.is24Hours ?: true,
-                    specializations = clinic.specializations ?: emptyList()
-                )
-            } ?: emptyList()
+        try {
+            val response = apiService.getClinicsFromHospitals(latitude, longitude, radius)
+            if (response.isSuccessful && response.body()?.success == true) {
+                return response.body()?.data?.map { clinic ->
+                    val distKm = clinic.distance?.toDouble() ?: 0.0
+                    MedicalFacility(
+                        id = clinic.id,
+                        name = clinic.name,
+                        type = FacilityType.CLINIC,
+                        address = clinic.address ?: "",
+                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distanceKm = distKm,
+                        rating = clinic.rating ?: 0f,
+                        reviewCount = clinic.totalReviews ?: 0,
+                        latitude = clinic.latitude ?: 0.0,
+                        longitude = clinic.longitude ?: 0.0,
+                        phone = clinic.phone ?: "",
+                        isOpen = clinic.is24Hours ?: true,
+                        specializations = clinic.specializations ?: emptyList()
+                    )
+                } ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Network error for clinics: ${e.message}")
         }
         return emptyList()
     }
@@ -149,27 +157,31 @@ class HospitalRepository @Inject constructor(
         longitude: Double,
         radius: Int = 10
     ): List<MedicalFacility> {
-        val response = apiService.getDiagnosticCenters(latitude, longitude, radius)
-        if (response.isSuccessful && response.body()?.success == true) {
-            return response.body()?.data?.map { center ->
-                val distKm = center.distance?.toDouble() ?: 0.0
-                MedicalFacility(
-                    id = center.id,
-                    name = center.name,
-                    type = FacilityType.DIAGNOSTIC_CENTER,
-                    address = center.address ?: "",
-                    distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
-                    distanceKm = distKm,
-                    rating = center.rating ?: 0f,
-                    reviewCount = center.totalReviews ?: 0,
-                    latitude = center.latitude ?: 0.0,
-                    longitude = center.longitude ?: 0.0,
-                    phone = center.phone ?: "",
-                    isOpen = center.is24Hours ?: true,
-                    isEmergencyAvailable = center.emergencyServices ?: false,
-                    specializations = center.specialties ?: emptyList()
-                )
-            } ?: emptyList()
+        try {
+            val response = apiService.getDiagnosticCenters(latitude, longitude, radius)
+            if (response.isSuccessful && response.body()?.success == true) {
+                return response.body()?.data?.map { center ->
+                    val distKm = center.distance?.toDouble() ?: 0.0
+                    MedicalFacility(
+                        id = center.id,
+                        name = center.name,
+                        type = FacilityType.DIAGNOSTIC_CENTER,
+                        address = center.address ?: "",
+                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distanceKm = distKm,
+                        rating = center.rating ?: 0f,
+                        reviewCount = center.totalReviews ?: 0,
+                        latitude = center.latitude ?: 0.0,
+                        longitude = center.longitude ?: 0.0,
+                        phone = center.phone ?: "",
+                        isOpen = center.is24Hours ?: true,
+                        isEmergencyAvailable = center.emergencyServices ?: false,
+                        specializations = center.specialties ?: emptyList()
+                    )
+                } ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Network error for diagnostic centers: ${e.message}")
         }
         return emptyList()
     }

@@ -23,6 +23,8 @@ class EmergencyAlertManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private var mediaPlayer: MediaPlayer? = null
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val autoStopRunnable = Runnable { stopAlert() }
 
     /** Vibration pattern: wait 0ms, vibrate 400ms, pause 200ms, vibrate 400ms, pause 200ms, vibrate 400ms */
     private val vibrationPattern = longArrayOf(0, 400, 200, 400, 200, 400)
@@ -101,9 +103,9 @@ class EmergencyAlertManager @Inject constructor(
             }
 
             // Auto-stop after 5 seconds to avoid indefinite ringing
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                stopAlert()
-            }, 5_000)
+            // Cancel any previous auto-stop so a rapid re-trigger doesn't kill the new alert
+            handler.removeCallbacks(autoStopRunnable)
+            handler.postDelayed(autoStopRunnable, 5_000)
         } catch (e: Exception) {
             Log.w(TAG, "Alert sound failed", e)
         }

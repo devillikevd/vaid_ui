@@ -360,9 +360,10 @@ class VideoConsultationViewModel @Inject constructor(
 
             when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
                 is Result.Success -> {
+                    // REST join succeeded. Don't set isConnected=true yet —
+                    // the WebRTC ICE callback will set it when peer-to-peer connects.
                     _uiState.value = _uiState.value.copy(
                         isConnecting = false,
-                        isConnected = true,
                         session = result.data
                     )
                 }

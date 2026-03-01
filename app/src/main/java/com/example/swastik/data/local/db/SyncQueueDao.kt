@@ -42,4 +42,8 @@ interface SyncQueueDao {
     /** Actions that have failed too many times (> maxRetries) */
     @Query("SELECT * FROM pending_sync_actions WHERE status = 'failed' AND retryCount > :maxRetries")
     suspend fun getExhaustedActions(maxRetries: Int = 5): List<PendingSyncAction>
+
+    /** Reset orphaned in_progress actions back to pending (e.g., after app crash during sync) */
+    @Query("UPDATE pending_sync_actions SET status = 'pending' WHERE status = 'in_progress'")
+    suspend fun resetStuckInProgress()
 }

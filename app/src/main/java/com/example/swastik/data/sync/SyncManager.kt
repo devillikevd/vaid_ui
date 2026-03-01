@@ -11,6 +11,8 @@ import com.example.swastik.utils.NetworkObserver
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,16 +40,26 @@ class SyncManager @Inject constructor(
     private val gson = Gson()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var syncJob: Job? = null
+    /** Mutex prevents concurrent drainQueue() calls from causing duplicate API requests */
+    private val drainMutex = Mutex()
 
     /** Pending action count observable */
     val pendingCount: Flow<Int> = syncQueueDao.getPendingCount()
 
     /**
      * Start observing network changes. Call once from Application or Activity.
+     * Also recovers any orphaned in_progress actions from a prior crash.
      */
     fun startObserving() {
         syncJob?.cancel()
         syncJob = scope.launch {
+            // Recover orphaned in_progress items that never completed (e.g., app crash)
+            try {
+                syncQueueDao.resetStuckInProgress()
+                Log.d(TAG, "Reset any orphaned in_progress actions to pending")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to reset orphaned actions: ${e.message}")
+            }
             networkObserver.observe().collect { isConnected ->
                 if (isConnected) {
                     Log.d(TAG, "Network available — draining sync queue")
@@ -59,8 +71,9 @@ class SyncManager @Inject constructor(
 
     /**
      * Manually trigger a queue drain (e.g., on app foreground).
+     * Protected by a Mutex to prevent duplicate API calls from concurrent invocations.
      */
-    suspend fun drainQueue() {
+    suspend fun drainQueue() = drainMutex.withLock {
         val pending = syncQueueDao.getPendingActions()
         if (pending.isEmpty()) return
 

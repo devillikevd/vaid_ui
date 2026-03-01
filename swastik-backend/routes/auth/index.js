@@ -7,8 +7,27 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 
 const router = express.Router();
 
+// Fix #19: Redis-backed rate limiter for sensitive auth routes
+const { cacheGet, cacheSet } = require('../../config/redis');
+const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
+  return asyncHandler(async (req, res, next) => {
+    const identifier = req.body.email || req.ip;
+    const key = `ratelimit:${keyPrefix}:${identifier}`;
+    const current = parseInt(await cacheGet(key)) || 0;
+    if (current >= maxAttempts) {
+      return res.status(429).json({
+        success: false,
+        message: `Too many attempts. Please try again in ${Math.ceil(windowSeconds / 60)} minutes.`,
+      });
+    }
+    await cacheSet(key, (current + 1).toString(), windowSeconds);
+    next();
+  });
+};
+
 // Register
 router.post('/register',
+  authRateLimit(5, 3600, 'register'), // 5 attempts per hour
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
@@ -37,6 +56,7 @@ router.post('/register',
 
 // Login
 router.post('/login',
+  authRateLimit(10, 900, 'login'), // 10 attempts per 15 min
   [
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
@@ -131,6 +151,7 @@ router.post('/change-password',
 
 // Forgot password
 router.post('/forgot-password',
+  authRateLimit(3, 3600, 'forgot'), // 3 attempts per hour
   [
     body('email').isEmail().withMessage('Valid email is required'),
   ],
@@ -146,6 +167,7 @@ router.post('/forgot-password',
 
 // Reset password
 router.post('/reset-password',
+  authRateLimit(5, 3600, 'reset'), // 5 attempts per hour
   [
     body('token').notEmpty().withMessage('Token is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),

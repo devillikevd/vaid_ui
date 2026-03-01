@@ -4,7 +4,8 @@ import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.local.db.SwastikDatabase
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.SocketManager
-import com.example.swastik.data.remote.dto.*import kotlinx.coroutines.flow.Flow
+import com.example.swastik.data.remote.dto.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,7 +19,8 @@ class AuthRepository @Inject constructor(
     private val apiService: ApiService,
     private val tokenManager: TokenManager,
     private val socketManager: SocketManager,
-    private val database: SwastikDatabase
+    private val database: SwastikDatabase,
+    private val chatbotRepository: ChatbotRepository
 ) {
 
     /**
@@ -123,6 +125,7 @@ class AuthRepository @Inject constructor(
         } finally {
             tokenManager.clearAll()
             socketManager.disconnect()
+            chatbotRepository.clearSession()
             // Clear all Room DB caches
             try {
                 database.doctorDao().clearAll()
@@ -165,6 +168,59 @@ class AuthRepository @Inject constructor(
      * Get current user name.
      */
     fun getUserName(): String? = tokenManager.userName
+
+    /**
+     * Get current user name.
+     */
+    fun getUserName(): String? = tokenManager.userName
+
+    /**
+     * Get current authenticated user from the server.
+     * GET /api/auth/me
+     */
+    suspend fun getCurrentUser(): Result<com.example.swastik.data.remote.dto.UserDto> {
+        return try {
+            val response = apiService.getCurrentUser()
+            if (response.isSuccessful && response.body()?.success == true) {
+                val user = response.body()?.data
+                if (user != null) {
+                    // Update cached user info
+                    tokenManager.saveUserInfo(
+                        userId = user.id,
+                        role = user.role,
+                        name = user.name ?: "",
+                        phone = user.phone
+                    )
+                    Result.Success(user)
+                } else {
+                    Result.Error("User data not found")
+                }
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to fetch user")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Reset password with token from email link.
+     * POST /api/auth/reset-password
+     */
+    suspend fun resetPassword(token: String, newPassword: String): Result<Boolean> {
+        return try {
+            val response = apiService.resetPassword(
+                com.example.swastik.data.remote.dto.ResetPasswordRequest(token = token, newPassword = newPassword)
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(true)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to reset password")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
 
     private fun parseErrorMessage(errorBody: String?): String? {
         if (errorBody == null) return null

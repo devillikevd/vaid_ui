@@ -93,7 +93,7 @@ class DoctorService {
   async getDashboard(userId) {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
-      .select('id, name, specialization, is_available')
+      .select('id, name, specialization, is_available, consultation_fee')
       .eq('user_id', userId)
       .single();
 

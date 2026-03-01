@@ -97,6 +97,7 @@ class MedicineRepository @Inject constructor(
                 // Cache popular medicines
                 if (medicines.isNotEmpty()) {
                     try {
+                        medicineDao.deleteStaleCache(System.currentTimeMillis() - CACHE_DURATION_MS)
                         val cached = medicines.map { it.toCachedMedicine() }
                         medicineDao.insertMedicines(cached)
                     } catch (e: Exception) {
@@ -268,7 +269,7 @@ class MedicineRepository @Inject constructor(
         name = name,
         genericName = genericName,
         manufacturer = manufacturer,
-        price = price?.toInt(),
+        price = price?.toDouble(),
         category = category.name,
         description = description,
         requiresPrescription = requiresPrescription

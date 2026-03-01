@@ -41,6 +41,15 @@ fun ProfileScreen(
     onRefresh: () -> Unit
 ) {
     var showPasswordDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show success snackbar when password is changed
+    LaunchedEffect(profileState.passwordChangeSuccess) {
+        if (profileState.passwordChangeSuccess) {
+            showPasswordDialog = false
+            snackbarHostState.showSnackbar("✅ Password changed successfully")
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -52,7 +61,8 @@ fun ProfileScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         if (profileState.isLoading && profileState.user == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -257,13 +267,6 @@ fun ProfileScreen(
                 onChangePassword(current, newPwd)
             }
         )
-    }
-
-    // Close dialog on success
-    LaunchedEffect(profileState.passwordChangeSuccess) {
-        if (profileState.passwordChangeSuccess) {
-            showPasswordDialog = false
-        }
     }
 }
 

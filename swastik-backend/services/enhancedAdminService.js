@@ -17,26 +17,16 @@ const PROVIDER_TABLES = {
   ambulance: 'ambulance_operators',
 };
 
-// Dashboard
+// Dashboard — Fix #34: Use Promise.allSettled to survive individual query failures
+// Fix #42: Cache dashboard counts for 60 seconds
 const getDashboard = async () => {
-  const [
-    { count: totalUsers },
-    { count: totalDoctors },
-    { count: totalPatients },
-    { count: totalHospitals },
-    { count: totalPharmacies },
-    { count: totalClinics },
-    { count: totalDiagnosticCenters },
-    { count: totalAmbulances },
-    { count: totalAppointments },
-    { count: pendingDoctors },
-    { count: pendingHospitals },
-    { count: pendingPharmacies },
-    { count: pendingClinics },
-    { count: pendingDiagnosticCenters },
-    { count: pendingAmbulances },
-    { count: activeEmergencies },
-  ] = await Promise.all([
+  // Check cache first
+  const cached = await cacheGet('admin:dashboard');
+  if (cached) return cached;
+
+  const safeCount = (result) => (result.status === 'fulfilled' ? result.value.count || 0 : 0);
+
+  const results = await Promise.allSettled([
     supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }),
     supabaseAdmin.from('patients').select('*', { count: 'exact', head: true }),
@@ -54,6 +44,13 @@ const getDashboard = async () => {
     supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
     supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ['pending', 'assigned', 'dispatched', 'en_route_pickup']),
   ]);
+
+  const [
+    totalUsers, totalDoctors, totalPatients, totalHospitals,
+    totalPharmacies, totalClinics, totalDiagnosticCenters, totalAmbulances,
+    totalAppointments, pendingDoctors, pendingHospitals, pendingPharmacies,
+    pendingClinics, pendingDiagnosticCenters, pendingAmbulances, activeEmergencies,
+  ] = results.map(safeCount);
 
   const pendingTotal = (pendingDoctors || 0) + (pendingHospitals || 0) + (pendingPharmacies || 0)
     + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingAmbulances || 0);

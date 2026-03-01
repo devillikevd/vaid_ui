@@ -236,19 +236,7 @@ router.patch('/owner/bookings/:bookingId/status', requireRole(ROLES.DIAGNOSTIC_C
         { cancelledBy: req.user.id, reason: req.body.reason }
     );
 
-    // Notify patient of status change via Socket.IO
-    if (updated?.patient_id) {
-        const eventEmitter = require('../services/eventEmitter');
-        const { data: patientRow } = await require('../config/supabase').supabaseAdmin
-            .from('patients').select('user_id').eq('id', updated.patient_id).single();
-        if (patientRow) {
-            eventEmitter.emitDiagnosticBookingStatusUpdated({
-                ...updated,
-                patient_id: patientRow.user_id,
-                message: `Booking status updated to ${req.body.status}`,
-            });
-        }
-    }
+    // Fix #29: Removed duplicate notification — updateBookingStatus() already emits via eventEmitter
 
     res.json({ success: true, data: updated });
 }));

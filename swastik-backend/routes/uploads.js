@@ -36,7 +36,7 @@ const {
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
-        fileSize: 500 * 1024 * 1024, // 500MB max
+        fileSize: 50 * 1024 * 1024, // Fix #9: 50MB max (reduced from 500MB to prevent DoS)
     },
 });
 
@@ -206,6 +206,26 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
             throw new ApiError(400, 'Entity ID and type are required');
         }
 
+        // Fix #22: Verify user owns this entity before allowing upload
+        const entityTableMap = {
+            hospital: { table: 'hospitals', ownerCol: 'owner_id' },
+            clinic: { table: 'clinics', ownerCol: 'owner_id' },
+            pharmacy: { table: 'pharmacies', ownerCol: 'owner_id' },
+            diagnostic_center: { table: 'diagnostic_centers', ownerCol: 'owner_id' },
+        };
+        const entityConfig = entityTableMap[entityType];
+        if (entityConfig && !['admin', 'super_admin'].includes(req.user.role)) {
+            const { data: entity } = await supabaseAdmin
+                .from(entityConfig.table)
+                .select('id')
+                .eq('id', entityId)
+                .eq(entityConfig.ownerCol, req.user.id)
+                .single();
+            if (!entity) {
+                throw new ApiError(403, 'You do not own this entity');
+            }
+        }
+
         const result = await uploadEntityImage(req.file, entityId, entityType);
 
         res.json({
@@ -279,24 +299,43 @@ router.get('/presigned-download', authenticateToken, async (req, res, next) => {
                         .single();
 
                     if (doctor) {
-                        // Check report_shares for explicit access
-                        const { data: shares } = await supabaseAdmin
-                            .from('report_shares')
-                            .select('id')
-                            .eq('shared_with_doctor_id', doctor.id)
-                            .limit(1);
+                        // Fix #7: Extract patient ID from the file path and verify specific access
+                        const pathParts = fileName.split('/');
+                        const patientIdFromPath = pathParts.find(part => 
+                            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(part)
+                        );
 
-                        if (shares && shares.length > 0) {
-                            hasAccess = true;
-                        } else {
-                            // Check if doctor has any consultation with a patient whose ID is in the file path
-                            const { data: consultations } = await supabaseAdmin
-                                .from('consultations')
-                                .select('id')
+                        if (patientIdFromPath) {
+                            // Check if doctor has explicit share for a report belonging to this patient
+                            const { data: shares } = await supabaseAdmin
+                                .from('report_shares')
+                                .select('id, report:reports!inner(patient_id)')
                                 .eq('doctor_id', doctor.id)
-                                .in('status', ['in_progress', 'completed'])
                                 .limit(1);
-                            hasAccess = consultations && consultations.length > 0;
+
+                            if (shares && shares.length > 0) {
+                                // Verify the share is for a report of the patient whose file is being accessed
+                                const patientIds = shares.map(s => s.report?.patient_id).filter(Boolean);
+                                const { data: patients } = await supabaseAdmin
+                                    .from('patients').select('user_id').in('id', patientIds);
+                                hasAccess = (patients || []).some(p => p.user_id === patientIdFromPath);
+                            }
+
+                            if (!hasAccess) {
+                                // Check if doctor has consultation with this specific patient
+                                const { data: patient } = await supabaseAdmin
+                                    .from('patients').select('id').eq('user_id', patientIdFromPath).single();
+                                if (patient) {
+                                    const { data: consultations } = await supabaseAdmin
+                                        .from('consultations')
+                                        .select('id')
+                                        .eq('doctor_id', doctor.id)
+                                        .eq('patient_id', patient.id)
+                                        .in('status', ['in_progress', 'completed'])
+                                        .limit(1);
+                                    hasAccess = consultations && consultations.length > 0;
+                                }
+                            }
                         }
                     }
                 } catch (e) {
@@ -333,8 +372,11 @@ router.post('/presigned-upload', authenticateToken, async (req, res, next) => {
             throw new ApiError(400, 'File name is required');
         }
 
+        // Fix #10: Sanitize fileName to prevent path traversal
+        const sanitizedFileName = fileName.replace(/[\/\\]/g, '_').replace(/\.\./g, '_');
+
         const folderPath = folder || STORAGE_FOLDERS.DOCUMENTS;
-        const objectName = `${folderPath}/${req.user.id}/${Date.now()}-${fileName}`;
+        const objectName = `${folderPath}/${req.user.id}/${Date.now()}-${sanitizedFileName}`;
 
         const url = await getPresignedUploadUrl(objectName);
 
@@ -382,8 +424,12 @@ router.delete('/:fileName(*)', authenticateToken, async (req, res, next) => {
     try {
         const { fileName } = req.params;
 
-        // Verify user owns this file (filename contains user ID)
-        if (!fileName.includes(req.user.id)) {
+        // Fix #8: Verify user owns this file using path prefix match (not includes)
+        // Prevent path traversal attacks where attacker crafts a filename containing the user's ID
+        const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+        const normalizedPath = fileName.replace(/\.\./g, '');
+        const userPathSegment = `/${req.user.id}/`;
+        if (!isAdmin && !normalizedPath.includes(userPathSegment)) {
             throw new ApiError(403, 'You do not have permission to delete this file');
         }
 

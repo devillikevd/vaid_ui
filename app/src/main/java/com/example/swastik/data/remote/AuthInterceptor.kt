@@ -31,7 +31,7 @@ class AuthInterceptor @Inject constructor(
 
         // Skip auth header for login/register/public endpoints
         val path = originalRequest.url.encodedPath
-        if (path.contains("auth/login") || path.contains("auth/register") || path.contains("auth/forgot-password") || path.contains("auth/resend-verification") || path.contains("auth/verify-email")) {
+        if (path.endsWith("auth/login") || path.endsWith("auth/register") || path.endsWith("auth/forgot-password") || path.endsWith("auth/resend-verification") || path.endsWith("auth/verify-email")) {
             return chain.proceed(originalRequest)
         }
 
@@ -48,7 +48,7 @@ class AuthInterceptor @Inject constructor(
         val response = chain.proceed(request)
 
         // If 401 Unauthorized, attempt token refresh (thread-safe)
-        if (response.code == 401 && !path.contains("auth/refresh-token")) {
+        if (response.code == 401 && !path.endsWith("auth/refresh-token")) {
             response.close()
 
             // Synchronize refresh: only one thread refreshes at a time

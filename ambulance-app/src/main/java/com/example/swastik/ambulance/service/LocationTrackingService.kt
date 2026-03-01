@@ -39,6 +39,8 @@ class LocationTrackingService : Service() {
     private var isTracking = false
     /** The active emergency requestId so the backend can route location to the right room */
     private var activeRequestId: String? = null
+    /** Timestamp of last REST API location update — throttle to avoid hammering */
+    private var lastRestUpdateMs: Long = 0L
 
     /** Service-scoped coroutine scope for REST fallback calls. */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -70,14 +72,19 @@ class LocationTrackingService : Service() {
                     }
 
                     // Always also send via REST API as reliable fallback/persistence
-                    serviceScope.launch {
-                        try {
-                            ambulanceRepository.updateLocationViaApi(
-                                latitude = location.latitude,
-                                longitude = location.longitude
-                            )
-                        } catch (e: Exception) {
-                            Log.w(TAG, "REST location fallback failed: ${e.message}")
+                    // Throttled to every 30 seconds to avoid hammering the server
+                    val now = System.currentTimeMillis()
+                    if (now - lastRestUpdateMs >= REST_THROTTLE_MS) {
+                        lastRestUpdateMs = now
+                        serviceScope.launch {
+                            try {
+                                ambulanceRepository.updateLocationViaApi(
+                                    latitude = location.latitude,
+                                    longitude = location.longitude
+                                )
+                            } catch (e: Exception) {
+                                Log.w(TAG, "REST location fallback failed: ${e.message}")
+                            }
                         }
                     }
                 }
@@ -238,5 +245,8 @@ class LocationTrackingService : Service() {
 
         /** Minimum distance change to trigger update (5 meters) */
         private const val MIN_DISTANCE_METERS = 5f
+
+        /** REST API fallback throttle interval (30 seconds) */
+        private const val REST_THROTTLE_MS = 30_000L
     }
 }

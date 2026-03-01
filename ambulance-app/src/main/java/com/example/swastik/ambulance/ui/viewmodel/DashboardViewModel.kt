@@ -153,10 +153,10 @@ class DashboardViewModel @Inject constructor(
     fun loadEmergencyHistory(status: String? = null) {
         viewModelScope.launch {
             _emergencyListState.value = _emergencyListState.value.copy(isLoading = true)
-            val result = ambulanceRepository.getEmergencyHistory(status = null) // backend ignores status param
+            val result = ambulanceRepository.getEmergencyHistory(status = status)
             result.fold(
                 onSuccess = { list ->
-                    // Client-side filtering since backend returns all
+                    // Client-side filtering as safety net (in case backend ignores status param)
                     val filtered = if (status == null || status == "all") {
                         list
                     } else {
@@ -212,6 +212,11 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun updateEmergencyStatus(requestId: String, status: String) {
+        // Route "accept" to the dedicated accept endpoint (POST /:requestId/accept)
+        if (status == "accept" || status == "accepted") {
+            acceptEmergency(requestId)
+            return
+        }
         viewModelScope.launch {
             val result = ambulanceRepository.updateRequestStatus(requestId, status)
             result.fold(

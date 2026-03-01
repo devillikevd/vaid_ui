@@ -240,20 +240,54 @@ router.post('/me/patients/:patientId/vitals',
   asyncHandler(async (req, res) => {
     const { supabaseAdmin } = require('../../config/supabase');
 
+    // Fix #17: Verify doctor has treated this patient (has appointment or consultation)
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor profile not found' });
+    }
+
+    const { data: hasRelation } = await supabaseAdmin
+      .from('appointments')
+      .select('id')
+      .eq('doctor_id', doctor.id)
+      .eq('patient_id', req.params.patientId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!hasRelation) {
+      const { data: hasConsultation } = await supabaseAdmin
+        .from('consultations')
+        .select('id')
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', req.params.patientId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!hasConsultation) {
+        return res.status(403).json({ success: false, message: 'You can only record vitals for your patients' });
+      }
+    }
+
     const { data: vitals, error } = await supabaseAdmin
       .from('patient_vitals')
       .insert({
         patient_id: req.params.patientId,
         recorded_by: req.user.id,
         consultation_id: req.body.consultationId || null,
-        heart_rate: req.body.heartRate || null,
-        blood_pressure_systolic: req.body.bloodPressureSystolic || null,
-        blood_pressure_diastolic: req.body.bloodPressureDiastolic || null,
-        temperature: req.body.temperature || null,
-        oxygen_level: req.body.oxygenLevel || null,
-        respiratory_rate: req.body.respiratoryRate || null,
-        weight: req.body.weight || null,
-        blood_sugar: req.body.bloodSugar || null,
+        // Fix #15: Use ?? instead of || to preserve falsy values like 0
+        heart_rate: req.body.heartRate ?? null,
+        blood_pressure_systolic: req.body.bloodPressureSystolic ?? null,
+        blood_pressure_diastolic: req.body.bloodPressureDiastolic ?? null,
+        temperature: req.body.temperature ?? null,
+        oxygen_level: req.body.oxygenLevel ?? null,
+        respiratory_rate: req.body.respiratoryRate ?? null,
+        weight: req.body.weight ?? null,
+        blood_sugar: req.body.bloodSugar ?? null,
         notes: req.body.notes || null,
       })
       .select()

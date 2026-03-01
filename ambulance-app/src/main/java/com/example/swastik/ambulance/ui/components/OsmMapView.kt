@@ -7,7 +7,10 @@ import android.graphics.drawable.Drawable
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -42,6 +45,24 @@ fun OsmMapView(
     userLongitude: Double = 0.0
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val mapViewRef = remember { mutableStateOf<MapView?>(null) }
+
+    // Manage MapView lifecycle so tiles load correctly and memory is released
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapViewRef.value?.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapViewRef.value?.onPause()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapViewRef.value?.onDetach()
+        }
+    }
 
     LaunchedEffect(Unit) {
         Configuration.getInstance().apply {
@@ -63,6 +84,7 @@ fun OsmMapView(
                     v.parent?.requestDisallowInterceptTouchEvent(true)
                     false
                 }
+                mapViewRef.value = this
             }
         },
         update = { mapView ->
@@ -95,7 +117,11 @@ fun OsmMapView(
                 mapView.overlays.add(marker)
             }
 
-            mapView.controller.setCenter(center)
+            // Only animate to center when it actually changes to avoid reset on every recomposition
+            val currentCenter = mapView.mapCenter as? GeoPoint
+            if (currentCenter == null || currentCenter.latitude != center.latitude || currentCenter.longitude != center.longitude) {
+                mapView.controller.animateTo(center)
+            }
             mapView.controller.setZoom(zoom)
             mapView.invalidate()
         }

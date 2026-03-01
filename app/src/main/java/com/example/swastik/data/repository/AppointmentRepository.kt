@@ -339,17 +339,16 @@ class AppointmentRepository @Inject constructor(
             // 2. Ensure socket is connected
             socketManager.connect()
             
-            // Wait for connection
-            try {
-                kotlinx.coroutines.withTimeout(5000) {
-                    socketManager.connectionState.collect { connected ->
-                        if (connected) throw java.util.concurrent.CancellationException("Connected")
+            // Wait for connection (up to 5 seconds)
+            if (socketManager.getSocket()?.connected() != true) {
+                try {
+                    kotlinx.coroutines.withTimeout(5000) {
+                        socketManager.connectionState.first { connected -> connected }
                     }
+                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    Log.w(TAG, "Socket connection timed out, proceeding anyway")
+                    // Proceed — the REST join already succeeded, socket is best-effort
                 }
-            } catch (e: java.util.concurrent.CancellationException) {
-                // Connected
-            } catch (e: Exception) {
-               // Timeout or error, try to proceed if already connected
             }
             
             // 3. Join video and chat socket rooms
@@ -391,6 +390,24 @@ class AppointmentRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error leaving consultation: ${e.message}")
             Result.Success(Unit) // Don't block user from leaving call
+        }
+    }
+
+    /**
+     * Get full consultation details by ID.
+     * GET /api/consultations/:id
+     */
+    suspend fun getConsultationDetails(consultationId: String): Result<com.example.swastik.data.remote.dto.ConsultationDto> {
+        return try {
+            val response = apiService.getConsultationDetails(consultationId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let { Result.Success(it) }
+                    ?: Result.Error("Consultation not found")
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to load consultation details")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
         }
     }
 

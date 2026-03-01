@@ -70,7 +70,12 @@ class TokenManager @Inject constructor(
 
     fun isLoggedIn(): Boolean = getAccessToken() != null
 
-    fun isAuthenticated(): Boolean = isLoggedIn() && !isTokenExpired()
+    /**
+     * Check if user is authenticated.
+     * Returns true even if the access token is expired, as long as a refresh token
+     * exists — the AuthInterceptor will transparently refresh it on the next API call.
+     */
+    fun isAuthenticated(): Boolean = isLoggedIn() && (!isTokenExpired() || !getRefreshToken().isNullOrEmpty())
 
     companion object {
         private const val KEY_ACCESS_TOKEN = "access_token"

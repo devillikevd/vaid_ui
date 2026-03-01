@@ -1,6 +1,7 @@
 package com.example.swastik.data.local.db
 
 import androidx.room.*
+import androidx.room.Index
 
 /**
  * Room entities for offline caching.
@@ -23,7 +24,10 @@ data class CachedDoctor(
     val cachedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "cached_appointments")
+@Entity(
+    tableName = "cached_appointments",
+    indices = [Index(value = ["status"]), Index(value = ["doctorId"])]
+)
 data class CachedAppointment(
     @PrimaryKey val id: String,
     val doctorId: String,
@@ -60,13 +64,16 @@ data class CachedPrescription(
     val cachedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "cached_medicines")
+@Entity(
+    tableName = "cached_medicines",
+    indices = [Index(value = ["name"]), Index(value = ["category"])]
+)
 data class CachedMedicine(
     @PrimaryKey val id: String,
     val name: String,
     val genericName: String?,
     val manufacturer: String?,
-    val price: Int?,
+    val price: Double?,
     val category: String,
     val description: String?,
     val requiresPrescription: Boolean,

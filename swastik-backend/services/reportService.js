@@ -285,7 +285,7 @@ const getPrescriptionById = async (userId, prescriptionId) => {
 const addReportParameters = async (doctorUserId, reportId, parameters) => {
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
-    .select('id')
+    .select('id, name')
     .eq('user_id', doctorUserId)
     .single();
 
@@ -347,7 +347,7 @@ const addReportParameters = async (doctorUserId, reportId, parameters) => {
     .update({
       parameters,
       result_date: new Date().toISOString().split('T')[0],
-      doctor_notes: `Analyzed by Dr. ${doctor?.id || 'unknown'}`,
+      doctor_notes: `Analyzed by Dr. ${doctor.name || 'Unknown'}`,
       status: derivedStatus,
     })
     .eq('id', reportId)

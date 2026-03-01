@@ -12,6 +12,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -49,7 +50,9 @@ class LocationHelper @Inject constructor(
     suspend fun getLastLocation(): Location? {
         if (!hasLocationPermission()) return null
 
-        return suspendCancellableCoroutine { cont ->
+        // Timeout after 15s to avoid indefinite hang if GPS is disabled
+        return withTimeoutOrNull(15_000L) {
+            suspendCancellableCoroutine { cont ->
             fusedClient.lastLocation
                 .addOnSuccessListener { location ->
                     if (location != null) {
@@ -73,6 +76,7 @@ class LocationHelper @Inject constructor(
                 .addOnFailureListener {
                     cont.resume(null)
                 }
+        }
         }
     }
 

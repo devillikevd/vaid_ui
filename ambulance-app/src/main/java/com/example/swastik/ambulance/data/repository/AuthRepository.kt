@@ -24,8 +24,8 @@ class AuthRepository @Inject constructor(
                 val user = body?.resolvedUser()
 
                 if (accessToken != null && refreshToken != null && user != null) {
-                    if (user.role != "ambulance_operator") {
-                        return Result.failure(Exception("This app is for ambulance operators only"))
+                    if (user.role !in listOf("ambulance_operator", "ambulance_driver")) {
+                        return Result.failure(Exception("This app is for ambulance operators and drivers only"))
                     }
                     val expiresIn = body?.resolvedExpiresIn() ?: 604800L
                     tokenManager.saveTokens(accessToken, refreshToken, expiresIn)

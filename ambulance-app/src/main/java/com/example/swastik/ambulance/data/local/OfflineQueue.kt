@@ -55,12 +55,22 @@ class OfflineQueue @Inject constructor(
             val raw = prefs.getString(KEY_QUEUE, null) ?: return emptyList()
             return try {
                 val arr = JSONArray(raw)
+                val now = System.currentTimeMillis()
                 val result = mutableListOf<JSONObject>()
+                var discarded = 0
                 for (i in 0 until arr.length()) {
-                    result.add(arr.getJSONObject(i))
+                    val obj = arr.getJSONObject(i)
+                    val ts = obj.optLong("timestamp", 0L)
+                    // Discard entries older than TTL (stale actions shouldn't be replayed)
+                    if (ts > 0 && (now - ts) > TTL_MS) {
+                        discarded++
+                        continue
+                    }
+                    result.add(obj)
                 }
                 // Clear the queue
                 prefs.edit().remove(KEY_QUEUE).apply()
+                if (discarded > 0) Log.d(TAG, "Discarded $discarded stale action(s)")
                 Log.d(TAG, "Drained ${result.size} queued action(s)")
                 result
             } catch (e: Exception) {
@@ -106,6 +116,8 @@ class OfflineQueue @Inject constructor(
         private const val PREFS_NAME = "ambulance_offline_queue"
         private const val KEY_QUEUE = "pending_actions"
         private const val MAX_QUEUE_SIZE = 100
+        /** Time-to-live: discard queued actions older than 1 hour */
+        private const val TTL_MS = 60 * 60 * 1000L
         const val TYPE_STATUS = "status_update"
         const val TYPE_LOCATION = "location"
     }

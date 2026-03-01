@@ -69,6 +69,7 @@ const getDiagnosticCenterById = async (id) => {
     .from('diagnostic_centers')
     .select('*')
     .eq('id', id)
+    .eq('approval_status', 'approved') // Fix #37: Only show approved centers publicly
     .single();
 
   if (error || !data) {
@@ -268,9 +269,26 @@ const addTest = async (centerId, testData) => {
 
 // Update a test
 const updateTest = async (centerId, testId, updates) => {
+  // Fix #16: Whitelist allowed fields instead of spreading raw updates
+  const ALLOWED_TEST_FIELDS = [
+    'name', 'category', 'description', 'price', 'discounted_price',
+    'turnaround_hours', 'sample_type', 'preparation_instructions', 'is_active',
+  ];
+  const safeUpdates = {};
+  for (const key of ALLOWED_TEST_FIELDS) {
+    if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+  // Also support camelCase inputs
+  if (updates.discountedPrice !== undefined) safeUpdates.discounted_price = updates.discountedPrice;
+  if (updates.turnaroundHours !== undefined) safeUpdates.turnaround_hours = updates.turnaroundHours;
+  if (updates.sampleType !== undefined) safeUpdates.sample_type = updates.sampleType;
+  if (updates.preparationInstructions !== undefined) safeUpdates.preparation_instructions = updates.preparationInstructions;
+
+  safeUpdates.updated_at = new Date().toISOString();
+
   const { data, error } = await supabaseAdmin
     .from('diagnostic_tests')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(safeUpdates)
     .eq('id', testId)
     .eq('center_id', centerId)
     .select('*')

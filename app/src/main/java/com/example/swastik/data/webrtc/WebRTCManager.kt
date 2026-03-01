@@ -5,6 +5,7 @@ import android.util.Log
 import org.webrtc.*
 import org.webrtc.audio.AudioDeviceModule
 import org.webrtc.audio.JavaAudioDeviceModule
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * WebRTC Manager — handles the full lifecycle of a WebRTC peer connection.
@@ -48,7 +49,9 @@ class WebRTCManager(
     private var isReleased = false
 
     // ICE candidate buffer — queue candidates received before remote description is set
-    private val pendingIceCandidates = mutableListOf<IceCandidate>()
+    // CopyOnWriteArrayList is thread-safe since WebRTC callbacks arrive on different threads
+    private val pendingIceCandidates = CopyOnWriteArrayList<IceCandidate>()
+    @Volatile
     private var hasRemoteDescription = false
 
     val eglBase: EglBase = EglBase.create()
@@ -376,7 +379,7 @@ class WebRTCManager(
         localAudioTrack?.dispose()
         localAudioTrack = null
 
-        peerConnection?.close()
+        // dispose() internally calls close() — calling both separately can crash
         peerConnection?.dispose()
         peerConnection = null
 

@@ -121,7 +121,11 @@ class AmbulanceRepository @Inject constructor(
                 socketManager.emitStatusUpdate(requestId, "accepted")
                 Result.success(Unit)
             } else {
-                val errorMsg = response.body()?.message ?: "Failed to accept request"
+                val errorMsg = try {
+                    val body = response.errorBody()?.string()
+                    if (body != null) org.json.JSONObject(body).optString("message", "Failed to accept request")
+                    else response.body()?.message ?: "Failed to accept request"
+                } catch (_: Exception) { "Failed to accept request" }
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {

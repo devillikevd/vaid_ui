@@ -34,7 +34,7 @@ const config = {
     get refreshSecret() {
       return process.env.JWT_REFRESH_SECRET || this.secret;
     },
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1h', // Fix #35: Reduced from 7d to 1h
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   },
 

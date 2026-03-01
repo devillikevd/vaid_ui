@@ -149,8 +149,8 @@ class SocketManager @Inject constructor(
     private val tokenManager: TokenManager
 ) {
     private var socket: Socket? = null
-    // Derive socket URL from API base URL (strip /api/ suffix)
-    private val SOCKET_URL = ApiConfig.BASE_URL.replace("/api/", "")
+    // Use centrally-derived socket URL (safe URI parsing in ApiConfig)
+    private val SOCKET_URL = ApiConfig.SOCKET_URL
 
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -296,14 +296,16 @@ class SocketManager @Inject constructor(
         // --- Video Signaling Events ---
 
         socket?.on("video:user-joined") { args ->
-            val data = args[0] as JSONObject
-            Log.d(TAG, "User Joined: $data")
-            scope.launch {
-                _signalingEvents.emit(SignalingEvent.UserJoined(
-                    userId = data.optString("userId"),
-                    role = data.optString("role")
-                ))
-            }
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                Log.d(TAG, "User Joined: $data")
+                scope.launch {
+                    _signalingEvents.emit(SignalingEvent.UserJoined(
+                        userId = data.optString("userId"),
+                        role = data.optString("role")
+                    ))
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing video:user-joined", e) }
         }
 
         socket?.on("video:offer") { args ->
@@ -350,10 +352,12 @@ class SocketManager @Inject constructor(
         }
         
         socket?.on("video:user-left") { args ->
-             val data = args[0] as JSONObject
-             scope.launch {
-                 _signalingEvents.emit(SignalingEvent.UserLeft(data.optString("userId")))
-             }
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _signalingEvents.emit(SignalingEvent.UserLeft(data.optString("userId")))
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing video:user-left", e) }
         }
 
         // --- Chat Events ---

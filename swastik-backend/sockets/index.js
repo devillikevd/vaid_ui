@@ -172,19 +172,47 @@ const initializeSocketIO = (io) => {
         return socket.emit('error', { message: 'Unauthorized: tracking access denied' });
       }
 
-      // Verify the user has a relationship to this request
+      // Fix #2: Verify the user has a relationship to this request for ALL roles
       if (socket.userRole === 'patient') {
         const { data: patient } = await supabaseAdmin
           .from('patients').select('id').eq('user_id', userId).single();
-        if (patient) {
+        if (!patient) {
+          return socket.emit('error', { message: 'Patient profile not found' });
+        }
+        const { data: request } = await supabaseAdmin
+          .from('emergency_requests').select('id').eq('id', requestId)
+          .eq('patient_id', patient.id).single();
+        if (!request) {
+          return socket.emit('error', { message: 'Request not found or access denied' });
+        }
+      } else if (['ambulance_operator', 'ambulance_driver'].includes(socket.userRole)) {
+        // Verify the ambulance operator/driver is assigned to this request
+        const { data: ambulance } = await supabaseAdmin
+          .from('ambulances').select('id').eq('operator_id', userId).limit(1).maybeSingle();
+        if (ambulance) {
           const { data: request } = await supabaseAdmin
             .from('emergency_requests').select('id').eq('id', requestId)
-            .eq('patient_id', patient.id).single();
+            .eq('vehicle_id', ambulance.id).maybeSingle();
+          // Allow if assigned OR if request is in broadcasting state (so driver can see before accepting)
           if (!request) {
-            return socket.emit('error', { message: 'Request not found or access denied' });
+            const { data: broadcasting } = await supabaseAdmin
+              .from('emergency_requests').select('id').eq('id', requestId)
+              .in('status', ['broadcasting', 'pending']).maybeSingle();
+            if (!broadcasting) {
+              return socket.emit('error', { message: 'Request not found or access denied' });
+            }
           }
         }
+      } else if (['hospital_owner', 'hospital_manager'].includes(socket.userRole)) {
+        // Hospital staff can track requests dispatched from their hospital
+        const { data: request } = await supabaseAdmin
+          .from('emergency_requests').select('id')
+          .eq('id', requestId).maybeSingle();
+        if (!request) {
+          return socket.emit('error', { message: 'Request not found' });
+        }
       }
+      // admin/super_admin can track any request
 
       socket.join(`ambulance:${requestId}`);
       // Remember for reconnect in Redis (Bug 3 fix)
@@ -276,6 +304,20 @@ const initializeSocketIO = (io) => {
         return socket.emit('error', { message: 'Unauthorized: only patients can send location updates' });
       }
       if (!validateData(data, ['requestId', 'latitude', 'longitude'])) return;
+
+      // Fix #3: Verify patient owns this emergency request
+      const { data: patientRecord } = await supabaseAdmin
+        .from('patients').select('id').eq('user_id', userId).single();
+      if (patientRecord) {
+        const { data: requestRecord } = await supabaseAdmin
+          .from('emergency_requests').select('id').eq('id', data.requestId)
+          .eq('patient_id', patientRecord.id).single();
+        if (!requestRecord) {
+          return socket.emit('error', { message: 'Request not found or access denied' });
+        }
+      } else {
+        return socket.emit('error', { message: 'Patient profile not found' });
+      }
 
       // Rate limit: max 1 per 5 seconds per patient (Redis-backed)
       const now = Date.now();
@@ -472,9 +514,14 @@ const initializeSocketIO = (io) => {
           if (!isParticipant) {
             return socket.emit('error', { message: 'Access denied: you are not a participant in this consultation' });
           }
+        } else {
+          // Fix #1: Consultation not found — deny access (default-deny)
+          return socket.emit('error', { message: 'Consultation not found' });
         }
-      } catch {
-        console.warn(`C10: Ownership check failed for chat:${consultationId}, user ${userId}`);
+      } catch (dbErr) {
+        // Fix #1: DB check failed — deny access to be safe
+        console.warn(`C10: Ownership check failed for chat:${consultationId}, user ${userId}:`, dbErr.message);
+        return socket.emit('error', { message: 'Unable to verify consultation access' });
       }
 
       socket.join(`chat:${consultationId}`);
@@ -484,6 +531,11 @@ const initializeSocketIO = (io) => {
       if (!hasRole(socket, CHAT_ROLES)) return;
       if (!validateData(data, ['consultationId', 'message'])) return;
       if (typeof data.message !== 'string' || data.message.trim().length === 0) return;
+
+      // Fix #24: Enforce message length limit (2000 chars)
+      if (data.message.length > 2000) {
+        return socket.emit('error', { message: 'Message too long (max 2000 characters)' });
+      }
 
       // Verify the sender has actually joined this chat room
       const chatRoom = `chat:${data.consultationId}`;

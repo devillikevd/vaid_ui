@@ -28,10 +28,18 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
 
   if (role === 'patient') {
     const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).single();
-    if (patient) query = query.eq('patient_id', patient.id);
+    if (!patient) {
+      // Fix #4: No patient record found — return empty instead of unfiltered query
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+    query = query.eq('patient_id', patient.id);
   } else if (role === 'doctor') {
     const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).single();
-    if (doctor) query = query.eq('doctor_id', doctor.id);
+    if (!doctor) {
+      // Fix #4: No doctor record found — return empty instead of unfiltered query
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+    query = query.eq('doctor_id', doctor.id);
   } else if (role === 'hospital_owner') {
     // Scope to doctors affiliated with the owner's hospital(s)
     const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
@@ -352,9 +360,10 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
     throw err;
   }
 
-  // Generate a unique prescription number (RX-YYYYMMDD-XXXXX)
+  // Fix #32: Generate a unique prescription number with crypto-secure randomness (8 chars)
+  const crypto = require('crypto');
   const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const randomPart = crypto.randomBytes(4).toString('hex').toUpperCase();
   const prescriptionNumber = `RX-${datePart}-${randomPart}`;
 
   // Validate medicines against drug catalog (non-blocking — warns for unknown)
@@ -560,12 +569,20 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
   }
 
   // 4. Build doctor-facing system prompt (NO patient-facing guardrails)
+  // Fix #38: Sanitize context.symptoms to prevent prompt injection
+  const sanitizedSymptoms = (context.symptoms || 'Not specified')
+    .replace(/[\n\r]/g, ' ')  // Remove newlines that could break prompt structure
+    .slice(0, 500);           // Limit length
+  const sanitizedDiagnosis = (consultation.diagnosis || 'None yet')
+    .replace(/[\n\r]/g, ' ')
+    .slice(0, 500);
+
   const systemPrompt = `You are Swastik Clinical Assistant — an AI tool for licensed doctors during active patient consultations on the Swastik Healthcare Platform.
 
 CONTEXT:
 - Doctor: Dr. ${doctor.name} (${doctor.specialization || 'General Medicine'})
-- Patient symptoms / context from doctor: ${context.symptoms || 'Not specified'}
-- Current diagnosis notes: ${consultation.diagnosis || 'None yet'}
+- Patient symptoms / context from doctor: ${sanitizedSymptoms}
+- Current diagnosis notes: ${sanitizedDiagnosis}
 
 YOUR ROLE:
 You assist the DOCTOR (not the patient). You may:

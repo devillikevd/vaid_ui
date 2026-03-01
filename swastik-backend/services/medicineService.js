@@ -209,24 +209,19 @@ const validatePrescribedMedicines = async (items) => {
 
 // Upload prescription
 const uploadPrescription = async (userId, file, orderId) => {
-  try {
-    const { uploadPrescription: uploadToMinio } = require('../config/minio');
-    const uploadResult = await uploadToMinio(file, userId);
-    const fileUrl = uploadResult.url;
+  const { uploadPrescription: uploadToMinio } = require('../config/minio');
+  const uploadResult = await uploadToMinio(file, userId);
+  const fileUrl = uploadResult.url;
 
-    // If orderId provided, link to order
-    if (orderId) {
-      await supabaseAdmin
-        .from('pharmacy_orders')
-        .update({ prescription_url: fileUrl })
-        .eq('id', orderId);
-    }
-
-    return { url: fileUrl, message: 'Prescription uploaded successfully' };
-  } catch (err) {
-    console.error('Prescription upload error:', err.message);
-    return { message: 'Prescription upload saved' };
+  // If orderId provided, link to order
+  if (orderId) {
+    await supabaseAdmin
+      .from('pharmacy_orders')
+      .update({ prescription_url: fileUrl })
+      .eq('id', orderId);
   }
+
+  return { url: fileUrl, message: 'Prescription uploaded successfully' };
 };
 
 module.exports = {

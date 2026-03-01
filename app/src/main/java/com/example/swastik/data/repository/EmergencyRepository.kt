@@ -4,6 +4,7 @@ import com.example.swastik.data.remote.dto.EmergencyRequest
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.*
 import com.example.swastik.data.remote.ApiService
+import org.json.JSONObject
 import javax.inject.Inject
 
 /**
@@ -24,6 +25,14 @@ class EmergencyRepositoryImpl @Inject constructor(
     private val apiService: ApiService
 ) : EmergencyRepository {
 
+    /** Extract meaningful error message from Retrofit error response body */
+    private fun <T> retrofit2.Response<T>.apiError(fallback: String): String {
+        return try {
+            val body = errorBody()?.string()
+            if (body != null) JSONObject(body).optString("message", fallback) else fallback
+        } catch (_: Exception) { fallback }
+    }
+
     override suspend fun requestEmergency(request: EmergencyRequest): Result<EmergencyResponse> {
         return try {
             val response = apiService.requestEmergency(request)
@@ -32,7 +41,7 @@ class EmergencyRepositoryImpl @Inject constructor(
                     Result.Success(it) // Assuming response data is Domain EmergencyResponse (or mapped implicitly if matching)
                 } ?: Result.Error("No data received")
             } else {
-                Result.Error(response.message() ?: "Failed to request emergency")
+                Result.Error(response.apiError("Failed to request emergency"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -53,7 +62,7 @@ class EmergencyRepositoryImpl @Inject constructor(
                 if (response.code() == 404) {
                     Result.Success(null)
                 } else {
-                    Result.Error(response.message() ?: "Failed to fetch emergency status")
+                    Result.Error(response.apiError("Failed to fetch emergency status"))
                 }
             }
         } catch (e: Exception) {
@@ -69,7 +78,12 @@ class EmergencyRepositoryImpl @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("No data received")
             } else {
-                Result.Error(response.message() ?: "Failed to cancel emergency")
+                // 404 means the emergency was already resolved/cancelled
+                if (response.code() == 404) {
+                    Result.Error("Emergency request not found or already resolved")
+                } else {
+                    Result.Error(response.apiError("Failed to cancel emergency"))
+                }
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -88,7 +102,7 @@ class EmergencyRepositoryImpl @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Success(emptyList())
             } else {
-                Result.Error(response.message() ?: "Failed to fetch nearby ambulances")
+                Result.Error(response.apiError("Failed to fetch nearby ambulances"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -103,7 +117,7 @@ class EmergencyRepositoryImpl @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("No tracking data received")
             } else {
-                Result.Error(response.message() ?: "Failed to track ambulance")
+                Result.Error(response.apiError("Failed to track ambulance"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

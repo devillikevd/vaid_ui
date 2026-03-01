@@ -205,4 +205,64 @@ class ChatbotRepository @Inject constructor(
      * Get the current session ID (for external use).
      */
     fun getCurrentSessionId(): String? = currentSessionId
+
+    /**
+     * Clear the current session — must be called on logout so the next login
+     * starts a fresh chat session instead of reusing the old one.
+     */
+    fun clearSession() {
+        currentSessionId = null
+    }
+
+    /**
+     * Get chat history for a specific session.
+     * GET /api/chatbot/session/:sessionId
+     */
+    suspend fun getChatHistory(sessionId: String): Result<List<ChatMessage>> {
+        return try {
+            val response = apiService.getChatHistory(sessionId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to load chat history")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Get all past chat sessions for the current patient.
+     * GET /api/chatbot/sessions
+     */
+    suspend fun getChatSessions(): Result<List<ChatSession>> {
+        return try {
+            val response = apiService.getChatSessions()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to load sessions")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * End a chat session explicitly.
+     * POST /api/chatbot/session/:sessionId/end
+     */
+    suspend fun endChatSession(sessionId: String): Result<Unit> {
+        return try {
+            val response = apiService.endChatSession(sessionId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                if (sessionId == currentSessionId) currentSessionId = null
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to end session")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
 }

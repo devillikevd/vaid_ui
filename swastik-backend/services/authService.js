@@ -363,7 +363,14 @@ const refreshToken = async (token) => {
       .eq('user_id', decoded.userId)
       .single();
 
-    if (storedToken?.is_revoked) {
+    // Fix #12: Guard against null storedToken (token not found in DB)
+    if (!storedToken) {
+      const err = new Error('Refresh token not found or already used');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    if (storedToken.is_revoked) {
       const err = new Error('Refresh token has been revoked');
       err.statusCode = 401;
       throw err;
@@ -431,7 +438,7 @@ const logout = async (userId, refreshTokenValue) => {
       .eq('user_id', userId)
       .eq('is_revoked', false);
   }
-  await cacheDel(`user:${userId}`);
+  await cacheDel(`auth_user:${userId}`);
   logAudit({ userId, userRole: 'unknown', action: 'user.logout', entityType: 'user', entityId: userId });
   return { message: 'Logged out successfully' };
 };
@@ -522,6 +529,18 @@ const resetPassword = async (token, newPassword) => {
     const storedUserId = await cacheGet(`reset:${token}`);
     if (!storedUserId) {
       const err = new Error('Reset link has already been used or expired');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Fix #20: Enforce password complexity (matching register/changePassword)
+    if (!newPassword || newPassword.length < 8) {
+      const err = new Error('Password must be at least 8 characters');
+      err.statusCode = 400;
+      throw err;
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      const err = new Error('Password must contain at least one uppercase letter, one lowercase letter, and one number');
       err.statusCode = 400;
       throw err;
     }

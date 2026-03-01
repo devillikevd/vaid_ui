@@ -139,10 +139,12 @@ class TokenManager @Inject constructor(
     }
 
     /**
-     * Check if user is authenticated
+     * Check if user is authenticated.
+     * Returns true even if the access token is expired, as long as a refresh token
+     * exists — the AuthInterceptor will transparently refresh it on the next API call.
      */
     fun isAuthenticated(): Boolean {
-        return isLoggedIn && !accessToken.isNullOrEmpty() && !isTokenExpired()
+        return isLoggedIn && !accessToken.isNullOrEmpty() && (!isTokenExpired() || !refreshToken.isNullOrEmpty())
     }
 
     /**

@@ -221,20 +221,23 @@ class PatientRepository @Inject constructor(
                 activeEmergency = emergencyResponse.body()?.data
             }
 
-            if (patient != null) {
-                Result.Success(
-                    PatientDashboard(
-                        patient = patient,
-                        upcomingAppointments = upcomingAppointments,
-                        recentPrescriptions = recentPrescriptions,
-                        unreadNotifications = unreadNotifications,
-                        activeEmergency = activeEmergency,
-                        stats = _stats.value
-                    )
+            // Use real patient or a minimal fallback so dashboard still shows other data
+            val resolvedPatient = patient ?: Patient(
+                id = "", userId = "", name = "User", phone = "", email = null,
+                dateOfBirth = null, gender = null, bloodGroup = null,
+                emergencyContact = null, address = null, profileImageUrl = null,
+                allergies = null, chronicConditions = null
+            )
+            Result.Success(
+                PatientDashboard(
+                    patient = resolvedPatient,
+                    upcomingAppointments = upcomingAppointments,
+                    recentPrescriptions = recentPrescriptions,
+                    unreadNotifications = unreadNotifications,
+                    activeEmergency = activeEmergency,
+                    stats = _stats.value
                 )
-            } else {
-                 Result.Error("Failed to load patient profile")
-            }
+            )
         } catch (e: Exception) {
             Result.Error(e.message ?: "Failed to load dashboard")
         }
@@ -678,6 +681,61 @@ class PatientRepository @Inject constructor(
         }
     }
 
+    /**
+     * Get unread notification count (lightweight badge check).
+     * GET /api/notifications/unread-count
+     */
+    suspend fun getUnreadNotificationCount(): Result<Int> {
+        return try {
+            val response = apiService.getUnreadNotificationCount()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data?.count ?: 0)
+            } else {
+                Result.Error("Failed to get unread count")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Register device for push notifications (FCM token).
+     * POST /api/notifications/register-device
+     */
+    suspend fun registerDeviceForPush(fcmToken: String, platform: String = "android"): Result<Unit> {
+        return try {
+            val response = apiService.registerDevice(
+                com.example.swastik.data.remote.dto.RegisterDeviceRequest(token = fcmToken, platform = platform)
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to register device")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Unregister device from push notifications (on logout).
+     * DELETE /api/notifications/unregister-device
+     */
+    suspend fun unregisterDeviceForPush(fcmToken: String, platform: String = "android"): Result<Unit> {
+        return try {
+            val response = apiService.unregisterDevice(
+                com.example.swastik.data.remote.dto.RegisterDeviceRequest(token = fcmToken, platform = platform)
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to unregister device")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     private fun calculateAge(dob: String?): Int {
         if (dob.isNullOrBlank()) return 0
         return try {
@@ -695,6 +753,7 @@ class PatientRepository @Inject constructor(
     private fun formatRelativeTime(isoDate: String): String {
         return try {
             val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
             val date = sdf.parse(isoDate) ?: return isoDate
             val diffMs = System.currentTimeMillis() - date.time
             val diffMin = diffMs / 60_000

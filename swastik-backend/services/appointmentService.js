@@ -25,6 +25,39 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
     query = query.eq('doctor_id', doctor.id);
+  } else if (role === 'hospital_owner') {
+    // Fix #27: Scope to doctors affiliated with this hospital owner's hospitals
+    const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
+    const hospitalIds = (hospitals || []).map(h => h.id);
+    if (hospitalIds.length > 0) {
+      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('hospital_id', hospitalIds);
+      const doctorIds = (doctors || []).map(d => d.id);
+      if (doctorIds.length > 0) {
+        query = query.in('doctor_id', doctorIds);
+      } else {
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+      }
+    } else {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+  } else if (role === 'clinic_owner') {
+    // Fix #27: Scope to doctors affiliated with this clinic owner's clinics
+    const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
+    const clinicIds = (clinics || []).map(c => c.id);
+    if (clinicIds.length > 0) {
+      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('clinic_id', clinicIds);
+      const doctorIds = (doctors || []).map(d => d.id);
+      if (doctorIds.length > 0) {
+        query = query.in('doctor_id', doctorIds);
+      } else {
+        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+      }
+    } else {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+  } else if (!['admin', 'super_admin'].includes(role)) {
+    // Fix #27: Unknown roles get no appointments
+    return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
   }
 
   // Apply filters

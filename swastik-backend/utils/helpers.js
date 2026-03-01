@@ -47,7 +47,10 @@ const paginatedResponse = (data, total, page, limit) => ({
  */
 const formatDate = (date) => {
   if (!date) return null;
-  return new Date(date).toISOString().split('T')[0];
+  // Fix #33: Guard against Invalid Date crash
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().split('T')[0];
 };
 
 /**

@@ -78,6 +78,8 @@ class SocketManager @Inject constructor() {
                 socket?.emit("subscribe:notifications", JSONObject().put("userId", userId))
                 // Re-join dispatch room on reconnect so driver keeps getting broadcasts
                 socket?.emit("ambulance:join-dispatch", JSONObject())
+                // Re-join active request tracking room on reconnect
+                activeRequestId?.let { reqId -> joinTrackingRoom(reqId) }
                 // Replay any queued offline actions
                 onConnectCallback?.invoke()
             }
@@ -217,9 +219,29 @@ class SocketManager @Inject constructor() {
     /**
      * Set the active request ID so all location updates include it.
      * Called when driver accepts/starts an emergency.
+     * Also joins the request-specific tracking room so the patient can see live updates.
      */
     fun setActiveRequest(requestId: String) {
         activeRequestId = requestId
+        joinTrackingRoom(requestId)
+    }
+
+    /**
+     * Join the request-specific ambulance tracking room.
+     * The patient app listens on this room for live location updates.
+     */
+    fun joinTrackingRoom(requestId: String) {
+        if (!isConnected) return
+        try {
+            val data = JSONObject().apply {
+                put("requestId", requestId)
+                put("userId", userId)
+            }
+            socket?.emit("ambulance:join", data)
+            Log.d(TAG, "Joined tracking room for request: $requestId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to join tracking room", e)
+        }
     }
 
     /**

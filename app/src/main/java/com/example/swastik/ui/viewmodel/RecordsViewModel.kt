@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,23 +49,22 @@ class RecordsViewModel @Inject constructor(
     fun loadRecords() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            try {
-                // Load consultations and reports in parallel
-                // coroutineScope re-throws child exceptions to this try/catch
-                coroutineScope {
-                    launch { loadConsultations() }
-                    launch { loadReports() }
+            // supervisorScope: one child failure doesn't cancel the other
+            supervisorScope {
+                launch {
+                    try { loadConsultations() }
+                    catch (e: Exception) {
+                        _uiState.update { it.copy(error = e.message ?: "Failed to load consultations") }
+                    }
                 }
-                // Both completed — mark loading done
-                _uiState.update { it.copy(isLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Failed to load records"
-                    )
+                launch {
+                    try { loadReports() }
+                    catch (e: Exception) {
+                        _uiState.update { it.copy(error = e.message ?: "Failed to load reports") }
+                    }
                 }
             }
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 

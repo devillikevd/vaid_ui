@@ -31,7 +31,8 @@ class NetworkObserver @Inject constructor(
         get() {
             val network = connectivityManager.activeNetwork ?: return false
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                   capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         }
 
     /**
@@ -52,7 +53,8 @@ class NetworkObserver @Inject constructor(
                 network: Network,
                 capabilities: NetworkCapabilities
             ) {
-                val connected = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                val connected = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 trySend(connected)
             }
         }
