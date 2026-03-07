@@ -89,9 +89,10 @@ object AppModule {
         apiService: ApiService,
         tokenManager: TokenManager,
         socketManager: SocketManager,
-        database: SwastikDatabase
+        database: SwastikDatabase,
+        chatbotRepository: ChatbotRepository
     ): AuthRepository {
-        return AuthRepository(apiService, tokenManager, socketManager, database)
+        return AuthRepository(apiService, tokenManager, socketManager, database, chatbotRepository)
     }
 
     @Provides
@@ -149,8 +150,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRecordsRepository(apiService: ApiService): RecordsRepository {
-        return RecordsRepository(apiService)
+    fun provideRecordsRepository(apiService: ApiService, @ApplicationContext context: Context): RecordsRepository {
+        return RecordsRepository(apiService, context)
     }
 
     @Provides

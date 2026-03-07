@@ -1,11 +1,25 @@
 /**
  * MinIO Configuration (Object Storage)
  * Used for file uploads: profile images, documents, reports, prescriptions, videos
- * Includes WebP thumbnail generation for images (bandwidth optimization)
+ * 
+ * Bandwidth Optimization Pipeline:
+ *   1. Originals compressed & converted to WebP (quality 80, progressive)
+ *   2. Medium variant generated (800px wide) for cards/lists
+ *   3. Thumbnail variant generated (300px wide) for avatars/previews
+ *   4. Cache-Control headers set on all objects (30 days)
+ *   5. All image variants stored as WebP for ~30-50% size reduction
  */
 const Minio = require('minio');
 const { v4: uuidv4 } = require('uuid');
 const config = require('./index');
+
+// Try to load sharp for image processing
+let sharp;
+try {
+  sharp = require('sharp');
+} catch {
+  console.warn('[MinIO] sharp not installed — image optimization disabled. Run: npm install sharp');
+}
 
 // Storage folder structure
 const STORAGE_FOLDERS = {
@@ -17,7 +31,18 @@ const STORAGE_FOLDERS = {
   LICENSES: 'licenses',
   ENTITIES: 'entities',
   THUMBNAILS: 'thumbnails',
+  MEDIUM: 'medium',
 };
+
+// Image processing constants
+const IMAGE_SIZES = {
+  THUMBNAIL: { width: 300, quality: 70 },
+  MEDIUM: { width: 800, quality: 75 },
+  ORIGINAL: { maxWidth: 2048, quality: 80 },
+};
+
+// Cache duration: 30 days
+const CACHE_MAX_AGE = 30 * 24 * 60 * 60;
 
 let minioClient = null;
 let isBucketReady = false;
@@ -65,71 +90,160 @@ const generateObjectName = (folder, userId, originalName) => {
   return `${folder}/${userId}/${uuidv4()}.${ext}`;
 };
 
-// Helper: upload file buffer
+// ==================== Image Optimization Pipeline ====================
+
+/**
+ * Compresses and converts an image to WebP with progressive rendering.
+ * Also resizes if larger than maxWidth to prevent storing 4K+ images.
+ * @returns {{ buffer: Buffer, contentType: string }}
+ */
+const optimizeOriginalImage = async (buffer) => {
+  if (!sharp) return { buffer, contentType: null };
+  try {
+    const optimized = await sharp(buffer)
+      .resize(IMAGE_SIZES.ORIGINAL.maxWidth, null, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: IMAGE_SIZES.ORIGINAL.quality, effort: 4 })
+      .toBuffer();
+    return { buffer: optimized, contentType: 'image/webp' };
+  } catch (err) {
+    console.warn('[MinIO] Image optimization failed, storing original:', err.message);
+    return { buffer, contentType: null };
+  }
+};
+
+/**
+ * Generates a resized WebP variant of an image.
+ */
+const generateVariant = async (buffer, width, quality) => {
+  if (!sharp) return null;
+  try {
+    return await sharp(buffer)
+      .resize(width, null, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality, effort: 4 })
+      .toBuffer();
+  } catch (err) {
+    console.warn(`[MinIO] Variant generation (${width}px) failed:`, err.message);
+    return null;
+  }
+};
+
+// Helper: upload file buffer with metadata + Cache-Control headers
 const uploadBuffer = async (objectName, buffer, contentType) => {
   if (!minioClient || !isBucketReady) {
     throw new Error('File storage is not available');
   }
-  await minioClient.putObject(config.minio.bucketName, objectName, buffer, buffer.length, {
-    'Content-Type': contentType,
-  });
 
-  const result = {
-    objectName,
-    url: `${config.minio.publicUrl}/${config.minio.bucketName}/${objectName}`,
-    size: buffer.length,
+  const isImage = contentType && contentType.startsWith('image/');
+  let finalBuffer = buffer;
+  let finalContentType = contentType;
+  let finalObjectName = objectName;
+
+  // Optimize images: compress original + convert to WebP
+  if (isImage && sharp) {
+    const optimized = await optimizeOriginalImage(buffer);
+    finalBuffer = optimized.buffer;
+    if (optimized.contentType) {
+      finalContentType = optimized.contentType;
+      // Change extension to .webp
+      finalObjectName = objectName.replace(/\.[^.]+$/, '.webp');
+    }
+  }
+
+  // Upload with Cache-Control headers
+  const metadata = {
+    'Content-Type': finalContentType,
+    'Cache-Control': `public, max-age=${CACHE_MAX_AGE}, immutable`,
   };
 
-  // Auto-generate thumbnail for images (non-blocking)
-  if (contentType && contentType.startsWith('image/')) {
-    generateThumbnail(objectName, buffer).catch((err) => {
-      console.warn(`[MinIO] Thumbnail generation failed for ${objectName}:`, err.message);
+  await minioClient.putObject(config.minio.bucketName, finalObjectName, finalBuffer, finalBuffer.length, metadata);
+
+  const result = {
+    objectName: finalObjectName,
+    url: `${config.minio.publicUrl}/${config.minio.bucketName}/${finalObjectName}`,
+    size: finalBuffer.length,
+    originalSize: buffer.length,
+    compressionRatio: isImage ? Math.round((1 - finalBuffer.length / buffer.length) * 100) : 0,
+  };
+
+  // Auto-generate thumbnail + medium variants for images (non-blocking)
+  if (isImage) {
+    generateImageVariants(finalObjectName, buffer).catch((err) => {
+      console.warn(`[MinIO] Variant generation failed for ${finalObjectName}:`, err.message);
     });
   }
 
   return result;
 };
 
-// ==================== Thumbnail Generation ====================
+// ==================== Multi-Size Image Variant Generation ====================
 /**
- * Generates a WebP thumbnail (300px wide) for image uploads.
- * Stored alongside the original with `thumbnails/` prefix.
- * Uses sharp — falls back silently if sharp is not installed.
+ * Generates both thumbnail (300px) and medium (800px) WebP variants.
+ * Stored under `thumbnails/` and `medium/` prefixes respectively.
+ * Both have Cache-Control headers for browser caching.
  */
-const generateThumbnail = async (objectName, buffer) => {
-  try {
-    const sharp = require('sharp');
-    const thumbBuffer = await sharp(buffer)
-      .resize(300, null, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 70 })
-      .toBuffer();
+const generateImageVariants = async (objectName, originalBuffer) => {
+  if (!sharp) return;
 
-    const thumbObjectName = `thumbnails/${objectName.replace(/\.[^.]+$/, '.webp')}`;
+  const cacheHeaders = {
+    'Content-Type': 'image/webp',
+    'Cache-Control': `public, max-age=${CACHE_MAX_AGE}, immutable`,
+  };
 
-    await minioClient.putObject(config.minio.bucketName, thumbObjectName, thumbBuffer, thumbBuffer.length, {
-      'Content-Type': 'image/webp',
-    });
+  const baseName = objectName.replace(/\.[^.]+$/, '.webp');
 
-    return {
-      objectName: thumbObjectName,
-      url: `${config.minio.publicUrl}/${config.minio.bucketName}/${thumbObjectName}`,
-      size: thumbBuffer.length,
-    };
-  } catch (err) {
-    // sharp may not be installed — just skip thumbnails
-    if (err.code === 'MODULE_NOT_FOUND') {
-      console.warn('[MinIO] sharp not installed — thumbnail generation skipped. Run: npm install sharp');
-    }
-    throw err;
+  // Generate thumbnail (300px) and medium (800px) in parallel
+  const [thumbBuffer, mediumBuffer] = await Promise.all([
+    generateVariant(originalBuffer, IMAGE_SIZES.THUMBNAIL.width, IMAGE_SIZES.THUMBNAIL.quality),
+    generateVariant(originalBuffer, IMAGE_SIZES.MEDIUM.width, IMAGE_SIZES.MEDIUM.quality),
+  ]);
+
+  const uploads = [];
+
+  if (thumbBuffer) {
+    const thumbObjectName = `thumbnails/${baseName}`;
+    uploads.push(
+      minioClient.putObject(config.minio.bucketName, thumbObjectName, thumbBuffer, thumbBuffer.length, cacheHeaders)
+    );
   }
+
+  if (mediumBuffer) {
+    const mediumObjectName = `medium/${baseName}`;
+    uploads.push(
+      minioClient.putObject(config.minio.bucketName, mediumObjectName, mediumBuffer, mediumBuffer.length, cacheHeaders)
+    );
+  }
+
+  await Promise.all(uploads);
 };
 
 /**
- * Get the thumbnail URL for a given object (if it exists).
+ * Get the thumbnail URL for a given object.
  */
 const getThumbnailUrl = (objectName) => {
-  const thumbObjectName = `thumbnails/${objectName.replace(/\.[^.]+$/, '.webp')}`;
-  return `${config.minio.publicUrl}/${config.minio.bucketName}/${thumbObjectName}`;
+  const baseName = objectName.replace(/\.[^.]+$/, '.webp');
+  return `${config.minio.publicUrl}/${config.minio.bucketName}/thumbnails/${baseName}`;
+};
+
+/**
+ * Get the medium-size URL for a given object.
+ */
+const getMediumUrl = (objectName) => {
+  const baseName = objectName.replace(/\.[^.]+$/, '.webp');
+  return `${config.minio.publicUrl}/${config.minio.bucketName}/medium/${baseName}`;
+};
+
+/**
+ * Get all variant URLs for an image object.
+ * Returns { original, medium, thumbnail } URLs.
+ */
+const getImageVariants = (objectName) => {
+  const baseName = objectName.replace(/\.[^.]+$/, '.webp');
+  const baseUrl = `${config.minio.publicUrl}/${config.minio.bucketName}`;
+  return {
+    original: `${baseUrl}/${objectName}`,
+    medium: `${baseUrl}/medium/${baseName}`,
+    thumbnail: `${baseUrl}/thumbnails/${baseName}`,
+  };
 };
 
 // Upload profile image
@@ -227,7 +341,10 @@ module.exports = {
   getPresignedUploadUrl,
   deleteFile,
   listFiles,
-  generateThumbnail,
+  generateImageVariants,
   getThumbnailUrl,
+  getMediumUrl,
+  getImageVariants,
   STORAGE_FOLDERS,
+  IMAGE_SIZES,
 };

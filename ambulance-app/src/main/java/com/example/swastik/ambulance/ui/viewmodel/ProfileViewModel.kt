@@ -2,6 +2,7 @@ package com.example.swastik.ambulance.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.swastik.ambulance.data.local.TokenManager
 import com.example.swastik.ambulance.data.repository.AmbulanceRepository
 import com.example.swastik.ambulance.ui.screens.profile.ProfileUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,7 +17,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val repository: AmbulanceRepository
+    private val repository: AmbulanceRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileUiState())
@@ -51,9 +53,12 @@ class ProfileViewModel @Inject constructor(
             result.fold(
                 onSuccess = { vehicles ->
                     _state.value = _state.value.copy(vehicles = vehicles)
-                    // Auto-select first available vehicle if none selected
-                    if (_state.value.selectedVehicleId == null && vehicles.isNotEmpty()) {
-                        _state.value = _state.value.copy(selectedVehicleId = vehicles.first().id)
+                    // Restore persisted selection, or auto-select first vehicle
+                    val savedId = tokenManager.getSelectedVehicleId()
+                    val restoredId = if (savedId != null && vehicles.any { it.id == savedId }) savedId
+                        else vehicles.firstOrNull()?.id
+                    if (_state.value.selectedVehicleId == null && restoredId != null) {
+                        _state.value = _state.value.copy(selectedVehicleId = restoredId)
                     }
                 },
                 onFailure = { /* vehicles are optional */ }
@@ -63,6 +68,7 @@ class ProfileViewModel @Inject constructor(
 
     fun selectVehicle(vehicleId: String) {
         _state.value = _state.value.copy(selectedVehicleId = vehicleId)
+        tokenManager.saveSelectedVehicleId(vehicleId)
         _userMessage.tryEmit("Vehicle selected")
     }
 

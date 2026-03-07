@@ -53,7 +53,13 @@ class LocationTrackingService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { location ->
-                    Log.d(TAG, "Location update: ${location.latitude}, ${location.longitude}")
+                    // Fix #27: Skip low-accuracy GPS fixes to avoid showing wrong ambulance position
+                    if (location.accuracy > 100f) {
+                        Log.d(TAG, "Skipping low-accuracy fix: ${location.accuracy}m")
+                        return
+                    }
+
+                    Log.d(TAG, "Location update: ${location.latitude}, ${location.longitude} (accuracy: ${location.accuracy}m)")
 
                     // Use activeRequestId from Intent extra OR from SocketManager (set on accept/status change)
                     val effectiveRequestId = activeRequestId ?: socketManager.activeRequestId
@@ -99,6 +105,15 @@ class LocationTrackingService : Service() {
         when (intent?.action) {
             ACTION_START -> startTracking()
             ACTION_STOP -> stopTracking()
+            // Fix #4: Handle null intent (system restart with START_STICKY).
+            // When OS kills and restarts the service, intent is null.
+            // Resume tracking so the patient doesn't lose sight of the ambulance.
+            null -> {
+                if (!isTracking) {
+                    Log.w(TAG, "Service restarted by system (null intent) — resuming tracking")
+                    startTracking()
+                }
+            }
         }
         return START_STICKY
     }
@@ -126,13 +141,22 @@ class LocationTrackingService : Service() {
     }
 
     private fun startLocationUpdates() {
-        // Request high-accuracy location updates every 5 seconds
+        // GPS power optimization: use high-accuracy, fast polling when there's an
+        // active emergency request; use balanced power with slower polling when idle.
+        val effectiveRequestId = activeRequestId ?: socketManager.activeRequestId
+        val hasActiveRequest = !effectiveRequestId.isNullOrBlank()
+
+        val priority = if (hasActiveRequest) Priority.PRIORITY_HIGH_ACCURACY else Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        val interval = if (hasActiveRequest) LOCATION_INTERVAL_MS else IDLE_LOCATION_INTERVAL_MS
+        val fastestInterval = if (hasActiveRequest) FASTEST_INTERVAL_MS else IDLE_FASTEST_INTERVAL_MS
+        val minDistance = if (hasActiveRequest) MIN_DISTANCE_METERS else IDLE_MIN_DISTANCE_METERS
+
         val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            LOCATION_INTERVAL_MS
+            priority,
+            interval
         ).apply {
-            setMinUpdateIntervalMillis(FASTEST_INTERVAL_MS)
-            setMinUpdateDistanceMeters(MIN_DISTANCE_METERS)
+            setMinUpdateIntervalMillis(fastestInterval)
+            setMinUpdateDistanceMeters(minDistance)
             setWaitForAccurateLocation(false)
         }.build()
 
@@ -237,14 +261,23 @@ class LocationTrackingService : Service() {
         private const val CHANNEL_ID = "ambulance_location_channel"
         private const val NOTIFICATION_ID = 1001
 
-        /** Location update interval in milliseconds (5 seconds) */
+        /** Location update interval in milliseconds (5 seconds) — active emergency */
         private const val LOCATION_INTERVAL_MS = 5000L
 
-        /** Fastest allowed interval (3 seconds) */
+        /** Fastest allowed interval (3 seconds) — active emergency */
         private const val FASTEST_INTERVAL_MS = 3000L
 
-        /** Minimum distance change to trigger update (5 meters) */
+        /** Minimum distance change to trigger update (5 meters) — active emergency */
         private const val MIN_DISTANCE_METERS = 5f
+
+        /** Location update interval when idle (30 seconds) — no active emergency */
+        private const val IDLE_LOCATION_INTERVAL_MS = 30_000L
+
+        /** Fastest allowed interval when idle (15 seconds) */
+        private const val IDLE_FASTEST_INTERVAL_MS = 15_000L
+
+        /** Minimum distance change when idle (50 meters) */
+        private const val IDLE_MIN_DISTANCE_METERS = 50f
 
         /** REST API fallback throttle interval (30 seconds) */
         private const val REST_THROTTLE_MS = 30_000L

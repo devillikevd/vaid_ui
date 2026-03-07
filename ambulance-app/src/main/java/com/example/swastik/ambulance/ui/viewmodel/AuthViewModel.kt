@@ -31,9 +31,24 @@ class AuthViewModel @Inject constructor(
     }
 
     fun login(email: String, password: String) {
+        // Client-side validation before hitting the server
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Email is required")
+            return
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+            _uiState.value = _uiState.value.copy(error = "Please enter a valid email address")
+            return
+        }
+        if (password.length < 6) {
+            _uiState.value = _uiState.value.copy(error = "Password must be at least 6 characters")
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val result = authRepository.login(email, password)
+            val result = authRepository.login(trimmedEmail, password)
             result.fold(
                 onSuccess = { user ->
                     _uiState.value = AuthUiState(

@@ -42,6 +42,26 @@ abstract class SwastikDatabase : RoomDatabase() {
         private var INSTANCE: SwastikDatabase? = null
 
         /**
+         * Migration from v1 to v2: adds pending_sync_actions table.
+         * Fix #5: This was missing, causing crashes for users upgrading from v1.
+         */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `pending_sync_actions` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `action` TEXT NOT NULL,
+                        `endpoint` TEXT NOT NULL,
+                        `payload` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL DEFAULT 0,
+                        `retryCount` INTEGER NOT NULL DEFAULT 0,
+                        `status` TEXT NOT NULL DEFAULT 'pending'
+                    )
+                """.trimIndent())
+            }
+        }
+
+        /**
          * Migration from v2 to v3: adds cached_hospitals table.
          * Uses addMigrations() instead of fallbackToDestructiveMigration()
          * to preserve the offline sync queue (PendingSyncAction) across upgrades.
@@ -76,8 +96,9 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigrationOnDowngrade()
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   // Required for Docker standalone builds (Dockerfile copies from .next/standalone)
   output: 'standalone',
   images: {
+    // Serve optimized images in modern formats
+    formats: ['image/avif', 'image/webp'],
+    // Cache optimized images for 30 days
+    minimumCacheTTL: 2592000,
+    // Device breakpoints for responsive images
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     remotePatterns: [
       {
         protocol: 'https',
@@ -20,6 +27,26 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: 'localhost',
+      },
+      {
+        // MinIO local development
+        protocol: 'http',
+        hostname: '127.0.0.1',
+      },
+      {
+        // MinIO — match any port on localhost/IP (dev & prod)
+        protocol: 'http',
+        hostname: '*.localhost',
+      },
+      {
+        // Production MinIO / S3-compatible storage
+        protocol: 'https',
+        hostname: '*.amazonaws.com',
+      },
+      {
+        // Production MinIO custom domain
+        protocol: 'https',
+        hostname: '*.swastik.health',
       },
     ],
   },

@@ -16,6 +16,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.swastik.utils.ImageCompressor
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -104,11 +105,13 @@ class ChatbotRepository @Inject constructor(
             // Read image bytes from URI
             val inputStream = context.contentResolver.openInputStream(imageUri)
                 ?: return Result.Error("Could not read image")
-            val imageBytes = inputStream.readBytes()
+            val originalBytes = inputStream.readBytes()
             inputStream.close()
 
-            // Determine mime type
-            val mimeType = context.contentResolver.getType(imageUri) ?: "image/jpeg"
+            // Compress image before upload to save bandwidth
+            val compressed = ImageCompressor.compress(originalBytes)
+            val imageBytes = compressed?.bytes ?: originalBytes
+            val mimeType = compressed?.mimeType ?: (context.contentResolver.getType(imageUri) ?: "image/jpeg")
 
             // Build multipart request
             val imagePart = MultipartBody.Part.createFormData(

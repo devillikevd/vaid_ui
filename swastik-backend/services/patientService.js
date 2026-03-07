@@ -2,6 +2,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const { uploadProfileImage, deleteFile, getPresignedUrl } = require('../config/minio');
 const { ApiError } = require('../middleware/errorHandler');
 const { paginate, paginatedResponse } = require('../utils/helpers');
+const { cacheGet, cacheSet } = require('../config/redis');
 
 class PatientService {
   // Get patient profile
@@ -138,6 +139,11 @@ class PatientService {
 
   // Get dashboard data
   async getDashboard(userId) {
+    // Check cache first (30s TTL — short enough for near-real-time, long enough to absorb reloads)
+    const cacheKey = `patient:dashboard:${userId}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return cached;
+
     const { data: patient } = await supabaseAdmin
       .from('patients')
       .select('id, name')
@@ -148,63 +154,61 @@ class PatientService {
       throw new ApiError(404, 'Patient profile not found');
     }
 
-    // Get upcoming appointments
-    const { data: upcomingAppointments } = await supabaseAdmin
-      .from('appointments')
-      .select(`
-        *,
-        doctor:doctors(id, name, specialization, profile_image_url)
-      `)
-      .eq('patient_id', patient.id)
-      .in('status', ['scheduled', 'confirmed'])
-      .gte('appointment_date', new Date().toISOString().split('T')[0])
-      .order('appointment_date', { ascending: true })
-      .limit(5);
+    // Run all independent queries in parallel (was sequential)
+    const [appointmentsResult, remindersResult, consultationsResult, notificationsResult] = await Promise.allSettled([
+      supabaseAdmin
+        .from('appointments')
+        .select(`*, doctor:doctors(id, name, specialization, profile_image_url)`)
+        .eq('patient_id', patient.id)
+        .in('status', ['scheduled', 'confirmed'])
+        .gte('appointment_date', new Date().toISOString().split('T')[0])
+        .order('appointment_date', { ascending: true })
+        .limit(5),
+      supabaseAdmin
+        .from('reminders')
+        .select('*')
+        .eq('patient_id', patient.id)
+        .eq('is_active', true)
+        .order('time', { ascending: true })
+        .limit(10),
+      supabaseAdmin
+        .from('consultations')
+        .select(`*, doctor:doctors(id, name, specialization)`)
+        .eq('patient_id', patient.id)
+        .order('created_at', { ascending: false })
+        .limit(5),
+      supabaseAdmin
+        .from('notifications')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
 
-    // Get active reminders
-    const { data: reminders } = await supabaseAdmin
-      .from('reminders')
-      .select('*')
-      .eq('patient_id', patient.id)
-      .eq('is_active', true)
-      .order('time', { ascending: true })
-      .limit(10);
-
-    // Get recent consultations
-    const { data: recentConsultations } = await supabaseAdmin
-      .from('consultations')
-      .select(`
-        *,
-        doctor:doctors(id, name, specialization)
-      `)
-      .eq('patient_id', patient.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    // Get unread notifications
-    const { data: notifications, count: unreadCount } = await supabaseAdmin
-      .from('notifications')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const upcomingAppointments = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value.data || [] : [];
+    const reminders = remindersResult.status === 'fulfilled' ? remindersResult.value.data || [] : [];
+    const recentConsultations = consultationsResult.status === 'fulfilled' ? consultationsResult.value.data || [] : [];
+    const notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value.data || [] : [];
+    const unreadCount = notificationsResult.status === 'fulfilled' ? notificationsResult.value.count || 0 : 0;
 
     // Get recommended doctors (smart recommendation engine)
     const recommendedDoctors = await this.getRecommendedDoctors(patient.id, userId);
 
-    return {
-      patient: {
-        id: patient.id,
-        name: patient.name,
-      },
-      upcomingAppointments: upcomingAppointments || [],
-      reminders: reminders || [],
-      recentConsultations: recentConsultations || [],
-      notifications: notifications || [],
-      unreadNotificationCount: unreadCount || 0,
+    const dashboard = {
+      patient: { id: patient.id, name: patient.name },
+      upcomingAppointments,
+      reminders,
+      recentConsultations,
+      notifications,
+      unreadNotificationCount: unreadCount,
       recommendedDoctors,
     };
+
+    // Cache for 30 seconds
+    try { await cacheSet(cacheKey, dashboard, 30); } catch (_) { /* non-fatal */ }
+
+    return dashboard;
   }
 
   // ==================== SMART RECOMMENDATION ENGINE ====================

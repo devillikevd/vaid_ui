@@ -11,6 +11,7 @@ import com.example.swastik.data.local.db.SyncQueueDao
 import com.example.swastik.utils.NetworkObserver
 import android.util.Log
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -333,7 +334,7 @@ class AppointmentRepository @Inject constructor(
                 // Join failed — don't silently fall back, surface the error
                 val errorMsg = joinResponse.body()?.message ?: "Consultation hasn't started yet. Please wait for the doctor."
                 Log.w(TAG, "Backend join failed: $errorMsg")
-                return@try Result.Error(errorMsg)
+                return Result.Error(errorMsg)
             }
 
             // 2. Ensure socket is connected

@@ -59,6 +59,8 @@ const getFirebaseApp = () => {
 
   try {
     const admin = require('firebase-admin');
+    const fs = require('fs');
+    const path = require('path');
     const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountPath) {
       console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT env var not set — push notifications disabled');
@@ -66,7 +68,10 @@ const getFirebaseApp = () => {
       return null;
     }
 
-    const serviceAccount = require(serviceAccountPath);
+    // SECURITY FIX: Use fs.readFileSync + JSON.parse instead of require()
+    // require() with a user-controlled path is a code injection risk
+    const resolvedPath = path.resolve(serviceAccountPath);
+    const serviceAccount = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
@@ -247,11 +252,15 @@ const clearAllNotifications = async (userId) => {
 
 // Register device for push notifications
 const registerDevice = async (userId, fcmToken, deviceType) => {
+  // Fix: Store deviceType alongside FCM token (was previously ignored)
+  const updateFields = { fcm_token: fcmToken };
+  if (deviceType) {
+    updateFields.device_type = deviceType;
+  }
+
   const { error } = await supabaseAdmin
     .from('users')
-    .update({
-      fcm_token: fcmToken,
-    })
+    .update(updateFields)
     .eq('id', userId);
 
   if (error) throw error;

@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,25 +22,45 @@ class TokenManager @Inject constructor(
 ) {
     private val sharedPreferences: SharedPreferences = createSharedPreferences(context)
 
+    /**
+     * Emits Unit whenever the user's session is forcibly expired
+     * (i.e. refresh token is invalid / missing and clearAll() was called by the interceptor).
+     * ViewModels / Activities can collect this to navigate to the login screen.
+     */
+    private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val sessionExpired: SharedFlow<Unit> = _sessionExpired.asSharedFlow()
+
     private fun createSharedPreferences(context: Context): SharedPreferences {
         return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            createEncryptedPrefs(context)
         } catch (e: Exception) {
-            // Fallback to regular SharedPreferences if encryption fails
-            // This can happen on some emulators or devices without hardware-backed keystore
-            Log.w("TokenManager", "EncryptedSharedPreferences failed, using regular SharedPreferences", e)
-            context.getSharedPreferences(PREFS_NAME_FALLBACK, Context.MODE_PRIVATE)
+            // If encrypted prefs are corrupted, clear and retry once
+            Log.w("TokenManager", "EncryptedSharedPreferences failed, clearing and retrying", e)
+            try {
+                // Delete the corrupted prefs file and try again
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+                createEncryptedPrefs(context)
+            } catch (e2: Exception) {
+                // Absolute last resort — still use encrypted prefs with fresh keystore
+                // NEVER fall back to plaintext for PHI security
+                Log.e("TokenManager", "EncryptedSharedPreferences retry failed. Tokens will not persist.", e2)
+                throw IllegalStateException("Cannot create secure storage for tokens", e2)
+            }
         }
+    }
+
+    private fun createEncryptedPrefs(context: Context): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        return EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     companion object {
@@ -103,15 +126,20 @@ class TokenManager @Inject constructor(
     }
 
     /**
-     * Save tokens after successful login
+     * Save tokens after successful login.
+     * Validates that accessToken is non-empty. If refreshToken is blank,
+     * keeps the existing one (a refresh response may omit it).
      */
     fun saveTokens(
         accessToken: String,
         refreshToken: String,
         expiresInSeconds: Long = 604800 // Default 7 days (matches server JWT config)
     ) {
+        if (accessToken.isBlank()) return // never save an empty access token
         this.accessToken = accessToken
-        this.refreshToken = refreshToken
+        if (refreshToken.isNotBlank()) {
+            this.refreshToken = refreshToken
+        }
         this.tokenExpiry = System.currentTimeMillis() + (expiresInSeconds * 1000)
         this.isLoggedIn = true
     }
@@ -132,10 +160,16 @@ class TokenManager @Inject constructor(
     }
 
     /**
-     * Clear all stored data (logout)
+     * Clear all stored data (logout).
+     * @param emitSessionExpired If true, emits on [sessionExpired] flow so the
+     *        UI can react (e.g. navigate to login). Set to false when the user
+     *        explicitly logs out (the UI already navigates).
      */
-    fun clearAll() {
+    fun clearAll(emitSessionExpired: Boolean = false) {
         sharedPreferences.edit().clear().apply()
+        if (emitSessionExpired) {
+            _sessionExpired.tryEmit(Unit)
+        }
     }
 
     /**

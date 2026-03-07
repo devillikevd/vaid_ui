@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.example.swastik.data.local.TokenManager
 import com.example.swastik.navigation.Screen
 import com.example.swastik.ui.screens.auth.*
 import com.example.swastik.ui.screens.consultation.VideoConsultationFlow
@@ -33,21 +34,45 @@ import com.example.swastik.ui.screens.patient.diagnostic.DiagnosticBookingScreen
 import com.example.swastik.ui.screens.patient.vitals.VitalsRemindersScreen
 import com.example.swastik.ui.theme.SwastikTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject lateinit var tokenManager: TokenManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             SwastikTheme {
-                SwastikApp()
+                SwastikApp(tokenManager)
+            }
+        }
+    }
+}
+
+/**
+ * Composable wrapper that guards deep-linked screens behind authentication.
+ * If the user is not authenticated, they're redirected to Home (login/register).
+ */
+@Composable
+private fun AuthGuard(
+    navController: androidx.navigation.NavHostController,
+    tokenManager: TokenManager,
+    content: @Composable () -> Unit
+) {
+    if (tokenManager.isAuthenticated()) {
+        content()
+    } else {
+        LaunchedEffect(Unit) {
+            navController.navigate(Screen.Home.route) {
+                popUpTo(0) { inclusive = true }
             }
         }
     }
 }
 
 @Composable
-fun SwastikApp() {
+fun SwastikApp(tokenManager: TokenManager) {
     val navController = rememberNavController()
 
     NavHost(
@@ -127,6 +152,7 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/dashboard" }
             )
         ) {
+            AuthGuard(navController, tokenManager) {
             PatientDashboardScreen(
                 onLogout = {
                     navController.navigate(Screen.Home.route) {
@@ -155,6 +181,7 @@ fun SwastikApp() {
                 onNavigateToMedicineCart = { navController.navigate(Screen.MedicineCart.route) },
                 onSearchClick = { navController.navigate(Screen.AppointmentBooking.route) }
             )
+            }
         }
 
         // ── Patient Feature Screens ───────────────────────
@@ -190,6 +217,7 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/appointments" }
             )
         ) {
+            AuthGuard(navController, tokenManager) {
             AppointmentHistoryScreen(
                 onBackClick = { navController.popBackStack() },
                 onStartConsultation = { appointment ->
@@ -203,6 +231,7 @@ fun SwastikApp() {
                 onNavigateToPrescriptions = { navController.navigate(Screen.Prescriptions.route) },
                 onNavigateToBooking = { navController.navigate(Screen.AppointmentBooking.createRoute()) }
             )
+            }
         }
 
         composable(Screen.HospitalFinder.route) {
@@ -278,6 +307,7 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/medicine/{medicineId}" }
             )
         ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
             val medicineId = backStackEntry.arguments?.getString("medicineId") ?: ""
             MedicineDetailScreen(
                 medicineId = medicineId,
@@ -285,6 +315,7 @@ fun SwastikApp() {
                 onPharmacyClick = { navController.navigate(Screen.HospitalFinder.route) },
                 onAddToCart = { navController.navigate(Screen.MedicineCart.route) }
             )
+            }
         }
 
         composable(
@@ -319,9 +350,11 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/prescriptions" }
             )
         ) {
+            AuthGuard(navController, tokenManager) {
             PrescriptionsScreen(
                 onBackClick = { navController.popBackStack() }
             )
+            }
         }
 
         composable(
@@ -331,10 +364,12 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/chatbot" }
             )
         ) {
+            AuthGuard(navController, tokenManager) {
             ChatbotScreen(
                 onBackClick = { navController.popBackStack() },
                 onNavigateToEmergency = { navController.navigate(Screen.Emergency.route) }
             )
+            }
         }
 
         composable(
@@ -344,9 +379,11 @@ fun SwastikApp() {
                 navDeepLink { uriPattern = "https://swastik.health/emergency" }
             )
         ) {
+            AuthGuard(navController, tokenManager) {
             EmergencyScreen(
                 onBackClick = { navController.popBackStack() }
             )
+            }
         }
 
         composable(Screen.ProfileEdit.route) {

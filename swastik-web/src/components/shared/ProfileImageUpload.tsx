@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Camera, Loader2, X, Upload } from 'lucide-react';
 import { uploadApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -108,13 +109,21 @@ export function ProfileImageUpload({
             <div className="relative group">
                 {/* Avatar / Preview */}
                 <div className={cn(
-                    'rounded-full overflow-hidden flex items-center justify-center font-bold',
+                    'rounded-full overflow-hidden flex items-center justify-center font-bold relative',
                     sizeClasses[size],
                     !preview && bgColor,
                     !preview && textColor,
                 )}>
                     {preview ? (
-                        <img src={preview} alt={name} className="h-full w-full object-cover" />
+                        <Image
+                            src={preview}
+                            alt={name}
+                            fill
+                            sizes="(max-width: 768px) 96px, 128px"
+                            className="object-cover"
+                            loading="lazy"
+                            unoptimized={preview.startsWith('data:')}
+                        />
                     ) : (
                         getInitials(name || 'U')
                     )}

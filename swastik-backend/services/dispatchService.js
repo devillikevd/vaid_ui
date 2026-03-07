@@ -687,20 +687,27 @@ class DispatchService {
       .single();
 
     if (ambulance) {
-      // Atomic increment: read + write in a single update using raw SQL via RPC
-      // Fallback: use Supabase's ability to do a single read-then-write
-      const { data: req } = await supabaseAdmin
-        .from('emergency_requests')
-        .select('rejection_count')
-        .eq('id', requestId)
-        .single();
-
-      if (req) {
-        await supabaseAdmin
+      // Atomic increment with retry loop (optimistic lock + 3 retries)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data: req } = await supabaseAdmin
           .from('emergency_requests')
-          .update({ rejection_count: (req.rejection_count || 0) + 1 })
+          .select('rejection_count')
           .eq('id', requestId)
-          .eq('rejection_count', req.rejection_count || 0); // Optimistic lock: only update if count hasn't changed
+          .single();
+
+        if (!req) break;
+
+        const currentCount = req.rejection_count || 0;
+        const { data: updated } = await supabaseAdmin
+          .from('emergency_requests')
+          .update({ rejection_count: currentCount + 1 })
+          .eq('id', requestId)
+          .eq('rejection_count', currentCount)
+          .select('id')
+          .maybeSingle();
+
+        if (updated) break; // Success
+        // Otherwise another write raced us — retry
       }
     }
 

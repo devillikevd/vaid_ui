@@ -325,14 +325,14 @@ export function NotificationPanel({
             <div className="fixed inset-0 z-40" onClick={onClose} />
 
             {/* Panel */}
-            <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-gray-800 rounded-xl border border-gray-700 shadow-2xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                    <h3 className="font-semibold text-white">Notifications</h3>
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                     {notifications.length > 0 && onClear && (
                         <button
                             onClick={onClear}
-                            className="text-sm text-gray-400 hover:text-white transition-colors"
+                            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
                             Clear all
                         </button>
@@ -342,7 +342,7 @@ export function NotificationPanel({
                 {/* Notifications List */}
                 <div className="max-h-96 overflow-y-auto">
                     {notifications.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
+                        <div className="p-8 text-center text-gray-400 dark:text-gray-500">
                             <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                             </svg>
@@ -353,15 +353,15 @@ export function NotificationPanel({
                             <div
                                 key={notification.id || index}
                                 onClick={() => onNotificationClick?.(notification)}
-                                className="flex items-start gap-3 p-4 hover:bg-gray-700/50 cursor-pointer border-b border-gray-700/50 last:border-0 transition-colors"
+                                className="flex items-start gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer border-b border-gray-100 dark:border-gray-700/50 last:border-0 transition-colors"
                             >
                                 <div className={`w-2 h-2 rounded-full mt-2 ${getTypeColor(notification.type)}`} />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-white">{notification.title}</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
                                     {notification.message && (
-                                        <p className="text-sm text-gray-400 truncate">{notification.message}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{notification.message}</p>
                                     )}
-                                    <p className="text-xs text-gray-500 mt-1">{formatTime(notification.timestamp)}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatTime(notification.timestamp)}</p>
                                 </div>
                             </div>
                         ))

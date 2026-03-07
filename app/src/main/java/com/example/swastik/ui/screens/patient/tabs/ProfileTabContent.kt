@@ -48,6 +48,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.swastik.utils.ImageCompressor
 
 @Composable
 fun ProfileTabContent(
@@ -73,18 +74,27 @@ fun ProfileTabContent(
 
     val context = LocalContext.current
 
-    // Image picker launcher
+    // Image picker launcher — compresses image before upload to save bandwidth
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
             try {
-                val inputStream = context.contentResolver.openInputStream(it)
-                val bytes = inputStream?.readBytes() ?: return@let
-                inputStream.close()
-                val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
-                viewModel?.uploadProfileImage(imagePart)
+                // Compress image client-side (saves 60-80% bandwidth on 2G/3G)
+                val compressed = ImageCompressor.compressFromUri(context, it)
+                if (compressed != null) {
+                    val requestBody = compressed.bytes.toRequestBody(compressed.mimeType.toMediaTypeOrNull())
+                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
+                    viewModel?.uploadProfileImage(imagePart)
+                } else {
+                    // Fallback: upload without compression
+                    val inputStream = context.contentResolver.openInputStream(it)
+                    val bytes = inputStream?.readBytes() ?: return@let
+                    inputStream.close()
+                    val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
+                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
+                    viewModel?.uploadProfileImage(imagePart)
+                }
             } catch (e: Exception) {
                 Toast.makeText(context, "Failed to process image", Toast.LENGTH_SHORT).show()
             }
@@ -1592,6 +1602,7 @@ private fun ProfileInfoCard(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(profile.profileImageUrl)
                                     .crossfade(true)
+                                    .size(180) // Request only 180px — Coil downsamples, saves memory & bandwidth
                                     .build(),
                                 contentDescription = "Profile Photo",
                                 modifier = Modifier

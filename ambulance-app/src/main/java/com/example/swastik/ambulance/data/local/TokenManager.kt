@@ -77,11 +77,19 @@ class TokenManager @Inject constructor(
      */
     fun isAuthenticated(): Boolean = isLoggedIn() && (!isTokenExpired() || !getRefreshToken().isNullOrEmpty())
 
+    // ── Vehicle selection persistence ─────────────────────
+    fun saveSelectedVehicleId(vehicleId: String) {
+        prefs.edit().putString(KEY_SELECTED_VEHICLE, vehicleId).apply()
+    }
+
+    fun getSelectedVehicleId(): String? = prefs.getString(KEY_SELECTED_VEHICLE, null)
+
     companion object {
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_TOKEN_EXPIRY = "token_expiry"
+        private const val KEY_SELECTED_VEHICLE = "selected_vehicle_id"
     }
 }

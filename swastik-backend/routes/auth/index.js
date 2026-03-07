@@ -29,10 +29,10 @@ const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
 router.post('/register',
   authRateLimit(5, 3600, 'register'), // 5 attempts per hour
   [
-    body('email').isEmail().withMessage('Valid email is required'),
-    body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('phone').optional().trim().isMobilePhone().withMessage('Valid phone number is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-    body('name').notEmpty().withMessage('Name is required'),
+    body('name').trim().notEmpty().escape().withMessage('Name is required'),
     body('role').optional().isIn([
       'patient',
       'doctor',
@@ -58,7 +58,7 @@ router.post('/register',
 router.post('/login',
   authRateLimit(10, 900, 'login'), // 10 attempts per 15 min
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
   ],
   validate,
@@ -91,7 +91,7 @@ router.get('/verify-email',
 // Resend verification email
 router.post('/resend-verification',
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -153,7 +153,7 @@ router.post('/change-password',
 router.post('/forgot-password',
   authRateLimit(3, 3600, 'forgot'), // 3 attempts per hour
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
   ],
   validate,
   asyncHandler(async (req, res) => {

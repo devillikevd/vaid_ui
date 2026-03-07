@@ -171,7 +171,7 @@ private fun VitalsTab(vitals: List<VitalDto>) {
 
 @Composable
 private fun VitalCard(vital: VitalDto) {
-    val (icon, color) = getVitalIconAndColor(vital.type)
+    val (icon, color) = getVitalIconAndColor(vital.type ?: "")
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -193,7 +193,7 @@ private fun VitalCard(vital: VitalDto) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    getVitalDisplayName(vital.type),
+                    getVitalDisplayName(vital.type ?: ""),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
@@ -203,7 +203,7 @@ private fun VitalCard(vital: VitalDto) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    vital.value,
+                    vital.value ?: "--",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     color = color

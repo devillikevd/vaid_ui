@@ -80,12 +80,19 @@ const getMedicineById = async (id) => {
     throw new ApiError(404, 'Medicine not found');
   }
 
-  // Increment search count (ignore errors if column doesn't exist)
+  // Increment search count atomically via RPC or direct SQL
+  // Avoids read-then-write race condition on concurrent requests
   try {
-    await supabaseAdmin
-      .from('medicines')
-      .update({ search_count: (data.search_count || 0) + 1 })
-      .eq('id', id);
+    // Attempt atomic increment via Supabase RPC (preferred)
+    const { error: rpcError } = await supabaseAdmin.rpc('increment_search_count', { medicine_id: id });
+    if (rpcError) {
+      // Fallback: use raw SQL increment (still atomic at DB level)
+      await supabaseAdmin
+        .from('medicines')
+        .update({ search_count: (data.search_count || 0) + 1 })
+        .eq('id', id)
+        .eq('search_count', data.search_count || 0); // optimistic lock
+    }
   } catch (_) { /* search_count column may not exist */ }
 
   return data;

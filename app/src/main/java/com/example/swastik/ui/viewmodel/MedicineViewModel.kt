@@ -15,12 +15,17 @@ import com.example.swastik.data.remote.OrderUpdate
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -64,6 +69,7 @@ data class OrderHistoryUiState(
     val lastRealtimeUpdate: OrderUpdate? = null
 )
 
+@OptIn(FlowPreview::class)
 @HiltViewModel
 class MedicineViewModel @Inject constructor(
     private val medicineRepository: MedicineRepository,
@@ -135,10 +141,14 @@ class MedicineViewModel @Inject constructor(
     fun searchMedicines(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
         if (query.isBlank()) {
+            searchJob?.cancel()
             loadPopularMedicines()
             return
         }
-        viewModelScope.launch {
+        // Cancel previous search and debounce by 350ms
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(350)
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             when (val result = medicineRepository.searchMedicines(query)) {
                 is Result.Success -> {
@@ -157,6 +167,8 @@ class MedicineViewModel @Inject constructor(
             }
         }
     }
+
+    private var searchJob: Job? = null
 
     fun setCategory(category: MedicineCategory?) {
         _uiState.value = _uiState.value.copy(selectedCategory = category)

@@ -47,6 +47,8 @@ fun OsmMapView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val mapViewRef = remember { mutableStateOf<MapView?>(null) }
+    // Track whether the user has manually interacted with the map
+    val userHasInteracted = remember { mutableStateOf(false) }
 
     // Manage MapView lifecycle so tiles load correctly and memory is released
     DisposableEffect(lifecycleOwner) {
@@ -80,8 +82,12 @@ fun OsmMapView(
                 setMultiTouchControls(true)
                 controller.setZoom(zoom)
                 controller.setCenter(center)
-                setOnTouchListener { v, _ ->
+                setOnTouchListener { v, event ->
                     v.parent?.requestDisallowInterceptTouchEvent(true)
+                    // Mark that user has manually interacted — stop overriding zoom/center
+                    if (event.action == android.view.MotionEvent.ACTION_MOVE) {
+                        userHasInteracted.value = true
+                    }
                     false
                 }
                 mapViewRef.value = this
@@ -117,12 +123,14 @@ fun OsmMapView(
                 mapView.overlays.add(marker)
             }
 
-            // Only animate to center when it actually changes to avoid reset on every recomposition
-            val currentCenter = mapView.mapCenter as? GeoPoint
-            if (currentCenter == null || currentCenter.latitude != center.latitude || currentCenter.longitude != center.longitude) {
-                mapView.controller.animateTo(center)
+            // Only update center/zoom if user hasn't manually panned/zoomed
+            if (!userHasInteracted.value) {
+                val currentCenter = mapView.mapCenter as? GeoPoint
+                if (currentCenter == null || currentCenter.latitude != center.latitude || currentCenter.longitude != center.longitude) {
+                    mapView.controller.animateTo(center)
+                }
+                mapView.controller.setZoom(zoom)
             }
-            mapView.controller.setZoom(zoom)
             mapView.invalidate()
         }
     )

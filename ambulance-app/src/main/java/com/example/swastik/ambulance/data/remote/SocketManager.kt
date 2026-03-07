@@ -23,6 +23,8 @@ class SocketManager @Inject constructor() {
     private var socket: Socket? = null
     private var userId: String? = null
     /** Active request ID for location routing — set when driver accepts a request */
+    // Fix #28: @Volatile ensures thread-safe visibility across threads
+    @Volatile
     var activeRequestId: String? = null
         private set
 
@@ -65,8 +67,9 @@ class SocketManager @Inject constructor() {
             val options = IO.Options().apply {
                 forceNew = true
                 reconnection = true
-                reconnectionAttempts = Int.MAX_VALUE
+                reconnectionAttempts = 50 // Fix #30: Limit reconnection attempts instead of infinite
                 reconnectionDelay = 1000
+                reconnectionDelayMax = 30000 // Exponential backoff up to 30s
                 timeout = 10000
                 auth = mapOf("token" to token)
             }

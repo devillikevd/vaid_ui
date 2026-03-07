@@ -133,24 +133,22 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
     const s = sanitizeSearch(filters.search);
     if (s) query = query.or(`name.ilike.%${s}%,medicine_name.ilike.%${s}%`);
   }
-  // Low-stock: PostgREST can't compare two columns, so we post-filter using min_quantity
-  const applyLowStockFilter = !!filters.lowStock;
+  // Low-stock filter: use .or() with default min_quantity of 10
+  // Supabase PostgREST supports .lt() on columns. We use two conditions:
+  //   1) Items where quantity < min_quantity (when min_quantity is set)
+  //   2) Items where min_quantity is null AND quantity < 10 (default threshold)
+  if (filters.lowStock) {
+    // Use PostgREST filter: quantity < coalesce(min_quantity, 10)
+    // PostgREST doesn't support cross-column comparison directly, but we can
+    // use .or() with two conditions to push filtering to the DB
+    query = query.or('and(min_quantity.not.is.null,quantity.lt.min_quantity),and(min_quantity.is.null,quantity.lt.10)');
+  }
   if (filters.category) {
     query = query.eq('category', filters.category);
   }
 
-  // When filtering low-stock, fetch all items (no pagination) to post-filter properly
   let data, error, count;
-  if (applyLowStockFilter) {
-    const result = await query.order('name');
-    error = result.error;
-    if (!error) {
-      // Post-filter: quantity below each item's own min_quantity (default 10)
-      const filtered = (result.data || []).filter(i => i.quantity < (i.min_quantity || 10));
-      count = filtered.length;
-      data = filtered.slice(offset, offset + limit);
-    }
-  } else {
+  {
     const result = await query
       .order('name')
       .range(offset, offset + limit - 1);

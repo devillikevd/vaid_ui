@@ -10,12 +10,23 @@
  *   GET  /api/health-card/:token     — View complete health record
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const healthCardService = require('../services/healthCardService');
 const { asyncHandler } = require('../utils/helpers');
 
 const router = express.Router();
+
+// Rate limit for public health card endpoint (prevents token brute-force)
+const healthCardLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown',
+});
 
 // ─── Authenticated: Patient generates/manages their health card ──────
 
@@ -45,7 +56,13 @@ router.post('/revoke', authenticate,
 
 // ─── Public: Anyone with the token can view the health record ────────
 
-router.get('/:token', asyncHandler(async (req, res) => {
+router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
+  // Validate token format (UUID v4) before hitting the database
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(req.params.token)) {
+    return res.status(400).json({ success: false, message: 'Invalid health card token format' });
+  }
+
   const accessInfo = {
     ip: req.ip || req.headers['x-forwarded-for'] || 'unknown',
     userAgent: req.headers['user-agent'] || 'unknown',

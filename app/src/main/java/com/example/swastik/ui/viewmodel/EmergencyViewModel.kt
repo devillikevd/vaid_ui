@@ -13,10 +13,12 @@ import com.example.swastik.data.repository.Result
 import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import javax.inject.Inject
 
 data class EmergencyUiState(
@@ -53,6 +55,8 @@ class EmergencyViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(EmergencyUiState())
     val uiState: StateFlow<EmergencyUiState> = _uiState.asStateFlow()
 
+    // SupervisorJob-backed scope: a single location error won't cancel other coroutines
+    private val locationScope = viewModelScope + SupervisorJob()
     /** Cancellable job that streams patient GPS to the backend during active emergency */
     private var locationStreamJob: Job? = null
 
@@ -178,7 +182,7 @@ class EmergencyViewModel @Inject constructor(
      */
     private fun startPatientLocationStream(requestId: String) {
         locationStreamJob?.cancel()
-        locationStreamJob = viewModelScope.launch {
+        locationStreamJob = locationScope.launch {
             try {
                 locationHelper.requestLocationUpdates(intervalMs = 10_000L).collect { location ->
                     // Update local UI state
@@ -211,6 +215,7 @@ class EmergencyViewModel @Inject constructor(
 
     /**
      * Request an emergency ambulance.
+     * Retries up to 3 times with exponential backoff for network failures.
      */
     fun requestEmergency(emergencyType: String, description: String = "") {
         val state = _uiState.value
@@ -230,26 +235,38 @@ class EmergencyViewModel @Inject constructor(
                 notes = description
             )
 
-            when (val result = emergencyRepository.requestEmergency(request)) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        requestSent = true,
-                        activeEmergency = result.data
-                    )
-                    // Start tracking the ambulance in real-time
-                    if (result.data != null) {
-                        startTrackingAmbulance(result.data.resolvedRequestId())
+            var lastError: String? = null
+            val maxRetries = 3
+            for (attempt in 0 until maxRetries) {
+                when (val result = emergencyRepository.requestEmergency(request)) {
+                    is Result.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            requestSent = true,
+                            activeEmergency = result.data
+                        )
+                        // Start tracking the ambulance in real-time
+                        if (result.data != null) {
+                            startTrackingAmbulance(result.data.resolvedRequestId())
+                        }
+                        return@launch // success — exit
                     }
+                    is Result.Error -> {
+                        lastError = result.message
+                        if (attempt < maxRetries - 1) {
+                            // Exponential backoff: 1s, 2s, 4s
+                            kotlinx.coroutines.delay(1000L * (1 shl attempt))
+                        }
+                    }
+                    is Result.Loading -> {}
                 }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-                is Result.Loading -> {}
             }
+
+            // All retries exhausted
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = lastError ?: "Emergency request failed after $maxRetries attempts"
+            )
         }
     }
 

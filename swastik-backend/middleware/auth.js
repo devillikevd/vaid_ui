@@ -48,8 +48,8 @@ const authenticate = async (req, res, next) => {
         });
       }
       user = dbUser;
-      // Cache for 5 minutes
-      await cacheSet(cacheKey, user, 300);
+      // Cache for 60 seconds (reduced from 5 minutes to limit stale data after deactivation)
+      await cacheSet(cacheKey, user, 60);
     }
 
     if (!user.is_active) {

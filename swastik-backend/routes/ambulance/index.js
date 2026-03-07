@@ -12,7 +12,7 @@
  */
 const express = require('express');
 const { query, body } = require('express-validator');
-const { validate } = require('../../middleware/validate');
+const { validate, validateUUID } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const { requireRole, ROLES } = require('../../middleware/rbac');
 const ambulanceService = require('../../services/ambulanceService');
@@ -65,7 +65,8 @@ router.post('/request', authenticate,
 );
 
 router.post('/cancel/:requestId', authenticate,
-  [body('reason').optional().isString()],
+  [validateUUID('requestId'), body('reason').optional().isString()],
+  validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.cancelByPatient(req.user.id, req.params.requestId, req.body.reason);
     res.json({ success: true, ...result });
@@ -84,6 +85,7 @@ router.get('/history', authenticate, asyncHandler(async (req, res) => {
 
 router.post('/:requestId/accept', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  [validateUUID('requestId')], validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.acceptRequest(req.user.id, req.params.requestId);
     res.json({ success: true, data: result });
@@ -92,6 +94,7 @@ router.post('/:requestId/accept', authenticate,
 
 router.post('/:requestId/reject', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  [validateUUID('requestId')], validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.rejectRequest(req.user.id, req.params.requestId);
     res.json({ success: true, data: result });
@@ -111,7 +114,7 @@ router.put('/location', authenticate,
 
 router.put('/request/:requestId/status', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
-  [body('status').isIn(['en_route','arrived','picked_up','en_route_hospital','arrived_hospital','completed','cancelled'])],
+  [validateUUID('requestId'), body('status').isIn(['en_route','arrived','picked_up','en_route_hospital','arrived_hospital','completed','cancelled'])],
   validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.updateStatus(req.user.id, req.params.requestId, req.body.status, req.body);
@@ -137,7 +140,7 @@ router.post('/request/hospital', authenticate,
 
 router.post('/:requestId/assign', authenticate,
   requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.AMBULANCE_OPERATOR),
-  [body('ambulanceId').isUUID()], validate,
+  [validateUUID('requestId'), body('ambulanceId').isUUID()], validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.hospitalAssignAmbulance(req.user.id, req.params.requestId, req.body.ambulanceId);
     res.json({ success: true, data: result });
@@ -257,16 +260,32 @@ router.get('/vehicles', authenticate,
 // TRACKING
 // =====================================================================
 
-router.get('/track/:requestId', authenticate, asyncHandler(async (req, res) => {
+router.get('/track/:requestId', authenticate,
+  [validateUUID('requestId')], validate,
+  asyncHandler(async (req, res) => {
   const data = await ambulanceService.getAmbulanceLocation(req.params.requestId);
   res.json({ success: true, data });
 }));
 
-router.get('/request/:id', authenticate, asyncHandler(async (req, res) => {
+router.get('/request/:id', authenticate,
+  [validateUUID('id')], validate,
+  asyncHandler(async (req, res) => {
   const { data, error } = await supabaseAdmin.from('emergency_requests')
-    .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude), patient:patients(id, name, phone, user_id)')
+    .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude, operator_id), patient:patients(id, name, phone, user_id)')
     .eq('id', req.params.id).single();
   if (error || !data) return res.status(404).json({ success: false, message: 'Emergency request not found' });
+
+  // SECURITY FIX: Ownership check — only the patient, the assigned driver/operator, or admin can view
+  const isPatient = data.patient?.user_id === req.user.id;
+  const isOperator = data.vehicle?.operator_id === req.user.id;
+  const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+  const isHospitalOwner = ['hospital_owner', 'hospital_manager'].includes(req.user.role);
+  const isAmbulanceRole = ['ambulance_operator', 'ambulance_driver'].includes(req.user.role);
+
+  if (!isPatient && !isOperator && !isAdmin && !isHospitalOwner && !isAmbulanceRole) {
+    return res.status(403).json({ success: false, message: 'You do not have permission to view this request' });
+  }
+
   res.json({ success: true, data: {
     ...data,
     ambulance: data.vehicle ? { id: data.vehicle.id, vehicleNumber: data.vehicle.vehicle_number,

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
-import GlobalSocketToasts from "@/components/shared/GlobalSocketToasts";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
+import '@/lib/env'; // Validates env vars on server startup
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,7 +42,6 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
           <ToastProvider>
-            <GlobalSocketToasts />
             {children}
           </ToastProvider>
         </ThemeProvider>

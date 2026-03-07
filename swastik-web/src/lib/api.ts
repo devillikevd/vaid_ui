@@ -738,10 +738,26 @@ export const consultationsApi = {
 // ==================== UPLOAD API ====================
 // Backend: routes/uploads.js
 
+/**
+ * Client-side image compression before upload (saves bandwidth for 2G/3G users).
+ * Dynamically imported to avoid loading compression code on pages that don't upload.
+ */
+async function compressIfImage(file: File): Promise<File> {
+    if (!file.type.startsWith('image/')) return file;
+    try {
+        const { compressImage } = await import('./imageCompression');
+        return compressImage(file);
+    } catch {
+        return file;
+    }
+}
+
 export const uploadApi = {
     uploadFile: async (file: File, type: string = 'document') => {
+        // Compress images client-side before uploading
+        const processedFile = await compressIfImage(file);
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', processedFile);
 
         return fetchWithAuth(`/uploads/${type}`, {
             method: 'POST',
@@ -750,8 +766,10 @@ export const uploadApi = {
     },
 
     uploadMultiple: async (files: File[], folder?: string) => {
+        // Compress all images in parallel
+        const processedFiles = await Promise.all(files.map(compressIfImage));
         const formData = new FormData();
-        files.forEach((file) => formData.append('files', file));
+        processedFiles.forEach((file) => formData.append('files', file));
         if (folder) formData.append('folder', folder);
 
         return fetchWithAuth(`/uploads/multiple`, {

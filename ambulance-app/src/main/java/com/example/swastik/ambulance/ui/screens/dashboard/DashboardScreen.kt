@@ -56,6 +56,32 @@ fun DashboardScreen(
     // Persist tracking state across recomposition by querying actual service state
     var isTracking by remember { mutableStateOf(isServiceRunning(context)) }
 
+    // Logout confirmation dialog state
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Confirm Logout") },
+            text = { Text("Are you sure you want to logout? Active tracking will be stopped.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    stopTracking(context)
+                    authViewModel.logout()
+                    onLogout()
+                }) {
+                    Text("Logout", color = Color(0xFFD32F2F))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // --- Permission launchers ---
 
     // Step 3: Background location (requested AFTER foreground location is granted)
@@ -156,9 +182,7 @@ fun DashboardScreen(
                     }
                     // Logout
                     IconButton(onClick = {
-                        stopTracking(context)
-                        authViewModel.logout()
-                        onLogout()
+                        showLogoutDialog = true
                     }) {
                         Icon(Icons.Default.Logout, contentDescription = "Logout")
                     }

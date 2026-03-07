@@ -2,6 +2,8 @@ package com.example.swastik.ui.screens.patient
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -28,7 +30,7 @@ import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.utils.NavigationHelper
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun HospitalDetailScreen(
     hospitalId: String,

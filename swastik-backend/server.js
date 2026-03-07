@@ -172,6 +172,27 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Stricter rate limiting for auth endpoints (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 15, // 15 attempts per 15 min
+  message: {
+    success: false,
+    message: 'Too many authentication attempts, please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by IP + email to prevent distributed brute-force
+    const email = req.body?.email || '';
+    return `${req.ip}:${email}`;
+  },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -350,9 +371,16 @@ const startConsultationTimeoutCron = () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
+  // Clear cron interval to prevent stale timers
+  if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
   server.close(() => {
     process.exit(1);
   });
+  // Force kill after 15 seconds if server.close() hangs
+  setTimeout(() => {
+    console.error('Forced shutdown after unhandled rejection timeout');
+    process.exit(1);
+  }, 15000);
 });
 
 // Handle uncaught exceptions

@@ -92,7 +92,7 @@ class AuthInterceptor @Inject constructor(
     private fun performTokenRefresh(chain: Interceptor.Chain, originalRequest: okhttp3.Request): String? {
         val refreshToken = tokenManager.refreshToken
         if (refreshToken.isNullOrEmpty()) {
-            tokenManager.clearAll()
+            tokenManager.clearAll(emitSessionExpired = true)
             return null
         }
 
@@ -127,16 +127,16 @@ class AuthInterceptor @Inject constructor(
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
                     newAccessToken
                 } else {
-                    tokenManager.clearAll()
+                    tokenManager.clearAll(emitSessionExpired = true)
                     null
                 }
             } else {
                 refreshResponse.close()
-                tokenManager.clearAll()
+                tokenManager.clearAll(emitSessionExpired = true)
                 null
             }
         } catch (_: Exception) {
-            tokenManager.clearAll()
+            tokenManager.clearAll(emitSessionExpired = true)
             null
         }
     }

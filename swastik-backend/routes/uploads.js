@@ -29,6 +29,7 @@ const {
     getPresignedUploadUrl,
     deleteFile,
     listFiles,
+    getImageVariants,
     STORAGE_FOLDERS,
 } = require('../config/minio');
 
@@ -55,9 +56,12 @@ router.post('/profile', authenticateToken, upload.single('file'), validateMagicB
 
         const result = await uploadProfileImage(req.file, req.user.id);
 
+        // Include thumbnail + medium variant URLs for bandwidth optimization
+        const variants = result.objectName ? getImageVariants(result.objectName) : {};
+
         res.json({
             success: true,
-            data: result,
+            data: { ...result, variants },
         });
     } catch (error) {
         next(error);
@@ -228,9 +232,12 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
 
         const result = await uploadEntityImage(req.file, entityId, entityType);
 
+        // Include thumbnail + medium variant URLs for bandwidth optimization
+        const variants = result.objectName ? getImageVariants(result.objectName) : {};
+
         res.json({
             success: true,
-            data: result,
+            data: { ...result, variants },
         });
     } catch (error) {
         next(error);

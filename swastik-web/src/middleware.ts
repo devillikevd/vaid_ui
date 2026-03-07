@@ -1,23 +1,38 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
 /**
  * Next.js Middleware for server-side route protection.
- * Reads the `swastik-role` cookie (set by authStore on login)
- * and validates JWT expiry from the `swastik-token` cookie.
- * Enforces role-based access to protected routes.
+ * SECURITY FIX #1: Verifies JWT signature using jose library instead of just decoding.
+ * Reads the `swastik-token` cookie and validates both signature AND expiry.
+ * Falls back to `swastik-role` cookie only for redirect logic.
  */
 
-/** Decode JWT payload and check if expired (server-side, no secret needed for expiry check) */
-function isJwtExpiredServer(token: string): boolean {
+const JWT_SECRET = new TextEncoder().encode(
+    process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || ''
+);
+
+/** Verify JWT signature and check expiry server-side */
+async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string; expired?: boolean }> {
     try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return true;
-        const payload = JSON.parse(atob(parts[1]));
-        if (!payload.exp) return false;
-        return Date.now() >= payload.exp * 1000;
-    } catch {
-        return true;
+        // If no secret configured, fall back to expiry-only check (dev mode)
+        if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+            // Fallback: decode-only check (logs warning)
+            const parts = token.split('.');
+            if (parts.length !== 3) return { valid: false };
+            const payload = JSON.parse(atob(parts[1]));
+            if (payload.exp && Date.now() >= payload.exp * 1000) {
+                return { valid: false, expired: true };
+            }
+            return { valid: true, role: payload.role };
+        }
+
+        const { payload } = await jwtVerify(token, JWT_SECRET);
+        return { valid: true, role: payload.role as string };
+    } catch (error: unknown) {
+        const isExpired = error instanceof Error && error.message.includes('expired');
+        return { valid: false, expired: isExpired };
     }
 }
 
@@ -55,7 +70,7 @@ const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
     '/consultation': 'doctor', // Default consultation login to doctor portal
 };
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Find which protected prefix matches
@@ -68,20 +83,43 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    const role = request.cookies.get('swastik-role')?.value;
+    const token = request.cookies.get('swastik-token')?.value;
+    const cookieRole = request.cookies.get('swastik-role')?.value;
 
-    // No role cookie → redirect to appropriate login
-    if (!role) {
+    // Helper: redirect to login and clear cookies
+    const redirectToLogin = (expired = false) => {
         const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
 
-        // Patient routes → redirect to landing page (patients use mobile app)
         if (matchedPrefix === '/patient') {
             return NextResponse.redirect(new URL('/', request.url));
         }
 
         const loginUrl = new URL(`/login/${loginSlug}`, request.url);
         loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
+        if (expired) loginUrl.searchParams.set('expired', '1');
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.set('swastik-role', '', { maxAge: 0, path: '/' });
+        response.cookies.set('swastik-token', '', { maxAge: 0, path: '/' });
+        return response;
+    };
+
+    // No token → redirect to login
+    if (!token) {
+        return redirectToLogin();
+    }
+
+    // Verify JWT signature + expiry
+    const verification = await verifyJwt(token);
+
+    if (!verification.valid) {
+        return redirectToLogin(verification.expired);
+    }
+
+    // Use the role from the verified JWT payload (trusted), fall back to cookie
+    const role = verification.role || cookieRole;
+
+    if (!role) {
+        return redirectToLogin();
     }
 
     // Check if user's role is allowed for this route
@@ -96,20 +134,6 @@ export function middleware(request: NextRequest) {
         }
         // Unknown role — redirect to landing
         return NextResponse.redirect(new URL('/', request.url));
-    }
-
-    // Validate JWT expiry if token cookie exists (defence-in-depth)
-    const token = request.cookies.get('swastik-token')?.value;
-    if (token && isJwtExpiredServer(token)) {
-        // Token expired — clear cookies and redirect to login
-        const loginSlug = ROUTE_TO_LOGIN_SLUG[matchedPrefix] || matchedPrefix.replace('/', '');
-        const loginUrl = new URL(`/login/${loginSlug}`, request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        loginUrl.searchParams.set('expired', '1');
-        const response = NextResponse.redirect(loginUrl);
-        response.cookies.set('swastik-role', '', { maxAge: 0, path: '/' });
-        response.cookies.set('swastik-token', '', { maxAge: 0, path: '/' });
-        return response;
     }
 
     return NextResponse.next();

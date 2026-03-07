@@ -2,7 +2,9 @@
  * Validation Middleware
  * Uses express-validator for request validation
  */
-const { validationResult } = require('express-validator');
+const { validationResult, param } = require('express-validator');
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Validate request using express-validator chain
@@ -22,4 +24,13 @@ const validate = (req, res, next) => {
   next();
 };
 
-module.exports = { validate };
+/**
+ * Validate that a route :param is a valid UUID v4.
+ * Usage: router.get('/:id', validateUUID('id'), validate, handler)
+ */
+const validateUUID = (paramName = 'id') =>
+  param(paramName)
+    .matches(UUID_REGEX)
+    .withMessage(`${paramName} must be a valid UUID`);
+
+module.exports = { validate, validateUUID, UUID_REGEX };

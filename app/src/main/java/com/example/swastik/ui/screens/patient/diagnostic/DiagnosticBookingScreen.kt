@@ -324,7 +324,7 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(center.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(center.address, color = Color.Gray, fontSize = 13.sp, maxLines = 1)
+                Text(center.address ?: "", color = Color.Gray, fontSize = 13.sp, maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     center.rating?.let {
                         Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))

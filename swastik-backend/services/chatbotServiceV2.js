@@ -383,7 +383,31 @@ async function sendMessage(userId, sessionId, message, options = {}) {
  * @param {string} mimeType - e.g. "image/jpeg", "image/png"
  * @param {string} description - optional user description of what they want analyzed
  */
+const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // ~7.5 MB decoded (10 MB base64)
+
 async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jpeg', description = '') {
+  // Validate base64 image size (prevents memory bomb)
+  if (!base64Image || typeof base64Image !== 'string') {
+    return {
+      response: { summary: 'No image provided. Please share an image for analysis.', possible_conditions: [], severity: 'low', recommended_specialist: 'General Physician', requires_emergency: false, confidence_score: 0, follow_up_question: null },
+      provider: 'error', error: true,
+    };
+  }
+  if (base64Image.length > MAX_BASE64_LENGTH) {
+    return {
+      response: { summary: 'Image is too large. Please share an image smaller than 7.5 MB.', possible_conditions: [], severity: 'low', recommended_specialist: 'General Physician', requires_emergency: false, confidence_score: 0, follow_up_question: null },
+      provider: 'error', error: true,
+    };
+  }
+  // Validate MIME type
+  if (!ALLOWED_IMAGE_MIMES.includes(mimeType)) {
+    return {
+      response: { summary: `Unsupported image format: ${mimeType}. Please use JPEG, PNG, GIF, or WebP.`, possible_conditions: [], severity: 'low', recommended_specialist: 'General Physician', requires_emergency: false, confidence_score: 0, follow_up_question: null },
+      provider: 'error', error: true,
+    };
+  }
+
   // Session ownership validation
   if (!validateSessionOwnership(userId, sessionId)) {
     return {

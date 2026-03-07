@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.swastik.utils.ImageCompressor
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,9 +58,18 @@ class RecordsRepository @Inject constructor(
         val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
         val inputStream = contentResolver.openInputStream(uri)
             ?: throw Exception("Cannot read the selected file")
-        val bytes = inputStream.use { it.readBytes() }
+        val originalBytes = inputStream.use { it.readBytes() }
 
-        val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+        // Compress images before upload to save bandwidth (60-80% savings)
+        val (bytes, finalMimeType) = if (mimeType.startsWith("image/")) {
+            val compressed = ImageCompressor.compress(originalBytes)
+            if (compressed != null) Pair(compressed.bytes, compressed.mimeType)
+            else Pair(originalBytes, mimeType)
+        } else {
+            Pair(originalBytes, mimeType)
+        }
+
+        val requestBody = bytes.toRequestBody(finalMimeType.toMediaTypeOrNull())
         val fileName = name.replace(" ", "_").lowercase() + when {
             mimeType.contains("pdf") -> ".pdf"
             mimeType.contains("image") -> ".jpg"

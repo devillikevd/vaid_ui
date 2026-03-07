@@ -9,12 +9,14 @@ import com.example.swastik.ambulance.data.remote.dto.VehicleDto
 import com.example.swastik.ambulance.data.repository.AmbulanceRepository
 import com.example.swastik.ambulance.service.EmergencyAlertManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -66,19 +68,29 @@ class DashboardViewModel @Inject constructor(
     private val _patientLocationUpdate = MutableSharedFlow<String?>(extraBufferCapacity = 10)
     val patientLocationUpdate: SharedFlow<String?> = _patientLocationUpdate.asSharedFlow()
 
+    /** Fix #26: Debounce trigger for dashboard reload to avoid API flood from rapid socket events */
+    private val _reloadTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 10)
+
     init {
         loadDashboard()
         observeSocketEvents()
+        // Debounce dashboard reloads: coalesce rapid socket events into one API call per 500ms
+        @OptIn(FlowPreview::class)
+        viewModelScope.launch {
+            _reloadTrigger.debounce(500).collect {
+                loadDashboard()
+            }
+        }
     }
 
     // ── Socket event observation ─────────────────────────────
     private fun observeSocketEvents() {
-        // New emergency assignment → alert + auto-refresh dashboard
+        // New emergency assignment → alert + debounced dashboard refresh
         viewModelScope.launch {
             socketManager.newRequestFlow.collect {
                 emergencyAlertManager.triggerEmergencyAlert()
                 _userMessage.tryEmit("🚨 New emergency request!")
-                loadDashboard()
+                _reloadTrigger.tryEmit(Unit)
             }
         }
         // SOS broadcast — a nearby patient needs help
@@ -86,27 +98,27 @@ class DashboardViewModel @Inject constructor(
             socketManager.broadcastRequestFlow.collect {
                 emergencyAlertManager.triggerEmergencyAlert()
                 _userMessage.tryEmit("📡 SOS Broadcast — nearby patient needs help!")
-                loadDashboard()
+                _reloadTrigger.tryEmit(Unit)
             }
         }
         // Another driver accepted the request — refresh to remove it
         viewModelScope.launch {
             socketManager.requestTakenFlow.collect {
                 _userMessage.tryEmit("Request was accepted by another driver")
-                loadDashboard()
+                _reloadTrigger.tryEmit(Unit)
             }
         }
         // Status update from elsewhere → refresh
         viewModelScope.launch {
             socketManager.requestUpdatedFlow.collect {
-                loadDashboard()
+                _reloadTrigger.tryEmit(Unit)
             }
         }
         // Cancellation → refresh
         viewModelScope.launch {
             socketManager.requestCancelledFlow.collect {
                 _userMessage.tryEmit("Emergency request was cancelled")
-                loadDashboard()
+                _reloadTrigger.tryEmit(Unit)
             }
         }
         // Session expired from socket auth error → trigger logout

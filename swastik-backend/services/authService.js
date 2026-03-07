@@ -510,7 +510,7 @@ const resetPassword = async (token, newPassword) => {
       throw new ApiError(400, 'Reset link has already been used or expired');
     }
 
-    // Fix #20: Enforce password complexity (matching register/changePassword)
+    // Enforce password complexity (matching register/changePassword)
     if (!newPassword || newPassword.length < 8) {
       throw new ApiError(400, 'Password must be at least 8 characters');
     }
@@ -519,14 +519,21 @@ const resetPassword = async (token, newPassword) => {
     }
 
     const password_hash = await bcrypt.hash(newPassword, 12);
-    const { error } = await supabaseAdmin
+
+    // CRITICAL FIX: Update password in DB BEFORE deleting the Redis token.
+    // If DB update fails, the user can retry with the same token.
+    const { error: dbError } = await supabaseAdmin
       .from('users')
       .update({ password_hash })
       .eq('id', decoded.userId);
 
-    if (error) throw error;
+    if (dbError) {
+      // DB update failed — token is still valid for retry
+      console.error('Password reset DB update failed:', dbError.message);
+      throw new ApiError(500, 'Failed to update password. Please try again.');
+    }
 
-    // Delete token from Redis to prevent reuse
+    // DB update succeeded — NOW delete token from Redis to prevent reuse
     await cacheDel(`reset:${token}`);
 
     // Revoke all existing refresh tokens for this user (force re-login)
@@ -538,6 +545,8 @@ const resetPassword = async (token, newPassword) => {
 
     return { message: 'Password reset successfully' };
   } catch (err) {
+    // Re-throw ApiErrors (our own) without masking them
+    if (err.statusCode) throw err;
     const error = new Error('Invalid or expired reset token');
     error.statusCode = 400;
     throw error;
@@ -551,9 +560,14 @@ const updateProfile = async (userId, role, updates) => {
     throw new ApiError(400, 'No valid fields to update');
   }
 
-  // Update phone on users table
+  // Update phone on users table with format validation
   if (phone) {
-    const { error } = await supabaseAdmin.from('users').update({ phone }).eq('id', userId);
+    // Fix #44: Validate phone format (E.164 or common Indian formats)
+    const phoneStr = String(phone).trim();
+    if (!/^\+?[1-9]\d{6,14}$/.test(phoneStr)) {
+      throw new ApiError(400, 'Invalid phone number format. Use E.164 format (e.g., +919876543210)');
+    }
+    const { error } = await supabaseAdmin.from('users').update({ phone: phoneStr }).eq('id', userId);
     if (error) throw error;
   }
 

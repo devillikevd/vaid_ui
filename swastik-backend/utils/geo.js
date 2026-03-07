@@ -9,15 +9,15 @@ const calculateDistance = (point1, point2) => {
   return distanceInMeters / 1000; // Convert to km
 };
 
-// Find points within radius
+// Find points within radius (calculate distance once per point)
 const findWithinRadius = (centerPoint, points, radiusKm) => {
-  return points.filter(point => {
-    const distance = calculateDistance(centerPoint, point);
-    return distance <= radiusKm;
-  }).map(point => ({
-    ...point,
-    distance: calculateDistance(centerPoint, point),
-  })).sort((a, b) => a.distance - b.distance);
+  return points
+    .map(point => ({
+      ...point,
+      distance: calculateDistance(centerPoint, point),
+    }))
+    .filter(point => point.distance <= radiusKm)
+    .sort((a, b) => a.distance - b.distance);
 };
 
 // Calculate ETA based on distance and average speed

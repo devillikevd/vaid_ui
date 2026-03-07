@@ -441,14 +441,16 @@ class AmbulanceService {
       })
       .eq('id', requestId);
 
-    // Make ambulance available
-    await supabaseAdmin
-      .from('ambulances')
-      .update({
-        status: 'available',
-        current_request_id: null,
-      })
-      .eq('id', request.vehicle_id);
+    // Make ambulance available (only if one was assigned)
+    if (request.vehicle_id) {
+      await supabaseAdmin
+        .from('ambulances')
+        .update({
+          status: 'available',
+          current_request_id: null,
+        })
+        .eq('id', request.vehicle_id);
+    }
 
     // Notify driver (resolve from vehicle join)
     const driverUserId = request.vehicle?.driver_user_id;

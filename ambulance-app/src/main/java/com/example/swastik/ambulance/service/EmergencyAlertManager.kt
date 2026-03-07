@@ -46,6 +46,8 @@ class EmergencyAlertManager @Inject constructor(
      * Stop any playing alert (e.g., when user taps Accept or Reject).
      */
     fun stopAlert() {
+        // Fix #8: Cancel the auto-stop callback FIRST to prevent double-release crash
+        handler.removeCallbacks(autoStopRunnable)
         try {
             mediaPlayer?.apply {
                 if (isPlaying) stop()

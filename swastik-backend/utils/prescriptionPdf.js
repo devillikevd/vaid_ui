@@ -24,7 +24,18 @@ const generatePrescriptionPdf = async (prescription) => {
 
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 50,
+        compress: true,        // Enable PDF stream compression (zlib deflate)
+        autoFirstPage: true,
+        bufferPages: false,    // Stream pages instead of buffering all (memory-efficient)
+        info: {
+          Title: 'Prescription',
+          Author: 'Swastik Healthcare',
+          Creator: 'Swastik Healthcare Platform',
+        },
+      });
       const chunks = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
