@@ -14,7 +14,8 @@ data class ApiResponse<T>(
 
 data class LoginRequest(
     val email: String,
-    val password: String
+    val password: String,
+    val role: String? = null
 )
 
 data class PaginatedResponse<T>(
@@ -163,7 +164,7 @@ data class PatientDto(
     val id: String,
     val name: String,
     val email: String?,
-    val phone: String,
+    val phone: String?,
     val age: Int?,
     val gender: String?,
     @SerializedName("blood_group")
@@ -319,7 +320,9 @@ data class CreateAppointmentRequest(
     val date: String,
     val timeSlot: String,
     val type: String,
-    val notes: String? = null
+    val notes: String? = null,
+    val hospitalId: String? = null,
+    val clinicId: String? = null
 )
 
 data class AppointmentDto(

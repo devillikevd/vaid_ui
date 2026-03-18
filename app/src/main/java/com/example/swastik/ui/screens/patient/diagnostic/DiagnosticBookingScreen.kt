@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.DiagnosticCenterDto
 import com.example.swastik.data.remote.dto.DiagnosticTestDto
 import com.example.swastik.ui.viewmodel.DiagnosticViewModel
+import java.util.Locale
 
 private val SwastikPurple = Color(0xFF6C63FF)
 
@@ -261,6 +262,7 @@ fun DiagnosticBookingScreen(
                     datePickerState.selectedDateMillis?.let { millis ->
                         val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
                         bookingDate = String.format(
+                            Locale.US,
                             "%04d-%02d-%02d",
                             calendar.get(java.util.Calendar.YEAR),
                             calendar.get(java.util.Calendar.MONTH) + 1,
@@ -289,7 +291,7 @@ fun DiagnosticBookingScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    bookingTime = String.format("%02d:%02d", timePickerState.hour, timePickerState.minute)
+                    bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
                     showTimePicker = false
                 }) { Text("OK", color = SwastikPurple) }
             },
@@ -328,12 +330,12 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     center.rating?.let {
                         Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                        Text(" ${String.format("%.1f", it)}", fontSize = 12.sp, color = Color.Gray)
+                        Text(" ${String.format(Locale.US, "%.1f", it)}", fontSize = 12.sp, color = Color.Gray)
                         Spacer(Modifier.width(8.dp))
                     }
                     center.distance?.let {
                         Icon(Icons.Default.LocationOn, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Text(" ${String.format("%.1f", it)} km", fontSize = 12.sp, color = Color.Gray)
+                        Text(" ${String.format(Locale.US, "%.1f", it)} km", fontSize = 12.sp, color = Color.Gray)
                     }
                 }
             }

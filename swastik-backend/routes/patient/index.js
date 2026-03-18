@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, query } = require('express-validator');
+const { body, query, param } = require('express-validator');
 const { validate } = require('../../middleware/validate');
 const { authenticate, authorize } = require('../../middleware/auth');
 const { uploadProfileImage } = require('../../middleware/upload');
@@ -195,6 +195,19 @@ router.get('/reminders',
   })
 );
 
+// Reminder adherence analytics
+router.get('/reminders/adherence',
+  [
+    query('days').optional().isInt({ min: 1, max: 90 }).withMessage('days must be between 1 and 90'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const days = req.query.days ? parseInt(req.query.days, 10) : 7;
+    const data = await patientService.getReminderAdherence(req.user.id, days);
+    res.json({ success: true, data });
+  })
+);
+
 // Create reminder
 router.post('/reminders',
   [
@@ -206,6 +219,21 @@ router.post('/reminders',
   asyncHandler(async (req, res) => {
     const reminder = await patientService.createReminder(req.user.id, req.body);
     res.status(201).json({ success: true, data: reminder });
+  })
+);
+
+// Reminder action (taken / skip / snooze)
+router.post('/reminders/:id/action',
+  [
+    param('id').isUUID().withMessage('Invalid reminder ID'),
+    body('action').isIn(['taken', 'skip', 'snooze']).withMessage('action must be taken, skip, or snooze'),
+    body('snoozeMinutes').optional().isInt({ min: 1, max: 180 }).withMessage('snoozeMinutes must be between 1 and 180'),
+    body('scheduledAt').optional().isISO8601().withMessage('scheduledAt must be a valid ISO timestamp'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await patientService.actOnReminder(req.user.id, req.params.id, req.body);
+    res.json({ success: true, data: result, message: 'Reminder action saved' });
   })
 );
 
@@ -297,9 +325,12 @@ router.post('/appointments',
     body('date').isDate().withMessage('Valid date is required'),
     body('timeSlot').notEmpty().withMessage('Time slot is required'),
     body('type').isIn(['video', 'clinic', 'home_visit', 'in_person']).withMessage('Invalid appointment type'),
+    body('hospitalId').optional().isUUID().withMessage('Hospital ID must be valid'),
+    body('clinicId').optional().isUUID().withMessage('Clinic ID must be valid'),
   ],
   validate,
   asyncHandler(async (req, res) => {
+    if (req.body.type === 'in_person') req.body.type = 'clinic';
     const appointment = await appointmentService.bookAppointment(req.user.id, req.body);
     res.status(201).json({ success: true, data: appointment });
   })
@@ -324,7 +355,8 @@ router.put('/appointments/:id/cancel',
 // Must be BEFORE /doctors/:id to avoid route collision
 router.get('/doctors/recommended',
   asyncHandler(async (req, res) => {
-    const { limit = 8 } = req.query;
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 20) : 8;
 
     // Get patient ID for the recommendation engine
     const { data: patient } = await supabaseAdmin
@@ -340,7 +372,7 @@ router.get('/doctors/recommended',
     const recommended = await patientService.getRecommendedDoctors(
       patient.id,
       req.user.id,
-      parseInt(limit)
+      limit
     );
     res.json({ success: true, data: recommended });
   })
@@ -349,9 +381,9 @@ router.get('/doctors/recommended',
 // Search doctors
 router.get('/doctors',
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, specialization, search, hospitalId } = req.query;
+    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId } = req.query;
     const result = await doctorService.getAllDoctors(
-      { specialization, search, hospitalId },
+      { specialization, search, hospitalId, clinicId },
       parseInt(page),
       parseInt(limit)
     );
@@ -375,7 +407,8 @@ router.get('/doctors/:id/slots',
   validate,
   asyncHandler(async (req, res) => {
     const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date);
-    res.json({ success: true, data: slots });
+    // Wrap as { date, slots } to match Android SlotsResponse DTO
+    res.json({ success: true, data: { date: req.query.date, slots } });
   })
 );
 
@@ -850,7 +883,7 @@ router.patch('/orders/:id/cancel',
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    if (!['pending', 'processing'].includes(order.status)) {
+    if (!['pending', 'confirmed', 'processing'].includes(order.status)) {
       return res.status(400).json({ success: false, message: 'Cannot cancel order in current status' });
     }
 
@@ -904,7 +937,7 @@ router.get('/diagnostic-bookings',
       .from('diagnostic_bookings')
       .select(`
         *,
-        test:diagnostic_tests(id, name, category, price, report_time),
+        test:diagnostic_tests(id, name, category, price),
         center:diagnostic_centers(id, name, phone, address, city)
       `, { count: 'exact' })
       .eq('patient_id', patient.id);
@@ -948,7 +981,7 @@ router.get('/diagnostic-bookings/:id',
       .from('diagnostic_bookings')
       .select(`
         *,
-        test:diagnostic_tests(id, name, category, price, report_time, description),
+        test:diagnostic_tests(id, name, category, price, description),
         center:diagnostic_centers(id, name, phone, address, city, email)
       `)
       .eq('id', req.params.id)

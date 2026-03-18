@@ -3,7 +3,6 @@ package com.example.swastik.ambulance.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
@@ -196,18 +195,16 @@ class LocationTrackingService : Service() {
     // ==================== Notification ====================
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Ambulance Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows when your location is being shared with patients"
-                setShowBadge(false)
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Ambulance Location Tracking",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows when your location is being shared with patients"
+            setShowBadge(false)
         }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(text: String): Notification {
@@ -230,12 +227,7 @@ class LocationTrackingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
+        val builder = Notification.Builder(this, CHANNEL_ID)
 
         return builder
             .setContentTitle("Swastik Ambulance")

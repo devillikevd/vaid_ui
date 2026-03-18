@@ -60,11 +60,24 @@ router.post('/login',
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
+    body('role').optional().isIn([
+      'patient',
+      'doctor',
+      'hospital_owner',
+      'hospital_manager',
+      'clinic_owner',
+      'pharmacy_owner',
+      'ambulance_operator',
+      'ambulance_driver',
+      'diagnostic_center_owner',
+      'admin',
+      'super_admin',
+    ]).withMessage('Invalid role'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const { email, password, role } = req.body;
+    const result = await authService.login(email, password, role);
     res.json({
       success: true,
       message: 'Login successful',

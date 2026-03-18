@@ -90,7 +90,7 @@ export default function ScanPatientQRPage() {
                 if (barcodes.length > 0) {
                     const url = barcodes[0].rawValue;
                     // Extract token from URL like https://domain/health-card/TOKEN
-                    const tokenMatch = url.match(/health-card\/([a-f0-9]{64})/);
+                    const tokenMatch = String(url || '').match(/health-card\/([a-f0-9]{64})/i);
                     if (tokenMatch) {
                         // Stop scanning
                         if (streamRef.current) {
@@ -136,9 +136,12 @@ export default function ScanPatientQRPage() {
     const handleManualSubmit = () => {
         const token = manualToken.trim();
         // Try to extract token from a full URL or raw token
-        const urlMatch = token.match(/health-card\/([a-f0-9]{64})/);
-        const rawMatch = token.match(/^[a-f0-9]{64}$/);
-        const extracted = urlMatch?.[1] || (rawMatch ? token : null);
+        const decoded = (() => {
+            try { return decodeURIComponent(token); } catch { return token; }
+        })();
+        const urlMatch = decoded.match(/health-card\/([a-f0-9]{64})/i);
+        const rawMatch = decoded.match(/^[a-f0-9]{64}$/i);
+        const extracted = (urlMatch?.[1] || (rawMatch ? decoded : null))?.toLowerCase();
         if (extracted) {
             validateAndNavigate(extracted);
         } else {

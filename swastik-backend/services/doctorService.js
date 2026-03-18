@@ -12,7 +12,7 @@ class DoctorService {
       .from('doctors')
       .select(`
         *,
-        user:users(email, phone, is_verified, created_at),
+        user:users!doctors_user_id_fkey(email, phone, is_verified, created_at),
         hospital:hospitals(id, name, address, city)
       `)
       .eq('user_id', userId)
@@ -91,6 +91,10 @@ class DoctorService {
 
   // Get doctor dashboard
   async getDashboard(userId) {
+    const cacheKey = `doctor:dashboard:${userId}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return cached;
+
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
       .select('id, name, specialization, is_available, consultation_fee')
@@ -154,7 +158,7 @@ class DoctorService {
 
     const totalEarningsToday = completedTodayAppts.reduce((sum, a) => sum + (a.fee || doctor.consultation_fee || 0), 0);
 
-    return {
+    const dashboard = {
       doctor: {
         id: doctor.id,
         name: doctor.name,
@@ -171,11 +175,33 @@ class DoctorService {
         earningsToday: totalEarningsToday,
       },
     };
+
+    try { await cacheSet(cacheKey, dashboard, 30); } catch (_) { /* non-fatal */ }
+
+    return dashboard;
   }
 
   // Get all doctors (for patient search)
   async getAllDoctors(filters = {}, page = 1, limit = 10) {
     const { offset } = paginate(page, limit);
+    let clinicDoctorIds = null;
+
+    if (filters.clinicId) {
+      const { data: clinicLinks, error: clinicError } = await supabaseAdmin
+        .from('clinic_doctors')
+        .select('doctor_id')
+        .eq('clinic_id', filters.clinicId)
+        .eq('is_active', true);
+
+      if (clinicError) {
+        throw new ApiError(400, 'Failed to fetch clinic doctors');
+      }
+
+      clinicDoctorIds = (clinicLinks || []).map(link => link.doctor_id).filter(Boolean);
+      if (clinicDoctorIds.length === 0) {
+        return paginatedResponse([], 0, page, limit);
+      }
+    }
 
     let query = supabaseAdmin
       .from('doctors')
@@ -192,6 +218,9 @@ class DoctorService {
 
     if (filters.hospitalId) {
       query = query.eq('hospital_id', filters.hospitalId);
+    }
+    if (clinicDoctorIds) {
+      query = query.in('id', clinicDoctorIds);
     }
 
     if (filters.isAvailable !== undefined) {
@@ -326,7 +355,7 @@ class DoctorService {
           availableSlots.push({
             time: timeSlot,
             period: hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening',
-            isAvailable: true,
+            is_available: true,
           });
         }
       }
@@ -384,7 +413,34 @@ class DoctorService {
     });
 
     if (rpcError) {
-      throw new ApiError(400, 'Failed to update slots');
+      // Backward-compatible fallback for environments where RPC is missing/outdated
+      const { error: deleteError } = await supabaseAdmin
+        .from('doctor_slots')
+        .delete()
+        .eq('doctor_id', doctor.id);
+
+      if (deleteError) {
+        throw new ApiError(400, 'Failed to update slots');
+      }
+
+      const fallbackRows = slots.map((slot) => ({
+        doctor_id: doctor.id,
+        day_of_week: slot.dayOfWeek,
+        start_time: slot.startTime,
+        end_time: slot.endTime,
+        slot_duration: slot.slotDuration || 15,
+        is_video_enabled: slot.isVideoEnabled ?? true,
+        is_clinic_enabled: slot.isClinicEnabled ?? true,
+        is_active: true,
+      }));
+
+      const { error: insertFallbackError } = await supabaseAdmin
+        .from('doctor_slots')
+        .insert(fallbackRows);
+
+      if (insertFallbackError) {
+        throw new ApiError(400, 'Failed to update slots');
+      }
     }
 
     // Fetch the newly inserted slots to return

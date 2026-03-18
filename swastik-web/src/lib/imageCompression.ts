@@ -5,19 +5,19 @@
  *
  * Pipeline:
  *   1. Read file as HTMLImageElement
- *   2. Downscale to max 2048px (maintains aspect ratio)
- *   3. Re-encode as WebP (or JPEG fallback) at quality 0.8
+ *   2. Downscale to max 2560px (maintains aspect ratio)
+ *   3. Re-encode as WebP (or JPEG fallback) at quality 0.88
  *   4. Returns a new File object ready for upload
  *
  * Typical savings: 60-80% reduction for phone camera photos (4-8MB → 200-600KB)
  */
 
 interface CompressOptions {
-    /** Max width/height in pixels. Default: 2048 */
+    /** Max width/height in pixels. Default: 2560 */
     maxDimension?: number;
-    /** Quality 0-1. Default: 0.8 */
+    /** Quality 0-1. Default: 0.88 */
     quality?: number;
-    /** Max file size in bytes before compression kicks in. Default: 512KB */
+    /** Max file size in bytes before compression kicks in. Default: 1MB */
     threshold?: number;
 }
 
@@ -30,9 +30,9 @@ export async function compressImage(
     options: CompressOptions = {}
 ): Promise<File> {
     const {
-        maxDimension = 2048,
-        quality = 0.8,
-        threshold = 512 * 1024, // 512KB
+        maxDimension = 2560,
+        quality = 0.88,
+        threshold = 1024 * 1024, // 1MB
     } = options;
 
     // Skip non-images

@@ -6,7 +6,36 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
+const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
+
+// Search pharmacies globally (not limited to nearby)
+const searchPharmacies = async (filters = {}, page = 1, limit = 20) => {
+  const offset = (page - 1) * limit;
+  let query = supabaseAdmin
+    .from('pharmacies')
+    .select('*', { count: 'exact' })
+    .eq('is_active', true)
+    .eq('is_approved', true);
+
+  if (filters.city) query = query.ilike('city', `%${sanitizeSearch(filters.city)}%`);
+  if (filters.deliveryAvailable === true) query = query.eq('delivery_available', true);
+  if (filters.isOpen === true) query = query.eq('is_open', true);
+  if (filters.search) {
+    const s = sanitizeSearch(filters.search);
+    if (s) query = query.or(`name.ilike.%${s}%,city.ilike.%${s}%,address.ilike.%${s}%`);
+  }
+
+  const { data, error, count } = await query
+    .order('name')
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return {
+    data: data || [],
+    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+  };
+};
 
 // Find nearby pharmacies with a specific medicine
 const findNearbyWithMedicine = async (latitude, longitude, medicineId, radius = 10) => {
@@ -99,6 +128,17 @@ const getPharmacyByOwner = async (userId) => {
 
 // Update pharmacy
 const updatePharmacy = async (pharmacyId, userId, updates) => {
+  const { data: existingPharmacy, error: existingPharmacyError } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .eq('id', pharmacyId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (existingPharmacyError || !existingPharmacy) {
+    throw existingPharmacyError || new ApiError(404, 'Pharmacy not found');
+  }
+
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'is_24_hours', 'delivery_available', 'description',
@@ -107,6 +147,7 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+  Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingPharmacy, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -123,6 +164,19 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
 
 // Get inventory
 const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
+  if (filters.publicOnly) {
+    const { data: pharmacy, error: pharmacyError } = await supabaseAdmin
+      .from('pharmacies')
+      .select('id')
+      .eq('id', pharmacyId)
+      .eq('is_active', true)
+      .eq('is_approved', true)
+      .maybeSingle();
+
+    if (pharmacyError) throw pharmacyError;
+    if (!pharmacy) throw new ApiError(404, 'Pharmacy not found');
+  }
+
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('pharmacy_inventory')
@@ -133,28 +187,31 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
     const s = sanitizeSearch(filters.search);
     if (s) query = query.or(`name.ilike.%${s}%,medicine_name.ilike.%${s}%`);
   }
-  // Low-stock filter: use .or() with default min_quantity of 10
-  // Supabase PostgREST supports .lt() on columns. We use two conditions:
-  //   1) Items where quantity < min_quantity (when min_quantity is set)
-  //   2) Items where min_quantity is null AND quantity < 10 (default threshold)
-  if (filters.lowStock) {
-    // Use PostgREST filter: quantity < coalesce(min_quantity, 10)
-    // PostgREST doesn't support cross-column comparison directly, but we can
-    // use .or() with two conditions to push filtering to the DB
-    query = query.or('and(min_quantity.not.is.null,quantity.lt.min_quantity),and(min_quantity.is.null,quantity.lt.10)');
-  }
+  // Low-stock filter is applied in JS because PostgREST does not support
+  // reliable cross-column comparisons like quantity < reorder_level.
+  const isLowStockFilter = filters.lowStock === true || filters.lowStock === 'true';
   if (filters.category) {
     query = query.eq('category', filters.category);
   }
 
   let data, error, count;
   {
-    const result = await query
-      .order('name')
-      .range(offset, offset + limit - 1);
-    data = result.data;
-    error = result.error;
-    count = result.count;
+    if (isLowStockFilter) {
+      // Fetch matching category/search rows first, then apply low-stock logic
+      const result = await query.order('name');
+      const allRows = result.data || [];
+      const lowStockRows = allRows.filter(i => (i.quantity || 0) < (i.reorder_level || 10));
+      data = lowStockRows.slice(offset, offset + limit);
+      error = result.error;
+      count = lowStockRows.length;
+    } else {
+      const result = await query
+        .order('name')
+        .range(offset, offset + limit - 1);
+      data = result.data;
+      error = result.error;
+      count = result.count;
+    }
   }
 
   if (error) throw error;
@@ -182,7 +239,7 @@ const addInventoryItem = async (pharmacyId, userId, itemData) => {
       expiry_date: itemData.expiryDate || itemData.expiry_date,
       manufacturer: itemData.manufacturer,
       requires_prescription: itemData.requiresPrescription || false,
-      min_quantity: itemData.minQuantity || itemData.reorder_level || 10,
+      reorder_level: itemData.reorder_level || itemData.minQuantity || 10,
       unit: itemData.unit || 'units',
     })
     .select('*')
@@ -197,7 +254,7 @@ const updateInventoryItem = async (itemId, pharmacyId, userId, updates) => {
   // Whitelist allowed fields
   const allowedFields = ['name', 'medicine_name', 'category', 'quantity', 'price', 'mrp',
     'batch_number', 'expiry_date', 'manufacturer', 'requires_prescription',
-    'min_quantity', 'unit', 'description'];
+    'reorder_level', 'unit', 'description'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
@@ -232,7 +289,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('pharmacy_orders')
-    .select('*, patient:patients(id, name, phone)', { count: 'exact' })
+    .select('*, patient:patients(id, name)', { count: 'exact' })
     .eq('pharmacy_id', pharmacyId);
 
   if (filters.status) query = query.eq('status', filters.status);
@@ -326,11 +383,11 @@ const getAnalytics = async (pharmacyId, userId, period = '30d') => {
   ] = await Promise.all([
     supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).gte('created_at', sinceStr),
     supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'pending'),
-    supabaseAdmin.from('pharmacy_inventory').select('quantity, price, min_quantity').eq('pharmacy_id', pharmacyId),
+    supabaseAdmin.from('pharmacy_inventory').select('quantity, price, reorder_level').eq('pharmacy_id', pharmacyId),
   ]);
 
   const totalInventoryValue = (inventory || []).reduce((sum, i) => sum + (i.quantity * (i.price || 0)), 0);
-  const lowStockCount = (inventory || []).filter(i => i.quantity < (i.min_quantity || 10)).length;
+  const lowStockCount = (inventory || []).filter(i => i.quantity < (i.reorder_level || 10)).length;
 
   return {
     data: {
@@ -429,6 +486,7 @@ const createOrder = async (patientUserId, orderData) => {
 };
 
 module.exports = {
+  searchPharmacies,
   findNearbyWithMedicine,
   registerPharmacy,
   getPharmacyByOwner,

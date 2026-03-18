@@ -237,7 +237,7 @@ private fun MedicineSearchBar(
                 }
             } else {
                 IconButton(onClick = {
-                    android.widget.Toast.makeText(context, "Voice search coming soon!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, "Voice search is unavailable", android.widget.Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPurple)
                 }

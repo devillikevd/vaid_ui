@@ -93,9 +93,13 @@ class MedicineViewModel @Inject constructor(
     private val _realtimeOrderEvent = MutableSharedFlow<OrderUpdate>(replay = 0)
     val realtimeOrderEvent: SharedFlow<OrderUpdate> = _realtimeOrderEvent.asSharedFlow()
 
+    private var hasObservedSocketConnection = false
+
     init {
         loadPopularMedicines()
         collectRealtimeOrderUpdates()
+        collectProviderCatalogUpdates()
+        observeSocketReconnects()
     }
 
     /**
@@ -113,6 +117,44 @@ class MedicineViewModel @Inject constructor(
                 loadOrderHistory(_orderHistoryState.value.filterStatus)
                 // Emit event for UI snackbar notification
                 _realtimeOrderEvent.emit(update)
+            }
+        }
+    }
+
+    private fun collectProviderCatalogUpdates() {
+        viewModelScope.launch {
+            socketManager.providerCatalogUpdates.collect {
+                refreshMedicineDiscovery()
+            }
+        }
+    }
+
+    private fun observeSocketReconnects() {
+        viewModelScope.launch {
+            socketManager.connectionState.collect { connected ->
+                if (!hasObservedSocketConnection) {
+                    hasObservedSocketConnection = true
+                    return@collect
+                }
+                if (connected) {
+                    refreshMedicineDiscovery()
+                }
+            }
+        }
+    }
+
+    private fun refreshMedicineDiscovery() {
+        val currentQuery = _uiState.value.searchQuery
+        if (currentQuery.isBlank()) {
+            loadPopularMedicines()
+        } else {
+            searchMedicines(currentQuery)
+        }
+
+        val detailMedicineId = _detailState.value.medicine?.id
+        if (!detailMedicineId.isNullOrBlank()) {
+            viewModelScope.launch {
+                loadAvailability(detailMedicineId)
             }
         }
     }

@@ -232,14 +232,15 @@ export default function DashboardLayout({
 
     // The base route for this dashboard (first nav item or derive from role)
     const baseRoute = config.navItems[0]?.href || '/';
+    const roleMatches = user?.role === config.role || (config.role === 'admin' && user?.role === 'super_admin');
 
     useEffect(() => {
-        if (_hasHydrated && (!isAuthenticated || user?.role !== config.role)) {
+        if (_hasHydrated && (!isAuthenticated || !roleMatches)) {
             router.push(config.loginPath);
         }
-    }, [isAuthenticated, _hasHydrated, user, router, config.role, config.loginPath]);
+    }, [isAuthenticated, _hasHydrated, roleMatches, router, config.loginPath]);
 
-    if (!_hasHydrated || !isAuthenticated || user?.role !== config.role) {
+    if (!_hasHydrated || !isAuthenticated || !roleMatches) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
                 <div className={cn('animate-spin h-8 w-8 border-4 border-t-transparent rounded-full', colors.spinner)} />

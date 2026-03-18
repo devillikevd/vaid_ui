@@ -6,7 +6,17 @@ import com.google.gson.annotations.SerializedName
 
 data class LoginRequest(
     val email: String,
-    val password: String
+    val password: String,
+    val role: String? = null
+)
+
+data class RegisterRequest(
+    val email: String,
+    val phone: String,
+    val password: String,
+    val name: String,
+    val role: String = "ambulance_operator",
+    val companyName: String? = null
 )
 
 data class RefreshTokenRequest(
@@ -39,6 +49,12 @@ data class AuthResponse(
     fun resolvedExpiresIn(): Long = expiresIn ?: data?.expiresIn ?: 604800L
 }
 
+data class RegistrationResult(
+    val user: UserDto?,
+    val message: String?,
+    val requiresVerification: Boolean? = null
+)
+
 data class UserDto(
     val id: String,
     val email: String,
@@ -63,7 +79,7 @@ data class DashboardStats(
     val activeEmergencies: Int = 0,
     val availableVehicles: Int = 0,
     val completedToday: Int = 0,
-    val avgResponseTime: String = "0 min"
+    val avgResponseTime: String = "N/A"
 )
 
 data class EmergencyDto(

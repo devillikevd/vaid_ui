@@ -26,7 +26,7 @@ const eventEmitter = require('./eventEmitter');
 const STATUS_TRANSITIONS = {
   pending:           ['broadcasting', 'assigned', 'cancelled', 'no_ambulance'],
   broadcasting:      ['accepted', 'timeout', 'cancelled'],
-  assigned:          ['accepted', 'cancelled', 'timeout'],
+  assigned:          ['accepted', 'en_route', 'cancelled', 'timeout'],
   accepted:          ['en_route', 'cancelled'],
   en_route:          ['arrived', 'cancelled'],
   arrived:           ['picked_up', 'cancelled'],
@@ -64,6 +64,54 @@ class DispatchService {
     this.ACCEPT_TIMEOUT_MS = 30_000;  // 30 s for each broadcast round
     this.MAX_BROADCAST_ROUNDS = 3;
     this.BROADCAST_RADIUS_KM = [10, 25, 50]; // expanding radius per round
+  }
+
+  async _resolveAmbulanceForUser(userId, { requireAvailable = false } = {}) {
+    const baseSelect = 'id, vehicle_number, driver_name, driver_phone, vehicle_type, driver_user_id, operator_id, status';
+
+    let driverQuery = supabaseAdmin
+      .from('ambulances')
+      .select(baseSelect)
+      .eq('driver_user_id', userId)
+      .limit(1);
+    if (requireAvailable) driverQuery = driverQuery.eq('status', 'available');
+
+    const { data: driverAmbulance } = await driverQuery.maybeSingle();
+    if (driverAmbulance) return driverAmbulance;
+
+    const { data: operator } = await supabaseAdmin
+      .from('ambulance_operators')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!operator?.id) return null;
+
+    let operatorQuery = supabaseAdmin
+      .from('ambulances')
+      .select(baseSelect)
+      .eq('operator_id', operator.id)
+      .limit(1);
+    if (requireAvailable) operatorQuery = operatorQuery.eq('status', 'available');
+
+    const { data: operatorAmbulance } = await operatorQuery.maybeSingle();
+    return operatorAmbulance || null;
+  }
+
+  async _resolveAmbulanceRecipientUserIds(ambulance) {
+    const recipients = new Set();
+    if (ambulance?.driver_user_id) recipients.add(ambulance.driver_user_id);
+
+    if (ambulance?.operator_id) {
+      const { data: operator } = await supabaseAdmin
+        .from('ambulance_operators')
+        .select('user_id')
+        .eq('id', ambulance.operator_id)
+        .maybeSingle();
+      if (operator?.user_id) recipients.add(operator.user_id);
+    }
+
+    return Array.from(recipients);
   }
 
   // ── Startup recovery: re-arm timeouts for stuck broadcasting requests ──
@@ -139,12 +187,16 @@ class DispatchService {
       throw new ApiError(400, 'Location (latitude, longitude) is required for SOS');
     }
 
-    // Resolve patient from users table
-    const { data: patient } = await supabaseAdmin
+    // Resolve patient profile strictly (no synthetic profile creation)
+    let { data: patient } = await supabaseAdmin
       .from('patients')
-      .select('id, name, user_id, phone')
+      .select('id, name, user_id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (!patient) {
+      throw new ApiError(403, 'Patient profile not found. Please complete patient registration before SOS requests.');
+    }
 
     const requestId = uuidv4();
     const priority = derivePriority(emergencyType || 'medical');
@@ -155,8 +207,8 @@ class DispatchService {
       .insert({
         id: requestId,
         patient_id: patient?.id,
-        requester_name: patientName || patient?.name || 'Unknown',
-        requester_phone: patientPhone || patient?.phone || '',
+        requester_name: patientName || patient?.name || null,
+        requester_phone: patientPhone || '',
         pickup_address: `${latitude}, ${longitude}`,
         pickup_latitude: latitude,
         pickup_longitude: longitude,
@@ -311,15 +363,16 @@ class DispatchService {
           });
         }
 
-        // Also notify the operator
-        if (ambulance.operator_id) {
-          eventEmitter.notifyUser(ambulance.operator_id, 'ambulance:broadcast', {
+        // Also notify mapped operator/driver users (operator_id is not a user_id)
+        const recipients = await this._resolveAmbulanceRecipientUserIds(ambulance);
+        recipients.forEach((recipientUserId) => {
+          eventEmitter.notifyUser(recipientUserId, 'ambulance:broadcast', {
             requestId,
             ambulanceId: ambulance.id,
             vehicleNumber: ambulance.vehicle_number,
             distance: formatDistance(ambulance.distance),
           });
-        }
+        });
       } catch (err) {
         console.warn(`Failed to notify ambulance ${ambulance.id}:`, err.message);
       }
@@ -408,7 +461,7 @@ class DispatchService {
       .insert({
         id: requestId,
         patient_id: null, // Hospital creates on behalf
-        requester_name: patientName || 'Walk-in Patient',
+        requester_name: patientName || null,
         requester_phone: patientPhone || '',
         pickup_address: `${latitude}, ${longitude}`,
         pickup_latitude: latitude,
@@ -436,7 +489,7 @@ class DispatchService {
     // Notify admin dashboards
     eventEmitter.emitEmergencyRequest({
       requestId,
-      patientName: patientName || 'Walk-in Patient',
+      patientName: patientName || null,
       pickupLatitude: latitude,
       pickupLongitude: longitude,
       emergencyType: emergencyType || 'medical',
@@ -478,7 +531,7 @@ class DispatchService {
     // Get the full ambulance details to notify the driver
     const { data: ambulance } = await supabaseAdmin
       .from('ambulances')
-      .select('id, vehicle_number, driver_name, driver_phone, driver_user_id, vehicle_type')
+      .select('id, vehicle_number, driver_name, driver_phone, driver_user_id, operator_id, vehicle_type')
       .eq('id', ambulanceId)
       .single();
 
@@ -489,9 +542,10 @@ class DispatchService {
       .eq('id', requestId)
       .single();
 
-    // Notify the ambulance driver
-    if (ambulance?.driver_user_id) {
-      await notificationService.sendNotification(ambulance.driver_user_id, {
+    // Notify mapped ambulance recipients (driver + operator user)
+    const recipients = await this._resolveAmbulanceRecipientUserIds(ambulance);
+    for (const recipientUserId of recipients) {
+      await notificationService.sendNotification(recipientUserId, {
         title: '🏥 Hospital Assignment',
         message: `You have been assigned to emergency pickup for ${request?.requester_name || 'a patient'}`,
         type: 'ambulance_hospital_assignment',
@@ -503,7 +557,7 @@ class DispatchService {
         },
       });
 
-      eventEmitter.notifyUser(ambulance.driver_user_id, 'ambulance:assigned', {
+      eventEmitter.notifyUser(recipientUserId, 'ambulance:assigned', {
         requestId,
         pickupLatitude: request?.pickup_latitude,
         pickupLongitude: request?.pickup_longitude,
@@ -558,20 +612,15 @@ class DispatchService {
   // ══════════════════════════════════════════════════════════════
 
   async acceptRequest(driverUserId, requestId) {
-    // Find the driver's ambulance
-    const { data: ambulance } = await supabaseAdmin
-      .from('ambulances')
-      .select('id, vehicle_number, driver_name, driver_phone, vehicle_type')
-      .eq('driver_user_id', driverUserId)
-      .eq('status', 'available')
-      .single();
+    // Find an ambulance for this user (driver or operator login)
+    const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: true });
 
     if (!ambulance) {
       throw new ApiError(404, 'No available ambulance found for your account');
     }
 
     // Atomic accept via PostgreSQL function (row-level locking)
-    const { data, error } = await supabaseAdmin.rpc('accept_emergency_request', {
+    let { data, error } = await supabaseAdmin.rpc('accept_emergency_request', {
       p_request_id: requestId,
       p_ambulance_id: ambulance.id,
       p_driver_user_id: driverUserId,
@@ -579,7 +628,54 @@ class DispatchService {
 
     if (error) {
       console.error('Accept RPC error:', error);
-      throw new ApiError(500, 'Failed to accept request');
+      // Backward-compat fallback: some DBs have stricter status check constraints
+      // that reject 'accepted'. In that case, fallback to 'assigned'.
+      if (String(error.code) === '23514' && String(error.message || '').includes('emergency_requests_status_check')) {
+        const { data: currentReq } = await supabaseAdmin
+          .from('emergency_requests')
+          .select('id, status, vehicle_id')
+          .eq('id', requestId)
+          .single();
+
+        if (!currentReq) throw new ApiError(404, 'Emergency request not found');
+        if (!['pending', 'broadcasting', 'assigned'].includes(currentReq.status)) {
+          throw new ApiError(409, `Could not accept request from status '${currentReq.status}'`);
+        }
+
+        const { data: currentAmb } = await supabaseAdmin
+          .from('ambulances')
+          .select('id, status')
+          .eq('id', ambulance.id)
+          .single();
+
+        if (!currentAmb || currentAmb.status !== 'available') {
+          throw new ApiError(409, 'Your ambulance is not available');
+        }
+
+        const nowIso = new Date().toISOString();
+        await supabaseAdmin
+          .from('emergency_requests')
+          .update({
+            status: 'assigned',
+            vehicle_id: ambulance.id,
+            accepted_by: driverUserId,
+            assigned_at: nowIso,
+          })
+          .eq('id', requestId);
+
+        await supabaseAdmin
+          .from('ambulances')
+          .update({
+            status: 'dispatched',
+            is_available: false,
+            current_request_id: requestId,
+          })
+          .eq('id', ambulance.id);
+
+        data = { success: true, status: 'assigned', reason: 'fallback_status_constraint' };
+      } else {
+        throw new ApiError(500, 'Failed to accept request');
+      }
     }
 
     if (!data?.success) {
@@ -680,11 +776,7 @@ class DispatchService {
 
   async rejectRequest(driverUserId, requestId) {
     // Record rejection (for analytics)
-    const { data: ambulance } = await supabaseAdmin
-      .from('ambulances')
-      .select('id')
-      .eq('driver_user_id', driverUserId)
-      .single();
+    const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: false });
 
     if (ambulance) {
       // Atomic increment with retry loop (optimistic lock + 3 retries)
@@ -724,11 +816,7 @@ class DispatchService {
   // ══════════════════════════════════════════════════════════════
 
   async updateStatus(driverUserId, requestId, newStatus, data = {}) {
-    const { data: ambulance } = await supabaseAdmin
-      .from('ambulances')
-      .select('id')
-      .eq('driver_user_id', driverUserId)
-      .single();
+    const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: false });
 
     if (!ambulance) {
       throw new ApiError(404, 'Ambulance not found for your account');
@@ -736,12 +824,16 @@ class DispatchService {
 
     const { data: request } = await supabaseAdmin
       .from('emergency_requests')
-      .select('*, vehicle:ambulances(id, driver_user_id)')
+      .select('*, vehicle:ambulances(id, driver_user_id, operator_id)')
       .eq('id', requestId)
       .single();
 
     if (!request) {
       throw new ApiError(404, 'Emergency request not found');
+    }
+
+    if (request.vehicle_id && request.vehicle_id !== ambulance.id) {
+      throw new ApiError(403, 'This emergency is assigned to a different ambulance');
     }
 
     // Validate state transition
@@ -918,13 +1010,12 @@ class DispatchService {
   async getAvailableAmbulances(latitude, longitude, radiusKm = 50) {
     const bounds = getBoundingBox({ latitude, longitude }, radiusKm);
 
-    const { data: ambulances } = await supabaseAdmin
+    const { data: ambulances, error: ambulancesError } = await supabaseAdmin
       .from('ambulances')
       .select(`
         id, vehicle_number, driver_name, driver_phone, vehicle_type,
         current_latitude, current_longitude, heading, speed,
-        status, is_active, operator_id,
-        hospital:hospitals(id, name)
+        status, is_active, operator_id
       `)
       .eq('is_active', true)
       .eq('status', 'available')
@@ -932,6 +1023,10 @@ class DispatchService {
       .lte('current_latitude', bounds.maxLat)
       .gte('current_longitude', bounds.minLng)
       .lte('current_longitude', bounds.maxLng);
+
+    if (ambulancesError) {
+      throw new ApiError(400, `Failed to fetch available ambulances: ${ambulancesError.message}`);
+    }
 
     return (ambulances || []).map(a => {
       const distance = calculateDistance(
@@ -961,7 +1056,7 @@ class DispatchService {
       .select(`
         *,
         vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude),
-        patient:patients(id, name, user_id, phone)
+        patient:patients(id, name, user_id)
       `)
       .in('status', ['pending', 'broadcasting', 'assigned', 'accepted', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'])
       .order('created_at', { ascending: false })
@@ -970,7 +1065,7 @@ class DispatchService {
     return (emergencies || []).map(e => ({
       id: e.id,
       requestNumber: e.request_number,
-      patientName: e.requester_name || e.patient?.name || 'Unknown',
+      patientName: e.requester_name || e.patient?.name || null,
       patientPhone: e.requester_phone || e.patient?.phone || '',
       location: e.pickup_address,
       latitude: e.pickup_latitude,

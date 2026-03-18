@@ -14,9 +14,10 @@ export interface ClinicAppointment {
     id: string;
     patientName: string;
     patientId: string;
+    date?: string | null;
     time: string;
-    type: 'Scheduled' | 'Walk-in';
-    status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
+    type: string;
+    status: string;
     doctorName: string;
 }
 
@@ -25,6 +26,19 @@ export interface ClinicDoctor {
     name: string;
     specialization: string;
     status: 'active' | 'on-leave';
+}
+
+function normalizeClinicAppointment(raw: Record<string, any>): ClinicAppointment {
+    return {
+        ...raw,
+        patientName: raw.patientName || raw.patient?.name || 'Patient',
+        patientId: raw.patientId || raw.patient_id || raw.patient?.id || '',
+        time: raw.time || raw.time_slot || '',
+        type: raw.type || 'Scheduled',
+        status: raw.status || 'pending',
+        doctorName: raw.doctorName || raw.doctor?.name || 'Doctor',
+        date: raw.date || raw.appointment_date || null,
+    } as ClinicAppointment & { date?: string | null };
 }
 
 interface ClinicState {
@@ -89,10 +103,11 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
                 return;
             }
             const data = response.data as Record<string, unknown>;
+            const recentAppointments = ((data.recentAppointments || data.appointments || []) as Record<string, any>[]).map(normalizeClinicAppointment);
             const doctorsList = (data.staff || data.doctors || []) as ClinicDoctor[];
             set({
                 stats: (data.stats as ClinicDashboardStats) || null,
-                todaysAppointments: (data.recentAppointments || data.appointments || []) as ClinicAppointment[],
+                todaysAppointments: recentAppointments,
                 doctors: doctorsList,
                 staff: doctorsList,
                 loadingDashboard: false,
@@ -118,8 +133,9 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
             }
             // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
+            const appointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, any>[];
             set({
-                appointments: (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as ClinicAppointment[],
+                appointments: appointments.map(normalizeClinicAppointment),
                 loadingAppointments: false,
             });
         } catch (error) {

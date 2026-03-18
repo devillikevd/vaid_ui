@@ -18,7 +18,7 @@ export default function PharmacyOrdersPage() {
     const { orders, loadingOrders, error, fetchOrders, updateOrderStatus, clearError } = usePharmacyStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [tab, setTab] = useState<'all' | 'pending' | 'processing' | 'completed'>('all');
+    const [tab, setTab] = useState<'all' | 'pending' | 'active' | 'completed'>('all');
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
     const [newOrderAlert, setNewOrderAlert] = useState(false);
     const [page, setPage] = useState(1);
@@ -52,8 +52,8 @@ export default function PharmacyOrdersPage() {
         const matchSearch = name.includes(searchQuery.toLowerCase()) ||
             o.id?.toLowerCase().includes(searchQuery.toLowerCase());
         if (tab === 'pending') return matchSearch && o.status === 'pending';
-        if (tab === 'processing') return matchSearch && o.status === 'processing';
-        if (tab === 'completed') return matchSearch && ['fulfilled', 'completed', 'cancelled'].includes(o.status);
+        if (tab === 'active') return matchSearch && ['confirmed', 'processing', 'ready', 'dispatched'].includes(o.status);
+        if (tab === 'completed') return matchSearch && ['delivered', 'cancelled'].includes(o.status);
         return matchSearch;
     });
 
@@ -64,7 +64,8 @@ export default function PharmacyOrdersPage() {
     useEffect(() => { setPage(1); }, [searchQuery, tab]);
 
     const pendingCount = (orders || []).filter((o: any) => o.status === 'pending').length;
-    const processingCount = (orders || []).filter((o: any) => o.status === 'processing').length;
+    const activeCount = (orders || []).filter((o: any) => ['confirmed', 'processing', 'ready', 'dispatched'].includes(o.status)).length;
+    const deliveredCount = (orders || []).filter((o: any) => o.status === 'delivered').length;
 
     if (loadingOrders && !orders?.length) {
         return (
@@ -111,8 +112,8 @@ export default function PharmacyOrdersPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-orange-100 rounded-xl"><ShoppingCart className="h-5 w-5 text-orange-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{(orders || []).length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-yellow-100 rounded-xl"><Clock className="h-5 w-5 text-yellow-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{pendingCount}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-blue-100 rounded-xl"><Package className="h-5 w-5 text-blue-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{processingCount}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-green-100 rounded-xl"><CheckCircle className="h-5 w-5 text-green-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{(orders || []).filter((o: any) => o.status === 'fulfilled' || o.status === 'completed').length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Fulfilled</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-blue-100 rounded-xl"><Package className="h-5 w-5 text-blue-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{activeCount}</p><p className="text-xs text-gray-500 dark:text-gray-400">Active</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2.5 bg-green-100 rounded-xl"><CheckCircle className="h-5 w-5 text-green-600" /></div><div><p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{deliveredCount}</p><p className="text-xs text-gray-500 dark:text-gray-400">Delivered</p></div></div></Card>
             </div>
 
             {/* Tabs + Search */}
@@ -121,7 +122,7 @@ export default function PharmacyOrdersPage() {
                     {([
                         { key: 'all' as const, label: 'All' },
                         { key: 'pending' as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ''}` },
-                        { key: 'processing' as const, label: `Processing${processingCount ? ` (${processingCount})` : ''}` },
+                        { key: 'active' as const, label: `Active${activeCount ? ` (${activeCount})` : ''}` },
                         { key: 'completed' as const, label: 'Completed' },
                     ]).map(t => (
                         <button key={t.key} onClick={() => setTab(t.key)}
@@ -162,18 +163,30 @@ export default function PharmacyOrdersPage() {
                                 </div>
                                 <div className="flex items-center gap-4 flex-shrink-0">
                                     {total > 0 && <div className="flex items-center gap-1 text-gray-900 dark:text-gray-100 font-bold"><IndianRupee className="h-4 w-4" />{Number(total).toFixed(0)}</div>}
-                                    {['pending', 'processing'].includes(order.status) && (
+                                    {['pending', 'confirmed', 'processing', 'ready', 'dispatched'].includes(order.status) && (
                                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                             {order.status === 'pending' && (
-                                                <button onClick={() => handleStatus(order.id, 'processing')} disabled={actionLoading === order.id}
-                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Process">
+                                                <button onClick={() => handleStatus(order.id, 'confirmed')} disabled={actionLoading === order.id}
+                                                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Confirm">
                                                     {actionLoading === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
                                                 </button>
                                             )}
-                                            <button onClick={() => handleStatus(order.id, 'fulfilled')} disabled={actionLoading === order.id}
-                                                className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg" title="Fulfill"><CheckCircle className="h-4 w-4" /></button>
-                                            <button onClick={() => handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id}
-                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Cancel"><XCircle className="h-4 w-4" /></button>
+                                            {order.status === 'confirmed' && (
+                                                <button onClick={() => handleStatus(order.id, 'processing')} disabled={actionLoading === order.id}
+                                                    className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Start Processing"><Package className="h-4 w-4" /></button>
+                                            )}
+                                            {order.status === 'processing' && (
+                                                <button onClick={() => handleStatus(order.id, 'ready')} disabled={actionLoading === order.id}
+                                                    className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg" title="Mark Ready"><CheckCircle className="h-4 w-4" /></button>
+                                            )}
+                                            {['ready', 'dispatched'].includes(order.status) && (
+                                                <button onClick={() => handleStatus(order.id, 'delivered')} disabled={actionLoading === order.id}
+                                                    className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg" title="Mark Delivered"><CheckCircle className="h-4 w-4" /></button>
+                                            )}
+                                            {order.status !== 'dispatched' && (
+                                                <button onClick={() => handleStatus(order.id, 'cancelled')} disabled={actionLoading === order.id}
+                                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Cancel"><XCircle className="h-4 w-4" /></button>
+                                            )}
                                         </div>
                                     )}
                                     {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}

@@ -215,7 +215,7 @@ export default function NewPrescriptionPage() {
                             type="text"
                             value={diagnosis}
                             onChange={(e) => setDiagnosis(e.target.value)}
-                            placeholder="e.g. Upper respiratory infection"
+                            placeholder="Enter diagnosis"
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
                     </div>
@@ -245,7 +245,7 @@ export default function NewPrescriptionPage() {
                         <textarea
                             value={dietaryAdvice}
                             onChange={(e) => setDietaryAdvice(e.target.value)}
-                            placeholder="e.g. Avoid spicy food, increase water intake..."
+                            placeholder="Enter dietary advice"
                             rows={2}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
@@ -255,7 +255,7 @@ export default function NewPrescriptionPage() {
                         <textarea
                             value={lifestyleAdvice}
                             onChange={(e) => setLifestyleAdvice(e.target.value)}
-                            placeholder="e.g. Regular exercise, avoid smoking..."
+                            placeholder="Enter lifestyle advice"
                             rows={2}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
@@ -294,7 +294,7 @@ export default function NewPrescriptionPage() {
                                     type="text"
                                     value={item.medicineName}
                                     onChange={(e) => updateItem(index, 'medicineName', e.target.value)}
-                                    placeholder="e.g. Amoxicillin 500mg"
+                                    placeholder="Enter medicine name"
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
@@ -304,7 +304,7 @@ export default function NewPrescriptionPage() {
                                     type="text"
                                     value={item.dosage}
                                     onChange={(e) => updateItem(index, 'dosage', e.target.value)}
-                                    placeholder="e.g. 1 tablet"
+                                    placeholder="Enter dosage"
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>
@@ -350,7 +350,7 @@ export default function NewPrescriptionPage() {
                                     type="text"
                                     value={item.instructions}
                                     onChange={(e) => updateItem(index, 'instructions', e.target.value)}
-                                    placeholder="e.g. With food"
+                                    placeholder="Enter instructions"
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 />
                             </div>

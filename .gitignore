@@ -54,3 +54,8 @@ swastik-web/out/
 .DS_Store
 Thumbs.db
 *.log
+
+# ==================== Python ====================
+.venv/
+**/__pycache__/
+*.pyc

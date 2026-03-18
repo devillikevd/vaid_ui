@@ -22,6 +22,7 @@ function isJwtExpired(token: string): boolean {
 // Web portal roles (ambulance_operator removed — uses separate Kotlin app)
 export type UserRole =
     | 'admin'
+    | 'super_admin'
     | 'doctor'
     | 'patient'
     | 'hospital_owner'
@@ -68,8 +69,9 @@ interface RegisterData {
 
 export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     admin: '/admin',
+    super_admin: '/admin',
     doctor: '/doctor',
-    patient: '/patient',
+    patient: '/',
     hospital_owner: '/hospital',
     clinic_owner: '/clinic',
     diagnostic_center_owner: '/diagnostic-center',
@@ -78,8 +80,9 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
 
 export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     admin: '/login/admin',
+    super_admin: '/login/admin',
     doctor: '/login/doctor',
-    patient: '/login/patient',
+    patient: '/',
     hospital_owner: '/login/hospital',
     clinic_owner: '/login/clinic',
     diagnostic_center_owner: '/login/diagnostic-center',
@@ -106,7 +109,7 @@ export const useAuthStore = create<AuthState>()(
                     const response = await fetch(`${API_BASE_URL}/auth/login`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password }),
+                        body: JSON.stringify({ email, password, role: expectedRole }),
                     });
 
                     const data = await response.json();
@@ -120,7 +123,9 @@ export const useAuthStore = create<AuthState>()(
                     const user = data.data?.user || data.user;
                     const tokens = data.data?.tokens || data.tokens || data.data;
 
-                    if (user.role !== expectedRole) {
+                    const roleMatches = user.role === expectedRole || (expectedRole === 'admin' && user.role === 'super_admin');
+
+                    if (!roleMatches) {
                         return {
                             success: false,
                             error: 'Invalid credentials for this portal. Please use the correct login page for your role.',
@@ -285,8 +290,9 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
 
     const roleRoutes: Record<UserRole, string[]> = {
         admin: ['/admin'],
+        super_admin: ['/admin'],
         doctor: ['/doctor'],
-        patient: ['/patient'],
+        patient: [],
         hospital_owner: ['/hospital'],
         clinic_owner: ['/clinic'],
         diagnostic_center_owner: ['/diagnostic-center'],
@@ -348,12 +354,18 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
         }
     };
 
-    // Patch logout to broadcast
+    // Patch logout to broadcast — BUG-M1 Fix: guard against HMR double-patching
     const originalLogout = useAuthStore.getState().logout;
-    const patchedLogout = () => {
-        originalLogout();
-        try { authChannel.postMessage({ type: 'LOGOUT' }); } catch { /* ignore */ }
-    };
+    const PATCHED_FLAG = '__swastik_broadcast_patched__';
+    if (!(originalLogout as unknown as Record<string, unknown>)[PATCHED_FLAG]) {
+        const patchedLogout = () => {
+            originalLogout();
+            try { authChannel.postMessage({ type: 'LOGOUT' }); } catch { /* ignore */ }
+        };
+        (patchedLogout as unknown as Record<string, unknown>)[PATCHED_FLAG] = true;
+        // Override logout in the store
+        useAuthStore.setState({ logout: patchedLogout } as Partial<AuthState>);
+    }
     // We subscribe to store changes to broadcast token refreshes
     const unsubSync = useAuthStore.subscribe((state, prevState) => {
         if (state.accessToken && state.accessToken !== prevState.accessToken && state.isAuthenticated) {
@@ -374,9 +386,6 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
             } catch { /* ignore */ }
         }
     });
-
-    // Override logout in the store
-    useAuthStore.setState({ logout: patchedLogout } as Partial<AuthState>);
 
     // Close channel on page unload to prevent resource leaks
     window.addEventListener('beforeunload', () => {

@@ -225,6 +225,91 @@ const createRoleProfile = async (userId, role, data) => {
   }
 };
 
+// Validate role profile exists (strict real-data mode).
+const assertRoleProfileExists = async (user) => {
+  if (!user?.id || !user?.role) return;
+
+  const missingProfileError = () => new ApiError(
+    403,
+    'Profile setup is incomplete for this account. Please complete onboarding or contact support.'
+  );
+
+  switch (user.role) {
+    case 'patient': {
+      const { data: existing } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'doctor': {
+      const { data: existing } = await supabaseAdmin
+        .from('doctors')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'hospital_owner': {
+      const { data: existing } = await supabaseAdmin
+        .from('hospitals')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'clinic_owner': {
+      const { data: existing } = await supabaseAdmin
+        .from('clinics')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'pharmacy_owner': {
+      const { data: existing } = await supabaseAdmin
+        .from('pharmacies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'diagnostic_center_owner': {
+      const { data: existing } = await supabaseAdmin
+        .from('diagnostic_centers')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'ambulance_operator': {
+      const { data: existing } = await supabaseAdmin
+        .from('ambulance_operators')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    default:
+      break;
+  }
+};
+
 // ==================== Verify Email ====================
 const verifyEmail = async (token) => {
   try {
@@ -287,7 +372,7 @@ const resendVerification = async (rawEmail) => {
 };
 
 // ==================== Login ====================
-const login = async (rawEmail, password) => {
+const login = async (rawEmail, password, expectedRole = null) => {
   const email = rawEmail?.toLowerCase().trim();
   const { data: user, error } = await supabaseAdmin
     .from('users')
@@ -297,6 +382,15 @@ const login = async (rawEmail, password) => {
 
   if (error || !user) {
     throw new ApiError(401, 'Invalid email or password');
+  }
+
+  // Optional role enforcement (portal-specific login)
+  // Keep backward compatibility: admin portal accepts both admin and super_admin.
+  if (expectedRole) {
+    const roleMatches = user.role === expectedRole || (expectedRole === 'admin' && user.role === 'super_admin');
+    if (!roleMatches) {
+      throw new ApiError(403, 'Invalid credentials for this portal role');
+    }
   }
 
   if (!user.is_active) {
@@ -313,6 +407,9 @@ const login = async (rawEmail, password) => {
   if (!isValid) {
     throw new ApiError(401, 'Invalid email or password');
   }
+
+  // Strict validation: login requires an actual profile row for the role.
+  await assertRoleProfileExists(user);
 
   const tokens = generateTokens(user);
 
@@ -577,17 +674,22 @@ const updateProfile = async (userId, role, updates) => {
     await supabaseAdmin.from('users').update({ name }).eq('id', userId);
 
     // Also update role-specific profile table if applicable
+    // Map role → { table, ownerColumn } for profile sync
+    // Owner roles use 'owner_id', staff roles use 'user_id'
     const roleTableMap = {
-      patient: 'patients',
-      doctor: 'doctors',
-      hospital_manager: 'hospital_managers',
-      ambulance_operator: 'ambulance_operators',
-      admin: 'admins',
-      super_admin: 'admins',
+      patient: { table: 'patients', col: 'user_id' },
+      doctor: { table: 'doctors', col: 'user_id' },
+      hospital_owner: { table: 'hospitals', col: 'owner_id' },
+      clinic_owner: { table: 'clinics', col: 'owner_id' },
+      pharmacy_owner: { table: 'pharmacies', col: 'owner_id' },
+      diagnostic_center_owner: { table: 'diagnostic_centers', col: 'owner_id' },
+      ambulance_operator: { table: 'ambulance_operators', col: 'user_id' },
+      admin: { table: 'admins', col: 'user_id' },
+      super_admin: { table: 'admins', col: 'user_id' },
     };
-    const profileTable = roleTableMap[role];
-    if (profileTable) {
-      await supabaseAdmin.from(profileTable).update({ name }).eq('user_id', userId);
+    const mapping = roleTableMap[role];
+    if (mapping) {
+      await supabaseAdmin.from(mapping.table).update({ name }).eq(mapping.col, userId);
     }
   }
 

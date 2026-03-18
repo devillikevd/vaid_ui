@@ -32,7 +32,8 @@ data class DoctorSearchUiState(
 data class DoctorSearchFilters(
     val specialization: String? = null,
     val search: String? = null,
-    val hospitalId: String? = null
+    val hospitalId: String? = null,
+    val clinicId: String? = null
 )
 
 /**
@@ -76,6 +77,7 @@ class DoctorSearchViewModel @Inject constructor(
                 specialization = currentFilters.specialization,
                 search = currentFilters.search,
                 hospitalId = currentFilters.hospitalId,
+                clinicId = currentFilters.clinicId,
                 page = page
             )) {
                 is Result.Success -> {
@@ -120,12 +122,14 @@ class DoctorSearchViewModel @Inject constructor(
     fun updateFilters(
         specialization: String? = _filters.value.specialization,
         search: String? = _filters.value.search,
-        hospitalId: String? = _filters.value.hospitalId
+        hospitalId: String? = _filters.value.hospitalId,
+        clinicId: String? = _filters.value.clinicId
     ) {
         _filters.value = DoctorSearchFilters(
             specialization = specialization,
             search = search,
-            hospitalId = hospitalId
+            hospitalId = hospitalId,
+            clinicId = clinicId
         )
         searchDoctors(resetList = true)
     }

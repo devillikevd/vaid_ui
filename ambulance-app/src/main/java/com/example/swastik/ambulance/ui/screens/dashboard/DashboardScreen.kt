@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,14 +27,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.ambulance.data.remote.dto.DashboardStats
 import com.example.swastik.ambulance.data.remote.dto.EmergencyDto
 import com.example.swastik.ambulance.service.LocationTrackingService
+import com.example.swastik.ambulance.ui.components.MapMarkerData
+import com.example.swastik.ambulance.ui.components.OsmMapView
 import com.example.swastik.ambulance.ui.viewmodel.AuthViewModel
 import com.example.swastik.ambulance.ui.viewmodel.DashboardViewModel
+import kotlinx.coroutines.launch
+import org.osmdroid.util.GeoPoint
 
 /** Check whether our foreground service is actually running. */
 private fun isServiceRunning(context: Context): Boolean {
@@ -42,11 +50,17 @@ private fun isServiceRunning(context: Context): Boolean {
         .any { it.service.className == LocationTrackingService::class.java.name }
 }
 
+private fun hasPermission(context: Context, permission: String): Boolean {
+    return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToEmergencies: () -> Unit,
-    onNavigateToEmergencyDetail: (String) -> Unit,    onNavigateToProfile: () -> Unit = {},    onLogout: () -> Unit,
+    onNavigateToEmergencyDetail: (String) -> Unit,
+    onNavigateToProfile: () -> Unit = {},
+    onLogout: () -> Unit,
     dashboardViewModel: DashboardViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -55,6 +69,8 @@ fun DashboardScreen(
 
     // Persist tracking state across recomposition by querying actual service state
     var isTracking by remember { mutableStateOf(isServiceRunning(context)) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Logout confirmation dialog state
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -88,6 +104,11 @@ fun DashboardScreen(
     val backgroundLocationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Background location denied. Tracking works while app is open.")
+            }
+        }
         // Start tracking regardless — background location is optional but improves reliability
         startTracking(context)
         isTracking = true
@@ -96,7 +117,12 @@ fun DashboardScreen(
     // Step 2: Notification permission (Android 13+), then request background location
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { _ ->
+    ) { granted ->
+        if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Notifications denied. You may miss emergency alerts.")
+            }
+        }
         // After notification permission, request background location for Android 10+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
@@ -121,21 +147,47 @@ fun DashboardScreen(
                 startTracking(context)
                 isTracking = true
             }
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar("Location permission is required to start GPS tracking.")
+            }
         }
     }
 
     /** Kick off the permission chain → eventually starts tracking */
     fun requestPermissionsAndTrack() {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
+        val hasFineLocation = hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+        val hasNotification = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+        val hasBackground = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+            hasPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+
+        when {
+            !hasFineLocation -> {
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+            !hasNotification -> {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            !hasBackground -> {
+                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            }
+            else -> {
+                startTracking(context)
+                isTracking = true
+            }
+        }
     }
 
     // Observe user messages from ViewModel as Snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
+    val topEmergencyWithLocation = dashboardState.activeEmergencies.firstOrNull {
+        it.latitude != null && it.longitude != null
+    }
     LaunchedEffect(Unit) {
         dashboardViewModel.userMessage.collect { msg ->
             snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
@@ -150,9 +202,9 @@ fun DashboardScreen(
                     Column {
                         Text("Dashboard", fontWeight = FontWeight.Bold)
                         Text(
-                            text = if (isTracking) "🟢 GPS Active" else "🔴 GPS Off",
+                            text = if (isTracking) "GPS tracking active" else "GPS tracking is off",
                             fontSize = 12.sp,
-                            color = if (isTracking) Color(0xFF4CAF50) else Color.Gray
+                            color = if (isTracking) Color(0xFFB9F6CA) else Color(0xFFFFCDD2)
                         )
                     }
                 },
@@ -184,11 +236,11 @@ fun DashboardScreen(
                     IconButton(onClick = {
                         showLogoutDialog = true
                     }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFD32F2F),
+                    containerColor = Color(0xFFB71C1C),
                     titleContentColor = Color.White,
                     actionIconContentColor = Color.White
                 )
@@ -239,7 +291,7 @@ fun DashboardScreen(
                         ActionCard(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Default.Warning,
-                            title = "Emergencies",
+                            title = "Emergency Queue",
                             color = Color(0xFFE53935),
                             onClick = onNavigateToEmergencies
                         )
@@ -257,6 +309,58 @@ fun DashboardScreen(
                                 }
                             }
                         )
+                    }
+                }
+
+                if (topEmergencyWithLocation != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Live Pickup Monitoring",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF212121)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = topEmergencyWithLocation.address
+                                        ?: topEmergencyWithLocation.location
+                                        ?: "Pickup location unavailable",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF616161),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OsmMapView(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    center = GeoPoint(
+                                        topEmergencyWithLocation.latitude ?: 20.5937,
+                                        topEmergencyWithLocation.longitude ?: 78.9629,
+                                    ),
+                                    zoom = 14.0,
+                                    markers = listOf(
+                                        MapMarkerData(
+                                            id = topEmergencyWithLocation.id,
+                                            latitude = topEmergencyWithLocation.latitude ?: 20.5937,
+                                            longitude = topEmergencyWithLocation.longitude ?: 78.9629,
+                                            title = topEmergencyWithLocation.patientName ?: "Patient pickup",
+                                            snippet = topEmergencyWithLocation.emergencyType ?: "Emergency request",
+                                            markerColor = android.graphics.Color.parseColor("#D32F2F")
+                                        )
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -302,7 +406,7 @@ fun DashboardScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("No active emergencies", fontWeight = FontWeight.Medium)
-                                Text("You're all caught up!", fontSize = 14.sp, color = Color.Gray)
+                                Text("No pending emergency requests.", fontSize = 14.sp, color = Color.Gray)
                             }
                         }
                     }
@@ -344,7 +448,7 @@ private fun StatCard(modifier: Modifier, label: String, value: String, color: Co
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.14f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -411,8 +515,6 @@ private fun EmergencyCard(
     }
 
     val isBroadcast = emergency.dispatchMode == "sos_broadcast"
-    val needsAcceptReject = emergency.status in listOf("pending", "broadcasting", "assigned", "requested")
-
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onTap),
         shape = RoundedCornerShape(16.dp),
@@ -433,7 +535,7 @@ private fun EmergencyCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        emergency.emergencyType ?: "Emergency",
+                        emergency.emergencyType ?: "Emergency request",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
@@ -574,11 +676,7 @@ private fun startTracking(context: android.content.Context) {
     val intent = Intent(context, LocationTrackingService::class.java).apply {
         action = LocationTrackingService.ACTION_START
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-    } else {
-        context.startService(intent)
-    }
+    context.startForegroundService(intent)
 }
 
 private fun stopTracking(context: android.content.Context) {

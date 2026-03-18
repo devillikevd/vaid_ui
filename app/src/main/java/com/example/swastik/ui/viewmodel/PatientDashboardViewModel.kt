@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.EmergencyRequest
+import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.data.remote.dto.AddEmergencyContactRequest
 import com.example.swastik.data.remote.dto.AddFamilyMemberRequest
@@ -37,6 +38,7 @@ data class PatientDashboardUiState(
 class PatientDashboardViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
     private val emergencyRepository: EmergencyRepository,
+    private val socketManager: SocketManager,
     networkObserver: NetworkObserver
 ) : ViewModel() {
 
@@ -50,9 +52,13 @@ class PatientDashboardViewModel @Inject constructor(
     val isOnline: StateFlow<Boolean> = networkObserver.observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    private var hasObservedSocketConnection = false
+
     init {
         loadDashboard()
         collectRealtimeNotifications()
+        collectProviderCatalogUpdates()
+        observeSocketReconnects()
     }
 
     val patientProfile = patientRepository.patientProfile
@@ -74,10 +80,10 @@ class PatientDashboardViewModel @Inject constructor(
                     message = socketNotification.message,
                     time = "Just now",
                     type = when (socketNotification.type.lowercase()) {
-                        "appointment", "appointment_booked" -> NotificationType.APPOINTMENT
-                        "medicine", "medicine_reminder" -> NotificationType.MEDICINE_REMINDER
-                        "report", "report_ready" -> NotificationType.REPORT_READY
-                        "prescription", "prescription_created" -> NotificationType.PRESCRIPTION
+                        "appointment", "appointment_booked", "appointment_confirmed", "appointment_reminder", "follow_up_reminder", "appointment_status_changed", "appointment_rescheduled", "appointment_cancelled" -> NotificationType.APPOINTMENT
+                        "medicine", "medicine_reminder", "medicine_missed", "health_task_reminder", "care_plan_reminder" -> NotificationType.MEDICINE_REMINDER
+                        "report", "report_ready", "diagnostic_result", "diagnostic_test_reminder", "report_review_reminder" -> NotificationType.REPORT_READY
+                        "prescription", "prescription_created", "prescription_expiry_reminder" -> NotificationType.PRESCRIPTION
                         else -> NotificationType.SYSTEM
                     },
                     isRead = false,
@@ -88,6 +94,28 @@ class PatientDashboardViewModel @Inject constructor(
                 current.add(0, newNotification)
                 // Trigger a re-read to update the private _notifications in repository
                 patientRepository.fetchNotifications()
+            }
+        }
+    }
+
+    private fun collectProviderCatalogUpdates() {
+        viewModelScope.launch {
+            socketManager.providerCatalogUpdates.collect {
+                refresh()
+            }
+        }
+    }
+
+    private fun observeSocketReconnects() {
+        viewModelScope.launch {
+            socketManager.connectionState.collect { connected ->
+                if (!hasObservedSocketConnection) {
+                    hasObservedSocketConnection = true
+                    return@collect
+                }
+                if (connected) {
+                    refresh()
+                }
             }
         }
     }

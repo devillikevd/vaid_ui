@@ -5,11 +5,12 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
+const notificationService = require('./notificationService');
 
 // Get appointments for a user (patient or doctor)
 const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
-  let query = supabaseAdmin.from('appointments').select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, phone)', { count: 'exact' });
+  let query = supabaseAdmin.from('appointments').select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name)', { count: 'exact' });
 
   // Filter by role
   if (role === 'patient') {
@@ -27,35 +28,19 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
     }
     query = query.eq('doctor_id', doctor.id);
   } else if (role === 'hospital_owner') {
-    // Fix #27: Scope to doctors affiliated with this hospital owner's hospitals
     const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
     const hospitalIds = (hospitals || []).map(h => h.id);
-    if (hospitalIds.length > 0) {
-      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('hospital_id', hospitalIds);
-      const doctorIds = (doctors || []).map(d => d.id);
-      if (doctorIds.length > 0) {
-        query = query.in('doctor_id', doctorIds);
-      } else {
-        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
-      }
-    } else {
+    if (hospitalIds.length === 0) {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
+    query = query.in('hospital_id', hospitalIds);
   } else if (role === 'clinic_owner') {
-    // Fix #27: Scope to doctors affiliated with this clinic owner's clinics
     const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
     const clinicIds = (clinics || []).map(c => c.id);
-    if (clinicIds.length > 0) {
-      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('clinic_id', clinicIds);
-      const doctorIds = (doctors || []).map(d => d.id);
-      if (doctorIds.length > 0) {
-        query = query.in('doctor_id', doctorIds);
-      } else {
-        return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
-      }
-    } else {
+    if (clinicIds.length === 0) {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
+    query = query.in('clinic_id', clinicIds);
   } else if (!['admin', 'super_admin'].includes(role)) {
     // Fix #27: Unknown roles get no appointments
     return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
@@ -94,7 +79,12 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
 
 // Book a new appointment
 const bookAppointment = async (patientId, appointmentData) => {
-  const { doctorId, date, timeSlot, type, notes, hospitalId } = appointmentData;
+  const { doctorId, date, timeSlot, type, notes, hospitalId, clinicId } = appointmentData;
+  const normalizedType = type === 'in_person' ? 'clinic' : (type || 'clinic');
+
+  if (hospitalId && clinicId) {
+    throw new ApiError(400, 'Choose either a hospital or a clinic for this booking');
+  }
 
   // Get patient record
   const { data: patient } = await supabaseAdmin
@@ -110,7 +100,7 @@ const bookAppointment = async (patientId, appointmentData) => {
   // Verify doctor exists
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
-    .select('id, user_id, name, consultation_fee')
+    .select('id, user_id, name, consultation_fee, hospital_id')
     .eq('id', doctorId)
     .single();
 
@@ -118,35 +108,78 @@ const bookAppointment = async (patientId, appointmentData) => {
     throw new ApiError(404, 'Doctor not found');
   }
 
-  // Atomic conflict-check + insert via PostgreSQL RPC (prevents double-booking race condition)
-  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('rpc_book_appointment', {
-    p_patient_id: patient.id,
-    p_doctor_id: doctorId,
-    p_appointment_date: date,
-    p_time_slot: timeSlot,
-    p_type: type || 'clinic',
-    p_notes: notes || null,
-    p_hospital_id: hospitalId || null,
-    p_fee: doctor.consultation_fee,
-  });
+  const [hospitalLinksResult, clinicLinksResult] = await Promise.all([
+    supabaseAdmin
+      .from('hospital_doctors')
+      .select('hospital_id')
+      .eq('doctor_id', doctorId)
+      .eq('is_active', true),
+    supabaseAdmin
+      .from('clinic_doctors')
+      .select('clinic_id, clinic:clinics(owner_id)')
+      .eq('doctor_id', doctorId)
+      .eq('is_active', true),
+  ]);
 
-  if (rpcError) {
-    // Fallback: unique index will also catch double-booking (23505 = unique_violation)
-    if (rpcError.code === '23505') {
+  if (hospitalLinksResult.error) throw hospitalLinksResult.error;
+  if (clinicLinksResult.error) throw clinicLinksResult.error;
+
+  const doctorHospitalIds = new Set([
+    doctor.hospital_id,
+    ...(hospitalLinksResult.data || []).map(link => link.hospital_id),
+  ].filter(Boolean));
+  const doctorClinicLinks = clinicLinksResult.data || [];
+  const doctorClinicIds = new Set(doctorClinicLinks.map(link => link.clinic_id).filter(Boolean));
+
+  let resolvedHospitalId = hospitalId || null;
+  let resolvedClinicId = clinicId || null;
+
+  if (resolvedHospitalId && !doctorHospitalIds.has(resolvedHospitalId)) {
+    throw new ApiError(400, 'Selected doctor is not affiliated with this hospital');
+  }
+  if (resolvedClinicId && !doctorClinicIds.has(resolvedClinicId)) {
+    throw new ApiError(400, 'Selected doctor is not affiliated with this clinic');
+  }
+
+  if (!resolvedHospitalId && !resolvedClinicId) {
+    if (doctorClinicIds.size === 1 && doctorHospitalIds.size === 0) {
+      resolvedClinicId = Array.from(doctorClinicIds)[0];
+    } else if (doctorHospitalIds.size === 1 && doctorClinicIds.size === 0) {
+      resolvedHospitalId = Array.from(doctorHospitalIds)[0];
+    }
+  }
+
+  const insertPayload = {
+    patient_id: patient.id,
+    doctor_id: doctorId,
+    appointment_date: date,
+    time_slot: timeSlot,
+    type: normalizedType,
+    notes: notes || null,
+    hospital_id: resolvedHospitalId,
+    clinic_id: resolvedClinicId,
+    fee: doctor.consultation_fee,
+    consultation_fee: doctor.consultation_fee,
+    status: 'scheduled',
+  };
+
+  const { data: insertedAppointment, error: insertError } = await supabaseAdmin
+    .from('appointments')
+    .insert(insertPayload)
+    .select('id')
+    .single();
+
+  if (insertError) {
+    if (insertError.code === '23505') {
       throw new ApiError(409, 'This time slot is already booked');
     }
-    throw rpcError;
+    throw insertError;
   }
 
-  if (!rpcResult?.success) {
-    throw new ApiError(409, 'This time slot is already booked');
-  }
-
-  // Fetch the full appointment with relations
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name, phone)')
-    .eq('id', rpcResult.appointment_id)
+    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name)')
+    .eq('id', insertedAppointment.id)
     .single();
 
   if (error) throw error;
@@ -154,23 +187,19 @@ const bookAppointment = async (patientId, appointmentData) => {
   // Resolve hospital/clinic owner for real-time dashboard notifications
   let hospital_owner_id = null;
   let clinic_owner_id = null;
-  if (hospitalId) {
+  if (resolvedHospitalId) {
     const { data: hospital } = await supabaseAdmin
       .from('hospitals')
       .select('owner_id')
-      .eq('id', hospitalId)
+      .eq('id', resolvedHospitalId)
       .single();
     hospital_owner_id = hospital?.owner_id || null;
   }
-  // Also check if doctor is linked to a clinic
-  const { data: clinicLink } = await supabaseAdmin
-    .from('clinic_doctors')
-    .select('clinic_id, clinic:clinics(owner_id)')
-    .eq('doctor_id', doctorId)
-    .limit(1)
-    .maybeSingle();
-  if (clinicLink?.clinic?.owner_id) {
-    clinic_owner_id = clinicLink.clinic.owner_id;
+  if (resolvedClinicId) {
+    const clinicLink = doctorClinicLinks.find(link => link.clinic_id === resolvedClinicId);
+    if (clinicLink?.clinic?.owner_id) {
+      clinic_owner_id = clinicLink.clinic.owner_id;
+    }
   }
 
   // Emit event — use user_ids (not table FKs) for Socket.IO routing
@@ -182,6 +211,22 @@ const bookAppointment = async (patientId, appointmentData) => {
     clinic_owner_id,
   });
 
+  // Persistent + push notifications
+  await Promise.allSettled([
+    notificationService.sendNotification(patientId, {
+      title: '✅ Appointment Booked',
+      message: `Your appointment with Dr. ${doctor.name} is scheduled on ${date} at ${timeSlot}.`,
+      type: 'appointment_confirmed',
+      data: { appointmentId: appointment.id, doctorId: doctorId, date, timeSlot },
+    }),
+    notificationService.sendNotification(doctor.user_id, {
+      title: '📅 New Appointment',
+      message: `${patient.name} booked an appointment for ${date} at ${timeSlot}.`,
+      type: 'appointment_booked',
+      data: { appointmentId: appointment.id, patientId: patient.id, date, timeSlot },
+    }),
+  ]);
+
   return appointment;
 };
 
@@ -189,7 +234,7 @@ const bookAppointment = async (patientId, appointmentData) => {
 const getAppointmentById = async (userId, role, appointmentId) => {
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee), patient:patients(id, name, phone, blood_group)')
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee), patient:patients(id, name, blood_group)')
     .eq('id', appointmentId)
     .single();
 
@@ -254,7 +299,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .update({ status, cancellation_reason: reason, updated_at: new Date().toISOString() })
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
-    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name, phone)')
+    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name)')
     .single();
 
   if (error || !appointment) {
@@ -273,6 +318,15 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     doctor_id: doctorUserId,
     patient_id: patientUser?.user_id || appointment.patient_id,
   });
+
+  await Promise.allSettled([
+    patientUser?.user_id ? notificationService.sendNotification(patientUser.user_id, {
+      title: '🩺 Appointment Status Updated',
+      message: `Your appointment status is now ${status.replace('_', ' ')}.`,
+      type: 'appointment_status_changed',
+      data: { appointmentId: appointment.id, status },
+    }) : Promise.resolve(),
+  ]);
   return appointment;
 };
 
@@ -313,6 +367,21 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
     patient_id: patientUserId,
     doctor_id: doctorUser?.user_id || appointment.doctor_id,
   });
+
+  await Promise.allSettled([
+    notificationService.sendNotification(patientUserId, {
+      title: '❌ Appointment Cancelled',
+      message: `Your appointment${doctorUser?.name ? ` with Dr. ${doctorUser.name}` : ''} was cancelled.`,
+      type: 'appointment_cancelled',
+      data: { appointmentId: appointment.id, reason: reason || 'Cancelled by patient' },
+    }),
+    doctorUser?.user_id ? notificationService.sendNotification(doctorUser.user_id, {
+      title: '📭 Appointment Cancelled',
+      message: `A patient cancelled the appointment scheduled on ${appointment.appointment_date} at ${appointment.time_slot}.`,
+      type: 'appointment_cancelled',
+      data: { appointmentId: appointment.id, reason: reason || 'Cancelled by patient' },
+    }) : Promise.resolve(),
+  ]);
   return appointment;
 };
 
@@ -397,6 +466,21 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     doctor_id: doctorUser?.user_id || appointment.doctor_id,
     patient_id: patientUser?.user_id || appointment.patient_id,
   });
+
+  await Promise.allSettled([
+    patientUser?.user_id ? notificationService.sendNotification(patientUser.user_id, {
+      title: '🔁 Appointment Rescheduled',
+      message: `Your appointment is now on ${date} at ${timeSlot}.`,
+      type: 'appointment_rescheduled',
+      data: { appointmentId: appointment.id, date, timeSlot },
+    }) : Promise.resolve(),
+    doctorUser?.user_id ? notificationService.sendNotification(doctorUser.user_id, {
+      title: '🔁 Appointment Rescheduled',
+      message: `An appointment was rescheduled to ${date} at ${timeSlot}.`,
+      type: 'appointment_rescheduled',
+      data: { appointmentId: appointment.id, date, timeSlot },
+    }) : Promise.resolve(),
+  ]);
   return appointment;
 };
 

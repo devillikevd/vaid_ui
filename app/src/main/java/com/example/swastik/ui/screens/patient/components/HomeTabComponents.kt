@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Locale
 
 import com.example.swastik.data.model.Doctor
 import com.example.swastik.data.model.Reminder
@@ -31,8 +32,8 @@ import com.example.swastik.ui.theme.*
 // Extension for UI compatibility
 val Doctor.imageEmoji: String get() = "👨‍⚕️"
 val Doctor.specialty: String get() = specialization
-val Doctor.experience: String get() = "${experienceYears ?: 0} years"
-val Doctor.rating: String get() = "${averageRating ?: 0.0}"
+val Doctor.experience: String? get() = experienceYears?.takeIf { it > 0 }?.let { "$it years" }
+val Doctor.rating: String? get() = averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) }
 
 // ==================== SMART REMINDERS ====================
 @Composable
@@ -182,10 +183,8 @@ private fun ReminderItem(reminder: Reminder) {
 // ==================== QUICK ACTIONS ====================
 @Composable
 fun QuickActionsSection(
-    onHospitalClick: () -> Unit = {},
     onAmbulanceClick: () -> Unit = {},
     onHelpClick: () -> Unit = {},
-    onDiagnosticClick: () -> Unit = {},
     onVitalsClick: () -> Unit = {},
     onOrderHistoryClick: () -> Unit = {},
     onBookingHistoryClick: () -> Unit = {},
@@ -206,13 +205,6 @@ fun QuickActionsSection(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             QuickActionButton(
-                icon = Icons.Outlined.LocalHospital,
-                label = "Hospital",
-                iconTint = Color(0xFF2196F3),
-                bgColor = Color(0xFF2196F3).copy(alpha = 0.12f),
-                onClick = { onHospitalClick() }
-            )
-            QuickActionButton(
                 icon = Icons.Outlined.DirectionsCar,
                 label = "Ambulance",
                 iconTint = Color(0xFFE53935),
@@ -220,18 +212,18 @@ fun QuickActionsSection(
                 onClick = { onAmbulanceClick() }
             )
             QuickActionButton(
-                icon = Icons.Outlined.Biotech,
-                label = "Diagnostic",
-                iconTint = Color(0xFF9C27B0),
-                bgColor = Color(0xFF9C27B0).copy(alpha = 0.12f),
-                onClick = { onDiagnosticClick() }
-            )
-            QuickActionButton(
                 icon = Icons.Outlined.MonitorHeart,
                 label = "Vitals",
                 iconTint = Color(0xFF4CAF50),
                 bgColor = Color(0xFF4CAF50).copy(alpha = 0.12f),
                 onClick = { onVitalsClick() }
+            )
+            QuickActionButton(
+                icon = Icons.Outlined.Receipt,
+                label = "Prescription",
+                iconTint = Color(0xFFFF9800),
+                bgColor = Color(0xFFFF9800).copy(alpha = 0.12f),
+                onClick = onPrescriptionClick
             )
         }
 
@@ -241,13 +233,6 @@ fun QuickActionsSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            QuickActionButton(
-                icon = Icons.Outlined.Receipt,
-                label = "Prescription",
-                iconTint = Color(0xFFFF9800),
-                bgColor = Color(0xFFFF9800).copy(alpha = 0.12f),
-                onClick = onPrescriptionClick
-            )
             QuickActionButton(
                 icon = Icons.Outlined.HelpOutline,
                 label = "Help",
@@ -269,6 +254,184 @@ fun QuickActionsSection(
                 bgColor = Color(0xFF5C6BC0).copy(alpha = 0.12f),
                 onClick = { onBookingHistoryClick() }
             )
+        }
+    }
+}
+
+// ==================== CARE DIRECTORY ====================
+@Composable
+fun CareDirectorySection(
+    onHospitalClick: () -> Unit = {},
+    onClinicClick: () -> Unit = {},
+    onPharmacyClick: () -> Unit = {},
+    onDiagnosticClick: () -> Unit = {}
+) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Text(
+            text = "Care Services",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = "Hospitals, clinics, pharmacy, and diagnostic booking in separate flows.",
+            fontSize = 13.sp,
+            color = Color.Gray,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CareDirectoryCard(
+                modifier = Modifier.weight(1f),
+                title = "Hospitals",
+                subtitle = "Beds, emergency care, specialists",
+                tag = "Nearby hospitals",
+                icon = Icons.Outlined.LocalHospital,
+                accent = Color(0xFFD84315),
+                container = Color(0xFFFFF3EE),
+                onClick = onHospitalClick
+            )
+            CareDirectoryCard(
+                modifier = Modifier.weight(1f),
+                title = "Clinics",
+                subtitle = "OPD visits and local doctors",
+                tag = "Clinic visits",
+                icon = Icons.Outlined.MedicalServices,
+                accent = Color(0xFF2E7D32),
+                container = Color(0xFFF2FBF3),
+                onClick = onClinicClick
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CareDirectoryCard(
+                modifier = Modifier.weight(1f),
+                title = "Pharmacy",
+                subtitle = "Check stores and medicine access",
+                tag = "Medical stores",
+                icon = Icons.Outlined.LocalPharmacy,
+                accent = Color(0xFF1565C0),
+                container = Color(0xFFEFF6FF),
+                onClick = onPharmacyClick
+            )
+            CareDirectoryCard(
+                modifier = Modifier.weight(1f),
+                title = "Diagnostics",
+                subtitle = "Book tests and find centers",
+                tag = "Labs and scans",
+                icon = Icons.Outlined.Science,
+                accent = Color(0xFF6A1B9A),
+                container = Color(0xFFF7F0FF),
+                onClick = onDiagnosticClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun CareDirectoryCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    tag: String,
+    icon: ImageVector,
+    accent: Color,
+    container: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(164.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Surface(
+                    color = container,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = title,
+                        tint = accent,
+                        modifier = Modifier.padding(12.dp).size(24.dp)
+                    )
+                }
+
+                Surface(
+                    color = accent.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = tag,
+                        color = accent,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF101418)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = Color(0xFF5F6B7A)
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Open",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = accent
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -378,12 +541,12 @@ fun DoctorRecommendationSection(
                     Text("👨‍⚕️", fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Doctor recommendations coming soon",
+                        "No doctor recommendations available",
                         fontSize = 14.sp,
                         color = Color.Gray
                     )
                     Text(
-                        "We'll suggest doctors based on your health profile",
+                        "Recommendations will appear after your activity is synced",
                         fontSize = 12.sp,
                         color = Color.LightGray,
                         textAlign = TextAlign.Center
@@ -452,23 +615,31 @@ private fun DoctorCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Star,
-                    contentDescription = "Doctor rating",                    tint = Color(0xFFFFC107),
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "${doctor.rating}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = " • ${doctor.experience}",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
+            val ratingText = doctor.rating
+            val experienceText = doctor.experience
+            if (ratingText != null || experienceText != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (ratingText != null) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = "Doctor rating",                    tint = Color(0xFFFFC107),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = ratingText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    if (experienceText != null) {
+                        Text(
+                            text = if (ratingText != null) " • $experienceText" else experienceText,
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -576,7 +747,7 @@ fun EnhancedChatBotSection(
 }
 
 @Composable
-private fun ChatOptionChip(text: String, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
+private fun ChatOptionChip(text: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Surface(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))

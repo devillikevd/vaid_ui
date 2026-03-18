@@ -29,6 +29,7 @@ import com.example.swastik.data.model.*
 import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.utils.NavigationHelper
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -374,7 +375,7 @@ private fun HospitalReviewSection(
                 Column {
                     Text("Reviews", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     Text(
-                        "$reviewCount reviews • ${String.format("%.1f", rating)} avg",
+                        "$reviewCount reviews • ${String.format(Locale.US, "%.1f", rating)} avg",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

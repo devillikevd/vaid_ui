@@ -70,12 +70,7 @@ class EmergencyAlertManager @Inject constructor(
             }
 
             vibrator?.let { v ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v.vibrate(VibrationEffect.createWaveform(vibrationPattern, -1))
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.vibrate(vibrationPattern, -1)
-                }
+                v.vibrate(VibrationEffect.createWaveform(vibrationPattern, -1))
             }
         } catch (e: Exception) {
             Log.w(TAG, "Vibration failed", e)

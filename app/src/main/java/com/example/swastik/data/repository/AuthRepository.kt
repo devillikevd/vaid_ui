@@ -30,7 +30,7 @@ class AuthRepository @Inject constructor(
     fun loginWithEmail(email: String, password: String): Flow<Result<Boolean>> = flow {
         emit(Result.Loading)
         try {
-            val response = apiService.login(LoginRequest(email = email, password = password))
+            val response = apiService.login(LoginRequest(email = email, password = password, role = "patient"))
             if (response.isSuccessful) {
                 val body = response.body()
                 val token = body?.resolvedAccessToken()
@@ -221,7 +221,11 @@ class AuthRepository @Inject constructor(
         if (errorBody == null) return null
         return try {
             val json = org.json.JSONObject(errorBody)
-            json.optString("message", json.optString("error", null))
+            when {
+                json.has("message") && !json.isNull("message") -> json.optString("message")
+                json.has("error") && !json.isNull("error") -> json.optString("error")
+                else -> null
+            }
         } catch (_: Exception) {
             errorBody
         }

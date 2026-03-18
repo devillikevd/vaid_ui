@@ -101,7 +101,7 @@ export default function ClinicDashboard() {
                             {todaysAppointments.map((appointment: ClinicAppointment) => (
                                 <div
                                     key={appointment.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border ${appointment.status === 'in-progress'
+                                    className={`flex items-center justify-between p-4 rounded-xl border ${['in-progress', 'in_progress'].includes(appointment.status)
                                         ? 'border-pink-300 bg-pink-50'
                                         : 'border-gray-200 dark:border-gray-700'
                                         }`}

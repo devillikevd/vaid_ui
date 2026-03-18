@@ -6,7 +6,7 @@ const express = require('express');
 const router = express.Router();
 const clinicService = require('../services/clinicService');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../utils/helpers');
 
 // Public routes
@@ -54,7 +54,7 @@ router.post('/register', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (re
 }));
 
 // Clinic owner routes
-router.get('/owner/dashboard', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/dashboard', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     const dashboard = await clinicService.getDashboard(clinic.id, req.user.id);
     res.json({ success: true, ...dashboard });

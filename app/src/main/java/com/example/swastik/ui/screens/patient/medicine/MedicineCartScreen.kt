@@ -122,6 +122,27 @@ fun MedicineCartScreen(
                             }
                             Spacer(Modifier.height(8.dp))
                         }
+                        if (cartState.selectedPharmacyName.isNullOrBlank()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Info, null, tint = Color(0xFFEF6C00))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Select medicines from a pharmacy inventory to place an order.",
+                                        color = Color(0xFFEF6C00),
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
 
                     items(cartState.items) { item ->
@@ -221,7 +242,7 @@ private fun CartItemCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.medicine.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text("₹${item.medicine.price?.toInt() ?: 0} each", color = Color.Gray, fontSize = 12.sp)
+                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price unavailable", color = Color.Gray, fontSize = 12.sp)
             }
             // Quantity controls
             Row(verticalAlignment = Alignment.CenterVertically) {

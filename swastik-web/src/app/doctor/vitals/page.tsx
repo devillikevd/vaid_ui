@@ -92,7 +92,7 @@ export default function DoctorVitalsPage() {
             setNewVitalAlert(true);
             fetchVitals();
             setTimeout(() => setNewVitalAlert(false), 5000);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
         }, [fetchVitals])
     );
 

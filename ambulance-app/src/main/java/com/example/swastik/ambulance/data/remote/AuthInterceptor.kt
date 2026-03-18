@@ -1,6 +1,7 @@
 package com.example.swastik.ambulance.data.remote
 
 import com.example.swastik.ambulance.data.local.TokenManager
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Response
@@ -19,7 +20,8 @@ import kotlin.concurrent.withLock
  */
 @Singleton
 class AuthInterceptor @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val socketManager: SocketManager
 ) : Interceptor {
 
     private val refreshLock = ReentrantLock()
@@ -97,10 +99,7 @@ class AuthInterceptor @Inject constructor(
                     .encodedPath("/api/auth/refresh-token")
                     .build())
                 .post(
-                    okhttp3.RequestBody.create(
-                        "application/json".toMediaTypeOrNull(),
-                        refreshBody
-                    )
+                    refreshBody.toRequestBody("application/json".toMediaTypeOrNull())
                 )
                 .removeHeader("Authorization")
                 .build()
@@ -119,6 +118,9 @@ class AuthInterceptor @Inject constructor(
                 if (newAccessToken.isNotEmpty()) {
                     val expiresIn = dataObj.optLong("expires_in", dataObj.optLong("expiresIn", 604800L))
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
+                    if (socketManager.isConnected) {
+                        socketManager.reconnect(newAccessToken)
+                    }
                     newAccessToken
                 } else {
                     tokenManager.clearAll()

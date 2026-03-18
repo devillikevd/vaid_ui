@@ -24,12 +24,15 @@ jest.mock('../config/supabase', () => ({
     },
 }));
 
-jest.mock('../middleware/auth', () => ({
-    authenticate: (req, res, next) => {
-        req.user = testUsers.patient;
-        next();
-    },
-}));
+jest.mock('../middleware/auth', () => {
+    const { testUsers: mockTestUsers } = require('./setup');
+    return {
+        authenticate: (req, res, next) => {
+            req.user = mockTestUsers.patient;
+            next();
+        },
+    };
+});
 
 jest.mock('../middleware/rbac', () => ({
     requireRole: () => (req, res, next) => next(),
@@ -45,9 +48,23 @@ jest.mock('../services/eventEmitter', () => ({
 
 const { supabaseAdmin } = require('../config/supabase');
 
+const resetSupabaseMocks = () => {
+    const chainMethods = [
+        'from', 'select', 'insert', 'update', 'delete', 'eq', 'neq', 'gte', 'lte',
+        'in', 'or', 'order', 'range', 'limit'
+    ];
+
+    chainMethods.forEach((method) => {
+        supabaseAdmin[method].mockReset();
+        supabaseAdmin[method].mockReturnThis();
+    });
+
+    supabaseAdmin.single.mockReset();
+};
+
 describe('Patient Routes', () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        resetSupabaseMocks();
     });
 
     describe('GET /dashboard', () => {
@@ -138,25 +155,16 @@ describe('Patient Routes', () => {
                 reason: 'General checkup',
             };
 
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1', name: 'Test Patient' }, error: null })
-                .mockResolvedValueOnce({
-                    data: { id: 'doc-1', name: 'Dr. Test', users: { id: 'user-1' }, consultation_fee: 500 },
-                    error: null
-                })
-                .mockResolvedValueOnce({ data: null, error: null }) // No existing booking
-                .mockResolvedValueOnce({
-                    data: { id: 'apt-1', ...bookingData, status: 'pending' },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: { id: 'apt-1', ...bookingData, status: 'pending' },
+                error: null,
+            });
 
             const result = await supabaseAdmin.from('appointments').insert(bookingData).single();
             expect(result.data.status).toBe('pending');
         });
 
         it('should prevent double booking', async () => {
-            supabaseAdmin.single.mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null });
-            supabaseAdmin.single.mockResolvedValueOnce({ data: { id: 'doc-1' }, error: null });
             supabaseAdmin.single.mockResolvedValueOnce({ data: { id: 'existing-apt' }, error: null });
 
             // Should throw error - slot already booked
@@ -165,18 +173,16 @@ describe('Patient Routes', () => {
         });
 
         it('should cancel an appointment', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({
-                    data: {
-                        id: 'apt-1',
-                        status: 'cancelled',
-                        cancellation_reason: 'Schedule conflict',
-                        cancelled_by: 'patient',
-                        doctors: { users: { id: 'doc-user-1' } },
-                    },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: {
+                    id: 'apt-1',
+                    status: 'cancelled',
+                    cancellation_reason: 'Schedule conflict',
+                    cancelled_by: 'patient',
+                    doctors: { users: { id: 'doc-user-1' } },
+                },
+                error: null,
+            });
 
             const result = await supabaseAdmin
                 .from('appointments')
@@ -198,21 +204,15 @@ describe('Patient Routes', () => {
                 description: 'Need immediate help',
             };
 
-            supabaseAdmin.single
-                .mockResolvedValueOnce({
-                    data: { id: 'patient-1', name: 'Test Patient', phone: '+91 98765 43210' },
-                    error: null,
-                })
-                .mockResolvedValueOnce({ data: null, error: null }) // No existing active request
-                .mockResolvedValueOnce({
-                    data: {
-                        id: 'emr-1',
-                        request_number: 'EMR123',
-                        status: 'pending',
-                        ...emergencyData,
-                    },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: {
+                    id: 'emr-1',
+                    request_number: 'EMR123',
+                    status: 'pending',
+                    ...emergencyData,
+                },
+                error: null,
+            });
 
             const result = await supabaseAdmin.from('emergency_requests').insert(emergencyData).single();
             expect(result.data.status).toBe('pending');
@@ -220,12 +220,10 @@ describe('Patient Routes', () => {
         });
 
         it('should prevent duplicate active emergency requests', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({
-                    data: { id: 'emr-existing', status: 'pending' },
-                    error: null
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: { id: 'emr-existing', status: 'pending' },
+                error: null
+            });
 
             // Existing request found - should throw error
             const existingRequest = await supabaseAdmin
@@ -237,16 +235,14 @@ describe('Patient Routes', () => {
         });
 
         it('should cancel emergency request', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({
-                    data: {
-                        id: 'emr-1',
-                        status: 'cancelled',
-                        cancellation_reason: 'No longer needed',
-                    },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: {
+                    id: 'emr-1',
+                    status: 'cancelled',
+                    cancellation_reason: 'No longer needed',
+                },
+                error: null,
+            });
 
             const result = await supabaseAdmin
                 .from('emergency_requests')
@@ -276,21 +272,19 @@ describe('Patient Routes', () => {
         });
 
         it('should get prescription details', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({
-                    data: {
-                        id: 'presc-1',
-                        prescription_number: 'RX123',
-                        diagnosis: 'Common Cold',
-                        follow_up_date: '2026-02-20',
-                        doctors: { name: 'Dr. Test', specialization: 'General' },
-                        prescription_medicines: [
-                            { medicine_name: 'Paracetamol', dosage: '500mg', frequency: 'Twice daily' },
-                        ],
-                    },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: {
+                    id: 'presc-1',
+                    prescription_number: 'RX123',
+                    diagnosis: 'Common Cold',
+                    follow_up_date: '2026-02-20',
+                    doctors: { name: 'Dr. Test', specialization: 'General' },
+                    prescription_medicines: [
+                        { medicine_name: 'Paracetamol', dosage: '500mg', frequency: 'Twice daily' },
+                    ],
+                },
+                error: null,
+            });
 
             const result = await supabaseAdmin.from('prescriptions').select('*').single();
             expect(result.data.diagnosis).toBe('Common Cold');
@@ -315,12 +309,10 @@ describe('Patient Routes', () => {
                 fileUrl: 'https://storage.example.com/reports/report.pdf',
             };
 
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({
-                    data: { id: 'report-1', ...reportData },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: { id: 'report-1', ...reportData },
+                error: null,
+            });
 
             const result = await supabaseAdmin.from('reports').insert(reportData).single();
             expect(result.data.title).toBe('New Blood Test');
@@ -329,14 +321,10 @@ describe('Patient Routes', () => {
 
     describe('Reviews', () => {
         it('should submit a review for completed appointment', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({ data: { id: 'apt-1', status: 'completed' }, error: null })
-                .mockResolvedValueOnce({ data: null, error: null }) // No existing review
-                .mockResolvedValueOnce({
-                    data: { id: 'review-1', rating: 5, comment: 'Excellent doctor!' },
-                    error: null,
-                });
+            supabaseAdmin.single.mockResolvedValueOnce({
+                data: { id: 'review-1', rating: 5, comment: 'Excellent doctor!' },
+                error: null,
+            });
 
             const result = await supabaseAdmin
                 .from('reviews')
@@ -347,10 +335,7 @@ describe('Patient Routes', () => {
         });
 
         it('should prevent duplicate reviews for same appointment', async () => {
-            supabaseAdmin.single
-                .mockResolvedValueOnce({ data: { id: 'patient-1' }, error: null })
-                .mockResolvedValueOnce({ data: { id: 'apt-1' }, error: null })
-                .mockResolvedValueOnce({ data: { id: 'existing-review' }, error: null });
+            supabaseAdmin.single.mockResolvedValueOnce({ data: { id: 'existing-review' }, error: null });
 
             const existingReview = await supabaseAdmin.from('reviews').select('id').single();
             expect(existingReview.data).not.toBeNull();

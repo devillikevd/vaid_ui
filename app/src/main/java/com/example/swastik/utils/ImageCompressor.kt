@@ -16,17 +16,17 @@ import kotlin.math.min
  *
  * Pipeline:
  *   1. Decode image with inSampleSize downsampling (memory-efficient)
- *   2. Scale to max 2048px (maintains aspect ratio)
- *   3. Re-encode as JPEG at 80% quality
+ *   2. Scale to max 2560px (maintains aspect ratio)
+ *   3. Re-encode as JPEG at 90% quality
  *   4. Returns compressed byte array
  *
  * Typical savings: 60-80% for phone camera photos (4-8MB → 200-600KB)
  */
 object ImageCompressor {
 
-    private const val MAX_DIMENSION = 2048
-    private const val QUALITY = 80
-    private const val THRESHOLD_BYTES = 512 * 1024 // 512KB
+    private const val MAX_DIMENSION = 2560
+    private const val QUALITY = 90
+    private const val THRESHOLD_BYTES = 1024 * 1024 // 1MB
 
     /**
      * Compresses an image from a URI. Returns the compressed bytes and MIME type.

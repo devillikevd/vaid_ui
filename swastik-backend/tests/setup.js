@@ -46,7 +46,7 @@ const generateTestToken = (user) => {
             email: user.email,
             role: user.role,
         },
-        config.jwt.secret,
+        config.jwt.accessSecret,
         { expiresIn: '1h' }
     );
 };

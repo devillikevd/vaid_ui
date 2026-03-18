@@ -127,7 +127,7 @@ class PatientRepository @Inject constructor(
                     val profile = PatientProfile(
                         id = patientData.id,
                         name = patientData.name,
-                        phoneNumber = patientData.phone,
+                        phoneNumber = patientData.phone ?: "",
                         email = patientData.email ?: "",
                         age = patientData.age ?: 0,
                         bloodGroup = patientData.bloodGroup ?: "",
@@ -223,7 +223,7 @@ class PatientRepository @Inject constructor(
 
             // Use real patient or a minimal fallback so dashboard still shows other data
             val resolvedPatient = patient ?: Patient(
-                id = "", userId = "", name = "User", phone = "", email = null,
+                id = "", userId = "", name = "Patient", phone = "", email = null,
                 dateOfBirth = null, gender = null, bloodGroup = null,
                 emergencyContact = null, address = null, profileImageUrl = null,
                 allergies = null, chronicConditions = null
@@ -295,7 +295,7 @@ class PatientRepository @Inject constructor(
                     val profile = PatientProfile(
                         id = patientData.id,
                         name = patientData.name,
-                        phoneNumber = patientData.phone,
+                        phoneNumber = patientData.phone ?: "",
                         email = patientData.email ?: "",
                         age = patientData.age ?: 0,
                         bloodGroup = patientData.bloodGroup ?: "",
@@ -809,7 +809,7 @@ class PatientRepository @Inject constructor(
              id = id,
              userId = id, // fallback
              name = name,
-             phone = phone,
+             phone = phone ?: "",
              email = email,
              dateOfBirth = null, // mapping incomplete fields from DTO
              gender = gender,
@@ -859,10 +859,10 @@ class PatientRepository @Inject constructor(
 
     private fun mapNotificationType(type: String): NotificationType {
         return when(type.lowercase()) {
-            "appointment", "appointment_booked", "appointment_confirmed" -> NotificationType.APPOINTMENT
-            "medicine", "medicine_reminder" -> NotificationType.MEDICINE_REMINDER
-            "report", "report_ready", "report_uploaded" -> NotificationType.REPORT_READY
-            "prescription", "prescription_created" -> NotificationType.PRESCRIPTION
+            "appointment", "appointment_booked", "appointment_confirmed", "appointment_reminder", "follow_up_reminder", "appointment_status_changed", "appointment_rescheduled", "appointment_cancelled" -> NotificationType.APPOINTMENT
+            "medicine", "medicine_reminder", "medicine_missed", "health_task_reminder", "care_plan_reminder" -> NotificationType.MEDICINE_REMINDER
+            "report", "report_ready", "report_uploaded", "diagnostic_result", "diagnostic_test_reminder", "report_review_reminder" -> NotificationType.REPORT_READY
+            "prescription", "prescription_created", "prescription_expiry_reminder" -> NotificationType.PRESCRIPTION
             else -> NotificationType.SYSTEM
         }
     }

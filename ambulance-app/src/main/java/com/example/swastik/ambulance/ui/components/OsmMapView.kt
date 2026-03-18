@@ -88,6 +88,9 @@ fun OsmMapView(
                     if (event.action == android.view.MotionEvent.ACTION_MOVE) {
                         userHasInteracted.value = true
                     }
+                    if (event.action == android.view.MotionEvent.ACTION_UP) {
+                        v.performClick()
+                    }
                     false
                 }
                 mapViewRef.value = this

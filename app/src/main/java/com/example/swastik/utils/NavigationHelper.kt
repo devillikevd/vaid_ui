@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import java.util.Locale
 import kotlin.math.*
 
 /**
@@ -100,7 +101,7 @@ object NavigationHelper {
         return if (distanceKm < 1.0) {
             "${(distanceKm * 1000).toInt()} m"
         } else {
-            String.format("%.1f km", distanceKm)
+            String.format(Locale.US, "%.1f km", distanceKm)
         }
     }
 

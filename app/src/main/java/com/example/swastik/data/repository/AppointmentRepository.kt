@@ -111,14 +111,18 @@ class AppointmentRepository @Inject constructor(
         date: String, 
         timeSlot: String, 
         type: String, 
-        notes: String?
+        notes: String?,
+        hospitalId: String?,
+        clinicId: String?
     ): Result<Appointment> {
         val request = CreateAppointmentRequest(
             doctorId = doctorId,
             date = date,
             timeSlot = timeSlot,
             type = type,
-            notes = notes
+            notes = notes,
+            hospitalId = hospitalId,
+            clinicId = clinicId
         )
 
         // If no network, queue for later sync

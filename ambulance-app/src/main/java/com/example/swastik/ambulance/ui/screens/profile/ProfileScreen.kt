@@ -59,6 +59,15 @@ fun ProfileScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
+                },
+                actions = {
+                    IconButton(onClick = onRefresh, enabled = !profileState.isLoading) {
+                        if (profileState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        }
+                    }
                 }
             )
         },
@@ -97,7 +106,7 @@ fun ProfileScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = (user.name?.firstOrNull() ?: 'D').uppercase(),
+                                    text = (user.name?.firstOrNull() ?: 'A').uppercase(),
                                     style = MaterialTheme.typography.headlineMedium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -105,7 +114,7 @@ fun ProfileScreen(
 
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                text = user.name ?: "Driver",
+                                text = user.name ?: "Ambulance staff",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )

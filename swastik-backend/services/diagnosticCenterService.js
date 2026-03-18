@@ -5,6 +5,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
+const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 
@@ -70,6 +71,7 @@ const getDiagnosticCenterById = async (id) => {
     .from('diagnostic_centers')
     .select('*')
     .eq('id', id)
+    .eq('is_active', true)
     .eq('approval_status', 'approved') // Fix #37: Only show approved centers publicly
     .single();
 
@@ -164,7 +166,7 @@ const getDashboard = async (centerId) => {
       .not('patient_id', 'is', null),
     supabaseAdmin
       .from('diagnostic_bookings')
-      .select('*, patient:patients(name, phone), test:diagnostic_tests(name, category)')
+      .select('*, patient:patients(name), test:diagnostic_tests(name, category)')
       .eq('center_id', centerId)
       .order('created_at', { ascending: false })
       .limit(10),
@@ -185,6 +187,17 @@ const getDashboard = async (centerId) => {
 
 // Update diagnostic center profile — field whitelisting to prevent mass-assignment
 const updateDiagnosticCenter = async (centerId, userId, updates) => {
+  const { data: existingCenter, error: existingCenterError } = await supabaseAdmin
+    .from('diagnostic_centers')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .eq('id', centerId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (existingCenterError || !existingCenter) {
+    throw existingCenterError || new ApiError(404, 'Diagnostic center not found');
+  }
+
   const ALLOWED_FIELDS = [
     'name', 'description', 'phone', 'email', 'website', 'emergency_phone',
     'address', 'city', 'state', 'pincode', 'latitude', 'longitude',
@@ -195,6 +208,7 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
   for (const key of ALLOWED_FIELDS) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+  Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingCenter, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -213,6 +227,19 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
 
 // Get tests offered by this center
 const getTests = async (centerId, filters = {}, page = 1, limit = 50) => {
+  if (filters.publicOnly) {
+    const { data: center, error: centerError } = await supabaseAdmin
+      .from('diagnostic_centers')
+      .select('id')
+      .eq('id', centerId)
+      .eq('is_active', true)
+      .eq('approval_status', 'approved')
+      .maybeSingle();
+
+    if (centerError) throw centerError;
+    if (!center) throw new ApiError(404, 'Diagnostic center not found');
+  }
+
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('diagnostic_tests')
@@ -313,7 +340,7 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, phone, user_id), test:diagnostic_tests(name, category, sample_type)', {
+    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type)', {
       count: 'exact',
     })
     .eq('center_id', centerId);
@@ -337,7 +364,7 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
 const getBookingById = async (centerId, bookingId) => {
   const { data, error } = await supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, phone, user_id), test:diagnostic_tests(name, category, sample_type, price)')
+    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type, price)')
     .eq('id', bookingId)
     .eq('center_id', centerId)
     .single();

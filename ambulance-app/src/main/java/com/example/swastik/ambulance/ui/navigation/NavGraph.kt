@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,6 +15,7 @@ import com.example.swastik.ambulance.ui.screens.dashboard.DashboardScreen
 import com.example.swastik.ambulance.ui.screens.emergency.EmergencyDetailScreen
 import com.example.swastik.ambulance.ui.screens.emergency.EmergencyListScreen
 import com.example.swastik.ambulance.ui.screens.login.LoginScreen
+import com.example.swastik.ambulance.ui.screens.login.RegisterScreen
 import com.example.swastik.ambulance.ui.screens.profile.ProfileScreen
 import com.example.swastik.ambulance.ui.viewmodel.AuthViewModel
 import com.example.swastik.ambulance.ui.viewmodel.DashboardViewModel
@@ -21,6 +23,7 @@ import com.example.swastik.ambulance.ui.viewmodel.ProfileViewModel
 
 sealed class Screen(val route: String) {
     object Login : Screen("login")
+    object Register : Screen("register")
     object Dashboard : Screen("dashboard")
     object Emergencies : Screen("emergencies")
     object Profile : Screen("profile")
@@ -59,6 +62,9 @@ fun AmbulanceNavGraph() {
     ) {
         composable(Screen.Login.route) {
             LoginScreen(
+                onNavigateToRegister = {
+                    navController.navigate(Screen.Register.route)
+                },
                 onLoginSuccess = {
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
@@ -67,10 +73,25 @@ fun AmbulanceNavGraph() {
             )
         }
 
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Dashboard.route) {
             // Create the shared ViewModel scoped to the navigation graph
             val parentEntry = navController.currentBackStackEntry ?: return@composable
             val dashboardViewModel: DashboardViewModel = hiltViewModel(parentEntry)
+
+            LaunchedEffect(Unit) {
+                dashboardViewModel.sessionExpired.collect {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
 
             DashboardScreen(
                 dashboardViewModel = dashboardViewModel,
@@ -92,10 +113,21 @@ fun AmbulanceNavGraph() {
             )
         }
 
-        composable(Screen.Emergencies.route) {
+        composable(Screen.Emergencies.route) { backStackEntry ->
             // Share the Dashboard ViewModel from the back stack
-            val dashboardEntry = navController.getBackStackEntry(Screen.Dashboard.route)
+            val dashboardEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Screen.Dashboard.route)
+            }
             val dashboardViewModel: DashboardViewModel = hiltViewModel(dashboardEntry)
+
+            LaunchedEffect(Unit) {
+                dashboardViewModel.sessionExpired.collect {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
 
             EmergencyListScreen(
                 viewModel = dashboardViewModel,
@@ -124,13 +156,24 @@ fun AmbulanceNavGraph() {
         composable(
             route = Screen.EmergencyDetail.route,
             arguments = listOf(navArgument("requestId") { type = NavType.StringType })
-        ) {
-            val requestId = it.arguments?.getString("requestId") ?: return@composable
+        ) { backStackEntry ->
+            val requestId = backStackEntry.arguments?.getString("requestId") ?: return@composable
 
             // Share the Dashboard ViewModel from the back stack
-            val dashboardEntry = navController.getBackStackEntry(Screen.Dashboard.route)
+            val dashboardEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Screen.Dashboard.route)
+            }
             val viewModel: DashboardViewModel = hiltViewModel(dashboardEntry)
             val detailState by viewModel.emergencyDetailState.collectAsState()
+
+            LaunchedEffect(Unit) {
+                viewModel.sessionExpired.collect {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            }
 
             LaunchedEffect(requestId) {
                 viewModel.loadEmergencyDetail(requestId)

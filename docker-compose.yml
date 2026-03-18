@@ -11,14 +11,18 @@ services:
       dockerfile: Dockerfile
     container_name: swastik-backend
     ports:
-      - "3000:3000"
+      - "5001:5001"
     environment:
       - NODE_ENV=development
-      - PORT=3000
+      - PORT=5001
+      - AI_SERVICE_URL=http://ai-service:8000
+      - REDIS_URL=redis://redis:6379
     env_file:
       - ./swastik-backend/.env
     depends_on:
       - minio
+      - redis
+      - ai-service
     volumes:
       - ./swastik-backend:/app
       - /app/node_modules
@@ -33,17 +37,49 @@ services:
       dockerfile: Dockerfile
     container_name: swastik-web
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+      # NEXT_PUBLIC_ vars are baked into client bundle → must be browser-accessible
+      - NEXT_PUBLIC_API_URL=http://localhost:5001/api
+      - NEXT_PUBLIC_SOCKET_URL=http://localhost:5001
+      - NEXT_PUBLIC_AI_WS_URL=ws://localhost:8000
+      # Internal URL for server-side rendering (SSR) inside Docker network
+      - API_URL_INTERNAL=http://backend:5001/api
     env_file:
       - ./swastik-web/.env.local
     depends_on:
       - backend
+      - ai-service
     volumes:
       - ./swastik-web:/app
       - /app/node_modules
       - /app/.next
+    networks:
+      - swastik-network
+    restart: unless-stopped
+
+  # ==================== AI SERVICE (FastAPI) ====================
+  ai-service:
+    build:
+      context: ./swastik-ai-service
+      dockerfile: Dockerfile
+    container_name: swastik-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - AI_SERVICE_PORT=8000
+      - BACKEND_URL=http://backend:5001
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
+      - MONGODB_URI=${MONGODB_URI:-}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-swastik_healthcare}
+    depends_on:
+      - redis
+    volumes:
+      - ./swastik-ai-service:/app
     networks:
       - swastik-network
     restart: unless-stopped
@@ -71,7 +107,7 @@ services:
     restart: unless-stopped
 
   # ==================== REDIS (Caching/Sessions) ====================
-  # Optional: Use if not using Upstash
+  # Used by backend + AI service for shared live vitals streams
   redis:
     image: redis:7-alpine
     container_name: swastik-redis
@@ -87,8 +123,6 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - full
 
   # ==================== MONGODB (High-volume data) ====================
   # Optional: Use if not using MongoDB Atlas

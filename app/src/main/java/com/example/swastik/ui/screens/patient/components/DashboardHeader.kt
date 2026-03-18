@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.SwastikPurple
@@ -36,7 +37,8 @@ fun DashboardHeader(
     onLanguageSelected: (String) -> Unit = {}
 ) {
     var showLanguageMenu by remember { mutableStateOf(false) }
-    var selectedLanguage by remember { mutableStateOf("English") }
+    val appSettings by AppSettingsStore.settings.collectAsState()
+    val selectedLanguage = appSettings.language
 
 
     Row(
@@ -134,7 +136,7 @@ fun DashboardHeader(
                         DropdownMenuItem(
                             text = { Text(lang) },
                             onClick = {
-                                selectedLanguage = lang
+                                AppSettingsStore.updateLanguage(lang)
                                 showLanguageMenu = false
                                 onLanguageSelected(lang)
                             },
@@ -207,4 +209,3 @@ fun SearchBar(onSearchClick: () -> Unit = {}) {
         )
     }
 }
-

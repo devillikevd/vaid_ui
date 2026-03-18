@@ -41,7 +41,7 @@ class AmbulanceService {
       .insert({
         id: requestId,
         patient_id: patient?.id,
-        requester_name: patientName || patient?.name || 'Unknown',
+        requester_name: patientName || patient?.name || null,
         requester_phone: patientPhone || '',
         pickup_address: `${latitude}, ${longitude}`,
         pickup_latitude: latitude,
@@ -156,6 +156,25 @@ class AmbulanceService {
       throw new ApiError(400, 'Failed to fetch ambulances');
     }
 
+    const operatorIds = [...new Set((ambulances || []).map((amb) => amb.operator_id).filter(Boolean))];
+    let approvedOperatorIds = new Set();
+
+    if (operatorIds.length > 0) {
+      const { data: operators, error: operatorError } = await supabaseAdmin
+        .from('ambulance_operators')
+        .select('id')
+        .in('id', operatorIds)
+        .eq('is_active', true)
+        .eq('is_approved', true)
+        .eq('approval_status', 'approved');
+
+      if (operatorError) {
+        throw new ApiError(400, 'Failed to verify ambulance operators');
+      }
+
+      approvedOperatorIds = new Set((operators || []).map((operator) => operator.id));
+    }
+
     // Calculate distance and sort
     const ambulancesWithDistance = (ambulances || []).map(amb => {
       const distance = calculateDistance(
@@ -170,22 +189,37 @@ class AmbulanceService {
         distanceText: formatDistance(distance),
         eta: calculateETA(distance, 50), // 50 km/h average speed for ambulance
       };
-    }).filter(amb => amb.distance <= radiusKm)
+    }).filter(amb => approvedOperatorIds.has(amb.operator_id) && amb.distance <= radiusKm)
       .sort((a, b) => a.distance - b.distance);
 
     return ambulancesWithDistance;
   }
 
-  // Update ambulance location (for driver app)
+  // Update ambulance location (for driver/operator app)
   async updateAmbulanceLocation(driverUserId, locationData) {
     const { latitude, longitude, heading, speed } = locationData;
 
-    // Get ambulance
-    const { data: ambulance } = await supabaseAdmin
+    // Resolve operator record (if user logs in as ambulance_operator)
+    const { data: operator } = await supabaseAdmin
+      .from('ambulance_operators')
+      .select('id')
+      .eq('user_id', driverUserId)
+      .maybeSingle();
+
+    // Get ambulance by driver OR operator mapping
+    let ambulanceQuery = supabaseAdmin
       .from('ambulances')
       .select('id, current_request_id')
-      .eq('driver_user_id', driverUserId)
-      .single();
+      .eq('driver_user_id', driverUserId);
+
+    if (operator?.id) {
+      ambulanceQuery = supabaseAdmin
+        .from('ambulances')
+        .select('id, current_request_id')
+        .or(`driver_user_id.eq.${driverUserId},operator_id.eq.${operator.id}`);
+    }
+
+    const { data: ambulance } = await ambulanceQuery.limit(1).maybeSingle();
 
     if (!ambulance) {
       throw new ApiError(404, 'Ambulance not found');
@@ -280,6 +314,29 @@ class AmbulanceService {
       heading: vehicle.heading,
       speed: vehicle.speed,
     };
+
+    const hasLiveCoords = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
+
+    if (!request.vehicle_id || !hasLiveCoords) {
+      return {
+        requestId,
+        status: request.status,
+        ambulance: request.vehicle_id ? {
+          id: request.vehicle_id,
+          vehicleNumber: vehicle.vehicle_number,
+          driverName: vehicle.driver_name,
+          driverPhone: vehicle.driver_phone,
+          type: vehicle.vehicle_type,
+        } : null,
+        currentLocation: hasLiveCoords ? currentLocation : null,
+        pickupLocation: {
+          latitude: request.pickup_latitude,
+          longitude: request.pickup_longitude,
+        },
+        distance: null,
+        estimatedArrival: null,
+      };
+    }
 
     // Calculate current distance and ETA
     const distance = calculateDistance(

@@ -4,6 +4,7 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
+const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 
 // Get hospital by owner/manager
 const getHospitalByOwner = async (userId) => {
@@ -55,7 +56,7 @@ const getDashboard = async (hospitalId, userId) => {
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId).eq('appointment_date', today),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId),
     supabaseAdmin.from('appointments').select('patient_id').eq('hospital_id', hospitalId),
-    supabaseAdmin.from('appointments').select('*, patient:patients(name, phone), doctor:doctors(name, specialization)').eq('hospital_id', hospitalId).order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('hospital_id', hospitalId).order('appointment_date', { ascending: false }).limit(10),
     supabaseAdmin.from('hospital_departments').select('*').eq('hospital_id', hospitalId),
   ]);
 
@@ -75,6 +76,16 @@ const getDashboard = async (hospitalId, userId) => {
 
 // Update hospital
 const updateHospital = async (hospitalId, userId, updates) => {
+  const { data: existingHospital, error: existingHospitalError } = await supabaseAdmin
+    .from('hospitals')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .eq('id', hospitalId)
+    .single();
+
+  if (existingHospitalError || !existingHospital) {
+    throw existingHospitalError || new ApiError(404, 'Hospital not found');
+  }
+
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'description', 'opening_hours', 'facilities',
@@ -83,6 +94,7 @@ const updateHospital = async (hospitalId, userId, updates) => {
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+  Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingHospital, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -225,7 +237,7 @@ const getAppointments = async (hospitalId, userId, filters = {}, page = 1, limit
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('appointments')
-    .select('*, patient:patients(name, phone), doctor:doctors(name, specialization)', { count: 'exact' })
+    .select('*, patient:patients(name), doctor:doctors(name, specialization)', { count: 'exact' })
     .eq('hospital_id', hospitalId);
 
   if (filters.status) query = query.eq('status', filters.status);
@@ -360,7 +372,7 @@ const getConsultations = async (userId, page = 1, limit = 20, status) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, phone), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
     .in('doctor_id', doctorIds);
 
   if (status) query = query.eq('status', status);

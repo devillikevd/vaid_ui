@@ -91,7 +91,8 @@ class EmergencyViewModel @Inject constructor(
                     if (result.data != null) {
                         _uiState.value = _uiState.value.copy(
                             activeEmergency = result.data,
-                            requestSent = true
+                            requestSent = true,
+                            ambulanceStatus = result.data.resolvedStatus()
                         )
                         // Start tracking ambulance for the active request
                         startTrackingAmbulance(result.data.resolvedRequestId())
@@ -157,6 +158,7 @@ class EmergencyViewModel @Inject constructor(
                 val activeId = _uiState.value.activeEmergency?.resolvedRequestId()
                 if (!activeId.isNullOrEmpty() && assigned.requestId == activeId) {
                     _uiState.value = _uiState.value.copy(
+                        ambulanceStatus = "assigned",
                         driverName = assigned.driverName,
                         driverPhone = assigned.driverPhone,
                         vehicleNumber = assigned.vehicleNumber
@@ -240,15 +242,14 @@ class EmergencyViewModel @Inject constructor(
             for (attempt in 0 until maxRetries) {
                 when (val result = emergencyRepository.requestEmergency(request)) {
                     is Result.Success -> {
+                        val activeEmergency = result.data
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             requestSent = true,
-                            activeEmergency = result.data
+                            activeEmergency = activeEmergency
                         )
                         // Start tracking the ambulance in real-time
-                        if (result.data != null) {
-                            startTrackingAmbulance(result.data.resolvedRequestId())
-                        }
+                        startTrackingAmbulance(activeEmergency.resolvedRequestId())
                         return@launch // success — exit
                     }
                     is Result.Error -> {

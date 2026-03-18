@@ -43,7 +43,7 @@ export interface Order {
     created_at?: string;
     delivery_address?: string;
     payment_status?: string;
-    status: 'pending' | 'processing' | 'ready' | 'completed' | 'fulfilled';
+    status: 'pending' | 'confirmed' | 'processing' | 'ready' | 'dispatched' | 'delivered' | 'cancelled';
 }
 
 export interface Prescription {
@@ -55,6 +55,21 @@ export interface Prescription {
     status: string;
     medications?: Record<string, unknown>[];
     date?: string;
+}
+
+function normalizeOrder(raw: Record<string, any>): Order {
+    const items = Array.isArray(raw.items) ? raw.items : [];
+    const derivedTotal = items.reduce((sum: number, item: any) => sum + (item.subtotal || ((item.price || 0) * (item.quantity || 1))), 0);
+
+    return {
+        ...raw,
+        patientName: raw.patientName || raw.patient?.name || 'Patient',
+        patientId: raw.patientId || raw.patient_id || raw.patient?.id || '',
+        items,
+        total: raw.total || raw.total_amount || derivedTotal,
+        time: raw.time || raw.created_at || '',
+        status: raw.status || 'pending',
+    } as Order;
 }
 
 interface PharmacyState {
@@ -168,8 +183,9 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
             }
             // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
+            const orders = (Array.isArray(rawData) ? rawData : (rawData as any)?.orders || (rawData as any)?.data || []) as Record<string, any>[];
             set({
-                orders: (Array.isArray(rawData) ? rawData : (rawData as any)?.orders || (rawData as any)?.data || []) as Order[],
+                orders: orders.map(normalizeOrder),
                 loadingOrders: false,
             });
         } catch (error) {

@@ -50,6 +50,7 @@ fun AppointmentBookingScreen(
     onBookingComplete: () -> Unit,
     preselectedDoctorId: String? = null,
     preselectedHospitalId: String? = null,
+    preselectedClinicId: String? = null,
     doctorSearchViewModel: DoctorSearchViewModel = hiltViewModel(),
     appointmentViewModel: AppointmentViewModel = hiltViewModel()
 ) {
@@ -61,15 +62,34 @@ fun AppointmentBookingScreen(
     var selectedType by remember { mutableStateOf("video") }
     var notes by remember { mutableStateOf("") }
 
-    // Pre-filter by hospital if coming from Hospital Finder
-    LaunchedEffect(preselectedHospitalId) {
-        if (!preselectedHospitalId.isNullOrBlank()) {
-            doctorSearchViewModel.updateFilters(hospitalId = preselectedHospitalId)
+    LaunchedEffect(preselectedHospitalId, preselectedClinicId) {
+        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank()) {
+            doctorSearchViewModel.updateFilters(
+                hospitalId = preselectedHospitalId,
+                clinicId = preselectedClinicId
+            )
+        } else {
+            doctorSearchViewModel.searchDoctors(resetList = true)
+        }
+    }
+
+    LaunchedEffect(preselectedDoctorId) {
+        if (!preselectedDoctorId.isNullOrBlank()) {
+            doctorSearchViewModel.selectDoctor(preselectedDoctorId)
         }
     }
 
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
+
+    LaunchedEffect(preselectedDoctorId, doctorState.selectedDoctor?.doctor?.id) {
+        val preselected = preselectedDoctorId ?: return@LaunchedEffect
+        val doctor = doctorState.selectedDoctor?.doctor ?: return@LaunchedEffect
+        if (doctor.id == preselected && selectedDoctor?.id != doctor.id) {
+            selectedDoctor = doctor
+            currentStep = 2
+        }
+    }
 
     // Handle successful booking
     LaunchedEffect(appointmentState.bookingSuccess) {
@@ -204,7 +224,9 @@ fun AppointmentBookingScreen(
                                 date = formatted,
                                 timeSlot = selectedTimeSlot!!,
                                 type = selectedType,
-                                notes = notes.ifBlank { null }
+                                notes = notes.ifBlank { null },
+                                hospitalId = preselectedHospitalId,
+                                clinicId = preselectedClinicId
                             )
                         }
                     )
@@ -450,7 +472,7 @@ private fun DoctorBookingCard(
                         )
                         Text(
                             text = doctor.averageRating?.let {
-                                String.format("%.1f", it)
+                                String.format(Locale.US, "%.1f", it)
                             } ?: "N/A",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium

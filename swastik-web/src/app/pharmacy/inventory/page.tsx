@@ -105,7 +105,7 @@ export default function PharmacyInventoryPage() {
                             <button onClick={resetForm}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-3">
-                            <Input label="Medicine Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Paracetamol 500mg" />
+                            <Input label="Medicine Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter medicine name" />
                             <div className="grid grid-cols-2 gap-3">
                                 <Input label="Quantity" type="number" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} />
                                 <Input label="Price (₹)" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />

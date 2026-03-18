@@ -16,7 +16,8 @@ describe('Authentication Middleware', () => {
 
             await authenticate(req, res, mockNext);
 
-            expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
+            expect(res.status).toHaveBeenCalledWith(401);
+            expect(mockNext).not.toHaveBeenCalled();
         });
 
         it('should reject request with invalid token format', async () => {
@@ -27,7 +28,8 @@ describe('Authentication Middleware', () => {
 
             await authenticate(req, res, mockNext);
 
-            expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
+            expect(res.status).toHaveBeenCalledWith(401);
+            expect(mockNext).not.toHaveBeenCalled();
         });
 
         it('should reject request with invalid token', async () => {
@@ -38,7 +40,8 @@ describe('Authentication Middleware', () => {
 
             await authenticate(req, res, mockNext);
 
-            expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
+            expect(res.status).toHaveBeenCalledWith(401);
+            expect(mockNext).not.toHaveBeenCalled();
         });
 
         it('should accept request with valid token', async () => {

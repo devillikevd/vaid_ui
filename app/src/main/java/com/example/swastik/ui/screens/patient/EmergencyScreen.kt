@@ -19,12 +19,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -178,6 +180,42 @@ private fun EmergencyTypeSelection(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (uiState.locationAvailable) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+                ),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (uiState.locationAvailable) Icons.Filled.MyLocation else Icons.Filled.LocationDisabled,
+                        contentDescription = null,
+                        tint = if (uiState.locationAvailable) Color(0xFF2E7D32) else Color(0xFFE65100)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            if (uiState.locationAvailable) "Location ready for dispatch" else "Waiting for live location",
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (uiState.locationAvailable) Color(0xFF1B5E20) else Color(0xFFE65100)
+                        )
+                        Text(
+                            if (uiState.locationAvailable) "Your current GPS will be shared with the responding ambulance." else "Enable GPS so the nearest ambulance can navigate to you accurately.",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
                 }
             }
         }
@@ -343,6 +381,12 @@ private fun ActiveEmergencyView(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val emergency = uiState.activeEmergency
+    val resolvedStatus = uiState.ambulanceStatus ?: emergency?.resolvedStatus() ?: "pending"
+    val resolvedDriverName = uiState.driverName ?: emergency?.resolvedDriverName()
+    val resolvedDriverPhone = uiState.driverPhone ?: emergency?.resolvedDriverPhone()
+    val resolvedVehicleNumber = uiState.vehicleNumber ?: emergency?.resolvedVehicleNumber()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -376,7 +420,7 @@ private fun ActiveEmergencyView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val statusText = when (uiState.ambulanceStatus) {
+        val statusText = when (resolvedStatus) {
             "pending" -> "Finding Ambulance..."
             "broadcasting" -> "Searching Nearby Ambulances..."
             "assigned" -> "Ambulance Assigned — Waiting for Driver"
@@ -393,7 +437,7 @@ private fun ActiveEmergencyView(
             else -> "Ambulance On The Way"
         }
 
-        val statusSubtext = when (uiState.ambulanceStatus) {
+        val statusSubtext = when (resolvedStatus) {
             "pending", "broadcasting" -> "We're notifying nearby ambulance drivers"
             "assigned" -> "Driver has been assigned to your request"
             "accepted" -> "Driver accepted — will start soon"
@@ -420,6 +464,17 @@ private fun ActiveEmergencyView(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        PatientEmergencyOverviewCard(
+            uiState = uiState,
+            statusText = statusText,
+            statusSubtext = statusSubtext,
+            resolvedDriverName = resolvedDriverName,
+            resolvedVehicleNumber = resolvedVehicleNumber,
+            resolvedDriverPhone = resolvedDriverPhone
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Live tracking indicator
         if (uiState.isTrackingAmbulance) {
@@ -472,8 +527,8 @@ private fun ActiveEmergencyView(
 
         // ── Embedded real-time OSM tracking map ──
         if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
-            val ambLat = uiState.ambulanceLatitude!!
-            val ambLng = uiState.ambulanceLongitude!!
+            val ambLat = uiState.ambulanceLatitude
+            val ambLng = uiState.ambulanceLongitude
             val midLat = (uiState.latitude + ambLat) / 2
             val midLng = (uiState.longitude + ambLng) / 2
 
@@ -534,7 +589,6 @@ private fun ActiveEmergencyView(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Emergency info card
-        val emergency = uiState.activeEmergency
         if (emergency != null) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -545,34 +599,38 @@ private fun ActiveEmergencyView(
                 Column(modifier = Modifier.padding(20.dp)) {
                     InfoRow("Request #", emergency.resolvedRequestId())
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    InfoRow("Status", uiState.ambulanceStatus ?: emergency.resolvedStatus())
+                    InfoRow("Status", resolvedStatus)
                     InfoRow("Type", emergency.emergencyType ?: "Emergency")
                     if (emergency.estimatedArrival != null) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        InfoRow("ETA", emergency.estimatedArrival!!)
+                        InfoRow("ETA", emergency.estimatedArrival)
                     }
-                    if (emergency.resolvedDriverName() != null) {
+                    if (resolvedDriverName != null) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        InfoRow("Driver", emergency.resolvedDriverName()!!)
-                        if (emergency.resolvedVehicleNumber() != null) InfoRow("Vehicle", emergency.resolvedVehicleNumber()!!)
-                        if (emergency.resolvedDriverPhone() != null) InfoRow("Phone", emergency.resolvedDriverPhone()!!)
+                        InfoRow("Driver", resolvedDriverName)
+                        if (resolvedVehicleNumber != null) InfoRow("Vehicle", resolvedVehicleNumber)
+                        if (resolvedDriverPhone != null) InfoRow("Phone", resolvedDriverPhone)
                     }
                 }
             }
         }
 
+        PatientResponseJourneyCard(currentStatus = resolvedStatus)
+
         // Ambulance location card — distance, ETA, direction + navigate button
         if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
+            val ambulanceLat = uiState.ambulanceLatitude
+            val ambulanceLng = uiState.ambulanceLongitude
             val context = LocalContext.current
             val distanceKm = NavigationHelper.calculateDistanceKm(
                 uiState.latitude, uiState.longitude,
-                uiState.ambulanceLatitude!!, uiState.ambulanceLongitude!!
+                ambulanceLat, ambulanceLng
             )
             val distanceText = NavigationHelper.formatDistance(distanceKm)
             val etaMinutes = NavigationHelper.estimateEtaMinutes(distanceKm, 50.0) // ambulance speed
             val dirArrow = NavigationHelper.getDirectionArrow(
                 uiState.latitude, uiState.longitude,
-                uiState.ambulanceLatitude!!, uiState.ambulanceLongitude!!
+                ambulanceLat, ambulanceLng
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -591,7 +649,7 @@ private fun ActiveEmergencyView(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Estimated arrival: ~$etaMinutes min",
+                        "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
                         fontSize = 14.sp,
                         color = Color(0xFF8E24AA)
                     )
@@ -601,7 +659,7 @@ private fun ActiveEmergencyView(
                             NavigationHelper.openDirectionsFromTo(
                                 context,
                                 uiState.latitude, uiState.longitude,
-                                uiState.ambulanceLatitude!!, uiState.ambulanceLongitude!!,
+                                ambulanceLat, ambulanceLng,
                                 "Ambulance Location"
                             )
                         },
@@ -618,12 +676,11 @@ private fun ActiveEmergencyView(
         }
 
         // Call Driver button
-        val driverPhone = uiState.activeEmergency?.resolvedDriverPhone()
-        if (!driverPhone.isNullOrBlank()) {
+        if (!resolvedDriverPhone.isNullOrBlank()) {
             val context = LocalContext.current
             Spacer(modifier = Modifier.height(12.dp))
             Button(
-                onClick = { NavigationHelper.openDialer(context, driverPhone) },
+                onClick = { NavigationHelper.openDialer(context, resolvedDriverPhone) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                 shape = RoundedCornerShape(12.dp)
@@ -649,6 +706,154 @@ private fun ActiveEmergencyView(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun PatientEmergencyOverviewCard(
+    uiState: EmergencyUiState,
+    statusText: String,
+    statusSubtext: String,
+    resolvedDriverName: String?,
+    resolvedVehicleNumber: String?,
+    resolvedDriverPhone: String?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = "Emergency response in progress",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color(0xFF212121)
+            )
+
+            Text(
+                text = statusText,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                color = Color(0xFFD32F2F),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = statusSubtext,
+                fontSize = 13.sp,
+                color = Color.Gray
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SummaryPill(
+                    modifier = Modifier.weight(1f),
+                    title = "Driver",
+                    value = resolvedDriverName ?: "Matching...",
+                    accent = Color(0xFF1976D2)
+                )
+                SummaryPill(
+                    modifier = Modifier.weight(1f),
+                    title = "Vehicle",
+                    value = resolvedVehicleNumber ?: "Pending",
+                    accent = Color(0xFF6A1B9A)
+                )
+            }
+
+            if (!resolvedDriverPhone.isNullOrBlank()) {
+                SummaryPill(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Contact",
+                    value = resolvedDriverPhone,
+                    accent = Color(0xFF2E7D32)
+                )
+            }
+
+            if (uiState.ambulanceDistanceKm != null || uiState.ambulanceEta != null) {
+                SummaryPill(
+                    modifier = Modifier.fillMaxWidth(),
+                    title = "Tracking",
+                    value = listOfNotNull(
+                        uiState.ambulanceDistanceKm?.let { String.format(java.util.Locale.US, "%.1f km away", it) },
+                        uiState.ambulanceEta
+                    ).joinToString(" • "),
+                    accent = Color(0xFFD32F2F)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryPill(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    accent: Color
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(title, fontSize = 11.sp, color = accent, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(value, fontSize = 13.sp, color = Color(0xFF212121), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun PatientResponseJourneyCard(currentStatus: String) {
+    val stages = listOf(
+        "pending" to "Request created",
+        "broadcasting" to "Nearby ambulances alerted",
+        "assigned" to "Ambulance assigned",
+        "accepted" to "Driver accepted",
+        "en_route" to "Ambulance en route",
+        "arrived" to "Ambulance arrived",
+        "picked_up" to "Patient onboard",
+        "en_route_hospital" to "To hospital",
+        "arrived_hospital" to "At hospital",
+        "completed" to "Completed"
+    )
+
+    val currentIndex = stages.indexOfFirst { it.first == currentStatus.lowercase() }.coerceAtLeast(0)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+
+            stages.forEachIndexed { index, (_, label) ->
+                val active = index <= currentIndex
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(if (active) Color(0xFFD32F2F) else Color(0xFFE0E0E0))
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        label,
+                        color = if (active) Color(0xFF212121) else Color.Gray,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -681,7 +886,9 @@ private fun EmergencyConfirmation(
             Icons.Filled.CheckCircle,
             contentDescription = null,
             tint = Color(0xFF4CAF50),
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier
+                .size(80.dp)
+                .alpha(alpha)
         )
 
         Spacer(modifier = Modifier.height(16.dp))

@@ -138,6 +138,7 @@ interface ApiService {
         @Query("specialization") specialization: String? = null,
         @Query("search") search: String? = null,
         @Query("hospitalId") hospitalId: String? = null,
+        @Query("clinicId") clinicId: String? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<Doctor>>
@@ -202,6 +203,24 @@ interface ApiService {
         @Query("latitude") latitude: Double? = null,
         @Query("longitude") longitude: Double? = null
     ): Response<ApiResponse<List<Hospital>>>
+
+    @GET("clinics/search")
+    suspend fun searchClinics(
+        @Query("city") city: String? = null,
+        @Query("search") search: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50
+    ): Response<PaginatedResponse<ClinicDto>>
+
+    @GET("pharmacy/search")
+    suspend fun searchPharmacies(
+        @Query("city") city: String? = null,
+        @Query("search") search: String? = null,
+        @Query("deliveryAvailable") deliveryAvailable: Boolean? = null,
+        @Query("isOpen") isOpen: Boolean? = null,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50
+    ): Response<PaginatedResponse<PharmacyDto>>
 
     // Get clinic doctors (public — for patient discovery in hospital finder)
     @GET("hospitals/clinics/{clinicId}/doctors")
@@ -468,7 +487,7 @@ interface ApiService {
     @Multipart
     @POST("uploads/profile")
     suspend fun uploadProfileImage(
-        @Part image: okhttp3.MultipartBody.Part
+        @Part file: okhttp3.MultipartBody.Part
     ): Response<ApiResponse<UploadResponse>>
     
     @Multipart

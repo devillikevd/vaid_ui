@@ -29,5 +29,8 @@
 \i 014_triggers_and_functions.sql
 \i 015_views.sql
 \i 016_migrations.sql
+\i 017_ai_vitals_feature_toggles.sql
+\i 018_fix_users_role_check.sql
+\i 019_reminder_reliability_and_timezone.sql
 
-SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.0 DEPLOYED!' as status;
+SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

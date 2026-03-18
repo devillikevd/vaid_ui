@@ -279,7 +279,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                             label="Full Name"
                             value={name}
                             onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
-                            placeholder="John Doe"
+                            placeholder="Enter full name"
                             leftIcon={<User className="h-5 w-5" />}
                             error={fieldErrors.name}
                             required
@@ -290,7 +290,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                             type="email"
                             value={email}
                             onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
-                            placeholder="you@example.com"
+                            placeholder="Enter email"
                             leftIcon={<Mail className="h-5 w-5" />}
                             error={fieldErrors.email}
                             required
@@ -300,7 +300,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                             label="Phone Number (optional)"
                             value={phone}
                             onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
-                            placeholder="+91 98765 43210"
+                            placeholder="Enter phone number"
                             leftIcon={<Phone className="h-5 w-5" />}
                             error={fieldErrors.phone}
                         />
@@ -312,7 +312,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     label="Specialization"
                                     value={specialization}
                                     onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
-                                    placeholder="e.g. Cardiologist"
+                                    placeholder="Enter specialization"
                                     leftIcon={<Briefcase className="h-5 w-5" />}
                                     error={fieldErrors.specialization}
                                     required
@@ -331,7 +331,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     type="number"
                                     value={experience}
                                     onChange={(e) => setExperience(e.target.value)}
-                                    placeholder="e.g. 5"
+                                    placeholder="Enter years of experience"
                                     required
                                 />
                             </>

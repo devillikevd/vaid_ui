@@ -4,7 +4,26 @@
  * Security: validates both MIME type (client-provided) AND magic bytes (actual file content)
  */
 const multer = require('multer');
-const FileType = require('file-type');
+
+let fileTypeFromBufferFn = null;
+
+const detectFileType = async (buffer) => {
+  if (!fileTypeFromBufferFn) {
+    // file-type v21+ is ESM-only and exposes fileTypeFromBuffer
+    const mod = await import('file-type');
+    fileTypeFromBufferFn =
+      mod.fileTypeFromBuffer ||
+      mod.default?.fileTypeFromBuffer ||
+      mod.fromBuffer ||
+      mod.default?.fromBuffer;
+
+    if (!fileTypeFromBufferFn) {
+      throw new Error('file-type detector is unavailable');
+    }
+  }
+
+  return fileTypeFromBufferFn(buffer);
+};
 
 // Memory storage (for MinIO upload)
 const memoryStorage = multer.memoryStorage();
@@ -30,7 +49,7 @@ const validateMagicBytes = (allowedMimeTypes) => {
       for (const file of files) {
         if (!file.buffer || file.buffer.length === 0) continue;
         
-        const detected = await FileType.fromBuffer(file.buffer);
+        const detected = await detectFileType(file.buffer);
         
         if (!detected) {
           // For text-based formats (PDF sometimes, plain text), file-type can't detect

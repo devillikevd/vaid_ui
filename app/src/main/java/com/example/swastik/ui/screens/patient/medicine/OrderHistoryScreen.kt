@@ -33,8 +33,8 @@ fun OrderHistoryScreen(
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Pending", "Processing", "Fulfilled", "Cancelled")
-    val statusFilters = listOf(null, "pending", "processing", "fulfilled", "cancelled")
+    val tabs = listOf("All", "Pending", "Confirmed", "Processing", "Delivered", "Cancelled")
+    val statusFilters = listOf(null, "pending", "confirmed", "processing", "delivered", "cancelled")
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -53,8 +53,10 @@ fun OrderHistoryScreen(
     LaunchedEffect(Unit) {
         viewModel.realtimeOrderEvent.collectLatest { update ->
             val statusEmoji = when (update.status) {
+                "confirmed" -> "🧾"
                 "processing" -> "🔄"
-                "fulfilled" -> "✅"
+                "ready" -> "📦"
+                "delivered" -> "✅"
                 "cancelled" -> "❌"
                 else -> "📦"
             }
@@ -207,8 +209,11 @@ private fun OrderHistoryCard(
     var expanded by remember { mutableStateOf(false) }
     val statusColor = when (order.status) {
         "pending" -> Color(0xFFFFA000)
+        "confirmed" -> Color(0xFF3949AB)
         "processing" -> Color(0xFF1976D2)
-        "fulfilled" -> Color(0xFF4CAF50)
+        "ready" -> Color(0xFFFB8C00)
+        "dispatched" -> Color(0xFF00897B)
+        "delivered" -> Color(0xFF4CAF50)
         "cancelled" -> Color(0xFFE53935)
         else -> Color.Gray
     }
@@ -328,7 +333,7 @@ private fun OrderHistoryCard(
                     }
 
                     // Cancel button (only for pending/processing)
-                    if (order.status in listOf("pending", "processing")) {
+                    if (order.status in listOf("pending", "confirmed", "processing")) {
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = onCancel,

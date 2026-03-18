@@ -44,6 +44,16 @@ export interface DiagnosticBooking {
     created_at: string;
 }
 
+function normalizeDiagnosticBooking(raw: Record<string, any>): DiagnosticBooking {
+    return {
+        ...raw,
+        patient_name: raw.patient_name || raw.patient?.name,
+        patient_email: raw.patient_email || raw.patient?.email,
+        test_name: raw.test_name || raw.test?.name,
+        amount: raw.amount || raw.test?.price || null,
+    } as DiagnosticBooking;
+}
+
 interface DiagnosticCenterState {
     stats: DiagnosticDashboardStats | null;
     tests: DiagnosticTest[];
@@ -106,9 +116,10 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 return;
             }
             const data = response.data as Record<string, unknown>;
+            const recentBookings = ((data.recentBookings || data.todaysBookings || data.bookings || []) as Record<string, any>[]).map(normalizeDiagnosticBooking);
             set({
                 stats: (data.stats as DiagnosticDashboardStats) || null,
-                todaysBookings: (data.recentBookings || data.todaysBookings || data.bookings || []) as DiagnosticBooking[],
+                todaysBookings: recentBookings,
                 loadingDashboard: false,
                 isLoading: false,
             });
@@ -199,11 +210,13 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
             const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
             // I16: Deduplicate by booking ID
             const seen = new Set<string>();
-            const deduped = raw.filter(b => {
+            const deduped = raw
+                .map(booking => normalizeDiagnosticBooking(booking as Record<string, any>))
+                .filter(b => {
                 if (seen.has(b.id)) return false;
                 seen.add(b.id);
                 return true;
-            });
+                });
             set({
                 bookings: deduped,
                 loadingBookings: false,
@@ -227,11 +240,13 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
             const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
             // I16: Deduplicate by booking ID — API may return duplicates
             const seen = new Set<string>();
-            const deduped = raw.filter(r => {
+            const deduped = raw
+                .map(result => normalizeDiagnosticBooking(result as Record<string, any>))
+                .filter(r => {
                 if (seen.has(r.id)) return false;
                 seen.add(r.id);
                 return true;
-            });
+                });
             set({
                 results: deduped,
                 loadingResults: false,
@@ -251,7 +266,10 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 set({ error: response.error || 'Failed to load booking', loadingSelectedBooking: false });
                 return;
             }
-            set({ selectedBooking: response.data as DiagnosticBooking, loadingSelectedBooking: false });
+            set({
+                selectedBooking: normalizeDiagnosticBooking((response.data || {}) as Record<string, any>),
+                loadingSelectedBooking: false,
+            });
         } catch (error) {
             console.error('Error fetching booking:', error);
             set({ error: 'Failed to load booking.', loadingSelectedBooking: false });

@@ -16,16 +16,15 @@
 
 require('dotenv').config();
 const { supabaseAdmin } = require('../config/supabase');
+const { geocodeAddress } = require('../utils/geocoding');
 
 // ── Config ──
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = 'SwastikHealthApp/1.0 (geocode-maintenance)';
 const RATE_LIMIT_MS = 1100; // slightly over 1s to be polite
 
 const FACILITY_TABLES = [
-    { table: 'hospitals', addressCols: ['address'], label: 'Hospitals' },
-    { table: 'clinics', addressCols: ['address'], label: 'Clinics' },
-    { table: 'pharmacies', addressCols: ['address'], label: 'Pharmacies' },
+    { table: 'hospitals', addressCols: ['address', 'city', 'state', 'pincode'], label: 'Hospitals' },
+    { table: 'clinics', addressCols: ['address', 'city', 'state', 'pincode'], label: 'Clinics' },
+    { table: 'pharmacies', addressCols: ['address', 'city', 'state', 'pincode'], label: 'Pharmacies' },
     {
         table: 'diagnostic_centers',
         addressCols: ['address', 'city', 'state', 'pincode'],
@@ -45,23 +44,13 @@ function sleep(ms) {
  */
 async function geocode(address) {
     try {
-        const url = `${NOMINATIM_URL}?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=in`;
-        const res = await fetch(url, {
-            headers: { 'User-Agent': USER_AGENT },
-        });
-        if (!res.ok) {
-            console.warn(`  ⚠ Nominatim returned HTTP ${res.status}`);
-            return null;
-        }
-        const data = await res.json();
-        if (data && data.length > 0) {
-            return {
-                lat: parseFloat(data[0].lat),
-                lon: parseFloat(data[0].lon),
-                display: data[0].display_name,
-            };
-        }
-        return null;
+        const result = await geocodeAddress(address);
+        if (!result) return null;
+        return {
+            lat: result.latitude,
+            lon: result.longitude,
+            display: result.displayName,
+        };
     } catch (err) {
         console.warn(`  ⚠ Geocode error: ${err.message}`);
         return null;
@@ -116,8 +105,7 @@ async function main() {
         const { data: rows, error } = await supabaseAdmin
             .from(table)
             .select(`id, name, ${addressCols.join(', ')}, latitude, longitude`)
-            .is('latitude', null)
-            .not(addressCols[0], 'is', null);
+            .is('latitude', null);
 
         if (error) {
             console.error(`  ❌ Query error: ${error.message}`);

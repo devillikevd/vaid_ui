@@ -115,7 +115,9 @@ export default function HospitalEmergencyPage() {
         const unsub3 = on('ambulance:status-update', () => fetchEmergencies());
         // M3: Listen for ambulance location updates to move map markers in real-time
         const unsub4 = on('ambulance:location-update', (data: any) => {
-            if (data.latitude && data.longitude) {
+            const hasLat = Number.isFinite(data?.latitude);
+            const hasLng = Number.isFinite(data?.longitude);
+            if (hasLat && hasLng) {
                 setEmergencies(prev => prev.map(e => {
                     if (e.ambulance && (e.id === data.requestId || e.ambulance.id === data.ambulanceId)) {
                         return {
@@ -143,8 +145,9 @@ export default function HospitalEmergencyPage() {
     // When selecting an emergency for assignment, load available ambulances
     const handleSelectForAssign = async (emergency: DispatchEmergency) => {
         setSelectedEmergency(emergency.id);
-        if (emergency.latitude && emergency.longitude) {
-            await fetchAvailableAmbulances(emergency.latitude, emergency.longitude);
+        const { latitude, longitude } = emergency;
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            await fetchAvailableAmbulances(latitude as number, longitude as number);
         }
     };
 
@@ -176,24 +179,29 @@ export default function HospitalEmergencyPage() {
     // Map markers
     const mapMarkers: MapMarker[] = [];
     emergencies.forEach(e => {
-        if (e.latitude && e.longitude) {
+        const patientLat = e.latitude;
+        const patientLng = e.longitude;
+        if (Number.isFinite(patientLat) && Number.isFinite(patientLng)) {
             mapMarkers.push({
                 id: `patient-${e.id}`,
-                lat: e.latitude,
-                lng: e.longitude,
+                lat: patientLat as number,
+                lng: patientLng as number,
                 title: e.patientName,
                 popup: `${e.type || 'Emergency'} • ${STATUS_CONFIG[e.status]?.label || e.status}`,
                 color: e.priority === 'critical' ? '#DC2626' : e.priority === 'high' ? '#F59E0B' : '#3B82F6',
                 pulse: ['pending', 'broadcasting'].includes(e.status),
             });
         }
-        if (e.ambulance?.latitude && e.ambulance?.longitude) {
+        const ambulanceLat = e.ambulance?.latitude;
+        const ambulanceLng = e.ambulance?.longitude;
+        if (Number.isFinite(ambulanceLat) && Number.isFinite(ambulanceLng)) {
+            const ambulance = e.ambulance;
             mapMarkers.push({
                 id: `amb-${e.id}`,
-                lat: e.ambulance.latitude,
-                lng: e.ambulance.longitude,
-                title: `🚑 ${e.ambulance.vehicleNumber}`,
-                popup: `${e.ambulance.driverName} → ${e.patientName}`,
+                lat: ambulanceLat as number,
+                lng: ambulanceLng as number,
+                title: `🚑 ${ambulance?.vehicleNumber || 'Ambulance'}`,
+                popup: `${ambulance?.driverName || 'Driver'} → ${e.patientName}`,
                 color: '#059669',
             });
         }

@@ -115,7 +115,7 @@ export default function TestCatalogPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input label="Test Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Complete Blood Count" />
+                            <Input label="Test Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter test name" />
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category *</label>
                                 <select
@@ -143,7 +143,7 @@ export default function TestCatalogPage() {
                                 <Input label="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description of the test" />
                             </div>
                             <div className="md:col-span-2">
-                                <Input label="Preparation Instructions" value={form.preparation_instructions} onChange={e => setForm(f => ({ ...f, preparation_instructions: e.target.value }))} placeholder="e.g. 12 hours fasting required" />
+                                <Input label="Preparation Instructions" value={form.preparation_instructions} onChange={e => setForm(f => ({ ...f, preparation_instructions: e.target.value }))} placeholder="Enter preparation instructions" />
                             </div>
                             <div className="flex items-center gap-2">
                                 <input

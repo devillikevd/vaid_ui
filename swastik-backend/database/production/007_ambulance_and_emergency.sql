@@ -127,6 +127,16 @@ CREATE TABLE IF NOT EXISTS emergency_requests (
         'completed', 'cancelled'
     )),
     status_history JSONB DEFAULT '[]',
+    -- Dispatch system columns
+    dispatch_mode VARCHAR(30) DEFAULT 'sos_broadcast' CHECK (dispatch_mode IN ('sos_broadcast', 'hospital_controlled')),
+    broadcast_round INTEGER DEFAULT 0,
+    broadcast_ambulance_ids UUID[] DEFAULT '{}',
+    accepted_by UUID,
+    assigned_by UUID,
+    hospital_id UUID,
+    rejection_count INTEGER DEFAULT 0,
+    timeout_at TIMESTAMPTZ,
+    -- Timestamps
     requested_at TIMESTAMPTZ DEFAULT NOW(),
     assigned_at TIMESTAMPTZ,
     dispatched_at TIMESTAMPTZ,

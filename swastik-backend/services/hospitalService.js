@@ -204,7 +204,7 @@ const searchHospitals = async (query, latitude, longitude) => {
 const getHospitalById = async (id) => {
   const { data, error } = await supabaseAdmin
     .from('hospitals')
-    .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee))')
+    .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved))')
     .eq('id', id)
     .eq('is_approved', true)
     .eq('is_active', true)
@@ -212,6 +212,16 @@ const getHospitalById = async (id) => {
 
   if (error || !data) {
     throw new ApiError(404, 'Hospital not found');
+  }
+
+  if (Array.isArray(data.doctors)) {
+    data.doctors = data.doctors
+      .filter((entry) => entry?.doctor?.is_approved === true)
+      .map((entry) => {
+        if (!entry?.doctor) return entry;
+        const { is_approved: _ignored, ...doctor } = entry.doctor;
+        return { ...entry, doctor };
+      });
   }
 
   return data;

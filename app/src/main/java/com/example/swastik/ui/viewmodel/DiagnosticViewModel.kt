@@ -2,6 +2,7 @@ package com.example.swastik.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.*
 import com.example.swastik.data.repository.DiagnosticRepository
 import com.example.swastik.data.repository.Result
@@ -34,7 +35,8 @@ data class BookingHistoryUiState(
 
 @HiltViewModel
 class DiagnosticViewModel @Inject constructor(
-    private val repository: DiagnosticRepository
+    private val repository: DiagnosticRepository,
+    private val socketManager: SocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DiagnosticUiState())
@@ -43,7 +45,20 @@ class DiagnosticViewModel @Inject constructor(
     private val _bookingHistoryState = MutableStateFlow(BookingHistoryUiState())
     val bookingHistoryState: StateFlow<BookingHistoryUiState> = _bookingHistoryState.asStateFlow()
 
+    private var lastSearchQuery: String = ""
+    private var lastSearchCity: String? = null
+    private var lastNearbyLocation: Pair<Double, Double>? = null
+    private var hasObservedSocketConnection = false
+
+    init {
+        collectProviderCatalogUpdates()
+        observeSocketReconnects()
+    }
+
     fun searchCenters(query: String = "", city: String? = null) {
+        lastSearchQuery = query
+        lastSearchCity = city
+        lastNearbyLocation = null
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, searchQuery = query)
         viewModelScope.launch {
             when (val result = repository.searchCenters(city = city, search = query.ifBlank { null })) {
@@ -65,6 +80,9 @@ class DiagnosticViewModel @Inject constructor(
     }
 
     fun findNearbyCenters(latitude: Double, longitude: Double) {
+        lastNearbyLocation = latitude to longitude
+        lastSearchQuery = ""
+        lastSearchCity = null
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             when (val result = repository.findNearby(latitude, longitude)) {
@@ -108,6 +126,41 @@ class DiagnosticViewModel @Inject constructor(
                 }
                 is Result.Loading -> { }
             }
+        }
+    }
+
+    private fun collectProviderCatalogUpdates() {
+        viewModelScope.launch {
+            socketManager.providerCatalogUpdates.collect {
+                refreshDiscovery()
+            }
+        }
+    }
+
+    private fun observeSocketReconnects() {
+        viewModelScope.launch {
+            socketManager.connectionState.collect { connected ->
+                if (!hasObservedSocketConnection) {
+                    hasObservedSocketConnection = true
+                    return@collect
+                }
+                if (connected) {
+                    refreshDiscovery()
+                }
+            }
+        }
+    }
+
+    private fun refreshDiscovery() {
+        val nearby = lastNearbyLocation
+        if (nearby != null) {
+            findNearbyCenters(nearby.first, nearby.second)
+        } else {
+            searchCenters(lastSearchQuery, lastSearchCity)
+        }
+
+        _uiState.value.selectedCenter?.id?.let { centerId ->
+            loadTests(centerId)
         }
     }
 

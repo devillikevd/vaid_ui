@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun PatientDashboardScreen(
     viewModel: PatientDashboardViewModel = hiltViewModel(),
+    initialTab: Int = 0,
     onNavigateToMedicine: () -> Unit = {},
     onNavigateToRecords: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
@@ -44,10 +45,12 @@ fun PatientDashboardScreen(
     onStartVideoConsultation: (appointmentId: String, doctorName: String) -> Unit = { _, _ -> },
     onNavigateToAppointments: () -> Unit = {},
     onNavigateToHospitals: () -> Unit = {},
+    onNavigateToClinics: () -> Unit = {},
+    onNavigateToPharmacies: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
-    onNavigateToBooking: () -> Unit = {},
+    onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToDiagnostic: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
@@ -57,7 +60,7 @@ fun PatientDashboardScreen(
     onNavigateToMedicineCart: () -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 3)) }
     var showNotificationPanel by remember { mutableStateOf(false) }
 
     // Collect data from ViewModel
@@ -91,7 +94,7 @@ fun PatientDashboardScreen(
             },
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = onNavigateToBooking,
+                    onClick = { onNavigateToBooking(null) },
                     containerColor = SwastikPurple,
                     shape = CircleShape,
                     modifier = Modifier.offset(y = 50.dp)
@@ -123,11 +126,13 @@ fun PatientDashboardScreen(
                             doctors = doctors,
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
-                            onProfileClick = onNavigateToProfile,
+                            onProfileClick = { selectedTab = 3 },
                             onStartVideoConsultation = { onNavigateToAppointments() },
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToReports = onNavigateToReports,
                             onNavigateToHospitals = onNavigateToHospitals,
+                            onNavigateToClinics = onNavigateToClinics,
+                            onNavigateToPharmacies = onNavigateToPharmacies,
                             onNavigateToEmergency = onNavigateToEmergency,
                             onNavigateToChatbot = onNavigateToChatbot,
                             onNavigateToDiagnostic = onNavigateToDiagnostic,

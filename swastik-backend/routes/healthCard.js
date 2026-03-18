@@ -57,9 +57,10 @@ router.post('/revoke', authenticate,
 // ─── Public: Anyone with the token can view the health record ────────
 
 router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
-  // Validate token format (UUID v4) before hitting the database
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(req.params.token)) {
+  // Validate token format before hitting Redis
+  // HealthCardService generates token via randomBytes(32).toString('hex') => 64 hex chars
+  const tokenRegex = /^[0-9a-f]{64}$/i;
+  if (!tokenRegex.test(req.params.token)) {
     return res.status(400).json({ success: false, message: 'Invalid health card token format' });
   }
 

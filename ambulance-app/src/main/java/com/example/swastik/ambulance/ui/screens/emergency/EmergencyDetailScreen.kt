@@ -2,14 +2,15 @@ package com.example.swastik.ambulance.ui.screens.emergency
 
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,11 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ambulance.data.remote.dto.EmergencyDto
-import com.example.swastik.ambulance.ui.components.OsmMapView
 import com.example.swastik.ambulance.ui.components.MapMarkerData
+import com.example.swastik.ambulance.ui.components.OsmMapView
 import org.osmdroid.util.GeoPoint
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +38,8 @@ fun EmergencyDetailScreen(
     onUpdateStatus: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val patientName = emergency?.resolvedPatientName ?: emergency?.patientInfo ?: "Patient details unavailable"
+    val patientPhone = emergency?.resolvedPatientPhone
 
     Scaffold(
         topBar = {
@@ -48,7 +52,7 @@ fun EmergencyDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -88,6 +92,33 @@ fun EmergencyDetailScreen(
             // Status Badge
             StatusBadge(emergency.status)
 
+            OperationalOverviewCard(
+                emergency = emergency,
+                patientName = patientName,
+                patientPhone = patientPhone,
+                onCallPatient = patientPhone?.let {
+                    {
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$it"))
+                        context.startActivity(intent)
+                    }
+                },
+                onNavigate = {
+                    val geoUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                    val geoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+                    try {
+                        if (geoIntent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(geoIntent)
+                        } else {
+                            val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
+                            context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                        }
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}")
+                        context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                    }
+                }
+            )
+
             // Emergency Info Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -98,8 +129,9 @@ fun EmergencyDetailScreen(
                     Text("Emergency Information", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.height(16.dp))
 
-                    InfoRow(Icons.Default.Warning, "Type", emergency.emergencyType ?: "General")
+                    InfoRow(Icons.Default.Warning, "Type", emergency.emergencyType ?: "Unspecified")
                     InfoRow(Icons.Default.Flag, "Priority", emergency.priority ?: "Normal")
+                    InfoRow(Icons.Default.BroadcastOnPersonal, "Dispatch Mode", emergency.dispatchMode?.replace('_', ' ')?.uppercase() ?: "DIRECT")
                     InfoRow(Icons.Default.Numbers, "Request #", emergency.id.take(8).uppercase())
                     InfoRow(Icons.Default.Schedule, "Created", formatTimestamp(emergency.createdAt))
 
@@ -122,9 +154,9 @@ fun EmergencyDetailScreen(
                     Text("Patient Information", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.height(16.dp))
 
-                    InfoRow(Icons.Default.Person, "Name", emergency.patientName ?: "Unknown")
+                    InfoRow(Icons.Default.Person, "Name", patientName)
 
-                    if (!emergency.patientPhone.isNullOrBlank()) {
+                    if (!patientPhone.isNullOrBlank()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -137,12 +169,12 @@ fun EmergencyDetailScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text("Phone", fontSize = 12.sp, color = Color.Gray)
-                                    Text(emergency.patientPhone, fontSize = 14.sp)
+                                    Text(patientPhone, fontSize = 14.sp)
                                 }
                             }
                             FilledTonalButton(
                                 onClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${emergency.patientPhone}"))
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$patientPhone"))
                                     context.startActivity(intent)
                                 },
                                 colors = ButtonDefaults.filledTonalButtonColors(
@@ -155,18 +187,31 @@ fun EmergencyDetailScreen(
                             }
                         }
                     }
+
+                    if (!emergency.requesterName.isNullOrBlank() && emergency.requesterName != patientName) {
+                        Spacer(Modifier.height(8.dp))
+                        InfoRow(Icons.Default.Badge, "Requester", emergency.requesterName)
+                    }
                 }
             }
 
             // Location Card
             if (emergency.latitude != null && emergency.longitude != null) {
+                val pickupLatitude = emergency.latitude
+                val pickupLongitude = emergency.longitude
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(Modifier.padding(20.dp)) {
-                        Text("Location", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Live Pickup Monitoring", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Track the latest pickup point and launch navigation instantly.",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
                         Spacer(Modifier.height(12.dp))
 
                         // Embedded OSM map showing patient pickup location
@@ -178,13 +223,13 @@ fun EmergencyDetailScreen(
                         ) {
                             OsmMapView(
                                 modifier = Modifier.fillMaxSize(),
-                                center = GeoPoint(emergency.latitude!!, emergency.longitude!!),
+                                center = GeoPoint(pickupLatitude, pickupLongitude),
                                 zoom = 15.0,
                                 markers = listOf(
                                     MapMarkerData(
                                         id = "patient",
-                                        latitude = emergency.latitude!!,
-                                        longitude = emergency.longitude!!,
+                                        latitude = pickupLatitude,
+                                        longitude = pickupLongitude,
                                         title = "Patient Pickup",
                                         snippet = emergency.address ?: "Pickup Location",
                                         markerColor = android.graphics.Color.parseColor("#D32F2F")
@@ -194,7 +239,7 @@ fun EmergencyDetailScreen(
                         }
 
                         Spacer(Modifier.height(12.dp))
-                        InfoRow(Icons.Default.LocationOn, "Address", emergency.address ?: "Not provided")
+                        InfoRow(Icons.Default.LocationOn, "Address", emergency.address ?: "Address unavailable")
                         InfoRow(Icons.Default.MyLocation, "Coordinates",
                             "${String.format(java.util.Locale.US, "%.5f", emergency.latitude)}, ${String.format(java.util.Locale.US, "%.5f", emergency.longitude)}")
 
@@ -229,6 +274,8 @@ fun EmergencyDetailScreen(
                 }
             }
 
+            StatusTimelineCard(currentStatus = emergency.status)
+
             // Status Action Buttons
             StatusActionButtons(
                 currentStatus = emergency.status,
@@ -236,6 +283,162 @@ fun EmergencyDetailScreen(
             )
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun OperationalOverviewCard(
+    emergency: EmergencyDto,
+    patientName: String,
+    patientPhone: String?,
+    onCallPatient: (() -> Unit)?,
+    onNavigate: (() -> Unit)?
+) {
+    val priorityColor = when ((emergency.priority ?: "normal").lowercase()) {
+        "critical" -> Color(0xFFD32F2F)
+        "high" -> Color(0xFFEF6C00)
+        else -> Color(0xFF1976D2)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBFA))
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = patientName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = emergency.emergencyType ?: "Emergency details pending",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = priorityColor.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = (emergency.priority ?: "normal").uppercase(),
+                        color = priorityColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(
+                    onClick = {},
+                    enabled = false,
+                    label = { Text(emergency.status.replace('_', ' ').uppercase()) },
+                    leadingIcon = { Icon(Icons.Default.LocalShipping, null, modifier = Modifier.size(16.dp)) }
+                )
+                emergency.dispatchMode?.let {
+                    AssistChip(
+                        onClick = {},
+                        enabled = false,
+                        label = { Text(it.replace('_', ' ')) },
+                        leadingIcon = { Icon(Icons.Default.Radio, null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { onCallPatient?.invoke() },
+                    enabled = onCallPatient != null,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Call, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (patientPhone.isNullOrBlank()) "Phone unavailable" else "Call patient")
+                }
+
+                Button(
+                    onClick = { onNavigate?.invoke() },
+                    enabled = onNavigate != null,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                ) {
+                    Icon(Icons.Default.Navigation, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Navigate")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusTimelineCard(currentStatus: String) {
+    val allStages = listOf(
+        "assigned" to "Assigned",
+        "accepted" to "Accepted",
+        "en_route" to "Drive to patient",
+        "arrived" to "At pickup",
+        "picked_up" to "Patient onboard",
+        "en_route_hospital" to "Drive to hospital",
+        "arrived_hospital" to "At hospital",
+        "completed" to "Completed"
+    )
+
+    val normalized = when (currentStatus.lowercase()) {
+        "pending", "requested", "broadcasting" -> "assigned"
+        else -> currentStatus.lowercase()
+    }
+    val activeIndex = allStages.indexOfFirst { it.first == normalized }.coerceAtLeast(0)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(12.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                allStages.forEachIndexed { index, (_, label) ->
+                    val completed = index <= activeIndex
+                    val dotColor = if (completed) Color(0xFFD32F2F) else Color(0xFFE0E0E0)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(dotColor)
+                                .border(2.dp, Color.White, CircleShape)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            fontWeight = if (completed) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (completed) Color(0xFF212121) else Color.Gray
+                        )
+                    }
+                }
+            }
         }
     }
 }

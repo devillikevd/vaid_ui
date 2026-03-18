@@ -1,5 +1,7 @@
 package com.example.swastik.navigation
 
+import com.example.swastik.data.model.FacilityType
+
 sealed class Screen(val route: String) {
     // Auth Screens
     object Home : Screen("home")
@@ -11,13 +13,20 @@ sealed class Screen(val route: String) {
     }
 
     // Patient Screens
-    object PatientDashboard : Screen("patient_dashboard")
+    object PatientDashboard : Screen("patient_dashboard?tab={tab}") {
+        fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 3)}"
+    }
     object AppointmentHistory : Screen("appointment_history")
-    object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}") {
-        fun createRoute(doctorId: String? = null, hospitalId: String? = null): String {
+    object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}") {
+        fun createRoute(
+            doctorId: String? = null,
+            hospitalId: String? = null,
+            clinicId: String? = null
+        ): String {
             val params = mutableListOf<String>()
             if (doctorId != null) params.add("doctorId=$doctorId")
             if (hospitalId != null) params.add("hospitalId=$hospitalId")
+            if (clinicId != null) params.add("clinicId=$clinicId")
             return if (params.isEmpty()) "appointment_booking" else "appointment_booking?${params.joinToString("&")}"
         }
     }
@@ -25,7 +34,15 @@ sealed class Screen(val route: String) {
     object MedicineDetail : Screen("medicine_detail/{medicineId}") {
         fun createRoute(medicineId: String): String = "medicine_detail/$medicineId"
     }
-    object HospitalFinder : Screen("hospital_finder")
+    object HospitalFinder : Screen("hospital_finder?type={type}") {
+        fun createRoute(type: FacilityType? = null): String {
+            return if (type == null) {
+                "hospital_finder"
+            } else {
+                "hospital_finder?type=${type.name}"
+            }
+        }
+    }
     object HospitalDetail : Screen("hospital_detail/{hospitalId}") {
         fun createRoute(hospitalId: String): String = "hospital_detail/$hospitalId"
     }
@@ -38,7 +55,6 @@ sealed class Screen(val route: String) {
     object Prescriptions : Screen("prescriptions")
     object Chatbot : Screen("chatbot")
     object Emergency : Screen("emergency")
-    object ProfileEdit : Screen("profile_edit")
     object DiagnosticBooking : Screen("diagnostic_booking")
     object VitalsReminders : Screen("vitals_reminders")
     object MedicineCart : Screen("medicine_cart")

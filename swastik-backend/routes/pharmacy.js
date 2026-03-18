@@ -6,12 +6,29 @@ const express = require('express');
 const router = express.Router();
 const pharmacyService = require('../services/pharmacyService');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../utils/helpers');
 const { body, param, query: queryValidator } = require('express-validator');
 const { validate } = require('../middleware/validate');
 
 // Public routes
+router.get('/search', asyncHandler(async (req, res) => {
+    const { city, search, page = 1, limit = 20, deliveryAvailable, isOpen } = req.query;
+
+    const result = await pharmacyService.searchPharmacies(
+        {
+            city,
+            search,
+            deliveryAvailable: deliveryAvailable === 'true',
+            isOpen: isOpen === 'true',
+        },
+        parseInt(page),
+        parseInt(limit)
+    );
+
+    res.json({ success: true, ...result });
+}));
+
 router.get('/nearby', asyncHandler(async (req, res) => {
     const { latitude, longitude, medicineId, radius = 10 } = req.query;
 
@@ -54,7 +71,7 @@ router.post('/register', requireRole(ROLES.PHARMACY_OWNER), [
 }));
 
 // Dashboard - aggregate data for pharmacy owner
-router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     
     // Get inventory with low stock filter

@@ -1,6 +1,7 @@
 package com.example.swastik
 
 import android.app.Application
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.sync.SyncManager
 import dagger.hilt.android.HiltAndroidApp
 import org.osmdroid.config.Configuration
@@ -17,6 +18,7 @@ class SwastikApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
+        AppSettingsStore.init(this)
         // Initialize osmdroid map configuration
         Configuration.getInstance().apply {
             userAgentValue = packageName

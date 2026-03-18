@@ -218,6 +218,15 @@ const sendNotificationEmail = async (email, name, notification) => {
  * Send account approval notification.
  */
 const sendApprovalEmail = async (email, name, role, status, notes = '') => {
+  const roleLoginPathMap = {
+    doctor: 'doctor',
+    hospital_owner: 'hospital',
+    clinic_owner: 'clinic',
+    pharmacy_owner: 'pharmacy',
+    diagnostic_center_owner: 'diagnostic-center',
+  };
+  const loginPath = roleLoginPathMap[role];
+
   const statusConfig = {
     approved: {
       emoji: '✅',
@@ -236,6 +245,18 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
       color: '#D97706',
       title: 'Account Under Review',
       message: `Your ${role.replace(/_/g, ' ')} account is currently under review. We'll notify you once a decision is made.`,
+    },
+    reactivated: {
+      emoji: '🟢',
+      color: '#059669',
+      title: 'Account Reactivated',
+      message: `Your ${role.replace(/_/g, ' ')} account has been reactivated. You can access your dashboard again.`,
+    },
+    suspended: {
+      emoji: '⛔',
+      color: '#DC2626',
+      title: 'Account Suspended',
+      message: `Your ${role.replace(/_/g, ' ')} account has been suspended.${notes ? ` Reason: ${escapeHtml(notes)}` : ''}`,
     },
   };
 
@@ -256,9 +277,9 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
           Hi ${escapeHtml(name)}, ${cfg.message}
         </p>
         
-        ${status === 'approved' ? `
+        ${status === 'approved' && loginPath ? `
           <div style="text-align: center; margin: 25px 0;">
-            <a href="${config.frontendWebUrl}/login/${role === 'doctor' ? 'doctor' : role.replace(/_owner/, '')}" 
+            <a href="${config.frontendWebUrl}/login/${loginPath}" 
                style="display: inline-block; padding: 14px 32px; background: #059669; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
               Login Now
             </a>

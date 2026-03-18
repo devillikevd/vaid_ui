@@ -7,7 +7,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 const diagnosticCenterService = require('../services/diagnosticCenterService');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
 const { asyncHandler } = require('../utils/helpers');
 
@@ -44,18 +44,18 @@ router.get('/nearby', asyncHandler(async (req, res) => {
 }));
 
 // Get diagnostic center by ID
-router.get('/:id', asyncHandler(async (req, res) => {
+router.get('/:id([0-9a-fA-F-]{36})', asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterById(req.params.id);
     res.json({ success: true, data: center });
 }));
 
 // Get tests available at a specific center (public)
-router.get('/:id/tests', asyncHandler(async (req, res) => {
+router.get('/:id([0-9a-fA-F-]{36})/tests', asyncHandler(async (req, res) => {
     const { search, category, page = 1, limit = 50 } = req.query;
 
     const result = await diagnosticCenterService.getTests(
         req.params.id,
-        { search, category, isActive: true },
+        { search, category, isActive: true, publicOnly: true },
         parseInt(page),
         parseInt(limit)
     );
@@ -141,7 +141,7 @@ router.post('/book',
 // ==================== Owner Routes ====================
 
 // Dashboard
-router.get('/owner/dashboard', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/dashboard', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const dashboard = await diagnosticCenterService.getDashboard(center.id);
     res.json({ success: true, ...dashboard });

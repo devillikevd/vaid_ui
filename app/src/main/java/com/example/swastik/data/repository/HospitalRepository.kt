@@ -7,8 +7,13 @@ import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.local.db.HospitalDao
 import com.example.swastik.data.local.db.CachedHospital
+import com.example.swastik.data.remote.dto.ClinicDto
 import com.example.swastik.data.remote.dto.ClinicDoctorDto
+import com.example.swastik.data.remote.dto.DiagnosticCenterDto
+import com.example.swastik.data.remote.dto.PharmacyDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
+import com.example.swastik.utils.NavigationHelper
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -45,7 +50,7 @@ class HospitalRepository @Inject constructor(
                         name = hospital.name,
                         type = FacilityType.HOSPITAL,
                         address = hospital.address,
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = hospital.rating ?: 0f,
                         reviewCount = hospital.reviewCount ?: 0,
@@ -96,7 +101,7 @@ class HospitalRepository @Inject constructor(
                         name = pharmacy.name,
                         type = FacilityType.MEDICAL_STORE,
                         address = pharmacy.address ?: "",
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = pharmacy.rating ?: 0f,
                         reviewCount = pharmacy.totalReviews ?: 0,
@@ -131,7 +136,7 @@ class HospitalRepository @Inject constructor(
                         name = clinic.name,
                         type = FacilityType.CLINIC,
                         address = clinic.address ?: "",
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = clinic.rating ?: 0f,
                         reviewCount = clinic.totalReviews ?: 0,
@@ -167,7 +172,7 @@ class HospitalRepository @Inject constructor(
                         name = center.name,
                         type = FacilityType.DIAGNOSTIC_CENTER,
                         address = center.address ?: "",
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = center.rating ?: 0f,
                         reviewCount = center.totalReviews ?: 0,
@@ -203,7 +208,7 @@ class HospitalRepository @Inject constructor(
                         name = hospital.name,
                         type = FacilityType.HOSPITAL,
                         address = hospital.address,
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = hospital.rating ?: 0f,
                         reviewCount = hospital.reviewCount ?: 0,
@@ -305,7 +310,7 @@ class HospitalRepository @Inject constructor(
                         name = hospital.name,
                         type = FacilityType.HOSPITAL,
                         address = hospital.address,
-                        distance = if (distKm > 0) String.format("%.1f km", distKm) else "N/A",
+                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
                         distanceKm = distKm,
                         rating = hospital.rating ?: 0f,
                         reviewCount = hospital.reviewCount ?: 0,
@@ -336,6 +341,66 @@ class HospitalRepository @Inject constructor(
                 .filter { it.name.contains(query, ignoreCase = true) }
                 .map { it.toMedicalFacility() }
         } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun searchClinics(
+        query: String,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): List<MedicalFacility> {
+        return try {
+            val response = apiService.searchClinics(search = query)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.map { clinic ->
+                    clinic.toMedicalFacility(latitude, longitude)
+                } ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Clinic search failed: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun searchPharmacies(
+        query: String,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): List<MedicalFacility> {
+        return try {
+            val response = apiService.searchPharmacies(search = query)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.map { pharmacy ->
+                    pharmacy.toMedicalFacility(latitude, longitude)
+                } ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Pharmacy search failed: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun searchDiagnosticCenters(
+        query: String,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): List<MedicalFacility> {
+        return try {
+            val response = apiService.searchDiagnosticCenters(search = query, limit = 50)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.map { center ->
+                    center.toMedicalFacility(latitude, longitude)
+                } ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Diagnostic center search failed: ${e.message}")
             emptyList()
         }
     }
@@ -419,4 +484,108 @@ class HospitalRepository @Inject constructor(
         specializations = specializations?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
         hospitalSubType = hospitalType
     )
+
+    private fun ClinicDto.toMedicalFacility(
+        userLatitude: Double? = null,
+        userLongitude: Double? = null
+    ): MedicalFacility {
+        val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+        return MedicalFacility(
+            id = id,
+            name = name,
+            type = FacilityType.CLINIC,
+            address = address ?: "",
+            distance = formatDistanceLabel(distKm),
+            distanceKm = distKm,
+            rating = rating ?: 0f,
+            reviewCount = totalReviews ?: 0,
+            latitude = latitude ?: 0.0,
+            longitude = longitude ?: 0.0,
+            phone = phone ?: "",
+            isOpen = is24Hours ?: true,
+            specializations = specializations ?: emptyList()
+        )
+    }
+
+    private fun PharmacyDto.toMedicalFacility(
+        userLatitude: Double? = null,
+        userLongitude: Double? = null
+    ): MedicalFacility {
+        val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+        return MedicalFacility(
+            id = id,
+            name = name,
+            type = FacilityType.MEDICAL_STORE,
+            address = address ?: "",
+            distance = formatDistanceLabel(distKm),
+            distanceKm = distKm,
+            rating = rating ?: 0f,
+            reviewCount = totalReviews ?: 0,
+            latitude = latitude ?: 0.0,
+            longitude = longitude ?: 0.0,
+            phone = phone ?: "",
+            isOpen = isOpen ?: true
+        )
+    }
+
+    private fun DiagnosticCenterDto.toMedicalFacility(
+        userLatitude: Double? = null,
+        userLongitude: Double? = null
+    ): MedicalFacility {
+        val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+        return MedicalFacility(
+            id = id,
+            name = name,
+            type = FacilityType.DIAGNOSTIC_CENTER,
+            address = address ?: "",
+            distance = formatDistanceLabel(distKm),
+            distanceKm = distKm,
+            rating = rating ?: 0f,
+            reviewCount = totalReviews ?: 0,
+            latitude = latitude ?: 0.0,
+            longitude = longitude ?: 0.0,
+            phone = phone ?: "",
+            isOpen = is24Hours ?: true,
+            isEmergencyAvailable = emergencyServices ?: false,
+            specializations = specialties ?: emptyList()
+        )
+    }
+
+    private fun resolvedDistanceKm(
+        facilityLatitude: Double?,
+        facilityLongitude: Double?,
+        apiDistance: Float?,
+        userLatitude: Double?,
+        userLongitude: Double?
+    ): Double {
+        if (apiDistance != null && apiDistance > 0f) {
+            return apiDistance.toDouble()
+        }
+
+        if (
+            facilityLatitude == null || facilityLongitude == null ||
+            userLatitude == null || userLongitude == null
+        ) {
+            return 0.0
+        }
+
+        if (facilityLatitude == 0.0 || facilityLongitude == 0.0) {
+            return 0.0
+        }
+
+        return NavigationHelper.calculateDistanceKm(
+            userLatitude,
+            userLongitude,
+            facilityLatitude,
+            facilityLongitude
+        )
+    }
+
+    private fun formatDistanceLabel(distanceKm: Double): String {
+        return if (distanceKm > 0.0) {
+            NavigationHelper.formatDistance(distanceKm)
+        } else {
+            "N/A"
+        }
+    }
 }

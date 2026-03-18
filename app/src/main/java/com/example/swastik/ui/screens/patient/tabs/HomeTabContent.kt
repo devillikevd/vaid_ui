@@ -32,6 +32,8 @@ fun HomeTabContent(
     onNavigateToAppointments: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToHospitals: () -> Unit,
+    onNavigateToClinics: () -> Unit,
+    onNavigateToPharmacies: () -> Unit,
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToChatbot: () -> Unit,
     onNavigateToDiagnostic: () -> Unit = {},
@@ -39,7 +41,7 @@ fun HomeTabContent(
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
-    onNavigateToBooking: () -> Unit = {},
+    onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
@@ -82,6 +84,15 @@ fun HomeTabContent(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        CareDirectorySection(
+            onHospitalClick = onNavigateToHospitals,
+            onClinicClick = onNavigateToClinics,
+            onPharmacyClick = onNavigateToPharmacies,
+            onDiagnosticClick = onNavigateToDiagnostic
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         // Smart Reminder Section
         SmartReminderSection(
             reminders = reminders,
@@ -92,10 +103,8 @@ fun HomeTabContent(
 
         // Quick Actions
         QuickActionsSection(
-            onHospitalClick = onNavigateToHospitals,
             onAmbulanceClick = onNavigateToEmergency,
             onHelpClick = onNavigateToChatbot,
-            onDiagnosticClick = onNavigateToDiagnostic,
             onVitalsClick = onNavigateToVitals,
             onOrderHistoryClick = onNavigateToOrderHistory,
             onBookingHistoryClick = onNavigateToBookingHistory,
@@ -107,8 +116,8 @@ fun HomeTabContent(
         // Doctor Recommendation Strip
         DoctorRecommendationSection(
             doctors = doctors,
-            onDoctorClick = { doctor -> onNavigateToBooking() },
-            onBookClick = { doctor -> onNavigateToBooking() },
+            onDoctorClick = { doctor -> onNavigateToBooking(doctor.id) },
+            onBookClick = { doctor -> onNavigateToBooking(doctor.id) },
             onSeeAllClick = onNavigateToAppointments
         )
 

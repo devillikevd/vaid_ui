@@ -52,7 +52,7 @@ export default function SettingsPage() {
     };
 
     const handleSave = () => {
-        setSaveStatus('Settings saved locally. Backend settings API coming soon.');
+        setSaveStatus('Settings saved locally. Backend sync is not enabled in this build.');
         setTimeout(() => setSaveStatus(null), 3000);
     };
 

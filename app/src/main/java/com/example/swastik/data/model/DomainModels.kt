@@ -117,7 +117,9 @@ data class Doctor(
     val qualification: String?,
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("video_consultation_fee") val videoConsultationFee: Int?,
-    @SerializedName("average_rating") val averageRating: Float?,
+    // Backend sends "rating" from doctors table; some endpoints send "average_rating"
+    // Using "rating" to match the primary DB column name returned by getAllDoctors / getDoctorById
+    @SerializedName("rating") val averageRating: Float?,
     @SerializedName("total_reviews") val totalReviews: Int?,
     @SerializedName("is_available") val isAvailable: Boolean,
     @SerializedName("hospital_values") val hospitalValues: List<String> = emptyList()

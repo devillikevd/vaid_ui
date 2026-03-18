@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { MapPin, Search, Loader2, Navigation, X } from 'lucide-react';
 
 interface LocationPickerProps {
@@ -262,7 +261,7 @@ export default function LocationPicker({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            placeholder="Search location (e.g., Apollo Hospital, Delhi)"
+                            placeholder="Search location"
                             className="w-full px-3 py-2 pl-9 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />

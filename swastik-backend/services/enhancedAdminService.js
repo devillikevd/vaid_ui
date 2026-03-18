@@ -5,8 +5,12 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { sanitizeSearch } = require('../utils/sanitize');
-const { cacheGet, cacheSet } = require('../config/redis');
+const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
+const { geocodeProvider } = require('../utils/geocoding');
+const notificationService = require('./notificationService');
+const { sendApprovalEmail } = require('./emailService');
+const eventEmitter = require('./eventEmitter');
 
 // Provider type → Supabase table mapping
 const PROVIDER_TABLES = {
@@ -16,6 +20,172 @@ const PROVIDER_TABLES = {
   clinic: 'clinics',
   diagnostic_center: 'diagnostic_centers',
   ambulance: 'ambulance_operators',
+};
+
+const PROVIDER_USER_FIELDS = {
+  doctor: 'user_id',
+  hospital: 'owner_id',
+  pharmacy: 'owner_id',
+  clinic: 'owner_id',
+  diagnostic_center: 'owner_id',
+  ambulance: 'user_id',
+};
+
+const getProviderUserId = (provider) => provider?.user_id || provider?.owner_id || null;
+const LOCATION_PROVIDER_TYPES = new Set(['hospital', 'pharmacy', 'clinic', 'diagnostic_center']);
+
+const getProviderSnapshot = async (type, id) => {
+  const table = PROVIDER_TABLES[type];
+  const userField = PROVIDER_USER_FIELDS[type];
+  const selectFields = [
+    'id',
+    'name',
+    userField,
+    'is_approved',
+    'approval_status',
+    'approval_notes',
+    'approved_by',
+    'approved_at',
+    ...(type === 'doctor' ? [] : ['is_active']),
+  ].join(', ');
+
+  const { data, error } = await supabaseAdmin
+    .from(table)
+    .select(selectFields)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+};
+
+const invalidateApprovalCaches = async (provider) => {
+  const userId = getProviderUserId(provider);
+  const keys = ['admin:dashboard'];
+  if (userId) keys.push(`auth_user:${userId}`);
+  await Promise.allSettled(keys.map((key) => cacheDel(key)));
+};
+
+const notifyProviderStatusChange = async ({ provider, type, status, notes = '' }) => {
+  const userId = getProviderUserId(provider);
+  if (!userId) return;
+
+  const statusConfig = {
+    approved: {
+      title: 'Registration Approved! 🎉',
+      message: `Your ${type} registration for "${provider.name || type}" has been approved. You can now start managing your facility.`,
+      emailStatus: 'approved',
+    },
+    rejected: {
+      title: 'Registration Update',
+      message: `Your ${type} registration was not approved.${notes ? ` Reason: ${notes}` : ''} Please review and resubmit.`,
+      emailStatus: 'rejected',
+    },
+    suspended: {
+      title: 'Account Suspended',
+      message: `Your ${type} account has been suspended.${notes ? ` Reason: ${notes}` : ''}`,
+      emailStatus: 'suspended',
+    },
+    reactivated: {
+      title: 'Account Reactivated',
+      message: `Your ${type} account for "${provider.name || type}" has been reactivated. You can access your dashboard again.`,
+      emailStatus: 'reactivated',
+    },
+  };
+
+  const cfg = statusConfig[status];
+  if (!cfg) return;
+
+  try {
+    await notificationService.sendNotification(userId, {
+      title: cfg.title,
+      message: cfg.message,
+      type: 'system',
+      data: { providerId: provider.id, providerType: type, action: status },
+    });
+  } catch (err) {
+    console.warn(`[Admin] Failed to send ${status} notification:`, err.message);
+  }
+
+  if (!cfg.emailStatus) return;
+
+  try {
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('email, name, role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!user?.email) return;
+
+    await sendApprovalEmail(
+      user.email,
+      user.name || provider.name || 'User',
+      user.role,
+      cfg.emailStatus,
+      notes
+    );
+  } catch (err) {
+    console.warn(`[Admin] Failed to send ${status} email:`, err.message);
+  }
+};
+
+const auditProviderTransition = async ({ adminId, type, providerId, action, before, after, notes }) => {
+  await logAudit({
+    userId: adminId,
+    userRole: 'admin',
+    action,
+    entityType: type,
+    entityId: providerId,
+    oldData: before,
+    newData: after,
+    metadata: notes ? { notes } : undefined,
+  });
+};
+
+const broadcastProviderCatalogUpdate = async ({ provider, type, status }) => {
+  if (!provider?.id) return;
+  eventEmitter.emitProviderCatalogUpdated({
+    providerId: provider.id,
+    providerType: type,
+    status,
+  });
+};
+
+const backfillProviderCoordinates = async (type, provider) => {
+  if (!LOCATION_PROVIDER_TYPES.has(type) || !provider?.id) {
+    return provider;
+  }
+
+  if (provider.latitude != null && provider.longitude != null) {
+    return provider;
+  }
+
+  try {
+    const geo = await geocodeProvider(provider);
+    if (!geo) {
+      return provider;
+    }
+
+    const table = PROVIDER_TABLES[type];
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .update({
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', provider.id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data || provider;
+  } catch (err) {
+    console.warn(`[Admin] Failed to geocode approved ${type} ${provider.id}: ${err.message}`);
+    return provider;
+  }
 };
 
 // Dashboard — Fix #34: Use Promise.allSettled to survive individual query failures
@@ -172,6 +342,7 @@ const getProviderDetails = async (type, id) => {
 const approveProvider = async (type, id, adminId, notes) => {
   const table = PROVIDER_TABLES[type];
   if (!table) throw new ApiError(400, 'Invalid provider type');
+  const before = await getProviderSnapshot(type, id);
 
   // Build update payload — only use columns that exist in the DB schema
   // All tables have: is_approved, approval_status, approval_notes, approved_by, approved_at
@@ -197,35 +368,37 @@ const approveProvider = async (type, id, adminId, notes) => {
     .single();
 
   if (error) throw error;
+  const approvedProvider = await backfillProviderCoordinates(type, data);
 
   // Update user verification if applicable
-  if (data?.user_id || data?.owner_id) {
-    const userId = data.user_id || data.owner_id;
+  if (approvedProvider?.user_id || approvedProvider?.owner_id) {
+    const userId = approvedProvider.user_id || approvedProvider.owner_id;
     await supabaseAdmin.from('users').update({ is_verified: true }).eq('id', userId);
   }
 
-  // Notify the facility owner about approval
-  const ownerId = data.user_id || data.owner_id;
-  if (ownerId) {
-    try {
-      const eventEmitter = require('./eventEmitter');
-      eventEmitter.emit('notification:send', {
-        userId: ownerId,
-        title: 'Registration Approved! 🎉',
-        message: `Your ${type} registration for "${data.name || type}" has been approved. You can now start managing your facility.`,
-        type: 'system',
-        data: { providerId: id, providerType: type, action: 'approved' },
-      });
-    } catch (_) { /* notification is non-critical */ }
-  }
+  await Promise.allSettled([
+    invalidateApprovalCaches(approvedProvider),
+    notifyProviderStatusChange({ provider: approvedProvider, type, status: 'approved', notes }),
+    broadcastProviderCatalogUpdate({ provider: approvedProvider, type, status: 'approved' }),
+    auditProviderTransition({
+      adminId,
+      type,
+      providerId: id,
+      action: 'provider.approved',
+      before,
+      after: approvedProvider,
+      notes,
+    }),
+  ]);
 
-  return { data, message: `${type} approved successfully` };
+  return { data: approvedProvider, message: `${type} approved successfully` };
 };
 
 // Reject provider
 const rejectProvider = async (type, id, adminId, reason) => {
   const table = PROVIDER_TABLES[type];
   if (!table) throw new ApiError(400, 'Invalid provider type');
+  const before = await getProviderSnapshot(type, id);
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -253,20 +426,20 @@ const rejectProvider = async (type, id, adminId, reason) => {
 
   if (error) throw error;
 
-  // Notify the facility owner about rejection
-  const ownerId = data.user_id || data.owner_id;
-  if (ownerId) {
-    try {
-      const eventEmitter = require('./eventEmitter');
-      eventEmitter.emit('notification:send', {
-        userId: ownerId,
-        title: 'Registration Update',
-        message: `Your ${type} registration was not approved.${reason ? ` Reason: ${reason}` : ''} Please review and resubmit.`,
-        type: 'system',
-        data: { providerId: id, providerType: type, action: 'rejected' },
-      });
-    } catch (_) { /* notification is non-critical */ }
-  }
+  await Promise.allSettled([
+    invalidateApprovalCaches(data),
+    notifyProviderStatusChange({ provider: data, type, status: 'rejected', notes: reason }),
+    broadcastProviderCatalogUpdate({ provider: data, type, status: 'rejected' }),
+    auditProviderTransition({
+      adminId,
+      type,
+      providerId: id,
+      action: 'provider.rejected',
+      before,
+      after: data,
+      notes: reason,
+    }),
+  ]);
 
   return { data, message: `${type} rejected` };
 };
@@ -275,6 +448,7 @@ const rejectProvider = async (type, id, adminId, reason) => {
 const suspendProvider = async (type, id, adminId, reason) => {
   const table = PROVIDER_TABLES[type];
   if (!table) throw new ApiError(400, 'Invalid provider type');
+  const before = await getProviderSnapshot(type, id);
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -302,6 +476,20 @@ const suspendProvider = async (type, id, adminId, reason) => {
     .single();
 
   if (error) throw error;
+  await Promise.allSettled([
+    invalidateApprovalCaches(data),
+    notifyProviderStatusChange({ provider: data, type, status: 'suspended', notes: reason }),
+    broadcastProviderCatalogUpdate({ provider: data, type, status: 'suspended' }),
+    auditProviderTransition({
+      adminId,
+      type,
+      providerId: id,
+      action: 'provider.suspended',
+      before,
+      after: data,
+      notes: reason,
+    }),
+  ]);
   return { data, message: `${type} suspended` };
 };
 
@@ -309,6 +497,7 @@ const suspendProvider = async (type, id, adminId, reason) => {
 const reactivateProvider = async (type, id, adminId, notes) => {
   const table = PROVIDER_TABLES[type];
   if (!table) throw new ApiError(400, 'Invalid provider type');
+  const before = await getProviderSnapshot(type, id);
 
   // Only use columns that exist in the actual DB schema
   const updatePayload = {
@@ -332,6 +521,26 @@ const reactivateProvider = async (type, id, adminId, notes) => {
     .single();
 
   if (error) throw error;
+
+  if (data?.user_id || data?.owner_id) {
+    const userId = data.user_id || data.owner_id;
+    await supabaseAdmin.from('users').update({ is_verified: true }).eq('id', userId);
+  }
+
+  await Promise.allSettled([
+    invalidateApprovalCaches(data),
+    notifyProviderStatusChange({ provider: data, type, status: 'reactivated', notes }),
+    broadcastProviderCatalogUpdate({ provider: data, type, status: 'reactivated' }),
+    auditProviderTransition({
+      adminId,
+      type,
+      providerId: id,
+      action: 'provider.reactivated',
+      before,
+      after: data,
+      notes,
+    }),
+  ]);
   return { data, message: `${type} reactivated` };
 };
 
@@ -423,7 +632,7 @@ const getActiveEmergencies = async (page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   const { data, error, count } = await supabaseAdmin
     .from('emergency_requests')
-    .select('*, patient:patients(id, name, phone)', { count: 'exact' })
+    .select('*, patient:patients(id, name)', { count: 'exact' })
     .in('status', ['pending', 'assigned', 'dispatched', 'en_route_pickup'])
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);

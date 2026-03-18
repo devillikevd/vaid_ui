@@ -23,7 +23,7 @@ try {
 const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin.from('consultations').select(
-    '*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, phone), appointment:appointments(id, appointment_date, time_slot, type), prescriptions(*, prescription_medicines(*))',
+    '*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type), prescriptions(*, prescription_medicines(*))',
     { count: 'exact' }
   );
 
@@ -148,12 +148,17 @@ const joinConsultation = async (patientUserId, idParam) => {
     .eq('user_id', patientUserId)
     .single();
 
+  // BUG-H1 Fix: Guard against null patient — prevents eq('patient_id', null) query
+  if (!patient) {
+    throw new ApiError(404, 'Patient profile not found. Please complete your profile first.');
+  }
+
   // First try: lookup by consultation ID directly
   let { data: consultation, error } = await supabaseAdmin
     .from('consultations')
     .select('*')
     .eq('id', idParam)
-    .eq('patient_id', patient?.id)
+    .eq('patient_id', patient.id)
     .eq('status', 'in_progress')
     .single();
 
@@ -163,7 +168,7 @@ const joinConsultation = async (patientUserId, idParam) => {
       .from('consultations')
       .select('*')
       .eq('appointment_id', idParam)
-      .eq('patient_id', patient?.id)
+      .eq('patient_id', patient.id)
       .eq('status', 'in_progress')
       .single();
 
@@ -182,7 +187,7 @@ const joinConsultation = async (patientUserId, idParam) => {
 const getConsultation = async (userId, role, consultationId) => {
   const { data: consultation, error } = await supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, phone), appointment:appointments(*), prescriptions(*, prescription_medicines(*))')
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(*), prescriptions(*, prescription_medicines(*))')
     .eq('id', consultationId)
     .single();
 
@@ -311,6 +316,118 @@ const leaveConsultation = async (patientUserId, consultationId) => {
   return { message: 'Left consultation' };
 };
 
+const deriveReminderTimes = (frequency = '') => {
+  const f = String(frequency || '').toLowerCase();
+
+  // Try explicit times first: 08:00, 8:30 pm, etc.
+  const explicit = [];
+  const explicitRegex = /(\d{1,2}:\d{2}(?:\s*(?:am|pm))?)/gi;
+  for (const match of f.matchAll(explicitRegex)) {
+    explicit.push(match[1]);
+  }
+  if (explicit.length > 0) return explicit;
+
+  const slots = [];
+  if (f.includes('morning')) slots.push('08:00');
+  if (f.includes('afternoon')) slots.push('14:00');
+  if (f.includes('evening')) slots.push('19:00');
+  if (f.includes('night') || f.includes('bedtime')) slots.push('22:00');
+  if (slots.length > 0) return slots;
+
+  if (f.includes('thrice') || f.includes('three times') || f.includes('3 times')) {
+    return ['08:00', '14:00', '20:00'];
+  }
+  if (f.includes('twice') || f.includes('two times') || f.includes('2 times')) {
+    return ['09:00', '21:00'];
+  }
+  return ['09:00'];
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const generateAndUploadPrescriptionPdfWithRetry = async ({
+  prescription,
+  doctor,
+  patient,
+  consultationPatientId,
+  enrichedItems,
+}) => {
+  const maxAttempts = Math.max(1, Number(process.env.PRESCRIPTION_PDF_UPLOAD_RETRIES || 3));
+  const baseDelayMs = Math.max(100, Number(process.env.PRESCRIPTION_PDF_UPLOAD_RETRY_DELAY_MS || 400));
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const { generatePrescriptionPdf } = require('../utils/prescriptionPdf');
+      const { uploadBuffer } = require('../config/minio');
+
+      const pdfBuffer = await generatePrescriptionPdf({
+        ...prescription,
+        doctor: { name: doctor.name, specialization: null },
+        patient: { name: patient?.name, phone: patient?.phone },
+        prescription_medicines: enrichedItems.map(item => ({
+          medicine_name: item.medicineName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          duration: item.duration,
+          instructions: item.instructions,
+          quantity: item.quantity,
+          generic_name: item.generic_name || null,
+          before_food: item.beforeFood || false,
+          is_critical: item.isCritical || false,
+        })),
+      });
+
+      if (!pdfBuffer) return null;
+
+      const pdfObjectName = `prescriptions/${consultationPatientId}/${prescription.id}.pdf`;
+      const uploadResult = await uploadBuffer(pdfObjectName, pdfBuffer, 'application/pdf');
+
+      await supabaseAdmin
+        .from('prescriptions')
+        .update({ pdf_url: uploadResult.url, file_url: uploadResult.url })
+        .eq('id', prescription.id);
+
+      return uploadResult.url;
+    } catch (err) {
+      if (attempt >= maxAttempts) {
+        throw err;
+      }
+      const backoffMs = baseDelayMs * (2 ** (attempt - 1));
+      await sleep(backoffMs);
+    }
+  }
+
+  return null;
+};
+
+const createMedicineRemindersFromPrescription = async (patientId, prescriptionId, items = []) => {
+  if (!patientId || !Array.isArray(items) || items.length === 0) return;
+
+  const reminders = [];
+  for (const item of items) {
+    const times = deriveReminderTimes(item.frequency);
+    for (const time of times) {
+      reminders.push({
+        patient_id: patientId,
+        title: `${item.medicineName}${item.dosage ? ` (${item.dosage})` : ''}`,
+        type: 'medicine',
+        time,
+        days: [],
+        notes: item.instructions || `Prescription ${prescriptionId}`,
+        is_active: true,
+      });
+    }
+  }
+
+  // Best-effort only (non-blocking)
+  if (reminders.length > 0) {
+    const { error } = await supabaseAdmin.from('reminders').insert(reminders);
+    if (error) {
+      console.warn('[ConsultationService] Reminder auto-create skipped:', error.message);
+    }
+  }
+};
+
 // Add prescription
 const addPrescription = async (doctorUserId, consultationId, prescriptionData) => {
   const { data: doctor } = await supabaseAdmin
@@ -335,6 +452,26 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   const allowedStatuses = ['in_progress', 'completed'];
   if (!allowedStatuses.includes(consultation.status)) {
     throw new ApiError(400, `Cannot add prescription to a ${consultation.status} consultation`);
+  }
+
+  // Prevent accidental duplicate writes (double-click/retry). Allow override when explicitly requested.
+  if (!prescriptionData.allowMultiplePrescriptions) {
+    const { data: existingPrescription, error: existingError } = await supabaseAdmin
+      .from('prescriptions')
+      .select('id, created_at, prescription_number')
+      .eq('consultation_id', consultationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+
+    if (existingPrescription) {
+      throw new ApiError(
+        409,
+        `Prescription already exists for this consultation (${existingPrescription.prescription_number || existingPrescription.id})`
+      );
+    }
   }
 
   // Fix #32: Generate a unique prescription number with crypto-secure randomness (8 chars)
@@ -427,34 +564,14 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
 
   // Generate PDF (non-blocking — don't fail prescription creation if PDF fails)
   try {
-    const { generatePrescriptionPdf } = require('../utils/prescriptionPdf');
-    const { uploadBuffer } = require('../config/minio');
-    const pdfBuffer = await generatePrescriptionPdf({
-      ...prescription,
-      doctor: { name: doctor.name, specialization: null },
-      patient: { name: patient?.name, phone: patient?.phone },
-      prescription_medicines: enrichedItems.map(item => ({
-        medicine_name: item.medicineName,
-        dosage: item.dosage,
-        frequency: item.frequency,
-        duration: item.duration,
-        instructions: item.instructions,
-        quantity: item.quantity,
-        generic_name: item.generic_name || null,
-        before_food: item.beforeFood || false,
-        is_critical: item.isCritical || false,
-      })),
+    const pdfUrl = await generateAndUploadPrescriptionPdfWithRetry({
+      prescription,
+      doctor,
+      patient,
+      consultationPatientId: consultation.patient_id,
+      enrichedItems,
     });
-
-    if (pdfBuffer) {
-      const pdfObjectName = `prescriptions/${consultation.patient_id}/${prescription.id}.pdf`;
-      const uploadResult = await uploadBuffer(pdfObjectName, pdfBuffer, 'application/pdf');
-      // Update prescription with PDF URL
-      await supabaseAdmin.from('prescriptions')
-        .update({ pdf_url: uploadResult.url, file_url: uploadResult.url })
-        .eq('id', prescription.id);
-      prescription.pdf_url = uploadResult.url;
-    }
+    if (pdfUrl) prescription.pdf_url = pdfUrl;
   } catch (pdfErr) {
     console.error('[ConsultationService] PDF generation failed (non-blocking):', pdfErr.message);
   }
@@ -466,8 +583,8 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
 
   // Persist notification so patient sees it even if offline
   if (patient?.user_id) {
-    const notificationService = require('./notificationService');
-    await notificationService.sendNotification(patient.user_id, {
+    const { enqueueNotification } = require('./notificationQueueService');
+    await enqueueNotification(patient.user_id, {
       title: '💊 New Prescription',
       message: `Dr. ${doctor.name} has written a prescription for you`,
       type: 'prescription_created',
@@ -475,22 +592,29 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
         prescriptionId: prescription.id,
         consultationId,
         doctorName: doctor.name,
+        idempotencyKey: `prescription-created:${prescription.id}`,
       },
     });
   }
 
+  // Auto-create medicine reminders in background so API response is not blocked by DB latency
+  createMedicineRemindersFromPrescription(consultation.patient_id, prescription.id, enrichedItems)
+    .catch((reminderErr) => {
+      console.warn('[ConsultationService] Reminder auto-create failed (non-blocking):', reminderErr.message);
+    });
+
   return { ...prescription, catalogWarnings };
 };
 
-// ==================== AI-ASSISTED CONSULTATION ====================
+// ==================== AI-ASSISTED CONSULTATION (via FastAPI) ====================
 
 /**
  * Doctor-facing AI assistant during active consultation.
- * Unlike the patient chatbot (which blocks prescriptions), this uses a DOCTOR system
- * prompt that CAN suggest medications, dosages, interactions, and treatment protocols.
+ * Proxies to the FastAPI AI microservice (swastik-ai-service).
+ * Sends vitals context from the real-time pipeline for richer reasoning.
  */
 const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {}) => {
-  const aiRouter = require('./ai/AIRouter');
+  const featureToggleService = require('./featureToggleService');
 
   // 1. Verify doctor owns this consultation
   const { data: doctor } = await supabaseAdmin
@@ -503,14 +627,13 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
 
   const { data: consultation } = await supabaseAdmin
     .from('consultations')
-    .select('id, status, diagnosis, notes, appointment_id, doctor_id')
+    .select('id, status, diagnosis, notes, appointment_id, doctor_id, patient_id')
     .eq('id', consultationId)
     .eq('doctor_id', doctor.id)
     .single();
 
   if (!consultation) throw new ApiError(404, 'Consultation not found or unauthorized');
 
-  // Only allow AI assist on active consultations (prevent token abuse on old consultations)
   if (consultation.status !== 'in_progress') {
     throw new ApiError(400, 'AI assistant is only available during active consultations');
   }
@@ -524,130 +647,101 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     }
   }
 
-  // 3. Load conversation memory for this consultation from MongoDB
-  let conversationHistory = [];
-  if (getDb) {
-    try {
-      const db = getDb();
-      const prevMessages = await db.collection('doctor_ai_interactions')
-        .find({ consultationId, doctorUserId })
-        .sort({ timestamp: 1 })
-        .limit(10) // last 10 interactions for context
-        .toArray();
-
-      conversationHistory = prevMessages.flatMap(m => [
-        { role: 'user', content: m.query },
-        { role: 'assistant', content: typeof m.response === 'string' ? m.response : JSON.stringify(m.response) },
-      ]);
-    } catch (memErr) {
-      console.warn('[ConsultationService] Failed to load AI memory:', memErr.message);
-    }
+  // 3. Check if AI consultation assistant is enabled
+  const toggles = await featureToggleService.getToggles(doctorUserId);
+  if (!toggles.ai_consultation_assistant) {
+    throw new ApiError(400, 'AI consultation assistant is disabled. Enable it in feature toggles.');
   }
 
-  // 4. Build doctor-facing system prompt (NO patient-facing guardrails)
-  // Fix #38: Sanitize context.symptoms to prevent prompt injection
-  const sanitizedSymptoms = (context.symptoms || 'Not specified')
-    .replace(/[\n\r]/g, ' ')  // Remove newlines that could break prompt structure
-    .slice(0, 500);           // Limit length
-  const sanitizedDiagnosis = (consultation.diagnosis || 'None yet')
-    .replace(/[\n\r]/g, ' ')
-    .slice(0, 500);
+  // 4. Vitals are now handled natively inside FastAPI WebSockets. We omit them here.
+  let vitalsData = null;
 
-  const systemPrompt = `You are Swastik Clinical Assistant — an AI tool for licensed doctors during active patient consultations on the Swastik Healthcare Platform.
-
-CONTEXT:
-- Doctor: Dr. ${doctor.name} (${doctor.specialization || 'General Medicine'})
-- Patient symptoms / context from doctor: ${sanitizedSymptoms}
-- Current diagnosis notes: ${sanitizedDiagnosis}
-
-YOUR ROLE:
-You assist the DOCTOR (not the patient). You may:
-- Suggest differential diagnoses based on symptoms
-- Recommend medications with standard adult dosages
-- Flag drug-drug interactions or contraindications
-- Suggest diagnostic tests / lab work
-- Reference treatment protocols and clinical guidelines
-- Provide evidence-based treatment options
-
-RESPONSE FORMAT (JSON only):
-{
-  "answer": "Your detailed clinical response",
-  "suggested_medications": [
-    { "name": "Drug name", "dosage": "Standard dosage", "frequency": "e.g. BD/TDS", "duration": "e.g. 5 days", "notes": "Interaction warnings or precautions" }
-  ],
-  "differential_diagnoses": ["Diagnosis 1", "Diagnosis 2"],
-  "recommended_tests": ["Test 1", "Test 2"],
-  "severity_assessment": "mild|moderate|severe",
-  "clinical_notes": "Any additional clinical considerations",
-  "references": "Guideline or source if applicable"
-}
-
-RULES:
-1. You are assisting a LICENSED DOCTOR — provide specific, actionable clinical guidance
-2. Always include interaction warnings when suggesting medications
-3. Flag if any medication requires renal/hepatic dose adjustment
-4. Note pediatric vs adult dosing differences when relevant
-5. If symptoms suggest emergency, flag it clearly
-6. Include contraindications for common conditions (pregnancy, renal failure, etc.)
-7. Be concise and clinically precise — no patient-facing language`;
-
-  // 5. Call AI with conversation memory for multi-turn context
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...conversationHistory,
-    { role: 'user', content: query },
-  ];
-
-  let aiResponse;
+  // 5. Get patient history
+  let patientHistory = '';
   try {
-    const result = await aiRouter.routeWithJsonRetry(messages, {
-      messageType: 'text',
-      maxTokens: 1200,
-      temperature: 0.3,
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('name, blood_group, allergies, chronic_conditions, emergency_contact')
+      .eq('id', consultation.patient_id)
+      .single();
+
+    if (patient) {
+      const parts = [];
+      if (patient.blood_group) parts.push(`Blood Group: ${patient.blood_group}`);
+      if (patient.allergies) parts.push(`Allergies: ${patient.allergies}`);
+      if (patient.chronic_conditions) parts.push(`Chronic Conditions: ${patient.chronic_conditions}`);
+      patientHistory = parts.join(', ') || 'No medical history on file';
+    }
+  } catch {}
+
+  // 6. Call FastAPI AI service
+  const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+  const axios = require('axios');
+
+  const requestPayload = {
+    consultation_id: consultationId,
+    doctor_name: doctor.name,
+    doctor_specialization: doctor.specialization || 'General Medicine',
+    symptoms: (context.symptoms || '').slice(0, 500),
+    vitals: vitalsData,
+    history: patientHistory,
+    diagnosis_notes: (consultation.diagnosis || '').slice(0, 500),
+    query,
+  };
+
+  try {
+    // Get the doctor's JWT token to forward to FastAPI
+    const jwt = require('jsonwebtoken');
+    const tempToken = jwt.sign(
+      { userId: doctorUserId, id: doctorUserId, role: 'doctor' },
+      config.jwt.accessSecret,
+      { expiresIn: '1m' }
+    );
+
+    const response = await axios.post(`${AI_SERVICE_URL}/api/ai/consult`, requestPayload, {
+      headers: {
+        'Authorization': `Bearer ${tempToken}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
     });
 
-    aiResponse = {
-      response: result.parsedContent || { answer: result.content },
-      provider: result.provider,
-      latencyMs: result.latencyMs,
-    };
+    if (response.data?.success) {
+      return response.data.data;
+    }
+
+    throw new Error('FastAPI returned unsuccessful response');
   } catch (err) {
-    // Fallback: return raw text if JSON parsing fails
-    try {
-      const fallback = await aiRouter.route(messages, { messageType: 'text', maxTokens: 1200, temperature: 0.3 });
-      aiResponse = {
-        response: { answer: fallback.content, suggested_medications: [], differential_diagnoses: [], recommended_tests: [] },
-        provider: fallback.provider,
-        latencyMs: fallback.latencyMs,
-      };
-    } catch (fallbackErr) {
-      throw new ApiError(503, 'AI assistant temporarily unavailable');
-    }
-  }
+    console.error('[ConsultationService] FastAPI AI call failed:', err.message);
 
-  // 6. Save interaction to MongoDB for audit trail + future memory
-  if (getDb) {
-    try {
-      const db = getDb();
-      await db.collection('doctor_ai_interactions').insertOne({
-        consultationId,
-        doctorUserId,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        query,
-        response: aiResponse.response,
-        provider: aiResponse.provider,
-        latencyMs: aiResponse.latencyMs,
-        context: { symptoms: context.symptoms || null, diagnosis: consultation.diagnosis || null },
-        timestamp: new Date(),
-      });
-    } catch (auditErr) {
-      console.error('[ConsultationService] Failed to save AI audit trail:', auditErr.message);
-      // Non-blocking — don't fail the response if audit save fails
+    // Fallback: Return a basic response with vitals alerts if FastAPI is down
+    const vitalsAlerts = [];
+    if (vitalsData) {
+      if (vitalsData.heart_rate > 120) vitalsAlerts.push('Tachycardia detected');
+      if (vitalsData.heart_rate && vitalsData.heart_rate < 50) vitalsAlerts.push('Bradycardia detected');
+      if (vitalsData.spo2 && vitalsData.spo2 < 92) vitalsAlerts.push('Low SpO2');
+      if (vitalsData.fall_detected) vitalsAlerts.push('Fall detected');
     }
-  }
 
-  return aiResponse;
+    return {
+      response: {
+        answer: 'AI assistant is temporarily unavailable. Please try again in a moment.',
+        alerts: vitalsAlerts,
+        possible_conditions: [],
+        suggested_questions: [],
+        summary: '',
+        clinical_notes: '',
+        risk_indicators: vitalsAlerts,
+        severity_assessment: vitalsAlerts.length > 0 ? 'warning' : 'mild',
+        suggested_medications: [],
+        differential_diagnoses: [],
+        recommended_tests: [],
+        vitals_interpretation: vitalsData ? `Live vitals: HR ${vitalsData.heart_rate || '-'} bpm, RR ${vitalsData.respiration_rate || '-'}/min` : 'No vitals',
+      },
+      provider: 'fallback',
+      latencyMs: 0,
+    };
+  }
 };
 
 module.exports = {
@@ -660,3 +754,4 @@ module.exports = {
   addPrescription,
   aiAssistDoctor,
 };
+

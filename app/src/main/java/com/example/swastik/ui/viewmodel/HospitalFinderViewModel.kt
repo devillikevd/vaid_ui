@@ -6,6 +6,7 @@ import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.model.FacilityType
 import com.example.swastik.data.model.HospitalDoctor
+import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.ClinicDoctorDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.data.repository.HospitalRepository
@@ -13,6 +14,7 @@ import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,7 @@ data class HospitalFinderUiState(
     val locationAvailable: Boolean = false,
     val userLatitude: Double = 0.0,
     val userLongitude: Double = 0.0,
+    val activeRadiusKm: Int = DEFAULT_DISCOVERY_RADIUS_KM,
     val pharmacyMedicines: List<Medicine> = emptyList(),
     val isMedicineSearching: Boolean = false,
     val reviewSubmitting: Boolean = false,
@@ -44,7 +47,8 @@ data class HospitalFinderUiState(
 @HiltViewModel
 class HospitalFinderViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository,
-    private val locationHelper: LocationHelper
+    private val locationHelper: LocationHelper,
+    private val socketManager: SocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HospitalFinderUiState())
@@ -52,6 +56,8 @@ class HospitalFinderViewModel @Inject constructor(
 
     private var currentLatitude: Double = 0.0
     private var currentLongitude: Double = 0.0
+    private var currentRadius: Int = DEFAULT_DISCOVERY_RADIUS_KM
+    private var hasObservedSocketConnection = false
 
     // Cache of all loaded facilities for client-side search filtering
     private var allFacilities: List<MedicalFacility> = emptyList()
@@ -59,6 +65,32 @@ class HospitalFinderViewModel @Inject constructor(
     init {
         // Auto-fetch location if permission already granted
         fetchLocationAndLoad()
+        observeProviderCatalogUpdates()
+        observeSocketReconnects()
+    }
+
+    private fun observeProviderCatalogUpdates() {
+        viewModelScope.launch {
+            socketManager.providerCatalogUpdates.collect {
+                if (_uiState.value.locationAvailable) {
+                    loadNearbyFacilities()
+                }
+            }
+        }
+    }
+
+    private fun observeSocketReconnects() {
+        viewModelScope.launch {
+            socketManager.connectionState.collect { connected ->
+                if (!hasObservedSocketConnection) {
+                    hasObservedSocketConnection = true
+                    return@collect
+                }
+                if (connected && _uiState.value.locationAvailable) {
+                    loadNearbyFacilities()
+                }
+            }
+        }
     }
 
     /**
@@ -93,13 +125,15 @@ class HospitalFinderViewModel @Inject constructor(
      * Update user's current GPS location and reload facilities.
      * Should be called from the UI layer with real coordinates from FusedLocationProvider.
      */
-    fun updateLocationAndLoad(latitude: Double, longitude: Double, radius: Int = 10) {
+    fun updateLocationAndLoad(latitude: Double, longitude: Double, radius: Int = DEFAULT_DISCOVERY_RADIUS_KM) {
         currentLatitude = latitude
         currentLongitude = longitude
+        currentRadius = radius
         _uiState.value = _uiState.value.copy(
             locationAvailable = true,
             userLatitude = latitude,
-            userLongitude = longitude
+            userLongitude = longitude,
+            activeRadiusKm = radius
         )
         loadNearbyFacilities(latitude, longitude, radius)
     }
@@ -107,7 +141,7 @@ class HospitalFinderViewModel @Inject constructor(
     fun loadNearbyFacilities(
         latitude: Double = currentLatitude,
         longitude: Double = currentLongitude,
-        radius: Int = 10
+        radius: Int = currentRadius
     ) {
         if (latitude == 0.0 && longitude == 0.0) {
             _uiState.value = _uiState.value.copy(
@@ -117,39 +151,31 @@ class HospitalFinderViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            currentRadius = radius
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                activeRadiusKm = radius
+            )
             try {
-                // Fire all 4 repository calls in parallel
-                val hospitalsDeferred = async {
-                    try { hospitalRepository.getNearbyHospitals(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
-                }
+                var activeRadius = radius
+                var loadedFacilities = fetchFacilities(latitude, longitude, activeRadius)
 
-                val pharmaciesDeferred = async {
-                    try { hospitalRepository.getNearbyPharmacies(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
+                // Retry once with a wider radius so the discovery screen does not
+                // look completely broken when facilities exist just outside 10km.
+                if (loadedFacilities.isEmpty() && activeRadius < EXPANDED_DISCOVERY_RADIUS_KM) {
+                    activeRadius = EXPANDED_DISCOVERY_RADIUS_KM
+                    currentRadius = activeRadius
+                    loadedFacilities = fetchFacilities(latitude, longitude, activeRadius)
                 }
-
-                val clinicsDeferred = async {
-                    try { hospitalRepository.getNearbyClinics(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
-                }
-
-                val diagnosticDeferred = async {
-                    try { hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
-                }
-
-                // Await all in parallel and merge
-                val results = awaitAll(hospitalsDeferred, pharmaciesDeferred, clinicsDeferred, diagnosticDeferred)
-                val loadedFacilities = results.flatten()
 
                 // Cache for search filtering
                 allFacilities = loadedFacilities
 
                 _uiState.value = _uiState.value.copy(
                     facilities = loadedFacilities,
-                    isLoading = false
+                    isLoading = false,
+                    activeRadiusKm = activeRadius
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -160,7 +186,36 @@ class HospitalFinderViewModel @Inject constructor(
         }
     }
 
-    fun searchFacilities(query: String) {
+    private suspend fun fetchFacilities(
+        latitude: Double,
+        longitude: Double,
+        radius: Int
+    ): List<MedicalFacility> = coroutineScope {
+        val hospitalsDeferred = async {
+            try { hospitalRepository.getNearbyHospitals(latitude, longitude, radius) }
+            catch (_: Exception) { emptyList() }
+        }
+
+        val pharmaciesDeferred = async {
+            try { hospitalRepository.getNearbyPharmacies(latitude, longitude, radius) }
+            catch (_: Exception) { emptyList() }
+        }
+
+        val clinicsDeferred = async {
+            try { hospitalRepository.getNearbyClinics(latitude, longitude, radius) }
+            catch (_: Exception) { emptyList() }
+        }
+
+        val diagnosticDeferred = async {
+            try { hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius) }
+            catch (_: Exception) { emptyList() }
+        }
+
+        awaitAll(hospitalsDeferred, pharmaciesDeferred, clinicsDeferred, diagnosticDeferred)
+            .flatten()
+    }
+
+    fun searchFacilities(query: String, facilityType: FacilityType? = null) {
         if (query.isBlank()) {
             // Restore full list when search is cleared
             _uiState.value = _uiState.value.copy(facilities = allFacilities, isLoading = false)
@@ -169,30 +224,32 @@ class HospitalFinderViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val results = mutableListOf<MedicalFacility>()
+                val lat = if (currentLatitude != 0.0) currentLatitude else null
+                val lng = if (currentLongitude != 0.0) currentLongitude else null
 
-                // 1) Server-side search for hospitals (returns results beyond nearby radius)
-                try {
-                    val lat = if (currentLatitude != 0.0) currentLatitude else null
-                    val lng = if (currentLongitude != 0.0) currentLongitude else null
-                    results.addAll(hospitalRepository.searchHospitals(query, lat, lng))
-                } catch (_: Exception) { /* Non-critical */ }
-
-                // 2) Client-side filter for clinics, pharmacies, diagnostic centers
-                val lowerQuery = query.lowercase()
-                val hospitalIds = results.map { it.id }.toSet()
-                val localMatches = allFacilities.filter { facility ->
-                    facility.id !in hospitalIds && (
-                        facility.name.lowercase().contains(lowerQuery) ||
-                        facility.address.lowercase().contains(lowerQuery) ||
-                        facility.type.getDisplayName().lowercase().contains(lowerQuery) ||
-                        facility.specializations.any { it.lowercase().contains(lowerQuery) }
-                    )
+                val searches = buildList {
+                    if (facilityType == null || facilityType == FacilityType.HOSPITAL) {
+                        add(async { hospitalRepository.searchHospitals(query, lat, lng) })
+                    }
+                    if (facilityType == null || facilityType == FacilityType.CLINIC) {
+                        add(async { hospitalRepository.searchClinics(query, lat, lng) })
+                    }
+                    if (facilityType == null || facilityType == FacilityType.MEDICAL_STORE) {
+                        add(async { hospitalRepository.searchPharmacies(query, lat, lng) })
+                    }
+                    if (facilityType == null || facilityType == FacilityType.DIAGNOSTIC_CENTER) {
+                        add(async { hospitalRepository.searchDiagnosticCenters(query, lat, lng) })
+                    }
                 }
-                results.addAll(localMatches)
+
+                val remoteResults = searches.awaitAll().flatten()
+                val seen = mutableSetOf<String>()
+                val dedupedResults = remoteResults.filter { facility ->
+                    seen.add("${facility.type}:${facility.id}")
+                }
 
                 _uiState.value = _uiState.value.copy(
-                    facilities = results,
+                    facilities = dedupedResults,
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -320,3 +377,6 @@ class HospitalFinderViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(pharmacyInventory = emptyList(), isPharmacyInventoryLoading = false)
     }
 }
+
+private const val DEFAULT_DISCOVERY_RADIUS_KM = 10
+private const val EXPANDED_DISCOVERY_RADIUS_KM = 25

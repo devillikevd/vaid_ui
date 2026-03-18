@@ -1,8 +1,15 @@
+import { dirname } from "path";
+import { fileURLToPath } from "url";
 import type { NextConfig } from "next";
+
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   // Required for Docker standalone builds (Dockerfile copies from .next/standalone)
   output: 'standalone',
+  turbopack: {
+    root: rootDir,
+  },
   images: {
     // Serve optimized images in modern formats
     formats: ['image/avif', 'image/webp'],

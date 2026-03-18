@@ -107,9 +107,9 @@ fun SwastikTopBar(
  */
 @Composable
 fun OtpInputField(
-    otpLength: Int = 6,
     onOtpComplete: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    otpLength: Int = 6
 ) {
     var otpValues by remember { mutableStateOf(List(otpLength) { "" }) }
     val focusRequesters = remember { List(otpLength) { FocusRequester() } }

@@ -29,6 +29,7 @@ import com.example.swastik.ambulance.ui.viewmodel.AuthViewModel
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -107,7 +108,10 @@ fun LoginScreen(
 
                     OutlinedTextField(
                         value = email,
-                        onValueChange = { email = it },
+                        onValueChange = {
+                            email = it
+                            if (uiState.error != null) viewModel.clearError()
+                        },
                         label = { Text("Email") },
                         leadingIcon = { Icon(Icons.Default.Email, null) },
                         keyboardOptions = KeyboardOptions(
@@ -123,7 +127,10 @@ fun LoginScreen(
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            if (uiState.error != null) viewModel.clearError()
+                        },
                         label = { Text("Password") },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
                         trailingIcon = {
@@ -187,6 +194,16 @@ fun LoginScreen(
                         } else {
                             Text("Sign In", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextButton(onClick = onNavigateToRegister) {
+                        Text(
+                            text = "New operator? Request access",
+                            color = Color(0xFFD32F2F),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }

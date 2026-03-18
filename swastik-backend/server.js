@@ -14,6 +14,7 @@ const compression = require('compression');
 const { initializeBucket } = require('./config/minio');
 const { connectMongoDB } = require('./config/mongodb');
 const { connectRedis } = require('./config/redis');
+const { initializeNotificationQueue, shutdownNotificationQueue } = require('./services/notificationQueueService');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { initializeSocketIO } = require('./sockets');
 
@@ -27,6 +28,7 @@ const hospitalRoutes = require('./routes/hospital');
 const ambulanceRoutes = require('./routes/ambulance');
 const medicineRoutes = require('./routes/medicine');
 const chatbotRoutes = require('./routes/chatbot');
+const featureToggleRoutes = require('./routes/featureToggle');
 const reportRoutes = require('./routes/report');
 const notificationRoutes = require('./routes/notifications');
 const adminRoutes = require('./routes/enhancedAdmin');
@@ -36,15 +38,38 @@ const clinicRoutes = require('./routes/clinic');
 const diagnosticCenterRoutes = require('./routes/diagnosticCenter');
 const uploadRoutes = require('./routes/uploads');
 const healthCardRoutes = require('./routes/healthCard');
+const vitalsRoutes = require('./routes/vitals');
 
 // Create Express app
 const app = express();
 const server = http.createServer(app);
 
+// Shared CORS allowlist for both HTTP and WebSocket
+const allowedOrigins = [
+  config.frontendWebUrl,
+  config.frontendDoctorWebUrl,
+  config.frontendAppUrl,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://10.0.2.2:3000', // Android Emulator (Docker/Standard)
+  'http://10.0.2.2:5001', // Android Emulator (Local Fallback)
+];
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // mobile apps / curl / server-to-server
+  if (allowedOrigins.includes(origin)) return true;
+  if (config.env === 'development' && /^http:\/\/localhost:\d+$/.test(origin)) return true;
+  return false;
+};
+
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: [config.frontendWebUrl, config.frontendDoctorWebUrl, config.frontendAppUrl],
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) return callback(null, true);
+      return callback(new Error('CORS not allowed'));
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -73,6 +98,8 @@ if (config.redis.ioredisUrl) {
   } catch (err) {
     console.warn('⚠️  @socket.io/redis-adapter not available:', err.message);
   }
+} else {
+  console.warn('⚠️  REDIS_URL/UPSTASH_REDIS_URL not set for ioredis adapter. Socket.IO scaling is disabled (single-instance mode).');
 }
 
 // Initialize Socket.IO
@@ -85,34 +112,11 @@ eventEmitter.setIO(io);
 // Make io accessible to routes
 app.set('io', io);
 
-
 // CORS - MUST come before all other middleware
-const allowedOrigins = [
-  config.frontendWebUrl,
-  config.frontendDoctorWebUrl,
-  config.frontendAppUrl,
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://10.0.2.2:3000', // Android Emulator (Docker/Standard)
-  'http://10.0.2.2:5001', // Android Emulator (Local Fallback)
-];
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-
-    // Check if origin is allowed
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // Allow any localhost in development only
-    if (config.env === 'development' && origin.match(/^http:\/\/localhost:\d+$/)) {
-      return callback(null, true);
-    }
-
-    callback(new Error('CORS not allowed'));
+    if (isOriginAllowed(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -238,6 +242,14 @@ app.get('/health', async (req, res) => {
     checks.mongodb = 'unknown';
   }
 
+  // Check MinIO (uploads dependency)
+  try {
+    const { isStorageAvailable } = require('./config/minio');
+    checks.minio = isStorageAvailable() ? 'ok' : 'down';
+  } catch {
+    checks.minio = 'unknown';
+  }
+
   const statusCode = overallStatus === 'ok' ? 200 : 503;
   res.status(statusCode).json({
     status: overallStatus,
@@ -268,6 +280,8 @@ app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/ambulances', ambulanceRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+
+app.use('/api/feature-toggles', featureToggleRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
@@ -277,6 +291,7 @@ app.use('/api/clinics', clinicRoutes);
 app.use('/api/diagnostic-centers', diagnosticCenterRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/health-card', healthCardRoutes);
+app.use('/api/vitals', vitalsRoutes);
 
 // Error handling
 app.use(notFound);
@@ -290,6 +305,9 @@ const startServer = async () => {
 
     // Initialize Redis (optional - continues if fails)
     await connectRedis();
+
+    // Initialize async notification dispatch queue (falls back to direct send if unavailable)
+    await initializeNotificationQueue();
 
     // Initialize MinIO bucket
     await initializeBucket();
@@ -307,6 +325,8 @@ const startServer = async () => {
     server.listen(PORT, () => {
       // Start consultation timeout cron
       startConsultationTimeoutCron();
+      // Start patient reminder notification cron
+      startReminderNotificationCron();
       console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
@@ -347,6 +367,7 @@ const startServer = async () => {
 
 // I19: Consultation timeout cron — mark stale 'in_progress' consultations as 'timed_out'
 let consultationTimeoutInterval;
+let reminderNotificationInterval;
 const startConsultationTimeoutCron = () => {
   consultationTimeoutInterval = setInterval(async () => {
     try {
@@ -368,11 +389,36 @@ const startConsultationTimeoutCron = () => {
   }, 10 * 60 * 1000); // Every 10 minutes
 };
 
+const startReminderNotificationCron = () => {
+  if (String(process.env.REMINDER_CRON_ENABLED || 'true').toLowerCase() === 'false') {
+    console.log('[Cron] Reminder notification scheduler is disabled by REMINDER_CRON_ENABLED=false');
+    return;
+  }
+
+  const intervalMs = Number(process.env.REMINDER_CRON_INTERVAL_MS || 60 * 1000);
+  const lockTtlSec = Math.max(10, Math.ceil(intervalMs / 1000) - 2);
+
+  reminderNotificationInterval = setInterval(async () => {
+    try {
+      // Multi-instance safety: only one instance should run reminder scan per interval.
+      const { cacheSetIfNotExists } = require('./config/redis');
+      const lockAcquired = await cacheSetIfNotExists('cron:reminder:lock', process.pid, lockTtlSec);
+      if (!lockAcquired) return;
+
+      const reminderNotificationService = require('./services/reminderNotificationService');
+      await reminderNotificationService.runReminderNotificationTick();
+    } catch (err) {
+      console.error('[Cron] Reminder notification error:', err.message);
+    }
+  }, intervalMs);
+};
+
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
   // Clear cron interval to prevent stale timers
   if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
+  if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
   server.close(() => {
     process.exit(1);
   });
@@ -398,12 +444,19 @@ const gracefulShutdown = async (signal) => {
     try {
       // Stop cron
       if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
+      if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
 
       // Close Socket.IO
       if (io) {
         io.close();
         console.log('✅ Socket.IO closed');
       }
+
+      // Close notification queue worker/producer
+      await shutdownNotificationQueue();
+
+      // Close distributed event bus clients
+      await eventEmitter.shutdown();
 
       // Close MongoDB
       try {

@@ -79,6 +79,9 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _reloadTrigger.debounce(500).collect {
                 loadDashboard()
+                _emergencyDetailState.value.emergency?.id?.let { requestId ->
+                    loadEmergencyDetail(requestId)
+                }
             }
         }
     }
@@ -191,10 +194,10 @@ class DashboardViewModel @Inject constructor(
 
     // ── Actions ──────────────────────────────────────────────
 
-    fun acceptEmergency(requestId: String, vehicleId: String? = null) {
+    fun acceptEmergency(requestId: String) {
         emergencyAlertManager.stopAlert()
         viewModelScope.launch {
-            val result = ambulanceRepository.acceptRequest(requestId, vehicleId)
+            val result = ambulanceRepository.acceptRequest(requestId)
             result.fold(
                 onSuccess = {
                     _userMessage.tryEmit("✅ Emergency accepted — en route!")

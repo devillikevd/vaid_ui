@@ -212,8 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_active
   ON refresh_tokens(token)
   WHERE is_revoked = false;
 
--- Emergency: dispatch-specific indexes
-CREATE INDEX IF NOT EXISTS idx_emergency_dispatch_mode ON emergency_requests(dispatch_mode);
+-- Emergency: broadcast status index (dispatch_mode index moved to 016_migrations.sql)
 CREATE INDEX IF NOT EXISTS idx_emergency_broadcast_status
   ON emergency_requests(status)
   WHERE status IN ('pending', 'broadcasting', 'assigned');

@@ -111,8 +111,8 @@ export default function HospitalDepartmentsPage() {
                             <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="h-5 w-5" /></button>
                         </div>
                         <div className="space-y-3">
-                            <Input label="Department Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cardiology" />
-                            <Input label="Head of Department" value={form.head} onChange={e => setForm(f => ({ ...f, head: e.target.value }))} placeholder="e.g. Dr. Smith" />
+                            <Input label="Department Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter department name" />
+                            <Input label="Head of Department" value={form.head} onChange={e => setForm(f => ({ ...f, head: e.target.value }))} placeholder="Enter department head name" />
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                                 <select

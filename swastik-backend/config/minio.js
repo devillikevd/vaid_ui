@@ -3,8 +3,8 @@
  * Used for file uploads: profile images, documents, reports, prescriptions, videos
  * 
  * Bandwidth Optimization Pipeline:
- *   1. Originals compressed & converted to WebP (quality 80, progressive)
- *   2. Medium variant generated (800px wide) for cards/lists
+ *   1. Originals compressed & converted to WebP (quality 88, progressive)
+ *   2. Medium variant generated (1024px wide) for cards/lists
  *   3. Thumbnail variant generated (300px wide) for avatars/previews
  *   4. Cache-Control headers set on all objects (30 days)
  *   5. All image variants stored as WebP for ~30-50% size reduction
@@ -36,9 +36,9 @@ const STORAGE_FOLDERS = {
 
 // Image processing constants
 const IMAGE_SIZES = {
-  THUMBNAIL: { width: 300, quality: 70 },
-  MEDIUM: { width: 800, quality: 75 },
-  ORIGINAL: { maxWidth: 2048, quality: 80 },
+  THUMBNAIL: { width: 320, quality: 78 },
+  MEDIUM: { width: 1024, quality: 82 },
+  ORIGINAL: { maxWidth: 2560, quality: 88 },
 };
 
 // Cache duration: 30 days
@@ -64,6 +64,7 @@ try {
 const initializeBucket = async () => {
   if (!minioClient) {
     console.warn('⚠️  MinIO not available. File uploads will be unavailable.');
+    isBucketReady = false;
     return false;
   }
 
@@ -78,11 +79,17 @@ const initializeBucket = async () => {
     isBucketReady = true;
     return true;
   } catch (error) {
-    console.warn('⚠️  MinIO bucket initialization failed:', error.message);
-    console.warn('⚠️  File uploads will be unavailable. Start MinIO with: docker-compose up minio');
+    isBucketReady = false;
+    const endpoint = `${config.minio.useSSL ? 'https' : 'http'}://${config.minio.endpoint}:${config.minio.port}`;
+    console.warn('⚠️  MinIO bucket initialization failed:', error.message || '(no message)');
+    console.warn(`⚠️  MinIO target: ${endpoint} (bucket: ${config.minio.bucketName})`);
+    console.warn(`⚠️  MinIO public URL: ${config.minio.publicUrl}`);
+    console.warn('⚠️  File uploads will be unavailable. Start MinIO with: docker compose up -d minio');
     return false;
   }
 };
+
+const isStorageAvailable = () => Boolean(minioClient && isBucketReady);
 
 // Helper: generate unique object name
 const generateObjectName = (folder, userId, originalName) => {
@@ -329,6 +336,7 @@ const listFiles = async (folder, userId) => {
 module.exports = {
   minioClient,
   initializeBucket,
+  isStorageAvailable,
   uploadBuffer,
   uploadProfileImage,
   uploadDocument,

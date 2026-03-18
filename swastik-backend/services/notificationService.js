@@ -4,6 +4,7 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const config = require('../config');
+const crypto = require('crypto');
 
 // ==================== Email Fallback ====================
 const { sendNotificationEmail } = require('./emailService');
@@ -12,9 +13,13 @@ const { sendNotificationEmail } = require('./emailService');
 const EMAIL_CRITICAL_TYPES = [
   'appointment_confirmed',
   'appointment_cancelled',
+  'appointment_reminder',
+  'follow_up_reminder',
   'sos_update',
   'sos_accepted',
   'prescription_ready',
+  'prescription_expiry_reminder',
+  'medicine_missed',
   'emergency',
   'consultation_started',
 ];
@@ -53,25 +58,42 @@ const sendEmailFallback = async (userId, notification) => {
 let firebaseApp = null;
 let firebaseInitFailed = false;
 
+const loadFirebaseServiceAccount = () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const rawB64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+  if (!raw && !rawB64) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_BASE64 env var not set');
+  }
+
+  // Preferred: explicit base64 JSON (safe for env files and CI secrets)
+  if (rawB64) {
+    const decoded = Buffer.from(rawB64, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  }
+
+  const value = String(raw || '').trim();
+
+  // Backward-compatible: inline JSON in FIREBASE_SERVICE_ACCOUNT
+  if (value.startsWith('{')) {
+    return JSON.parse(value);
+  }
+
+  // Default: filesystem path
+  const resolvedPath = path.resolve(value);
+  return JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+};
+
 const getFirebaseApp = () => {
   if (firebaseApp) return firebaseApp;
   if (firebaseInitFailed) return null;
 
   try {
     const admin = require('firebase-admin');
-    const fs = require('fs');
-    const path = require('path');
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountPath) {
-      console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT env var not set — push notifications disabled');
-      firebaseInitFailed = true;
-      return null;
-    }
-
-    // SECURITY FIX: Use fs.readFileSync + JSON.parse instead of require()
-    // require() with a user-controlled path is a code injection risk
-    const resolvedPath = path.resolve(serviceAccountPath);
-    const serviceAccount = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
+    const serviceAccount = loadFirebaseServiceAccount();
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
@@ -258,32 +280,78 @@ const registerDevice = async (userId, fcmToken, deviceType) => {
     updateFields.device_type = deviceType;
   }
 
-  const { error } = await supabaseAdmin
+  let { error } = await supabaseAdmin
     .from('users')
     .update(updateFields)
     .eq('id', userId);
+
+  // Backward compatibility: some deployments may not have device_type column
+  if (error && (error.code === '42703' || /device_type/i.test(error.message || ''))) {
+    ({ error } = await supabaseAdmin
+      .from('users')
+      .update({ fcm_token: fcmToken })
+      .eq('id', userId));
+  }
 
   if (error) throw error;
   return { message: 'Device registered for push notifications' };
 };
 
 // Create notification (used internally by other services)
+const uuidFromDeterministicKey = (key) => {
+  const hex = crypto.createHash('sha1').update(String(key)).digest('hex').slice(0, 32);
+  const raw = hex.split('');
+  raw[12] = '5'; // version 5-like marker for deterministic key UUID
+  raw[16] = ['8', '9', 'a', 'b'][parseInt(raw[16], 16) % 4];
+  const normalized = raw.join('');
+  return `${normalized.slice(0, 8)}-${normalized.slice(8, 12)}-${normalized.slice(12, 16)}-${normalized.slice(16, 20)}-${normalized.slice(20, 32)}`;
+};
+
 const createNotification = async (userId, notification) => {
+  const payload = {
+    user_id: userId,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type || 'info',
+    data: notification.data || {},
+    is_read: false,
+  };
+
+  const idempotencyKey = notification?.data?.idempotencyKey;
+
+  if (!idempotencyKey) {
+    const { data, error } = await supabaseAdmin
+      .from('notifications')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  const deterministicId = uuidFromDeterministicKey(`${userId}:${notification.type || 'info'}:${idempotencyKey}`);
+
   const { data, error } = await supabaseAdmin
     .from('notifications')
-    .insert({
-      user_id: userId,
-      title: notification.title,
-      message: notification.message,
-      type: notification.type || 'info',
-      data: notification.data || {},
-      is_read: false,
-    })
+    .insert({ ...payload, id: deterministicId })
     .select('*')
     .single();
 
-  if (error) throw error;
-  return data;
+  if (!error) return data;
+
+  // Duplicate insert from parallel worker / retry — fetch existing record and return
+  if (error?.code === '23505') {
+    const { data: existing, error: fetchErr } = await supabaseAdmin
+      .from('notifications')
+      .select('*')
+      .eq('id', deterministicId)
+      .single();
+
+    if (!fetchErr && existing) return existing;
+  }
+
+  throw error;
 };
 
 // Send notification — creates persistent DB record + emits via Socket.IO + FCM push

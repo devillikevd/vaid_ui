@@ -31,6 +31,16 @@ export interface HospitalDoctor {
     appointmentsToday: number;
 }
 
+function normalizeHospitalAppointment(raw: Record<string, any>): Record<string, unknown> {
+    return {
+        ...raw,
+        patientName: raw.patientName || raw.patient?.name || 'Patient',
+        doctorName: raw.doctorName || raw.doctor?.name || 'Doctor',
+        date: raw.date || raw.appointment_date || null,
+        time: raw.time || raw.time_slot || null,
+    };
+}
+
 interface HospitalState {
     stats: HospitalDashboardStats | null;
     departments: Department[];
@@ -223,8 +233,9 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
             }
             // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
+            const appointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, any>[];
             set({
-                appointments: (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, unknown>[],
+                appointments: appointments.map(normalizeHospitalAppointment),
                 loadingAppointments: false,
             });
         } catch (error) {

@@ -57,6 +57,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -76,6 +77,8 @@ android {
 }
 
 dependencies {
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -141,6 +144,17 @@ dependencies {
 
     // ZXing for QR code generation
     implementation("com.google.zxing:core:3.5.3")
+
+    // MediaPipe for Edge CV
+    implementation("com.google.mediapipe:tasks-vision:0.10.0")
+
+    // FFT math for rPPG calculations
+    implementation("com.github.wendykierp:JTransforms:3.1")
+    
+    // CameraX
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

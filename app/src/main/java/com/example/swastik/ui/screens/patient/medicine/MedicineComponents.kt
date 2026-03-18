@@ -386,8 +386,8 @@ fun QuantitySelector(
 @Composable
 fun PriceDisplay(
     price: Int,
-    originalPrice: Int? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    originalPrice: Int? = null
 ) {
     Row(
         modifier = modifier,

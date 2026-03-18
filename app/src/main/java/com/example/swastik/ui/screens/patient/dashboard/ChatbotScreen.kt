@@ -9,6 +9,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -132,6 +133,7 @@ fun ChatbotScreen(
     // ==================== VOICE INPUT STATE ====================
     var isListening by remember { mutableStateOf(false) }
     var voicePartialResult by remember { mutableStateOf("") }
+    var voiceErrorMessage by remember { mutableStateOf<String?>(null) }
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
 
     // ==================== IMAGE PICKER STATE ====================
@@ -178,8 +180,36 @@ fun ChatbotScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startVoiceRecognition(speechRecognizer, context, selectedLanguage)
-            isListening = true
+            if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                val msg = if (selectedLanguage == ChatLanguage.HINDI) {
+                    "इस डिवाइस पर वॉइस रिकग्निशन उपलब्ध नहीं है"
+                } else {
+                    "Voice recognition is not available on this device"
+                }
+                voiceErrorMessage = msg
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                return@rememberLauncherForActivityResult
+            }
+            try {
+                startVoiceRecognition(speechRecognizer, context, selectedLanguage)
+                isListening = true
+            } catch (e: Exception) {
+                val msg = if (selectedLanguage == ChatLanguage.HINDI) {
+                    "माइक शुरू नहीं हो सका। फिर से प्रयास करें।"
+                } else {
+                    "Could not start microphone. Please try again."
+                }
+                voiceErrorMessage = msg
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            val msg = if (selectedLanguage == ChatLanguage.HINDI) {
+                "माइक अनुमति अस्वीकृत है"
+            } else {
+                "Microphone permission denied"
+            }
+            voiceErrorMessage = msg
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -187,6 +217,7 @@ fun ChatbotScreen(
     DisposableEffect(speechRecognizer) {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
+                voiceErrorMessage = null
                 voicePartialResult = if (selectedLanguage == ChatLanguage.HINDI) "सुन रहा हूँ..." else "Listening..."
             }
             override fun onBeginningOfSpeech() {}
@@ -196,6 +227,17 @@ fun ChatbotScreen(
             override fun onError(error: Int) {
                 isListening = false
                 voicePartialResult = ""
+                val msg = when (error) {
+                    SpeechRecognizer.ERROR_NETWORK,
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> if (selectedLanguage == ChatLanguage.HINDI) "नेटवर्क समस्या। दोबारा कोशिश करें।" else "Network issue. Please try again."
+                    SpeechRecognizer.ERROR_NO_MATCH,
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> if (selectedLanguage == ChatLanguage.HINDI) "आवाज़ स्पष्ट नहीं मिली। फिर से बोलें।" else "Could not hear clearly. Please speak again."
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> if (selectedLanguage == ChatLanguage.HINDI) "माइक अनुमति आवश्यक है" else "Microphone permission is required"
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> if (selectedLanguage == ChatLanguage.HINDI) "वॉइस सेवा व्यस्त है। एक सेकंड बाद कोशिश करें।" else "Voice service is busy. Try again in a second."
+                    else -> if (selectedLanguage == ChatLanguage.HINDI) "वॉइस इनपुट विफल हुआ" else "Voice input failed"
+                }
+                voiceErrorMessage = msg
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
             override fun onResults(results: Bundle?) {
                 isListening = false
@@ -346,8 +388,28 @@ fun ChatbotScreen(
                                 context, Manifest.permission.RECORD_AUDIO
                             ) == PackageManager.PERMISSION_GRANTED
                             if (hasPermission) {
-                                startVoiceRecognition(speechRecognizer, context, selectedLanguage)
-                                isListening = true
+                                if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                                    val msg = if (selectedLanguage == ChatLanguage.HINDI) {
+                                        "इस डिवाइस पर वॉइस रिकग्निशन उपलब्ध नहीं है"
+                                    } else {
+                                        "Voice recognition is not available on this device"
+                                    }
+                                    voiceErrorMessage = msg
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                } else {
+                                    try {
+                                        startVoiceRecognition(speechRecognizer, context, selectedLanguage)
+                                        isListening = true
+                                    } catch (e: Exception) {
+                                        val msg = if (selectedLanguage == ChatLanguage.HINDI) {
+                                            "माइक शुरू नहीं हो सका। फिर से प्रयास करें।"
+                                        } else {
+                                            "Could not start microphone. Please try again."
+                                        }
+                                        voiceErrorMessage = msg
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             } else {
                                 micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             }
@@ -375,6 +437,17 @@ fun ChatbotScreen(
                             Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Message limit reached. Start a new session or try again later.", fontSize = 12.sp, color = Color(0xFFE65100))
+                        }
+                    }
+                }
+
+                // Voice recognition warning
+                if (!voiceErrorMessage.isNullOrBlank()) {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFEBEE)) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(voiceErrorMessage!!, fontSize = 12.sp, color = Color(0xFFD32F2F))
                         }
                     }
                 }
@@ -579,7 +652,7 @@ private fun ImagePreviewDialog(
                 OutlinedTextField(
                     value = description, onValueChange = onDescriptionChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("e.g., Red rash on my arm for 3 days...", fontSize = 13.sp) },
+                    placeholder = { Text("Describe symptoms or concern", fontSize = 13.sp) },
                     textStyle = TextStyle(fontSize = 14.sp),
                     shape = RoundedCornerShape(12.dp), maxLines = 3
                 )

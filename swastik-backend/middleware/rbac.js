@@ -42,6 +42,47 @@ const requireRole = (...allowedRoles) => {
 };
 
 /**
+ * Middleware to require a minimum role level.
+ * Backward-compatible helper used by some tests/routes.
+ */
+const ROLE_HIERARCHY = [
+  ROLES.PATIENT,
+  ROLES.AMBULANCE_DRIVER,
+  ROLES.DOCTOR,
+  ROLES.HOSPITAL_MANAGER,
+  ROLES.HOSPITAL_OWNER,
+  ROLES.CLINIC_OWNER,
+  ROLES.DIAGNOSTIC_CENTER_OWNER,
+  ROLES.PHARMACY_OWNER,
+  ROLES.AMBULANCE_OPERATOR,
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN,
+];
+
+const requireMinRole = (minimumRole) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required.',
+      });
+    }
+
+    const userRank = ROLE_HIERARCHY.indexOf(req.user.role);
+    const minRank = ROLE_HIERARCHY.indexOf(minimumRole);
+
+    if (userRank === -1 || minRank === -1 || userRank < minRank) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Minimum role required: ${minimumRole}. Your role: ${req.user.role}`,
+      });
+    }
+
+    next();
+  };
+};
+
+/**
  * Middleware to require approved status for providers
  * Resolves approval_status from the relevant provider table based on role
  */
@@ -55,6 +96,15 @@ const ROLE_TO_TABLE = {
   [ROLES.CLINIC_OWNER]: 'clinics',
   [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'diagnostic_centers',
   [ROLES.AMBULANCE_OPERATOR]: 'ambulance_operators',
+};
+
+const ROLE_TO_USER_FIELD = {
+  [ROLES.DOCTOR]: 'user_id',
+  [ROLES.HOSPITAL_OWNER]: 'owner_id',
+  [ROLES.PHARMACY_OWNER]: 'owner_id',
+  [ROLES.CLINIC_OWNER]: 'owner_id',
+  [ROLES.DIAGNOSTIC_CENTER_OWNER]: 'owner_id',
+  [ROLES.AMBULANCE_OPERATOR]: 'user_id',
 };
 
 const requireApproval = async (req, res, next) => {
@@ -98,7 +148,7 @@ const requireApproval = async (req, res, next) => {
         provider = hospital;
       }
     } else {
-      const ownerField = req.user.role === ROLES.DOCTOR ? 'user_id' : 'owner_id';
+      const ownerField = ROLE_TO_USER_FIELD[req.user.role];
       const { data: p } = await supabaseAdmin
         .from(table)
         .select('approval_status')
@@ -126,4 +176,4 @@ const requireApproval = async (req, res, next) => {
   }
 };
 
-module.exports = { ROLES, requireRole, requireApproval };
+module.exports = { ROLES, requireRole, requireMinRole, requireApproval };

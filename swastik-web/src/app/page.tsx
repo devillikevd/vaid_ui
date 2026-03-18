@@ -126,25 +126,6 @@ export default function HomePage() {
             })}
           </div>
 
-          {/* Info Section */}
-          <div className="mt-16 text-center">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 max-w-2xl mx-auto">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                For Patients
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Looking for the patient app? Download from the App Store or Google Play to book appointments and consult with doctors.
-              </p>
-              <div className="flex justify-center gap-4">
-                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-                  App Store
-                </button>
-                <button className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-                  Google Play
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </main>
 

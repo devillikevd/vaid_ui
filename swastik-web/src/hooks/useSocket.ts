@@ -208,7 +208,6 @@ export function useSocket() {
     const getSocket = useCallback(() => socketRef.current, []);
 
     // Emit event
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const emit = useCallback((event: string, data?: unknown) => {
         if (socketRef.current?.connected) {
             socketRef.current.emit(event, data);
@@ -603,4 +602,178 @@ export function useConsultationChat(consultationId: string | null) {
         sendMessage,
         setTyping,
     };
+}
+
+// ── Vitals Types ──────────────────────────────────────────────────
+
+export interface VitalsStreamData {
+    session_id: string;
+    heart_rate?: number;
+    respiration_rate?: number;
+    posture?: string;
+    spine_angle?: number;
+    fall_detected?: boolean;
+    tremor_detected?: boolean;
+    tremor_severity?: number;
+    tremor_frequency?: number;
+    drowsiness_score?: number;
+    facial_asymmetry_score?: number;
+    stress_level?: string;
+    hrv_rmssd?: number;
+    hrv_sdnn?: number;
+    pain_score?: number;
+    pain_action_units?: string;
+    skin_condition?: string;
+    skin_classification?: string;
+    skin_confidence?: number;
+    pallor_score?: number;
+    hemoglobin_estimate?: number;
+    spo2?: number;
+    temperature?: number;
+    blood_pressure_systolic?: number;
+    blood_pressure_diastolic?: number;
+    processed_at?: string;
+    patient_user_id?: string;
+    alerts?: VitalsAlert[];
+    active_signals?: string[];
+    total_signals?: number;
+}
+
+export interface VitalsAlert {
+    /** Unique machine-readable alert code, e.g. "TACHYCARDIA", "FALL_DETECTED" */
+    code: string;
+    /** The CV signal metric that triggered this alert, e.g. "heart_rate" */
+    metric: string;
+    /** Clinical severity level */
+    severity: 'critical' | 'warning' | 'info';
+    /** Clinical threshold that was breached (null for boolean signals) */
+    threshold?: number | null;
+    /** The actual measured value at trigger time */
+    current_value?: number | boolean | null;
+    /** Human-readable clinical message */
+    message: string;
+    /** ISO 8601 UTC timestamp */
+    timestamp: string;
+}
+
+/**
+ * Hook for real-time vitals streaming during consultation.
+ * Native FastAPI WebSockets architecture.
+ */
+/**
+ * Hook for real-time vitals streaming during consultation.
+ * Production-hardened: JWT auth, exponential backoff reconnect,
+ * stream replay via last_id, and application-level ping/pong.
+ */
+export function useVitalsStream(sessionId: string | null, role: 'doctor' | 'patient' = 'doctor') {
+    const [latestVitals, setLatestVitals] = useState<VitalsStreamData | null>(null);
+    const [vitalsHistory, setVitalsHistory] = useState<VitalsStreamData[]>([]);
+    const [alerts, setAlerts] = useState<VitalsAlert[]>([]);
+    const [criticalAlert, setCriticalAlert] = useState<{ sessionId: string; alerts: VitalsAlert[] } | null>(null);
+    const [aiInsights, setAiInsights] = useState<Record<string, unknown> | string | null>(null);
+
+    const wsRef = useRef<WebSocket | null>(null);
+    const lastMessageIdRef = useRef<string | null>(null);
+    const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reconnectAttemptsRef = useRef(0);
+    const isUnmountedRef = useRef(false);
+    const connectRef = useRef<(() => void) | null>(null);
+
+    const connect = useCallback(() => {
+        if (!sessionId || isUnmountedRef.current) return;
+
+        // Read JWT from localStorage (written by authStore on login)
+        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
+        // Build WebSocket URL with auth token and optional stream replay ID
+        const params = new URLSearchParams();
+        if (token) params.set('token', token);
+        if (role === 'doctor' && lastMessageIdRef.current) {
+            params.set('last_id', lastMessageIdRef.current);
+        }
+        const query = params.toString();
+        const baseUrl = (process.env.NEXT_PUBLIC_AI_WS_URL || 'ws://localhost:8000').replace(/^http/, 'ws').replace(/\/$/, '');
+        const wsUrl = `${baseUrl}/ws/vitals/${sessionId}/${role}${query ? `?${query}` : ''}`;
+
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+            reconnectAttemptsRef.current = 0; // Reset backoff counter on successful connect
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                // Respond to server keepalive pings
+                if (data.type === 'ping') {
+                    ws.send(JSON.stringify({ type: 'pong', ts: data.ts }));
+                    return;
+                }
+                if (data.type === 'pong') return;
+
+                // Track last Redis stream message ID for replay on reconnect
+                if (data._stream_id) lastMessageIdRef.current = data._stream_id;
+
+                // AI reasoning from background LLM inference
+                if (data.ai_reasoning) {
+                    setAiInsights(data.ai_reasoning);
+                    return;
+                }
+
+                // Regular CV Edge Stream payload
+                setLatestVitals(data);
+                setVitalsHistory(prev => [data, ...prev].slice(0, 120));
+
+                if (data.alerts?.length > 0) {
+                    const incoming = data.alerts as VitalsAlert[];
+                    setAlerts(prev => [...incoming, ...prev].slice(0, 50));
+                    // Only flash critical-severity alerts as the visual overlay
+                    const criticals = incoming.filter(a => a.severity === 'critical');
+                    if (criticals.length > 0) {
+                        setCriticalAlert({ sessionId, alerts: criticals });
+                        setTimeout(() => setCriticalAlert(null), 10000);
+                    }
+                }
+            } catch (err) {
+                console.error('FastAPI WS parse error:', err);
+            }
+        };
+
+        ws.onclose = (event) => {
+            wsRef.current = null;
+            if (isUnmountedRef.current) return;
+            // Don't reconnect on auth rejections (4001 = missing/expired token, 4003 = wrong role)
+            if (event.code === 4001 || event.code === 4003) {
+                console.error(`Vitals WS auth error [${event.code}]: ${event.reason}`);
+                return;
+            }
+            // Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s cap
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30_000);
+            reconnectAttemptsRef.current += 1;
+            reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), delay);
+        };
+
+        ws.onerror = () => ws.close();
+    }, [sessionId, role]);
+
+    useEffect(() => {
+        isUnmountedRef.current = false;
+        connectRef.current = connect;
+        connect();
+        return () => {
+            isUnmountedRef.current = true;
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            wsRef.current?.close();
+            wsRef.current = null;
+        };
+    }, [connect]);
+
+    const sendVitals = useCallback((vitals: Partial<VitalsStreamData>) => {
+        if (!sessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;
+        wsRef.current.send(JSON.stringify(vitals));
+    }, [sessionId]);
+
+    return { latestVitals, vitalsHistory, alerts, criticalAlert, aiInsights, sendVitals };
 }

@@ -25,6 +25,7 @@ import com.example.swastik.data.model.VitalType
 import com.example.swastik.data.remote.dto.ReminderDto
 import com.example.swastik.data.remote.dto.VitalDto
 import com.example.swastik.ui.viewmodel.VitalsViewModel
+import java.util.Locale
 
 private val SwastikPurple = Color(0xFF6C63FF)
 
@@ -438,7 +439,7 @@ private fun AddReminderDialog(
                     val minute = timePickerState.minute
                     val amPm = if (hour < 12) "AM" else "PM"
                     val hour12 = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
-                    time = String.format("%02d:%02d %s", hour12, minute, amPm)
+                    time = String.format(Locale.US, "%02d:%02d %s", hour12, minute, amPm)
                     showTimePicker = false
                 }) { Text("OK", color = SwastikPurple) }
             },

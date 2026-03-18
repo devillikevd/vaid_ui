@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useVideoConsultation, useConsultationChat, useConsultationEnded } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
+import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
+
 import {
     Video,
     VideoOff,
@@ -58,12 +60,17 @@ interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; qual
 interface AIMedication { name: string; dosage: string; frequency: string; duration: string; notes: string; }
 interface AIResponse {
     answer: string;
+    alerts?: string[];
+    possible_conditions?: string[];
+    suggested_questions?: string[];
+    summary?: string;
+    clinical_notes?: string;
+    risk_indicators?: string[];
+    severity_assessment?: string;
     suggested_medications?: AIMedication[];
     differential_diagnoses?: string[];
     recommended_tests?: string[];
-    severity_assessment?: string;
-    clinical_notes?: string;
-    references?: string;
+    vitals_interpretation?: string;
 }
 
 function classifyQuality(rtt: number, lossRate: number, bitrate: number): NetworkStats['quality'] {
@@ -602,6 +609,7 @@ export default function VideoConsultation() {
                     {modeBanner}
                 </div>
             )}
+            <div className={`flex-1 flex overflow-hidden ${showAIPanel ? '' : ''}`}>
             <div className="flex-1 relative overflow-hidden">
                 {error && connectionMode !== 'chat' ? (
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -878,6 +886,12 @@ export default function VideoConsultation() {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Doctor Vitals + AI Side Panel */}
+            {showAIPanel && user?.role === 'doctor' && (
+                <DoctorVitalsPanel consultationId={consultationId} isDoctor={user?.role === 'doctor'} />
+            )}
             </div>
 
             {/* Controls Bar */}

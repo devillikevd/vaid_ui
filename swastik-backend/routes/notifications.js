@@ -81,16 +81,22 @@ router.post('/register-device', [
 ], asyncHandler(async (req, res) => {
     const { fcmToken, deviceType, deviceId } = req.body;
 
-    const { supabaseAdmin } = require('../config/supabase');
+    await notificationService.registerDevice(req.user.id, fcmToken, deviceType || 'android');
 
-    await supabaseAdmin
-        .from('users')
-        .update({
-            fcm_token: fcmToken,
-            device_type: deviceType || 'android',
-            device_id: deviceId
-        })
-        .eq('id', req.user.id);
+    // Optional device_id persistence for multi-device debugging/analytics
+    if (deviceId) {
+        const { supabaseAdmin } = require('../config/supabase');
+        let { error } = await supabaseAdmin
+            .from('users')
+            .update({ device_id: deviceId })
+            .eq('id', req.user.id);
+
+        // Backward compatibility: silently skip when device_id column doesn't exist
+        if (error && (error.code === '42703' || /device_id/i.test(error.message || ''))) {
+            error = null;
+        }
+        if (error) throw error;
+    }
 
     res.json({ success: true, message: 'Device registered for push notifications' });
 }));
@@ -103,13 +109,24 @@ router.post('/register-device', [
 router.delete('/unregister-device', asyncHandler(async (req, res) => {
     const { supabaseAdmin } = require('../config/supabase');
 
-    await supabaseAdmin
+    let { error } = await supabaseAdmin
         .from('users')
         .update({
             fcm_token: null,
+            device_type: null,
             device_id: null
         })
         .eq('id', req.user.id);
+
+    // Backward compatibility: some environments don't have device_type/device_id
+    if (error && (error.code === '42703' || /device_type|device_id/i.test(error.message || ''))) {
+        ({ error } = await supabaseAdmin
+            .from('users')
+            .update({ fcm_token: null })
+            .eq('id', req.user.id));
+    }
+
+    if (error) throw error;
 
     res.json({ success: true, message: 'Device unregistered from push notifications' });
 }));

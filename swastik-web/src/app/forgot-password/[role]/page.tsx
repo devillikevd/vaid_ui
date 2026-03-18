@@ -93,7 +93,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="you@example.com"
+                                    placeholder="Enter your email"
                                     leftIcon={<Mail className="h-5 w-5" />}
                                     required
                                     autoComplete="email"

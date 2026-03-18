@@ -132,9 +132,9 @@ export default function HospitalDoctorsPage() {
                             <button onClick={() => setShowInviteModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"><X className="h-5 w-5" /></button>
                         </div>
                         <div className="p-4 space-y-4">
-                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label><Input value={inviteData.email} onChange={e => setInviteData(d => ({ ...d, email: e.target.value }))} placeholder="doctor@example.com" /></div>
-                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label><Input value={inviteData.name} onChange={e => setInviteData(d => ({ ...d, name: e.target.value }))} placeholder="Dr. Name" /></div>
-                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label><Input value={inviteData.specialization} onChange={e => setInviteData(d => ({ ...d, specialization: e.target.value }))} placeholder="e.g. Cardiology" /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label><Input value={inviteData.email} onChange={e => setInviteData(d => ({ ...d, email: e.target.value }))} placeholder="Enter email" /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label><Input value={inviteData.name} onChange={e => setInviteData(d => ({ ...d, name: e.target.value }))} placeholder="Enter doctor name" /></div>
+                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label><Input value={inviteData.specialization} onChange={e => setInviteData(d => ({ ...d, specialization: e.target.value }))} placeholder="Enter specialization" /></div>
                         </div>
                         <div className="flex justify-end gap-2 p-4 border-t">
                             <Button variant="outline" onClick={() => setShowInviteModal(false)}>Cancel</Button>

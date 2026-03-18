@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
+import java.util.Locale
 
 /**
  * Medicine Detail Screen
@@ -50,9 +51,9 @@ fun MedicineDetailScreen(
     val pharmacies = detailState.availability.map { avail ->
         PharmacyInfo(
             name = avail.pharmacyName,
-            distance = avail.distance?.let { "${String.format("%.1f", it)} km" } ?: "N/A",
+            distance = avail.distance?.let { "${String.format(Locale.US, "%.1f", it)} km" } ?: "N/A",
             available = avail.inStock,
-            price = "₹${avail.price?.toInt() ?: medicine?.price ?: 0}"
+            price = avail.price?.toInt()?.let { "₹$it" } ?: medicine?.price?.toInt()?.let { "₹$it" } ?: "Price unavailable"
         )
     }
 
@@ -110,7 +111,7 @@ fun MedicineDetailScreen(
         },
         bottomBar = {
             MedicineDetailBottomBar(
-                price = medicine.price?.toInt() ?: 0,
+                price = medicine.price?.toInt(),
                 inStock = medicine.inStock,
                 onAddToCart = onAddToCart
             )
@@ -405,7 +406,7 @@ private fun PharmacyAvailabilityCard(
 
 @Composable
 private fun MedicineDetailBottomBar(
-    price: Int,
+    price: Int?,
     inStock: Boolean,
     onAddToCart: () -> Unit
 ) {
@@ -427,7 +428,7 @@ private fun MedicineDetailBottomBar(
                     color = Color.Gray
                 )
                 Text(
-                    "₹$price",
+                    price?.let { "₹$it" } ?: "Price unavailable",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = SwastikPurple
@@ -453,7 +454,7 @@ private fun MedicineDetailBottomBar(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (inStock) "Add to Cart" else "Out of Stock",
+                    if (inStock) "Find Pharmacy" else "Out of Stock",
                     fontWeight = FontWeight.SemiBold
                 )
             }

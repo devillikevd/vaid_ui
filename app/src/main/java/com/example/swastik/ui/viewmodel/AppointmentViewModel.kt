@@ -110,12 +110,14 @@ class AppointmentViewModel @Inject constructor(
         date: String,
         timeSlot: String,
         type: String,
-        notes: String? = null
+        notes: String? = null,
+        hospitalId: String? = null,
+        clinicId: String? = null
     ) {
         viewModelScope.launch {
             uiState = uiState.copy(isBooking = true)
             
-             when (val result = repository.createAppointment(doctorId, date, timeSlot, type, notes)) {
+             when (val result = repository.createAppointment(doctorId, date, timeSlot, type, notes, hospitalId, clinicId)) {
                  is Result.Success -> {
                      uiState = uiState.copy(
                          isBooking = false,

@@ -43,6 +43,8 @@ router.post('/',
     body('date').isDate().withMessage('Valid date is required'),
     body('timeSlot').notEmpty().withMessage('Time slot is required'),
     body('type').isIn(['video', 'clinic', 'home_visit', 'in_person']).withMessage('Invalid appointment type'),
+    body('hospitalId').optional().isUUID().withMessage('Hospital ID must be valid'),
+    body('clinicId').optional().isUUID().withMessage('Clinic ID must be valid'),
   ],
   validate,
   asyncHandler(async (req, res) => {

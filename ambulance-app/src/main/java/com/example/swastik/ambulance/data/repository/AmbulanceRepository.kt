@@ -2,6 +2,7 @@ package com.example.swastik.ambulance.data.repository
 
 import android.util.Log
 import com.example.swastik.ambulance.data.local.OfflineQueue
+import com.example.swastik.ambulance.data.remote.ApiErrorParser
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
 import com.example.swastik.ambulance.data.remote.dto.*
@@ -56,7 +57,7 @@ class AmbulanceRepository @Inject constructor(
                 response.body()?.let { Result.success(it) }
                     ?: Result.failure(Exception("Dashboard data was null"))
             } else {
-                Result.failure(Exception("Failed to load dashboard"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to load dashboard")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getDashboard error", e)
@@ -72,7 +73,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()?.vehicles ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to load vehicles"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to load vehicles")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getVehicles error", e)
@@ -88,7 +89,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to load history"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to load history")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getHistory error", e)
@@ -103,7 +104,7 @@ class AmbulanceRepository @Inject constructor(
                 response.body()?.data?.let { Result.success(it) }
                     ?: Result.failure(Exception("Emergency data was null"))
             } else {
-                Result.failure(Exception("Emergency not found"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Emergency not found")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getRequestById error", e)
@@ -111,7 +112,7 @@ class AmbulanceRepository @Inject constructor(
         }
     }
 
-    suspend fun acceptRequest(requestId: String, vehicleId: String? = null): Result<Unit> {
+    suspend fun acceptRequest(requestId: String): Result<Unit> {
         return try {
             val response = apiService.acceptRequest(requestId)
             if (response.isSuccessful) {
@@ -121,11 +122,7 @@ class AmbulanceRepository @Inject constructor(
                 socketManager.emitStatusUpdate(requestId, "accepted")
                 Result.success(Unit)
             } else {
-                val errorMsg = try {
-                    val body = response.errorBody()?.string()
-                    if (body != null) org.json.JSONObject(body).optString("message", "Failed to accept request")
-                    else response.body()?.message ?: "Failed to accept request"
-                } catch (_: Exception) { "Failed to accept request" }
+                val errorMsg = ApiErrorParser.from(response, "Failed to accept request")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
@@ -140,7 +137,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to reject request"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to reject request")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "rejectRequest error", e)
@@ -173,7 +170,7 @@ class AmbulanceRepository @Inject constructor(
                 }
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to update status"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to update status")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "updateStatus error", e)
@@ -191,7 +188,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to update location"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to update location")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "updateLocation API error", e)
@@ -218,7 +215,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!)
             } else {
-                Result.failure(Exception("Failed to load profile"))
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to load profile")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getProfile error", e)
@@ -234,11 +231,7 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                val msg = try {
-                    val body = response.errorBody()?.string()
-                    if (body != null) org.json.JSONObject(body).optString("message", "Failed to change password")
-                    else "Failed to change password"
-                } catch (_: Exception) { "Failed to change password" }
+                val msg = ApiErrorParser.from(response, "Failed to change password")
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {

@@ -77,9 +77,9 @@ export default function ClinicStaffPage() {
                             <button onClick={() => setShowAdd(false)}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-3">
-                            <Input label="Email *" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="doctor@example.com" />
-                            <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Dr. Name" />
-                            <Input label="Specialization" value={form.specialization} onChange={e => setForm(f => ({ ...f, specialization: e.target.value }))} placeholder="e.g. General Physician" />
+                            <Input label="Email *" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Enter email" />
+                            <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter doctor name" />
+                            <Input label="Specialization" value={form.specialization} onChange={e => setForm(f => ({ ...f, specialization: e.target.value }))} placeholder="Enter specialization" />
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
                             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
@@ -93,7 +93,7 @@ export default function ClinicStaffPage() {
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Stethoscope className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p>No doctors linked to this clinic yet.</p>
-                    <p className="text-sm mt-1">Click "Add Doctor" to invite one.</p>
+                    <p className="text-sm mt-1">Click &quot;Add Doctor&quot; to invite one.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

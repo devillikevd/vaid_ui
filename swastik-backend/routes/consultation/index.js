@@ -109,6 +109,7 @@ router.post('/:id/prescription',
     body('lifestyleAdvice').optional().isString(),
     body('instructions').optional().isString(),
     body('validityDays').optional().isInt({ min: 1, max: 365 }),
+    body('allowMultiplePrescriptions').optional().isBoolean(),
   ],
   validate,
   asyncHandler(async (req, res) => {

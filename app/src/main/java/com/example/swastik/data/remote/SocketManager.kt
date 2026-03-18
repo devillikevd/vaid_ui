@@ -50,6 +50,13 @@ data class AppNotification(
     val timestamp: String
 )
 
+data class ProviderCatalogUpdateEvent(
+    val providerId: String,
+    val providerType: String,
+    val status: String,
+    val timestamp: String
+)
+
 data class AmbulanceStatusUpdate(
     val requestId: String,
     val status: String,
@@ -168,6 +175,9 @@ class SocketManager @Inject constructor(
     private val _notifications = MutableSharedFlow<AppNotification>(replay = 1)
     val notifications: SharedFlow<AppNotification> = _notifications.asSharedFlow()
 
+    private val _providerCatalogUpdates = MutableSharedFlow<ProviderCatalogUpdateEvent>(replay = 0)
+    val providerCatalogUpdates: SharedFlow<ProviderCatalogUpdateEvent> = _providerCatalogUpdates.asSharedFlow()
+
     private val _ambulanceUpdates = MutableSharedFlow<AmbulanceStatusUpdate>(replay = 1)
     val ambulanceUpdates: SharedFlow<AmbulanceStatusUpdate> = _ambulanceUpdates.asSharedFlow()
 
@@ -213,6 +223,11 @@ class SocketManager @Inject constructor(
 
     companion object {
         private const val TAG = "SocketManager"
+    }
+
+    private fun JSONObject.optNullableString(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        return optString(key)
     }
 
     /**
@@ -415,6 +430,23 @@ class SocketManager @Inject constructor(
             } catch (e: Exception) { Log.e(TAG, "Error parsing notification:new", e) }
         }
 
+        socket?.on("catalog:refresh") { args ->
+            try {
+                val data = args[0] as JSONObject
+                Log.d(TAG, "Provider catalog refresh: $data")
+                scope.launch {
+                    _providerCatalogUpdates.emit(
+                        ProviderCatalogUpdateEvent(
+                            providerId = data.optString("providerId", ""),
+                            providerType = data.optString("providerType", ""),
+                            status = data.optString("status", ""),
+                            timestamp = data.optString("timestamp", "")
+                        )
+                    )
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing catalog:refresh", e) }
+        }
+
         socket?.on("ambulance:status-update") { args ->
             try {
                 val data = args[0] as JSONObject
@@ -453,10 +485,10 @@ class SocketManager @Inject constructor(
                 scope.launch {
                     _ambulanceAssigned.emit(AmbulanceAssignedUpdate(
                         requestId = data.optString("requestId", ""),
-                        ambulanceId = data.optString("ambulanceId", null),
-                        vehicleNumber = data.optString("vehicleNumber", null),
-                        driverName = data.optString("driverName", null),
-                        driverPhone = data.optString("driverPhone", null)
+                        ambulanceId = data.optNullableString("ambulanceId"),
+                        vehicleNumber = data.optNullableString("vehicleNumber"),
+                        driverName = data.optNullableString("driverName"),
+                        driverPhone = data.optNullableString("driverPhone")
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing ambulance:assigned", e) }
@@ -473,7 +505,7 @@ class SocketManager @Inject constructor(
                         appointmentId = data.optString("appointmentId", ""),
                         doctorName = data.optString("doctorName", "Doctor"),
                         roomId = data.optString("roomId", ""),
-                        type = data.optString("type", null),
+                        type = data.optNullableString("type"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -488,9 +520,9 @@ class SocketManager @Inject constructor(
                 scope.launch {
                     _consultationEnded.emit(ConsultationEndedEvent(
                         consultationId = data.optString("consultationId", ""),
-                        appointmentId = data.optString("appointmentId", null),
+                        appointmentId = data.optNullableString("appointmentId"),
                         duration = if (data.has("duration")) data.optInt("duration") else null,
-                        prescriptionId = data.optString("prescriptionId", null),
+                        prescriptionId = data.optNullableString("prescriptionId"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -505,9 +537,9 @@ class SocketManager @Inject constructor(
                 scope.launch {
                     _prescriptionNew.emit(PrescriptionNewEvent(
                         id = data.optString("id", ""),
-                        consultationId = data.optString("consultationId", null),
-                        doctorName = data.optString("doctorName", null),
-                        diagnosis = data.optString("diagnosis", null),
+                        consultationId = data.optNullableString("consultationId"),
+                        doctorName = data.optNullableString("doctorName"),
+                        diagnosis = data.optNullableString("diagnosis"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -523,10 +555,10 @@ class SocketManager @Inject constructor(
                     _diagnosticUpdates.emit(DiagnosticUpdate(
                         id = data.optString("id", ""),
                         status = data.optString("status", ""),
-                        testName = data.optString("test_name", null),
-                        bookingDate = data.optString("booking_date", null),
+                        testName = data.optNullableString("test_name"),
+                        bookingDate = data.optNullableString("booking_date"),
                         resultUrl = null,
-                        message = data.optString("message", null),
+                        message = data.optNullableString("message"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -541,10 +573,10 @@ class SocketManager @Inject constructor(
                     _diagnosticUpdates.emit(DiagnosticUpdate(
                         id = data.optString("id", ""),
                         status = "result_ready",
-                        testName = data.optString("test_name", null),
+                        testName = data.optNullableString("test_name"),
                         bookingDate = null,
-                        resultUrl = data.optString("result_url", null),
-                        message = data.optString("message", null),
+                        resultUrl = data.optNullableString("result_url"),
+                        message = data.optNullableString("message"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -558,10 +590,10 @@ class SocketManager @Inject constructor(
                     _diagnosticUpdates.emit(DiagnosticUpdate(
                         id = data.optString("id", ""),
                         status = "confirmed",
-                        testName = data.optString("test_name", null),
-                        bookingDate = data.optString("booking_date", null),
+                        testName = data.optNullableString("test_name"),
+                        bookingDate = data.optNullableString("booking_date"),
                         resultUrl = null,
-                        message = data.optString("message", null),
+                        message = data.optNullableString("message"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -588,9 +620,9 @@ class SocketManager @Inject constructor(
                 scope.launch {
                     _newOrders.emit(NewOrderEvent(
                         orderId = data.optString("orderId", ""),
-                        orderNumber = data.optString("orderNumber", null),
+                        orderNumber = data.optNullableString("orderNumber"),
                         status = data.optString("status", "pending"),
-                        message = data.optString("message", null),
+                        message = data.optNullableString("message"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -605,9 +637,9 @@ class SocketManager @Inject constructor(
                     _appointmentUpdates.emit(AppointmentUpdateEvent(
                         appointmentId = data.optString("appointmentId", data.optString("id", "")),
                         status = data.optString("status", ""),
-                        doctorName = data.optString("doctorName", null),
-                        date = data.optString("date", data.optString("appointment_date", null)),
-                        timeSlot = data.optString("timeSlot", data.optString("time_slot", null)),
+                        doctorName = data.optNullableString("doctorName"),
+                        date = data.optNullableString("date") ?: data.optNullableString("appointment_date"),
+                        timeSlot = data.optNullableString("timeSlot") ?: data.optNullableString("time_slot"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -621,9 +653,9 @@ class SocketManager @Inject constructor(
                     _appointmentUpdates.emit(AppointmentUpdateEvent(
                         appointmentId = data.optString("appointmentId", data.optString("id", "")),
                         status = "confirmed",
-                        doctorName = data.optString("doctorName", null),
-                        date = data.optString("date", null),
-                        timeSlot = data.optString("timeSlot", null),
+                        doctorName = data.optNullableString("doctorName"),
+                        date = data.optNullableString("date"),
+                        timeSlot = data.optNullableString("timeSlot"),
                         timestamp = data.optString("timestamp", "")
                     ))
                 }
@@ -734,6 +766,24 @@ class SocketManager @Inject constructor(
             socket?.emit("patient:location-update", payload)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send patient location", e)
+        }
+    }
+
+    /**
+     * Vitals stream emission for edge CV metrics.
+     * Extracts HealthMetrics payloads computed by MediaPipe and emits via WebSocket
+     */
+    fun sendVitalsStream(sessionId: String, data: JSONObject) {
+        if (socket?.connected() != true) return
+        try {
+            val payload = JSONObject().apply {
+                put("session_id", sessionId)
+                put("data", data)
+            }
+            // Backend gateway typically expects 'vitals:stream' event
+            socket?.emit("vitals:stream", payload)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send vitals stream", e)
         }
     }
 }

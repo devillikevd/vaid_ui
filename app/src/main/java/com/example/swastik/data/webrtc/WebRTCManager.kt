@@ -137,7 +137,7 @@ class WebRTCManager(
         surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
         val videoSource = factory.createVideoSource(videoCapturer!!.isScreencast)
         videoCapturer!!.initialize(surfaceTextureHelper, context, videoSource.capturerObserver)
-        videoCapturer!!.startCapture(640, 480, 30)
+        startCaptureWithFallback(videoCapturer!!)
 
         localVideoTrack = factory.createVideoTrack("video_local", videoSource)
         localVideoTrack?.setEnabled(true)
@@ -145,6 +145,32 @@ class WebRTCManager(
         Log.d(TAG, "Local media started")
         onLocalVideoTrack?.invoke(localVideoTrack!!)
         return localVideoTrack
+    }
+
+    /**
+     * Try higher capture quality first, then gracefully fallback.
+     * WebRTC then adapts bitrate dynamically based on network conditions.
+     */
+    private fun startCaptureWithFallback(capturer: CameraVideoCapturer) {
+        val profiles = listOf(
+            Triple(1280, 720, 30),
+            Triple(960, 540, 24),
+            Triple(640, 480, 20),
+        )
+
+        var lastError: Throwable? = null
+        for ((w, h, fps) in profiles) {
+            try {
+                capturer.startCapture(w, h, fps)
+                Log.d(TAG, "Camera capture started at ${w}x${h}@${fps}fps")
+                return
+            } catch (e: Exception) {
+                lastError = e
+                Log.w(TAG, "Capture profile failed ${w}x${h}@${fps}: ${e.message}")
+            }
+        }
+
+        throw RuntimeException("Failed to start camera capture", lastError)
     }
 
     /**

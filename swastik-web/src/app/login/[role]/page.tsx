@@ -112,6 +112,13 @@ export default function LoginPage({ params }: LoginPageProps) {
     const [verificationResent, setVerificationResent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
 
+    // Cooldown timer for resend verification
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [resendCooldown]);
+
     const config = ROLE_CONFIG[role];
 
     if (!config) {
@@ -154,13 +161,6 @@ export default function LoginPage({ params }: LoginPageProps) {
             setIsLoading(false);
         }
     };
-
-    // Cooldown timer for resend verification
-    useEffect(() => {
-        if (resendCooldown <= 0) return;
-        const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
-        return () => clearTimeout(timer);
-    }, [resendCooldown]);
 
     const handleResendVerification = async () => {
         if (resendCooldown > 0) return;
@@ -239,7 +239,7 @@ export default function LoginPage({ params }: LoginPageProps) {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="you@example.com"
+                            placeholder="Enter your email"
                             leftIcon={<Mail className="h-5 w-5" />}
                             required
                             autoComplete="email"

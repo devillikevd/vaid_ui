@@ -152,7 +152,7 @@ router.get('/pharmacies/:pharmacyId/inventory',
     const { search, category, page = 1, limit = 50 } = req.query;
     const result = await pharmacyService.getInventory(
       req.params.pharmacyId,
-      { search, category },
+      { search, category, publicOnly: true },
       parseInt(page),
       parseInt(limit)
     );

@@ -18,6 +18,7 @@ const {
     ALLOWED_VIDEO_MIMES,
 } = require('../middleware/upload');
 const {
+    isStorageAvailable,
     uploadProfileImage,
     uploadDocument,
     uploadReport,
@@ -39,6 +40,18 @@ const upload = multer({
     limits: {
         fileSize: 50 * 1024 * 1024, // Fix #9: 50MB max (reduced from 500MB to prevent DoS)
     },
+});
+
+// Global upload availability guard
+router.use((req, res, next) => {
+    if (!isStorageAvailable()) {
+        return res.status(503).json({
+            success: false,
+            message: 'File storage is temporarily unavailable. Please try again shortly.',
+            code: 'STORAGE_UNAVAILABLE',
+        });
+    }
+    return next();
 });
 
 // ==================== PROFILE IMAGES ====================

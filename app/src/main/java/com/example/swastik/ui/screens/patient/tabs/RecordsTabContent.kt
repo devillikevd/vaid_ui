@@ -674,7 +674,7 @@ private fun UploadReportDialog(
                     value = reportName,
                     onValueChange = { reportName = it },
                     label = { Text("Report Name") },
-                    placeholder = { Text("e.g., Blood Test - Jan 2025") },
+                    placeholder = { Text("Enter report name") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !isUploading

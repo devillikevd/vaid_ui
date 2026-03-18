@@ -164,31 +164,43 @@ export async function fetchWithAuth<T>(
     }
 }
 
+// BUG-C3 Fix: Mutex prevents parallel refresh calls from concurrent 401 responses
+let _refreshPromise: Promise<boolean> | null = null;
+
 async function refreshAccessToken(): Promise<boolean> {
-    try {
-        // Always read refreshToken from localStorage to avoid stale module-scoped variable
-        const { refreshToken: currentRefreshToken } = getTokens();
-        if (!currentRefreshToken) return false;
+    // If a refresh is already in-flight, reuse it (same pattern as authStore.ts)
+    if (_refreshPromise) return _refreshPromise;
 
-        const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: currentRefreshToken }),
-        });
+    _refreshPromise = (async () => {
+        try {
+            // Always read refreshToken from localStorage to avoid stale module-scoped variable
+            const { refreshToken: currentRefreshToken } = getTokens();
+            if (!currentRefreshToken) return false;
 
-        if (response.ok) {
-            const data = await response.json();
-            const newAccess = data.data?.accessToken || data.accessToken;
-            const newRefresh = data.data?.refreshToken || data.refreshToken || refreshToken;
-            if (newAccess) {
-                setTokens(newAccess, newRefresh!);
-                return true;
+            const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: currentRefreshToken }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const newAccess = data.data?.accessToken || data.accessToken;
+                const newRefresh = data.data?.refreshToken || data.refreshToken || refreshToken;
+                if (newAccess) {
+                    setTokens(newAccess, newRefresh!);
+                    return true;
+                }
             }
+            return false;
+        } catch {
+            return false;
+        } finally {
+            _refreshPromise = null;
         }
-        return false;
-    } catch {
-        return false;
-    }
+    })();
+
+    return _refreshPromise;
 }
 
 // ==================== AUTH API ====================
@@ -800,32 +812,40 @@ export const notificationsApi = {
         fetchWithAuth('/notifications/read-all', { method: 'PUT' }),
 };
 
-// ==================== CHATBOT API ====================
-// Backend: routes/chatbot/index.js
+// ==================== VITALS API ====================
+// Session vitals for doctor dashboard (backend routes /api/vitals/session/* required)
 
-export const chatbotApi = {
-    startSession: () =>
-        fetchWithAuth('/chatbot/session/start', { method: 'POST' }),
+export const vitalsApi = {
+    getLatest: (sessionId: string) =>
+        fetchWithAuth(`/vitals/session/${sessionId}/latest`),
 
-    sendMessage: (sessionId: string, message: string, generateAudio: boolean = false) =>
-        fetchWithAuth('/chatbot/message', {
-            method: 'POST',
-            body: JSON.stringify({ sessionId, message, generateAudio }),
+    getHistory: (sessionId: string, limit: number = 100) =>
+        fetchWithAuth(`/vitals/session/${sessionId}/history?limit=${limit}`),
+
+    getAlerts: (sessionId: string) =>
+        fetchWithAuth(`/vitals/session/${sessionId}/alerts`),
+
+    getSummary: (sessionId: string) =>
+        fetchWithAuth(`/vitals/session/${sessionId}/summary`),
+};
+
+// ==================== FEATURE TOGGLES API ====================
+// Backend: routes/featureToggle.js
+
+export const featureTogglesApi = {
+    get: () => fetchWithAuth('/feature-toggles'),
+
+    update: (toggles: Record<string, boolean>) =>
+        fetchWithAuth('/feature-toggles', {
+            method: 'PUT',
+            body: JSON.stringify({ toggles }),
         }),
 
-    getHistory: (sessionId: string) =>
-        fetchWithAuth(`/chatbot/session/${sessionId}`),
+    reset: () =>
+        fetchWithAuth('/feature-toggles/reset', { method: 'POST' }),
 
-    getSessions: () => fetchWithAuth('/chatbot/sessions'),
-
-    endSession: (sessionId: string) =>
-        fetchWithAuth(`/chatbot/session/${sessionId}/end`, { method: 'POST' }),
-
-    analyzeSymptoms: (symptoms: string) =>
-        fetchWithAuth('/chatbot/analyze-symptoms', {
-            method: 'POST',
-            body: JSON.stringify({ symptoms }),
-        }),
+    checkFeature: (feature: string) =>
+        fetchWithAuth(`/feature-toggles/${feature}`),
 };
 
 // ==================== MEDICINE API ====================
@@ -889,11 +909,13 @@ export const api = {
     hospital: hospitalApi,
     pharmacy: pharmacyApi,
     clinic: clinicApi,
+    diagnosticCenter: diagnosticCenterApi,
     appointments: appointmentsApi,
     consultations: consultationsApi,
     upload: uploadApi,
     notifications: notificationsApi,
-    chatbot: chatbotApi,
+    vitals: vitalsApi,
+    featureToggles: featureTogglesApi,
     medicine: medicineApi,
 };
 

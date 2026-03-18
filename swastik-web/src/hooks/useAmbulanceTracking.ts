@@ -35,6 +35,34 @@ interface UseAmbulanceTrackingResult {
     stopTracking: () => void;
 }
 
+interface AmbulanceLocationUpdatePayload {
+    requestId?: string;
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    speed?: number;
+    timestamp?: string;
+    eta?: string | number;
+}
+
+interface AmbulanceStatusUpdatePayload {
+    requestId?: string;
+    status: string;
+    eta?: string | number;
+}
+
+interface AmbulanceAssignedPayload {
+    requestId?: string;
+    driverName?: string;
+    driver_name?: string;
+    driverPhone?: string;
+    driver_phone?: string;
+    vehicleNumber?: string;
+    vehicle_number?: string;
+    vehicleType?: string;
+    vehicle_type?: string;
+}
+
 /**
  * Hook for real-time ambulance tracking via Socket.IO.
  * Uses the ambulance:track / ambulance:location-update / ambulance:status-update events.
@@ -71,10 +99,9 @@ export function useAmbulanceTracking(initialRequestId?: string | null): UseAmbul
 
         // Subscribe to ambulance tracking room
         emit('ambulance:track', requestId);
-        setIsTracking(true);
 
         // Listen for location updates
-        const unsubLocation = on('ambulance:location-update', (data: any) => {
+        const unsubLocation = on('ambulance:location-update', (data: AmbulanceLocationUpdatePayload) => {
             if (data.requestId === requestId || !data.requestId) {
                 setLocation({
                     latitude: data.latitude,
@@ -88,7 +115,7 @@ export function useAmbulanceTracking(initialRequestId?: string | null): UseAmbul
         });
 
         // Listen for status updates
-        const unsubStatus = on('ambulance:status-update', (data: any) => {
+        const unsubStatus = on('ambulance:status-update', (data: AmbulanceStatusUpdatePayload) => {
             if (data.requestId === requestId || !data.requestId) {
                 setStatus(data.status);
                 if (data.eta) setEta(String(data.eta));
@@ -96,7 +123,7 @@ export function useAmbulanceTracking(initialRequestId?: string | null): UseAmbul
         });
 
         // Listen for ambulance assigned (driver info)
-        const unsubAssigned = on('ambulance:assigned', (data: any) => {
+        const unsubAssigned = on('ambulance:assigned', (data: AmbulanceAssignedPayload) => {
             if (data.requestId === requestId || !data.requestId) {
                 setDriver({
                     driverName: data.driverName || data.driver_name,
@@ -113,7 +140,6 @@ export function useAmbulanceTracking(initialRequestId?: string | null): UseAmbul
             unsubStatus();
             unsubAssigned();
             emit('ambulance:untrack', requestId);
-            setIsTracking(false);
         };
     }, [requestId, isConnected, emit, on]);
 

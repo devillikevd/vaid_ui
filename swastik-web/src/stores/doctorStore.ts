@@ -239,7 +239,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             }
             // After fetchWithAuth unwrap, response.data IS the array;
             // pagination is preserved as response.pagination
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const rawData = response.data;
             const rawAppointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as any[];
             const pagination = (response as any).pagination as Record<string, number> | undefined;

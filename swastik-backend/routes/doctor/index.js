@@ -2,6 +2,7 @@ const express = require('express');
 const { body, query } = require('express-validator');
 const { validate } = require('../../middleware/validate');
 const { authenticate, authorize, optionalAuth } = require('../../middleware/auth');
+const { requireApproval } = require('../../middleware/rbac');
 const { uploadProfileImage } = require('../../middleware/upload');
 const doctorService = require('../../services/doctorService');
 const { asyncHandler } = require('../../middleware/errorHandler');
@@ -67,6 +68,7 @@ router.put('/me/profile',
 router.get('/me/dashboard',
   authenticate,
   authorize('doctor'),
+  requireApproval,
   asyncHandler(async (req, res) => {
     const dashboard = await doctorService.getDashboard(req.user.id);
     res.json({ success: true, data: dashboard });
@@ -321,7 +323,7 @@ router.get('/me/prescriptions',
       .select(`
         *,
         prescription_medicines (*),
-        patients!prescriptions_patient_id_fkey (id, name, phone),
+        patients!prescriptions_patient_id_fkey (id, name),
         consultations!prescriptions_consultation_id_fkey (id, appointment_id)
       `, { count: 'exact' })
       .eq('doctor_id', doctor.id)
@@ -333,7 +335,7 @@ router.get('/me/prescriptions',
     const prescriptions = (data || []).map(rx => ({
       id: rx.id,
       patientName: rx.patients?.name || 'Unknown',
-      patientPhone: rx.patients?.phone || '',
+      patientPhone: '',
       date: rx.created_at,
       diagnosis: rx.diagnosis,
       notes: rx.notes,

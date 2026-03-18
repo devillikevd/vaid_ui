@@ -15,12 +15,12 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikPurple
 
 /**
- * Placeholder screen shown when doctors try to log in via the app.
+ * Info screen shown when doctors try to log in via the app.
  * Doctor functionality is managed through the web dashboard.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DoctorComingSoonScreen(
+fun DoctorPortalScreen(
     onBackClick: () -> Unit
 ) {
     Scaffold(

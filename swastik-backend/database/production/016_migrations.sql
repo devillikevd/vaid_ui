@@ -89,12 +89,11 @@ ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS timeout_at TIMESTAMPTZ;
 -- CHECK CONSTRAINTS (data integrity safety nets)
 -- ============================================================
 
--- Dispatch mode validation
+-- Dispatch mode validation (may already exist from CREATE TABLE inline CHECK)
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'emergency_requests_dispatch_mode_check') THEN
-    ALTER TABLE emergency_requests ADD CONSTRAINT emergency_requests_dispatch_mode_check
-      CHECK (dispatch_mode IN ('sos_broadcast', 'hospital_controlled'));
-  END IF;
+  ALTER TABLE emergency_requests ADD CONSTRAINT emergency_requests_dispatch_mode_check
+    CHECK (dispatch_mode IN ('sos_broadcast', 'hospital_controlled'));
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Single patient profile per user
@@ -139,4 +138,54 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.check_constraints WHERE constraint_name = 'medicines_price_positive') THEN
     ALTER TABLE medicines ADD CONSTRAINT medicines_price_positive CHECK (price >= 0);
   END IF;
+END $$;
+
+-- ============================================================
+-- INDEXES for columns added above (must come after ALTER TABLE)
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_emergency_dispatch_mode ON emergency_requests(dispatch_mode);
+
+-- ============================================================
+-- VIEWS that depend on columns added above
+-- ============================================================
+CREATE OR REPLACE VIEW hospital_dispatch_view AS
+SELECT
+    er.id,
+    er.request_number,
+    er.requester_name,
+    er.requester_phone,
+    er.pickup_address,
+    er.pickup_latitude,
+    er.pickup_longitude,
+    er.emergency_type,
+    er.priority,
+    er.status,
+    er.dispatch_mode,
+    er.notes,
+    er.created_at,
+    er.assigned_at,
+    er.vehicle_id,
+    er.broadcast_round,
+    a.vehicle_number AS ambulance_vehicle_number,
+    a.driver_name AS ambulance_driver_name,
+    a.driver_phone AS ambulance_driver_phone,
+    a.vehicle_type AS ambulance_type,
+    p.name AS patient_name,
+    p.user_id AS patient_user_id
+FROM emergency_requests er
+LEFT JOIN ambulances a ON er.vehicle_id = a.id
+LEFT JOIN patients p ON er.patient_id = p.id
+WHERE er.status NOT IN ('completed', 'cancelled')
+ORDER BY
+    CASE er.priority
+        WHEN 'critical' THEN 1
+        WHEN 'high' THEN 2
+        ELSE 3
+    END,
+    er.created_at ASC;
+
+DO $$
+BEGIN
+    GRANT SELECT ON hospital_dispatch_view TO authenticated;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;

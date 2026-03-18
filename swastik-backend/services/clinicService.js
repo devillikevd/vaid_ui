@@ -5,6 +5,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
+const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 
 // Search clinics
@@ -68,6 +69,8 @@ const getClinicById = async (id) => {
     .from('clinics')
     .select('*')
     .eq('id', id)
+    .eq('is_active', true)
+    .eq('is_approved', true)
     .single();
 
   if (error || !data) {
@@ -142,7 +145,7 @@ const getDashboard = async (clinicId, userId) => {
     supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today),
     supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId),
-    supabaseAdmin.from('appointments').select('*, patient:patients(name, phone), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).order('appointment_date', { ascending: false }).limit(10),
   ]);
 
   const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
@@ -159,6 +162,17 @@ const getDashboard = async (clinicId, userId) => {
 
 // Update clinic
 const updateClinic = async (clinicId, userId, updates) => {
+  const { data: existingClinic, error: existingClinicError } = await supabaseAdmin
+    .from('clinics')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .eq('id', clinicId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (existingClinicError || !existingClinic) {
+    throw existingClinicError || new ApiError(404, 'Clinic not found');
+  }
+
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'specializations', 'description', 'opening_hours',
@@ -167,6 +181,7 @@ const updateClinic = async (clinicId, userId, updates) => {
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+  Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingClinic, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -225,7 +240,7 @@ const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit =
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('appointments')
-    .select('*, patient:patients(name, phone), doctor:doctors(name, specialization)', { count: 'exact' })
+    .select('*, patient:patients(name), doctor:doctors(name, specialization)', { count: 'exact' })
     .eq('clinic_id', clinicId);
 
   if (filters.status) query = query.eq('status', filters.status);
@@ -260,7 +275,7 @@ const getConsultations = async (userId, page = 1, limit = 20, status) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name, phone), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
     .in('doctor_id', doctorIds);
 
   if (status) query = query.eq('status', status);
@@ -278,14 +293,28 @@ const getConsultations = async (userId, page = 1, limit = 20, status) => {
 
 // Get clinic doctors (public — for patient discovery)
 const getClinicDoctorsPublic = async (clinicId) => {
+  const { data: clinic, error: clinicError } = await supabaseAdmin
+    .from('clinics')
+    .select('id')
+    .eq('id', clinicId)
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .maybeSingle();
+
+  if (clinicError) throw clinicError;
+  if (!clinic) throw new ApiError(404, 'Clinic not found');
+
   const { data, error } = await supabaseAdmin
     .from('clinic_doctors')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, experience_years)')
+    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, experience_years, is_approved)')
     .eq('clinic_id', clinicId)
     .eq('is_active', true);
 
   if (error) throw error;
-  return (data || []).map(cd => cd.doctor).filter(Boolean);
+  return (data || [])
+    .map(cd => cd.doctor)
+    .filter((doctor) => doctor?.is_approved === true)
+    .map(({ is_approved: _ignored, ...doctor }) => doctor);
 };
 
 module.exports = {

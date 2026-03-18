@@ -187,8 +187,19 @@ const initializeSocketIO = (io) => {
         }
       } else if (['ambulance_operator', 'ambulance_driver'].includes(socket.userRole)) {
         // Verify the ambulance operator/driver is assigned to this request
+        let operatorId = null;
+        if (socket.userRole === 'ambulance_operator') {
+          const { data: operator } = await supabaseAdmin
+            .from('ambulance_operators').select('id').eq('user_id', userId).maybeSingle();
+          operatorId = operator?.id || null;
+        }
+
         const { data: ambulance } = await supabaseAdmin
-          .from('ambulances').select('id').eq('operator_id', userId).limit(1).maybeSingle();
+          .from('ambulances')
+          .select('id')
+          .or(`operator_id.eq.${operatorId || '00000000-0000-0000-0000-000000000000'},driver_user_id.eq.${userId}`)
+          .limit(1)
+          .maybeSingle();
         if (ambulance) {
           const { data: request } = await supabaseAdmin
             .from('emergency_requests').select('id').eq('id', requestId)

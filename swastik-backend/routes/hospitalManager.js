@@ -8,14 +8,14 @@ const { body, param, query } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const hospitalManagerService = require('../services/hospitalManagerService');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../utils/helpers');
 
 // All routes require authentication
 router.use(authenticate);
 
 // Dashboard
-router.get('/dashboard', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+router.get('/dashboard', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval, asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const dashboard = await hospitalManagerService.getDashboard(hospital.id, req.user.id);
     res.json({ success: true, ...dashboard });

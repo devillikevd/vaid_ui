@@ -14,13 +14,33 @@ const express = require('express');
 const { query, body } = require('express-validator');
 const { validate, validateUUID } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
-const { requireRole, ROLES } = require('../../middleware/rbac');
+const { requireRole, requireApproval, ROLES } = require('../../middleware/rbac');
 const ambulanceService = require('../../services/ambulanceService');
 const dispatchService = require('../../services/dispatchService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
 
 const router = express.Router();
+
+const getVehiclesForUser = async (user) => {
+  let query = supabaseAdmin.from('ambulances').select('*').order('created_at', { ascending: false });
+
+  if (user.role === ROLES.AMBULANCE_OPERATOR) {
+    const { data: operator } = await supabaseAdmin
+      .from('ambulance_operators')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!operator) return [];
+    query = query.eq('operator_id', operator.id);
+  } else if (user.role === ROLES.AMBULANCE_DRIVER) {
+    query = query.eq('driver_user_id', user.id);
+  }
+
+  const { data: vehicles } = await query;
+  return vehicles || [];
+};
 
 // =====================================================================
 // PUBLIC
@@ -140,7 +160,14 @@ router.post('/request/hospital', authenticate,
 
 router.post('/:requestId/assign', authenticate,
   requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.AMBULANCE_OPERATOR),
-  [validateUUID('requestId'), body('ambulanceId').isUUID()], validate,
+  [
+    validateUUID('requestId'),
+    body('ambulanceId')
+      .isString()
+      .matches(/^[0-9a-fA-F-]{36}$/)
+      .withMessage('ambulanceId must be a valid UUID-like identifier'),
+  ],
+  validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.hospitalAssignAmbulance(req.user.id, req.params.requestId, req.body.ambulanceId);
     res.json({ success: true, data: result });
@@ -171,9 +198,9 @@ router.get('/hospital/emergencies', authenticate,
 
 router.get('/dashboard', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  requireApproval,
   asyncHandler(async (req, res) => {
-    const { data: vehicles } = await supabaseAdmin.from('ambulances').select('*')
-      .eq('operator_id', req.user.id).order('created_at', { ascending: false });
+    const vehicles = await getVehiclesForUser(req.user);
     const vehicleIds = (vehicles || []).map(v => v.id);
 
     let activeRequests = [];
@@ -230,7 +257,7 @@ router.get('/dashboard', authenticate,
     }));
 
     const vehicleList = (vehicles || []).map(v => ({
-      id: v.id, vehicleNumber: v.vehicle_number, driver: v.driver_name || 'Unassigned',
+      id: v.id, vehicleNumber: v.vehicle_number, driver: v.driver_name || null,
       driverPhone: v.driver_phone, status: v.status || 'available', type: v.vehicle_type,
       latitude: v.current_latitude, longitude: v.current_longitude,
     }));
@@ -246,10 +273,9 @@ router.get('/dashboard', authenticate,
 router.get('/vehicles', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
-    const { data: vehicles } = await supabaseAdmin.from('ambulances').select('*')
-      .eq('operator_id', req.user.id).order('created_at', { ascending: false });
+    const vehicles = await getVehiclesForUser(req.user);
     res.json({ success: true, vehicles: (vehicles || []).map(v => ({
-      id: v.id, vehicleNumber: v.vehicle_number, driver: v.driver_name || 'Unassigned',
+      id: v.id, vehicleNumber: v.vehicle_number, driver: v.driver_name || null,
       driverPhone: v.driver_phone, status: v.status || 'available', type: v.vehicle_type,
       latitude: v.current_latitude, longitude: v.current_longitude,
     })) });
@@ -263,6 +289,35 @@ router.get('/vehicles', authenticate,
 router.get('/track/:requestId', authenticate,
   [validateUUID('requestId')], validate,
   asyncHandler(async (req, res) => {
+  const { data: reqData, error: reqError } = await supabaseAdmin
+    .from('emergency_requests')
+    .select('id, patient_id, vehicle:ambulances(id, operator_id), patient:patients(id, user_id)')
+    .eq('id', req.params.requestId)
+    .maybeSingle();
+
+  if (reqError || !reqData) {
+    return res.status(404).json({ success: false, message: 'Emergency request not found' });
+  }
+
+  let isPatient = reqData.patient?.user_id === req.user.id;
+  if (!isPatient && req.user.role === 'patient' && reqData.patient_id) {
+    const { data: mePatient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+    isPatient = mePatient?.id === reqData.patient_id;
+  }
+
+  const isOperator = reqData.vehicle?.operator_id === req.user.id;
+  const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+  const isHospitalOwner = ['hospital_owner', 'hospital_manager'].includes(req.user.role);
+  const isAmbulanceRole = ['ambulance_operator', 'ambulance_driver'].includes(req.user.role);
+
+  if (!isPatient && !isOperator && !isAdmin && !isHospitalOwner && !isAmbulanceRole) {
+    return res.status(403).json({ success: false, message: 'You do not have permission to track this request' });
+  }
+
   const data = await ambulanceService.getAmbulanceLocation(req.params.requestId);
   res.json({ success: true, data });
 }));
@@ -271,12 +326,42 @@ router.get('/request/:id', authenticate,
   [validateUUID('id')], validate,
   asyncHandler(async (req, res) => {
   const { data, error } = await supabaseAdmin.from('emergency_requests')
-    .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude, operator_id), patient:patients(id, name, phone, user_id)')
+    .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude, operator_id), patient:patients(id, name, user_id)')
     .eq('id', req.params.id).single();
   if (error || !data) return res.status(404).json({ success: false, message: 'Emergency request not found' });
 
   // SECURITY FIX: Ownership check — only the patient, the assigned driver/operator, or admin can view
-  const isPatient = data.patient?.user_id === req.user.id;
+  let isPatient = data.patient?.user_id === req.user.id;
+  if (!isPatient && req.user.role === 'patient') {
+    // Fallback 1: match via patients table (patient_id → patients.id → user_id)
+    if (data.patient_id) {
+      const { data: mePatient } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+      if (mePatient?.id === data.patient_id) isPatient = true;
+    }
+    // Fallback 2: match by user_id stored directly on the request
+    if (!isPatient && data.user_id === req.user.id) isPatient = true;
+    // Fallback 3: look up the patient row for this user and compare
+    if (!isPatient) {
+      const { data: mePatient2 } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+      if (mePatient2) {
+        const { data: reqCheck } = await supabaseAdmin
+          .from('emergency_requests')
+          .select('id')
+          .eq('id', req.params.id)
+          .eq('patient_id', mePatient2.id)
+          .maybeSingle();
+        if (reqCheck) isPatient = true;
+      }
+    }
+  }
   const isOperator = data.vehicle?.operator_id === req.user.id;
   const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
   const isHospitalOwner = ['hospital_owner', 'hospital_manager'].includes(req.user.role);

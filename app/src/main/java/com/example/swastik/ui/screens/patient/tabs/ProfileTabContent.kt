@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.swastik.data.local.AppSettingsStore
+import com.example.swastik.data.local.NotificationPreferences
+import com.example.swastik.data.local.ThemePreference
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.theme.*
@@ -49,6 +52,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import com.example.swastik.utils.ImageCompressor
+import com.example.swastik.utils.ProfileValidation
 
 @Composable
 fun ProfileTabContent(
@@ -84,7 +88,7 @@ fun ProfileTabContent(
                 val compressed = ImageCompressor.compressFromUri(context, it)
                 if (compressed != null) {
                     val requestBody = compressed.bytes.toRequestBody(compressed.mimeType.toMediaTypeOrNull())
-                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
+                    val imagePart = MultipartBody.Part.createFormData("file", "profile.jpg", requestBody)
                     viewModel?.uploadProfileImage(imagePart)
                 } else {
                     // Fallback: upload without compression
@@ -92,7 +96,7 @@ fun ProfileTabContent(
                     val bytes = inputStream?.readBytes() ?: return@let
                     inputStream.close()
                     val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
+                    val imagePart = MultipartBody.Part.createFormData("file", "profile.jpg", requestBody)
                     viewModel?.uploadProfileImage(imagePart)
                 }
             } catch (e: Exception) {
@@ -441,7 +445,7 @@ private fun EditProfileDialog(
                             singleLine = true
                         )
                         ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
-                            listOf("male", "female", "other").forEach { g ->
+                            ProfileValidation.GENDER_OPTIONS.forEach { g ->
                                 DropdownMenuItem(
                                     text = { Text(g.replaceFirstChar { it.uppercase() }) },
                                     onClick = { gender = g; genderExpanded = false }
@@ -465,7 +469,7 @@ private fun EditProfileDialog(
                         singleLine = true
                     )
                     ExposedDropdownMenu(expanded = bloodGroupExpanded, onDismissRequest = { bloodGroupExpanded = false }) {
-                        listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-").forEach { bg ->
+                        ProfileValidation.BLOOD_GROUP_OPTIONS.forEach { bg ->
                             DropdownMenuItem(
                                 text = { Text(bg) },
                                 onClick = { bloodGroup = bg; bloodGroupExpanded = false }
@@ -509,25 +513,16 @@ private fun EditProfileDialog(
                     val parsedWeight = weight.toFloatOrNull()
                     val parsedHeight = height.toFloatOrNull()
 
-                    when {
-                        name.isBlank() || name.length < 2 -> {
-                            validationError = "Name must be at least 2 characters"
-                            return@Button
-                        }
-                        age.isNotBlank() && (parsedAge == null || parsedAge < 1 || parsedAge > 150) -> {
-                            validationError = "Age must be between 1 and 150"
-                            return@Button
-                        }
-                        weight.isNotBlank() && (parsedWeight == null || parsedWeight < 1 || parsedWeight > 500) -> {
-                            validationError = "Weight must be between 1 and 500 kg"
-                            return@Button
-                        }
-                        height.isNotBlank() && (parsedHeight == null || parsedHeight < 30 || parsedHeight > 300) -> {
-                            validationError = "Height must be between 30 and 300 cm"
-                            return@Button
-                        }
-                    }
-                    validationError = null
+                    validationError = ProfileValidation.validate(
+                        name = name,
+                        age = parsedAge,
+                        weight = parsedWeight,
+                        height = parsedHeight,
+                        gender = gender.ifBlank { null },
+                        bloodGroup = bloodGroup.ifBlank { null }
+                    )
+                    if (validationError != null) return@Button
+
                     onSave(
                         UpdateProfileRequest(
                             name = name.ifBlank { null },
@@ -553,7 +548,8 @@ private fun EditProfileDialog(
 
 @Composable
 private fun LanguagePickerDialog(onDismiss: () -> Unit) {
-    var selected by remember { mutableStateOf("English") }
+    val appSettings by AppSettingsStore.settings.collectAsState()
+    var selected by remember(appSettings.language) { mutableStateOf(appSettings.language) }
     val languages = listOf("English", "Hindi", "Bengali", "Telugu", "Tamil", "Kannada", "Marathi")
     val context = LocalContext.current
 
@@ -591,6 +587,7 @@ private fun LanguagePickerDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = {
+                    AppSettingsStore.updateLanguage(selected)
                     Toast.makeText(context, "Language set to $selected", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
@@ -605,7 +602,8 @@ private fun LanguagePickerDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun AppearanceDialog(onDismiss: () -> Unit) {
-    var selected by remember { mutableStateOf("Light") }
+    val appSettings by AppSettingsStore.settings.collectAsState()
+    var selected by remember(appSettings.themePreference) { mutableStateOf(appSettings.themePreference) }
     val context = LocalContext.current
 
     AlertDialog(
@@ -620,10 +618,10 @@ private fun AppearanceDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
-                    "Light" to Icons.Outlined.LightMode,
-                    "Dark" to Icons.Outlined.DarkMode,
-                    "System" to Icons.Outlined.SettingsBrightness
-                ).forEach { (mode, icon) ->
+                    Triple(ThemePreference.LIGHT, "Light", Icons.Outlined.LightMode),
+                    Triple(ThemePreference.DARK, "Dark", Icons.Outlined.DarkMode),
+                    Triple(ThemePreference.SYSTEM, "System", Icons.Outlined.SettingsBrightness)
+                ).forEach { (mode, label, icon) ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -640,7 +638,7 @@ private fun AppearanceDialog(onDismiss: () -> Unit) {
                         ) {
                             Icon(icon, null, tint = if (selected == mode) SwastikPurple else Color.Gray)
                             Spacer(Modifier.width(12.dp))
-                            Text(mode, fontWeight = if (selected == mode) FontWeight.SemiBold else FontWeight.Normal)
+                            Text(label, fontWeight = if (selected == mode) FontWeight.SemiBold else FontWeight.Normal)
                             Spacer(Modifier.weight(1f))
                             if (selected == mode) {
                                 Icon(Icons.Default.CheckCircle, null, tint = SwastikPurple)
@@ -653,7 +651,8 @@ private fun AppearanceDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = {
-                    Toast.makeText(context, "Theme set to $selected", Toast.LENGTH_SHORT).show()
+                    AppSettingsStore.updateTheme(selected)
+                    Toast.makeText(context, "Theme set to ${selected.name.lowercase().replaceFirstChar { it.uppercase() }}", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
@@ -667,11 +666,13 @@ private fun AppearanceDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun NotificationSettingsDialog(onDismiss: () -> Unit) {
-    var appointments by remember { mutableStateOf(true) }
-    var medicines by remember { mutableStateOf(true) }
-    var reports by remember { mutableStateOf(true) }
-    var promotions by remember { mutableStateOf(false) }
-    var sound by remember { mutableStateOf(true) }
+    val appSettings by AppSettingsStore.settings.collectAsState()
+    val storedPreferences = appSettings.notificationPreferences
+    var appointments by remember(storedPreferences) { mutableStateOf(storedPreferences.appointments) }
+    var medicines by remember(storedPreferences) { mutableStateOf(storedPreferences.medicines) }
+    var reports by remember(storedPreferences) { mutableStateOf(storedPreferences.reports) }
+    var promotions by remember(storedPreferences) { mutableStateOf(storedPreferences.promotions) }
+    var sound by remember(storedPreferences) { mutableStateOf(storedPreferences.sound) }
     val context = LocalContext.current
 
     AlertDialog(
@@ -696,6 +697,15 @@ private fun NotificationSettingsDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = {
+                    AppSettingsStore.updateNotificationPreferences(
+                        NotificationPreferences(
+                            appointments = appointments,
+                            medicines = medicines,
+                            reports = reports,
+                            promotions = promotions,
+                            sound = sound
+                        )
+                    )
                     Toast.makeText(context, "Notification preferences saved", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
@@ -843,7 +853,7 @@ private fun EmergencyContactsDialog(
                             )
                             OutlinedTextField(
                                 value = newRelation, onValueChange = { newRelation = it },
-                                label = { Text("Relation (e.g. Father, Spouse)") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Relation") }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             Button(
@@ -959,7 +969,7 @@ private fun FamilyMembersDialog(
                             )
                             OutlinedTextField(
                                 value = newRelation, onValueChange = { newRelation = it },
-                                label = { Text("Relation (e.g. Father, Mother, Spouse)") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Relation") }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             OutlinedTextField(

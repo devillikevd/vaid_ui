@@ -2,6 +2,7 @@ package com.example.swastik.ambulance.data.repository
 
 import android.util.Log
 import com.example.swastik.ambulance.data.local.TokenManager
+import com.example.swastik.ambulance.data.remote.ApiErrorParser
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
 import com.example.swastik.ambulance.data.remote.dto.*
@@ -14,9 +15,49 @@ class AuthRepository @Inject constructor(
     private val tokenManager: TokenManager,
     private val socketManager: SocketManager
 ) {
+    suspend fun registerOperator(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        companyName: String?
+    ): Result<String> {
+        return try {
+            val response = apiService.register(
+                RegisterRequest(
+                    email = email.trim(),
+                    phone = phone.trim(),
+                    password = password,
+                    name = name.trim(),
+                    companyName = companyName?.trim()?.takeIf { it.isNotBlank() }
+                )
+            )
+
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(
+                    response.body()?.data?.message
+                        ?: "Registration submitted. Verify your email, then wait for admin approval."
+                )
+            } else {
+                val errorMsg = ApiErrorParser.from(response, response.body()?.message ?: "Registration failed")
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepo", "Register error", e)
+            Result.failure(e)
+        }
+    }
+
     suspend fun login(email: String, password: String): Result<UserDto> {
         return try {
-            val response = apiService.login(LoginRequest(email, password))
+            val response = run {
+                val operatorAttempt = apiService.login(LoginRequest(email, password, role = "ambulance_operator"))
+                if (operatorAttempt.isSuccessful || operatorAttempt.code() != 403) {
+                    operatorAttempt
+                } else {
+                    apiService.login(LoginRequest(email, password, role = "ambulance_driver"))
+                }
+            }
             if (response.isSuccessful) {
                 val body = response.body()
                 val accessToken = body?.resolvedAccessToken()
@@ -27,7 +68,7 @@ class AuthRepository @Inject constructor(
                     if (user.role !in listOf("ambulance_operator", "ambulance_driver")) {
                         return Result.failure(Exception("This app is for ambulance operators and drivers only"))
                     }
-                    val expiresIn = body?.resolvedExpiresIn() ?: 604800L
+                    val expiresIn = body.resolvedExpiresIn()
                     tokenManager.saveTokens(accessToken, refreshToken, expiresIn)
                     tokenManager.saveUserId(user.id)
                     tokenManager.saveUserName(user.name ?: user.email)
@@ -40,11 +81,7 @@ class AuthRepository @Inject constructor(
                     Result.failure(Exception(body?.message ?: "Login failed"))
                 }
             } else {
-                val errorMsg = try {
-                    val errorBody = response.errorBody()?.string()
-                    val json = org.json.JSONObject(errorBody ?: "{}")
-                    json.optString("message", "Login failed")
-                } catch (_: Exception) { "Login failed" }
+                val errorMsg = ApiErrorParser.from(response, "Login failed")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
@@ -75,8 +112,11 @@ class AuthRepository @Inject constructor(
                 val newAccess = refreshBody?.resolvedAccessToken()
                 val newRefresh = refreshBody?.resolvedRefreshToken() ?: refreshToken
                 if (newAccess != null) {
-                    val expiresIn = refreshBody?.resolvedExpiresIn() ?: 604800L
+                    val expiresIn = refreshBody.resolvedExpiresIn()
                     tokenManager.saveTokens(newAccess, newRefresh, expiresIn)
+                    if (socketManager.isConnected) {
+                        socketManager.reconnect(newAccess)
+                    }
                     return true
                 }
             }

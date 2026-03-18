@@ -207,8 +207,8 @@ fun VideoCallScreen(
 fun WebRTCVideoView(
     videoTrack: VideoTrack,
     eglContext: EglBase.Context,
-    mirror: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mirror: Boolean = false
 ) {
     val context = LocalContext.current
 
