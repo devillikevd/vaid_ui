@@ -110,7 +110,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         try {
             const response = await adminApi.getDashboard();
             if (!response.success) {
-                set({ error: response.error || 'Failed to fetch dashboard', loadingDashboard: false, isLoading: false });
+                set({
+                    stats: null,
+                    providerCounts: null,
+                    providerCategories: [],
+                    recentActions: [],
+                    alerts: [],
+                    error: response.error || 'Failed to fetch dashboard',
+                    loadingDashboard: false,
+                    isLoading: false,
+                });
                 return;
             }
             const data = response.data as Record<string, unknown>;
@@ -125,14 +134,44 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             });
         } catch (error) {
             console.error('Error fetching admin dashboard:', error);
-            set({ error: 'Network error. Please check backend connection.', loadingDashboard: false, isLoading: false });
+            set({
+                stats: null,
+                providerCounts: null,
+                providerCategories: [],
+                recentActions: [],
+                alerts: [],
+                error: 'Network error. Please check backend connection.',
+                loadingDashboard: false,
+                isLoading: false,
+            });
         }
     },
 
     fetchPendingApprovals: async (type = 'all') => {
         set({ loadingApprovals: true });
         try {
-            const response = await adminApi.getPendingApprovals(type);
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                if (!rawType || rawType === 'all') return 'all';
+                const normalized = rawType.trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+
+            const response = await adminApi.getPendingApprovals(normalizeProviderTypeForApi(type));
             if (response.success) {
                 const rawData = response.data as any;
 
@@ -168,7 +207,27 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     fetchProviderDetails: async (type, id) => {
         try {
-            const response = await adminApi.getProviderDetails(type, id);
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                const normalized = (rawType || '').trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+
+            const response = await adminApi.getProviderDetails(normalizeProviderTypeForApi(type), id);
             if (response.success) {
                 return response.data as PendingProvider;
             }
@@ -180,7 +239,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     approveProvider: async (id, type, notes) => {
         try {
-            const providerType = type.toLowerCase().endsWith('s') ? type.toLowerCase() : type.toLowerCase() + 's';
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                const normalized = (rawType || '').trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+            const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.approveProvider(providerType, id, notes);
             if (response.success) {
                 get().fetchPendingApprovals();
@@ -198,7 +276,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     rejectProvider: async (id, type, reason) => {
         try {
-            const providerType = type.toLowerCase().endsWith('s') ? type.toLowerCase() : type.toLowerCase() + 's';
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                const normalized = (rawType || '').trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+            const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.rejectProvider(providerType, id, reason);
             if (response.success) {
                 get().fetchPendingApprovals();
@@ -216,7 +313,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     suspendProvider: async (id, type, reason) => {
         try {
-            const providerType = type.toLowerCase().endsWith('s') ? type.toLowerCase() : type.toLowerCase() + 's';
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                const normalized = (rawType || '').trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+            const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.suspendProvider(providerType, id, reason);
             if (response.success) {
                 get().fetchDashboardData();
@@ -232,7 +348,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     reactivateProvider: async (id, type, notes) => {
         try {
-            const providerType = type.toLowerCase().endsWith('s') ? type.toLowerCase() : type.toLowerCase() + 's';
+            const normalizeProviderTypeForApi = (rawType: string): string => {
+                const normalized = (rawType || '').trim().toLowerCase();
+                const map: Record<string, string> = {
+                    doctors: 'doctor',
+                    doctor: 'doctor',
+                    hospitals: 'hospital',
+                    hospital: 'hospital',
+                    clinics: 'clinic',
+                    clinic: 'clinic',
+                    pharmacies: 'pharmacy',
+                    pharmacy: 'pharmacy',
+                    diagnosticcenters: 'diagnostic_center',
+                    diagnostic_centers: 'diagnostic_center',
+                    diagnostic_center: 'diagnostic_center',
+                    ambulances: 'ambulance',
+                    ambulance: 'ambulance',
+                };
+                return map[normalized] || normalized;
+            };
+            const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.reactivateProvider(providerType, id, notes);
             if (response.success) {
                 get().fetchDashboardData();

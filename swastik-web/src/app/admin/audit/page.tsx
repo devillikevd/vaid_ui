@@ -53,9 +53,33 @@ export default function AuditPage() {
         try {
             const result = await adminApi.getAuditLogs(page);
             if (!result.success) throw new Error('Failed to fetch audit logs');
-            const apiData = (result.data as any)?.data || (result.data as any)?.logs || [];
-            setLogs(Array.isArray(apiData) ? apiData : []);
-            setTotalPages((result.data as any)?.totalPages || 1);
+
+            const rows = Array.isArray(result.data) ? result.data : [];
+            const normalized: AuditLog[] = rows.map((row: any) => {
+                const actionRaw = String(row.action || row.eventType || 'update');
+                const action = actionRaw.toLowerCase();
+                const user = row.user?.name || row.userName || row.actorName || row.user || 'System';
+                const userRole = row.userRole || row.actorRole || row.role || 'unknown';
+                const description = row.description
+                    || row.message
+                    || row.details?.message
+                    || `${actionRaw} action performed`;
+
+                return {
+                    id: row._id || row.id || `${actionRaw}-${row.createdAt || row.timestamp || Math.random()}`,
+                    action,
+                    description,
+                    user,
+                    userRole,
+                    target: row.entityId || row.resourceId || row.target,
+                    timestamp: row.createdAt || row.timestamp || new Date().toISOString(),
+                    ip: row.ipAddress || row.ip,
+                    resourceType: row.resourceType || row.entityType,
+                };
+            });
+
+            setLogs(normalized);
+            setTotalPages(result.pagination?.totalPages || 1);
         } catch (err) {
             console.error('Error fetching audit logs:', err);
             setError('Failed to load audit logs');

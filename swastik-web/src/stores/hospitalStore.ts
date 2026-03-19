@@ -104,9 +104,25 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
             const data = response.data as Record<string, unknown>;
             // Also check if stats/departments came as siblings on response itself
             const resp = response as Record<string, unknown>;
+            const departments = ((data.departments || resp.departments || []) as Department[]);
+            const rawStats = ((data.stats || resp.stats || {}) as Record<string, unknown>);
+
+            const normalizedStats: HospitalDashboardStats = {
+                totalDoctors: Number(rawStats.totalDoctors || 0),
+                totalAppointments: Number(rawStats.totalAppointments || 0),
+                totalPatients: Number(rawStats.totalPatients || 0),
+                // backend can send either todayAppointments or legacy todaysAppointments
+                todayAppointments: Number(rawStats.todayAppointments || rawStats.todaysAppointments || 0),
+                todaysAppointments: Number(rawStats.todaysAppointments || rawStats.todayAppointments || 0),
+                // if backend omits departments count, derive from list length
+                departments: Number(rawStats.departments || departments.length || 0),
+                bedCapacity: (rawStats.bedCapacity as string)
+                    || (rawStats.bed_capacity != null ? `${rawStats.bed_capacity} beds` : undefined),
+            };
+
             set({
-                stats: (data.stats || resp.stats || null) as HospitalDashboardStats | null,
-                departments: ((data.departments || resp.departments || []) as Department[]),
+                stats: normalizedStats,
+                departments,
                 loadingDashboard: false,
                 isLoading: false,
             });

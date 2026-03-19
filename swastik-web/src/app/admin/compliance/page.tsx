@@ -31,8 +31,36 @@ export default function CompliancePage() {
         try {
             const result = await adminApi.getComplianceDocuments(days);
             if (!result.success) throw new Error('Failed to fetch compliance data');
-            const apiData = (result.data as any)?.data || (result.data as any) || [];
-            setDocuments(Array.isArray(apiData) ? apiData : []);
+            const payload = result.data as any;
+            const apiDocuments = Array.isArray(payload?.documents) ? payload.documents : null;
+
+            if (apiDocuments) {
+                setDocuments(apiDocuments);
+                return;
+            }
+
+            const operators = Array.isArray(payload?.operators) ? payload.operators : [];
+            const nowTs = Date.now();
+
+            const normalized: ExpiringDocument[] = operators.map((op: any) => {
+                const expiryDate = op.license_expiry || op.expiryDate || op.expiry_date || null;
+                const expiryTs = expiryDate ? new Date(expiryDate).getTime() : Number.NaN;
+                const daysUntilExpiry = Number.isFinite(expiryTs)
+                    ? Math.ceil((expiryTs - nowTs) / (1000 * 60 * 60 * 24))
+                    : 0;
+
+                return {
+                    id: op.id,
+                    providerName: op.name || 'Unknown',
+                    providerType: 'ambulance_operator',
+                    documentType: 'Operator License',
+                    expiryDate: expiryDate || new Date().toISOString(),
+                    status: daysUntilExpiry <= 0 ? 'expired' : daysUntilExpiry <= 7 ? 'expiring_soon' : 'valid',
+                    daysUntilExpiry,
+                };
+            });
+
+            setDocuments(normalized);
         } catch (err) {
             console.error('Error fetching compliance data:', err);
             setError('Failed to load compliance data');

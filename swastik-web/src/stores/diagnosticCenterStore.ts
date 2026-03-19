@@ -116,10 +116,25 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 return;
             }
             const data = response.data as Record<string, unknown>;
-            const recentBookings = ((data.recentBookings || data.todaysBookings || data.bookings || []) as Record<string, any>[]).map(normalizeDiagnosticBooking);
+            const rawStats = (data.stats || {}) as Record<string, unknown>;
+            const todaysRaw = ((data.todaysBookings || data.todayBookings || []) as Record<string, any>[]);
+            const recentBookings = ((data.recentBookings || data.bookings || []) as Record<string, any>[]).map(normalizeDiagnosticBooking);
+            // Fallback: if backend doesn't provide explicit today's rows, derive from recent list by date
+            const derivedToday = recentBookings.filter((b) => {
+                if (!b.booking_date) return false;
+                return new Date(b.booking_date).toDateString() === new Date().toDateString();
+            });
+            const todaysBookings = (todaysRaw.length > 0 ? todaysRaw.map(normalizeDiagnosticBooking) : derivedToday);
+
+            const normalizedStats: DiagnosticDashboardStats = {
+                totalTests: Number(rawStats.totalTests || 0),
+                todaysBookings: Number(rawStats.todaysBookings || rawStats.todayBookings || todaysBookings.length || 0),
+                pendingResults: Number(rawStats.pendingResults || 0),
+                totalPatients: Number(rawStats.totalPatients || 0),
+            };
             set({
-                stats: (data.stats as DiagnosticDashboardStats) || null,
-                todaysBookings: recentBookings,
+                stats: normalizedStats,
+                todaysBookings,
                 loadingDashboard: false,
                 isLoading: false,
             });

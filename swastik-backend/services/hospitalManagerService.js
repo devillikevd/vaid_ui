@@ -45,6 +45,7 @@ const getDashboard = async (hospitalId, userId) => {
   const today = new Date().toISOString().split('T')[0];
 
   const [
+    { data: hospitalMeta },
     { count: totalDoctors },
     { count: todayAppointments },
     { count: totalAppointments },
@@ -52,6 +53,11 @@ const getDashboard = async (hospitalId, userId) => {
     { data: recentAppointments },
     { data: departments },
   ] = await Promise.all([
+    supabaseAdmin
+      .from('hospitals')
+      .select('bed_capacity, bed_count')
+      .eq('id', hospitalId)
+      .maybeSingle(),
     supabaseAdmin.from('hospital_doctors').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId).eq('appointment_date', today),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId),
@@ -62,15 +68,23 @@ const getDashboard = async (hospitalId, userId) => {
 
   const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
 
+  const departmentList = departments || [];
+  const beds = hospitalMeta?.bed_capacity ?? hospitalMeta?.bed_count ?? null;
+
   return {
     stats: {
       totalDoctors: totalDoctors || 0,
       todayAppointments: todayAppointments || 0,
+      // Alias for existing web UI key
+      todaysAppointments: todayAppointments || 0,
       totalAppointments: totalAppointments || 0,
       totalPatients: uniquePatients,
+      // UI reads this from stats
+      departments: departmentList.length,
+      bedCapacity: beds != null ? `${beds} beds` : undefined,
     },
     recentAppointments: recentAppointments || [],
-    departments: departments || [],
+    departments: departmentList,
   };
 };
 
@@ -89,7 +103,7 @@ const updateHospital = async (hospitalId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'description', 'opening_hours', 'facilities',
-    'profile_image_url', 'emergency_available', 'bed_count', 'specializations'];
+    'profile_image_url', 'emergency_available', 'bed_count', 'bed_capacity', 'specializations'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];

@@ -139,23 +139,42 @@ const getDashboard = async (clinicId, userId) => {
   const [
     { count: totalDoctors },
     { count: todayAppointments },
+    { count: walkInsToday },
     { data: patientRows },
+    { data: todayAppointmentRows },
     { data: recentAppointments },
   ] = await Promise.all([
     supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today),
-    supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId),
-    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).eq('type', 'clinic').not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
+    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
   ]);
 
-  const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
+  const patientIds = (patientRows || []).map((r) => r.patient_id).filter(Boolean);
+  const uniquePatients = new Set(patientIds).size;
+  const patientVisitCounts = patientIds.reduce((acc, pid) => {
+    acc[pid] = (acc[pid] || 0) + 1;
+    return acc;
+  }, {});
+  const repeatPatientCount = Object.values(patientVisitCounts).filter((n) => n > 1).length;
+  const repeatPatients = uniquePatients > 0
+    ? `${Math.round((repeatPatientCount / uniquePatients) * 100)}%`
+    : '0%';
 
   return {
     stats: {
       totalDoctors: totalDoctors || 0,
       todayAppointments: todayAppointments || 0,
+      // Aliases for clinic web UI compatibility
+      totalStaff: totalDoctors || 0,
+      todaysAppointments: todayAppointments || 0,
+      walkInsToday: walkInsToday || 0,
+      repeatPatients,
       totalPatients: uniquePatients,
     },
+    todayAppointments: todayAppointmentRows || [],
     recentAppointments: recentAppointments || [],
   };
 };
@@ -176,11 +195,20 @@ const updateClinic = async (clinicId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'specializations', 'description', 'opening_hours',
-    'profile_image_url', 'facilities'];
+    'profile_image_url', 'image_url', 'profile_image', 'is_24_hours', 'facilities'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+
+  // Backward/forward compatibility for mixed frontend payload keys
+  if (safeUpdates.profile_image_url === undefined) {
+    if (safeUpdates.image_url !== undefined) safeUpdates.profile_image_url = safeUpdates.image_url;
+    else if (safeUpdates.profile_image !== undefined) safeUpdates.profile_image_url = safeUpdates.profile_image;
+  }
+  delete safeUpdates.image_url;
+  delete safeUpdates.profile_image;
+
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingClinic, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
 
@@ -194,6 +222,41 @@ const updateClinic = async (clinicId, userId, updates) => {
 
   if (error) throw error;
   return data;
+};
+
+// Get clinic operating schedule
+const getSchedule = async (clinicId, userId) => {
+  const { data, error } = await supabaseAdmin
+    .from('clinics')
+    .select('opening_hours')
+    .eq('id', clinicId)
+    .eq('owner_id', userId)
+    .single();
+
+  if (error || !data) {
+    throw error || new ApiError(404, 'Clinic not found');
+  }
+
+  return data.opening_hours || [];
+};
+
+// Update clinic operating schedule
+const updateSchedule = async (clinicId, userId, schedule) => {
+  const payload = {
+    opening_hours: schedule || [],
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('clinics')
+    .update(payload)
+    .eq('id', clinicId)
+    .eq('owner_id', userId)
+    .select('opening_hours')
+    .single();
+
+  if (error) throw error;
+  return data.opening_hours || [];
 };
 
 // Get doctors in clinic
@@ -324,6 +387,8 @@ module.exports = {
   registerClinic,
   getClinicByOwner,
   getDashboard,
+  getSchedule,
+  updateSchedule,
   updateClinic,
   getDoctors,
   addDoctor,

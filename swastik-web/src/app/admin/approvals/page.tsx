@@ -155,7 +155,13 @@ export default function ApprovalsPage() {
                                                     </div>
                                                 )}
                                                 <StatusBadge status="pending" size="sm" />
-                                                <ApprovalActions id={approval.id} type={provType} />
+                                                <ApprovalActions id={approval.id} type={provType} onActionToast={(kind, message) => {
+                                                    if (kind === 'success') {
+                                                        toast.success('Success', message);
+                                                    } else {
+                                                        toast.error('Action failed', message);
+                                                    }
+                                                }} />
                                             </div>
                                         </div>
                                         {/* Expanded detail panel with map preview for facilities */}
@@ -180,7 +186,15 @@ export default function ApprovalsPage() {
     );
 }
 
-function ApprovalActions({ id, type }: { id: string; type: string }) {
+function ApprovalActions({
+    id,
+    type,
+    onActionToast,
+}: {
+    id: string;
+    type: string;
+    onActionToast?: (kind: 'success' | 'error', message: string) => void;
+}) {
     const { approveProvider, rejectProvider } = useAdminStore();
     const [acting, setActing] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState(false);
@@ -188,27 +202,47 @@ function ApprovalActions({ id, type }: { id: string; type: string }) {
 
     const handleApprove = async () => {
         setActing(true);
-        await approveProvider(id, type);
+        const ok = await approveProvider(id, type);
+        onActionToast?.(ok ? 'success' : 'error', ok ? 'Provider approved successfully.' : 'Approve failed. Please refresh and retry.');
         setActing(false);
     };
 
     const handleReject = async () => {
         if (!rejectReason.trim()) return;
         setActing(true);
-        await rejectProvider(id, type, rejectReason);
+        const ok = await rejectProvider(id, type, rejectReason);
+        onActionToast?.(ok ? 'success' : 'error', ok ? 'Provider rejected successfully.' : 'Reject failed. Please retry.');
         setActing(false);
-        setShowRejectModal(false);
-        setRejectReason('');
+        if (ok) {
+            setShowRejectModal(false);
+            setRejectReason('');
+        }
     };
 
     return (
         <>
             <div className="flex gap-2">
-                <Button size="sm" variant="primary" onClick={handleApprove} disabled={acting}>
+                <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleApprove();
+                    }}
+                    disabled={acting}
+                >
                     {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                     <span className="ml-1">Approve</span>
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowRejectModal(true)} disabled={acting}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowRejectModal(true);
+                    }}
+                    disabled={acting}
+                >
                     <XCircle className="h-3 w-3" />
                     <span className="ml-1">Reject</span>
                 </Button>

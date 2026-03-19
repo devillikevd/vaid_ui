@@ -48,7 +48,7 @@ router.get('/approvals/pending', asyncHandler(async (req, res) => {
  */
 router.get('/providers/:type/:id', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     validate,
 ], asyncHandler(async (req, res) => {
     const { type, id } = req.params;
@@ -62,7 +62,7 @@ router.get('/providers/:type/:id', [
  */
 router.post('/providers/:type/:id/approve', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('notes').optional().isString().trim(),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -78,7 +78,7 @@ router.post('/providers/:type/:id/approve', [
  */
 router.post('/providers/:type/:id/reject', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('reason').notEmpty().withMessage('Rejection reason is required').isString().trim(),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -94,7 +94,7 @@ router.post('/providers/:type/:id/reject', [
  */
 router.post('/providers/:type/:id/suspend', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('reason').notEmpty().withMessage('Suspension reason is required').isString().trim(),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -110,7 +110,7 @@ router.post('/providers/:type/:id/suspend', [
  */
 router.post('/providers/:type/:id/reactivate', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('notes').optional().isString().trim(),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -126,7 +126,7 @@ router.post('/providers/:type/:id/reactivate', [
  */
 router.post('/providers/:type/:id/notes', [
     param('type').isIn(['hospital', 'pharmacy', 'clinic', 'diagnostic_center', 'doctor', 'ambulance']).withMessage('Invalid provider type'),
-    param('id').isUUID().withMessage('Invalid provider ID'),
+    param('id').isUUID('loose').withMessage('Invalid provider ID'),
     body('note').notEmpty().withMessage('Note content is required').isString().trim(),
     body('isInternal').optional().isBoolean(),
     validate,

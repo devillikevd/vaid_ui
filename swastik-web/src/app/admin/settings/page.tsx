@@ -21,6 +21,11 @@ interface SystemHealth {
     database?: { status: string };
     redis?: { status: string };
     supabase?: { status: string };
+    checks?: {
+        mongodb?: { status: string };
+        redis?: { status: string };
+        supabase?: { status: string };
+    };
     uptime?: number;
 }
 
@@ -79,9 +84,24 @@ export default function SettingsPage() {
 
     const getIntegrationStatus = (service: string): { status: string; color: string } => {
         if (!systemHealth) return { status: 'Unknown', color: 'text-gray-500 dark:text-gray-400' };
-        const svc = (systemHealth as any)[service];
+        const keyMap: Record<string, string[]> = {
+            database: ['database', 'mongodb'],
+            redis: ['redis'],
+            supabase: ['supabase'],
+        };
+        const candidates = keyMap[service] || [service];
+
+        let svc: any = null;
+        for (const key of candidates) {
+            svc = (systemHealth as any)[key] || (systemHealth.checks as any)?.[key];
+            if (svc) break;
+        }
+
         if (svc?.status === 'connected' || svc?.status === 'ok' || svc?.status === 'healthy') {
             return { status: 'Connected', color: 'text-green-600' };
+        }
+        if (svc?.status === 'unavailable') {
+            return { status: 'Unavailable', color: 'text-yellow-600' };
         }
         return { status: svc?.status || 'Disconnected', color: 'text-red-600' };
     };

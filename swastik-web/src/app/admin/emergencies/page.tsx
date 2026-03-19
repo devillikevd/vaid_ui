@@ -20,6 +20,7 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string
     assigned: { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'ASSIGNED', icon: '📋' },
     accepted: { color: 'bg-indigo-100 text-indigo-700 border-indigo-200', label: 'ACCEPTED', icon: '✅' },
     dispatched: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'DISPATCHED', icon: '🚑' },
+    en_route_pickup: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'EN ROUTE', icon: '🚑' },
     en_route: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'EN ROUTE', icon: '🚑' },
     arrived: { color: 'bg-green-100 text-green-700 border-green-200', label: 'ARRIVED', icon: '📍' },
     picked_up: { color: 'bg-purple-100 text-purple-700 border-purple-200', label: 'PICKED UP', icon: '🏥' },
@@ -62,7 +63,23 @@ export default function EmergenciesPage() {
             const result = await adminApi.getEmergencies();
             if (!result.success) throw new Error('Failed');
             const apiData = (result.data as any)?.data || (result.data as any) || [];
-            setEmergencies(Array.isArray(apiData) ? apiData : []);
+            const normalized: Emergency[] = (Array.isArray(apiData) ? apiData : []).map((item: any) => ({
+                id: item.id,
+                patientName: item.requester_name || item.patient?.name || item.patientName || 'Unknown patient',
+                phone: item.requester_phone || item.phone || '',
+                location: item.pickup_address || item.location || '',
+                type: item.emergency_type || item.type || 'medical',
+                status: item.status || 'pending',
+                priority: item.priority,
+                dispatchMode: item.dispatch_mode || item.dispatchMode,
+                requestedAt: item.requested_at || item.created_at || item.requestedAt || '',
+                ambulance: item.ambulance?.name || item.ambulance_name || item.ambulance || '',
+                ambulanceVehicle: item.ambulance?.vehicle_number || item.vehicle_number || item.ambulanceVehicle || item.vehicle_id || '',
+                ambulanceDriver: item.ambulance?.driver_name || item.ambulanceDriver || '',
+                latitude: item.pickup_latitude ?? item.latitude,
+                longitude: item.pickup_longitude ?? item.longitude,
+            }));
+            setEmergencies(normalized);
         } catch { setError('Failed to load emergency data'); }
         setIsLoading(false);
     }, []);
@@ -78,9 +95,9 @@ export default function EmergenciesPage() {
         // M4: Listen for ambulance location updates for live map markers
         const unsub4 = on('ambulance:location-update', (data: any) => {
             if (data.latitude && data.longitude) {
-                setEmergencies((prev: any[]) => prev.map(e => {
-                    if (e.ambulance && (e.id === data.requestId || e.ambulance?.id === data.ambulanceId)) {
-                        return { ...e, ambulance: { ...e.ambulance, latitude: data.latitude, longitude: data.longitude } };
+                setEmergencies((prev: Emergency[]) => prev.map(e => {
+                    if (e.id === data.requestId) {
+                        return { ...e, latitude: data.latitude, longitude: data.longitude };
                     }
                     return e;
                 }));
@@ -96,10 +113,14 @@ export default function EmergenciesPage() {
     }, [fetchEmergencies]);
 
     const pendingCount = emergencies.filter(e => ['active', 'pending', 'broadcasting'].includes(e.status)).length;
-    const activeCount = emergencies.filter(e => ['dispatched', 'assigned', 'accepted', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'].includes(e.status)).length;
+    const activeCount = emergencies.filter(e => ['dispatched', 'assigned', 'accepted', 'en_route_pickup', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'].includes(e.status)).length;
     const resolvedCount = emergencies.filter(e => ['resolved', 'completed'].includes(e.status)).length;
 
-    const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const formatTime = (dateStr: string) => {
+        const d = new Date(dateStr);
+        if (!dateStr || Number.isNaN(d.getTime())) return '—';
+        return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    };
 
     // Map markers for all geo-located emergencies
     const geoEmergencies = emergencies.filter(e => e.latitude && e.longitude && !['completed', 'cancelled', 'resolved'].includes(e.status));
@@ -110,7 +131,7 @@ export default function EmergenciesPage() {
         title: e.patientName,
         popup: `${e.type} • ${STATUS_CONFIG[e.status]?.label || e.status}<br/>${e.location || ''}`,
         color: ['pending', 'active', 'broadcasting'].includes(e.status) ? '#DC2626' :
-            ['dispatched', 'assigned', 'accepted', 'en_route'].includes(e.status) ? '#F59E0B' : '#059669',
+            ['dispatched', 'assigned', 'accepted', 'en_route_pickup', 'en_route'].includes(e.status) ? '#F59E0B' : '#059669',
         pulse: ['active', 'pending', 'broadcasting'].includes(e.status),
     }));
 

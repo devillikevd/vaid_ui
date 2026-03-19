@@ -21,6 +21,7 @@ export default function DiagnosticCenterSettingsPage() {
         license_number: '', nabl_accreditation: '',
         sample_collection_available: true, home_collection_available: false,
         home_collection_fee: '', is_24_hours: false,
+        profileImage: '' as string | null,
         latitude: null as number | null, longitude: null as number | null,
     });
     const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -47,6 +48,7 @@ export default function DiagnosticCenterSettingsPage() {
                     home_collection_available: d.home_collection_available ?? false,
                     home_collection_fee: d.home_collection_fee?.toString() || '',
                     is_24_hours: d.is_24_hours ?? false,
+                    profileImage: d.image_url || d.profile_image || null,
                     latitude: d.latitude ?? null,
                     longitude: d.longitude ?? null,
                 });
@@ -73,6 +75,7 @@ export default function DiagnosticCenterSettingsPage() {
                 home_collection_available: form.home_collection_available,
                 home_collection_fee: form.home_collection_fee ? parseFloat(form.home_collection_fee) : 0,
                 is_24_hours: form.is_24_hours,
+                profile_image: form.profileImage || undefined,
                 ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}),
             });
             if (res.success) setStatus({ type: 'success', message: 'Settings saved successfully.' });
@@ -121,9 +124,9 @@ export default function DiagnosticCenterSettingsPage() {
                 <CardHeader><CardTitle>Center Information</CardTitle></CardHeader>
                 <CardContent>
                     <ProfileImageUpload
-                        currentImage={null}
+                        currentImage={form.profileImage}
                         name={form.name}
-                        onUploadComplete={(url) => setForm(f => ({ ...f, profile_image: url } as any))}
+                        onUploadComplete={(url) => setForm(f => ({ ...f, profileImage: url }))}
                         accentColor="purple"
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">

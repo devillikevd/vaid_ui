@@ -26,10 +26,10 @@ export default function ClinicSchedulePage() {
         setIsLoading(true);
         setError(null);
         try {
-            const res = await clinicApi.getDashboard();
+            const res = await clinicApi.getSchedule();
             if (res.success) {
                 const data = res.data as any;
-                const sched = data?.schedule || data?.operatingHours || [];
+                const sched = data?.schedule || data?.opening_hours || data?.operatingHours || [];
                 if (Array.isArray(sched) && sched.length > 0) {
                     setSchedule(sched);
                 } else {
@@ -59,7 +59,7 @@ export default function ClinicSchedulePage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const res = await clinicApi.updateProfile({ schedule });
+            const res = await clinicApi.updateSchedule({ schedule });
             if (res.success) {
                 setEditing(false);
             } else {

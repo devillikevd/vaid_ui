@@ -70,8 +70,8 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
         'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
-        'latitude', 'longitude', 'specializations', 'facilities',
-        'opening_hours', 'is_24_hours', 'image_url', 'profile_image'
+        'latitude', 'longitude', 'specializations', 'facilities', 'description',
+        'opening_hours', 'is_24_hours', 'profile_image_url', 'image_url', 'profile_image'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -155,6 +155,20 @@ router.get('/owner/consultations', requireRole(ROLES.CLINIC_OWNER), asyncHandler
     const { status, page = 1, limit = 20 } = req.query;
     const result = await clinicService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status);
     res.json({ success: true, ...result });
+}));
+
+// Schedule
+router.get('/owner/schedule', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const schedule = await clinicService.getSchedule(clinic.id, req.user.id);
+    res.json({ success: true, data: { schedule } });
+}));
+
+router.put('/owner/schedule', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const schedulePayload = req.body?.schedule ?? req.body;
+    const schedule = await clinicService.updateSchedule(clinic.id, req.user.id, schedulePayload);
+    res.json({ success: true, data: { schedule } });
 }));
 
 module.exports = router;

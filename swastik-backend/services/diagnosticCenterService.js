@@ -142,6 +142,7 @@ const getDashboard = async (centerId) => {
     { count: todayBookings },
     { count: pendingResults },
     { data: patientRows },
+    { data: todayBookingsList },
     { data: recentBookings },
   ] = await Promise.all([
     supabaseAdmin
@@ -153,17 +154,28 @@ const getDashboard = async (centerId) => {
       .from('diagnostic_bookings')
       .select('*', { count: 'exact', head: true })
       .eq('center_id', centerId)
-      .eq('booking_date', today),
+      .eq('booking_date', today)
+      .neq('status', 'cancelled'),
     supabaseAdmin
       .from('diagnostic_bookings')
       .select('*', { count: 'exact', head: true })
       .eq('center_id', centerId)
-      .eq('result_status', 'pending'),
+      .eq('result_status', 'pending')
+      .neq('status', 'cancelled'),
     supabaseAdmin
       .from('diagnostic_bookings')
       .select('patient_id')
       .eq('center_id', centerId)
       .not('patient_id', 'is', null),
+    supabaseAdmin
+      .from('diagnostic_bookings')
+      .select('*, patient:patients(name), test:diagnostic_tests(name, category)')
+      .eq('center_id', centerId)
+      .eq('booking_date', today)
+      .neq('status', 'cancelled')
+      .order('booking_time', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(25),
     supabaseAdmin
       .from('diagnostic_bookings')
       .select('*, patient:patients(name), test:diagnostic_tests(name, category)')
@@ -178,9 +190,13 @@ const getDashboard = async (centerId) => {
     stats: {
       totalTests: totalTests || 0,
       todayBookings: todayBookings || 0,
+      // Legacy alias for web UI compatibility
+      todaysBookings: todayBookings || 0,
       pendingResults: pendingResults || 0,
       totalPatients: uniquePatients,
     },
+    todayBookings: todayBookingsList || [],
+    todaysBookings: todayBookingsList || [],
     recentBookings: recentBookings || [],
   };
 };
@@ -201,12 +217,22 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
   const ALLOWED_FIELDS = [
     'name', 'description', 'phone', 'email', 'website', 'emergency_phone',
     'address', 'city', 'state', 'pincode', 'latitude', 'longitude',
-    'operating_hours', 'test_categories', 'accreditations', 'profile_image_url',
-    'is_home_collection_available', 'home_collection_radius',
+    'opening_hours', 'test_categories', 'accreditations', 'image_url',
+    'sample_collection_available', 'home_collection_available', 'home_collection_fee', 'is_24_hours',
+    'license_number', 'nabl_accreditation',
   ];
   const safeUpdates = {};
   for (const key of ALLOWED_FIELDS) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+  // Support common aliases from web payloads
+  if (updates.operating_hours !== undefined) safeUpdates.opening_hours = updates.operating_hours;
+  if (updates.profile_image !== undefined) safeUpdates.image_url = updates.profile_image;
+  if (updates.profile_image_url !== undefined) safeUpdates.image_url = updates.profile_image_url;
+  if (updates.is_home_collection_available !== undefined) safeUpdates.home_collection_available = updates.is_home_collection_available;
+  if (updates.home_collection_radius !== undefined && safeUpdates.home_collection_fee === undefined) {
+    // keep compatibility if older clients send radius-like value
+    safeUpdates.home_collection_fee = updates.home_collection_radius;
   }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingCenter, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
@@ -470,6 +496,8 @@ const getAnalytics = async (centerId) => {
     { count: totalBookings },
     { count: completedResults },
     { count: monthlyBookings },
+    { data: monthlyCompletedBookings },
+    { data: bookingsByStatusRows },
     { data: popularTests },
   ] = await Promise.all([
     supabaseAdmin.from('diagnostic_bookings').select('*', { count: 'exact', head: true }).eq('center_id', centerId),
@@ -483,6 +511,16 @@ const getAnalytics = async (centerId) => {
       .select('*', { count: 'exact', head: true })
       .eq('center_id', centerId)
       .gte('created_at', thirtyDaysAgo),
+    supabaseAdmin
+      .from('diagnostic_bookings')
+      .select('test_id, test:diagnostic_tests(price)')
+      .eq('center_id', centerId)
+      .eq('status', 'completed')
+      .gte('created_at', thirtyDaysAgo),
+    supabaseAdmin
+      .from('diagnostic_bookings')
+      .select('status')
+      .eq('center_id', centerId),
     supabaseAdmin
       .from('diagnostic_tests')
       .select('id, name, category, price')
@@ -513,12 +551,24 @@ const getAnalytics = async (centerId) => {
       .slice(0, 10);
   }
 
+  const revenueThisMonth = (monthlyCompletedBookings || []).reduce((sum, b) => {
+    const fee = b.amount ?? b.test?.price ?? 0;
+    return sum + Number(fee || 0);
+  }, 0);
+
+  const bookingsByStatus = (bookingsByStatusRows || []).reduce((acc, row) => {
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    return acc;
+  }, {});
+
   return {
     totalBookings: totalBookings || 0,
     completedResults: completedResults || 0,
     monthlyBookings: monthlyBookings || 0,
-    completionRate: totalBookings ? Math.round(((completedResults || 0) / totalBookings) * 100) : 0,
-    popularTests: rankedTests,
+    completionRate: `${totalBookings ? Math.round(((completedResults || 0) / totalBookings) * 100) : 0}%`,
+    popularTests: rankedTests.map((t) => ({ name: t.name, count: t.bookingCount || 0 })),
+    revenueThisMonth,
+    bookingsByStatus,
   };
 };
 

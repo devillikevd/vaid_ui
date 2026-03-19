@@ -27,7 +27,7 @@ export default function ClinicSettingsPage() {
             if (res.success && res.data) {
                 const raw = res.data as any;
                 const d = raw.data || raw;
-                setForm({ name: d.name || user?.name || '', phone: d.phone || '', address: d.address || '', email: d.email || user?.email || '', profileImage: d.profile_image || d.profileImage || d.avatar_url || null, latitude: d.latitude ?? null, longitude: d.longitude ?? null });
+                setForm({ name: d.name || user?.name || '', phone: d.phone || '', address: d.address || '', email: d.email || user?.email || '', profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.image_url || d.avatar_url || null, latitude: d.latitude ?? null, longitude: d.longitude ?? null });
             } else {
                 setForm(f => ({ ...f, name: user?.name || '', email: user?.email || '' }));
             }
@@ -43,7 +43,21 @@ export default function ClinicSettingsPage() {
         setSaving(true);
         setStatus(null);
         try {
-            const res = await clinicApi.updateProfile({ name: form.name, phone: form.phone, address: form.address, ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}) });
+            const payload: Record<string, unknown> = {
+                name: form.name,
+                phone: form.phone,
+                address: form.address,
+            };
+            // Include location if both lat/lng are set
+            if (form.latitude != null && form.longitude != null) {
+                payload.latitude = form.latitude;
+                payload.longitude = form.longitude;
+            }
+            // Include profile image if set (backend will normalize it)
+            if (form.profileImage) {
+                payload.profile_image_url = form.profileImage;
+            }
+            const res = await clinicApi.updateProfile(payload);
             if (res.success) setStatus({ type: 'success', message: 'Settings saved successfully.' });
             else setStatus({ type: 'error', message: res.error || 'Failed to save settings.' });
         } catch { setStatus({ type: 'error', message: 'Network error.' }); }

@@ -195,6 +195,24 @@ const getDashboard = async () => {
   const cached = await cacheGet('admin:dashboard');
   if (cached) return cached;
 
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartIso = dayStart.toISOString();
+
+  const ACTIVE_EMERGENCY_STATUSES = [
+    'active',
+    'pending',
+    'broadcasting',
+    'assigned',
+    'accepted',
+    'dispatched',
+    'en_route_pickup',
+    'en_route',
+    'arrived',
+    'picked_up',
+    'en_route_hospital',
+  ];
+
   const safeCount = (result) => (result.status === 'fulfilled' ? result.value.count || 0 : 0);
 
   const results = await Promise.allSettled([
@@ -213,18 +231,41 @@ const getDashboard = async () => {
     supabaseAdmin.from('clinics').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
     supabaseAdmin.from('diagnostic_centers').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
     supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ['pending', 'assigned', 'dispatched', 'en_route_pickup']),
+    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved'),
+    supabaseAdmin.from('hospitals').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('pharmacies').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('clinics').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('diagnostic_centers').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
+    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ACTIVE_EMERGENCY_STATUSES),
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('last_login', dayStartIso),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', dayStartIso),
   ]);
 
   const [
     totalUsers, totalDoctors, totalPatients, totalHospitals,
     totalPharmacies, totalClinics, totalDiagnosticCenters, totalAmbulances,
     totalAppointments, pendingDoctors, pendingHospitals, pendingPharmacies,
-    pendingClinics, pendingDiagnosticCenters, pendingAmbulances, activeEmergencies,
+    pendingClinics, pendingDiagnosticCenters, pendingAmbulances,
+    approvedDoctors, approvedHospitals, approvedPharmacies,
+    approvedClinics, approvedDiagnosticCenters, approvedAmbulances,
+    activeEmergencies, activeTodayUsers, todaysAppointments,
   ] = results.map(safeCount);
 
   const pendingTotal = (pendingDoctors || 0) + (pendingHospitals || 0) + (pendingPharmacies || 0)
     + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingAmbulances || 0);
+
+  // Use canonical approved counts (and active where applicable) to avoid inflating
+  // dashboard numbers with rejected/suspended/inactive test records.
+  const providersVisibleDoctors = (approvedDoctors || 0) + (pendingDoctors || 0);
+  const providersVisibleHospitals = (approvedHospitals || 0) + (pendingHospitals || 0);
+  const providersVisiblePharmacies = (approvedPharmacies || 0) + (pendingPharmacies || 0);
+  const providersVisibleClinics = (approvedClinics || 0) + (pendingClinics || 0);
+  const providersVisibleDiagnosticCenters = (approvedDiagnosticCenters || 0) + (pendingDiagnosticCenters || 0);
+  const providersVisibleAmbulances = (approvedAmbulances || 0) + (pendingAmbulances || 0);
+
+  const totalProvidersVisible = providersVisibleDoctors + providersVisibleHospitals + providersVisiblePharmacies
+    + providersVisibleClinics + providersVisibleDiagnosticCenters + providersVisibleAmbulances;
 
   const dashboard = {
     // Flat stats for backward-compat
@@ -241,29 +282,28 @@ const getDashboard = async () => {
     // Web dashboard reads these
     stats: {
       totalUsers: totalUsers || 0,
-      totalProviders: (totalDoctors || 0) + (totalHospitals || 0) + (totalPharmacies || 0)
-        + (totalClinics || 0) + (totalDiagnosticCenters || 0) + (totalAmbulances || 0),
+      totalProviders: totalProvidersVisible,
       totalPatients: totalPatients || 0,
-      activeToday: 0,
+      activeToday: activeTodayUsers || 0,
       pendingApprovals: pendingTotal,
-      todaysAppointments: 0,
+      todaysAppointments: todaysAppointments || 0,
       activeEmergencies: activeEmergencies || 0,
     },
     providerCounts: {
-      doctors:    { total: totalDoctors || 0,    pending: pendingDoctors || 0 },
-      hospitals:  { total: totalHospitals || 0,  pending: pendingHospitals || 0 },
-      clinics:    { total: totalClinics || 0,    pending: pendingClinics || 0 },
-      pharmacies: { total: totalPharmacies || 0, pending: pendingPharmacies || 0 },
-      diagnosticCenters: { total: totalDiagnosticCenters || 0, pending: pendingDiagnosticCenters || 0 },
-      ambulances: { total: totalAmbulances || 0, pending: pendingAmbulances || 0 },
+      doctors:    { total: providersVisibleDoctors, pending: pendingDoctors || 0 },
+      hospitals:  { total: providersVisibleHospitals, pending: pendingHospitals || 0 },
+      clinics:    { total: providersVisibleClinics, pending: pendingClinics || 0 },
+      pharmacies: { total: providersVisiblePharmacies, pending: pendingPharmacies || 0 },
+      diagnosticCenters: { total: providersVisibleDiagnosticCenters, pending: pendingDiagnosticCenters || 0 },
+      ambulances: { total: providersVisibleAmbulances, pending: pendingAmbulances || 0 },
     },
     providerCategories: [
-      { name: 'Doctors',    type: 'doctors',    pending: pendingDoctors || 0,    approved: (totalDoctors || 0) - (pendingDoctors || 0) },
-      { name: 'Hospitals',  type: 'hospitals',  pending: pendingHospitals || 0,  approved: (totalHospitals || 0) - (pendingHospitals || 0) },
-      { name: 'Clinics',    type: 'clinics',    pending: pendingClinics || 0,    approved: (totalClinics || 0) - (pendingClinics || 0) },
-      { name: 'Pharmacies', type: 'pharmacies', pending: pendingPharmacies || 0, approved: (totalPharmacies || 0) - (pendingPharmacies || 0) },
-      { name: 'Diagnostic Centers', type: 'diagnostic_centers', pending: pendingDiagnosticCenters || 0, approved: (totalDiagnosticCenters || 0) - (pendingDiagnosticCenters || 0) },
-      { name: 'Ambulances', type: 'ambulances', pending: pendingAmbulances || 0, approved: (totalAmbulances || 0) - (pendingAmbulances || 0) },
+      { name: 'Doctors',    type: 'doctors',    pending: pendingDoctors || 0,    approved: approvedDoctors || 0 },
+      { name: 'Hospitals',  type: 'hospitals',  pending: pendingHospitals || 0,  approved: approvedHospitals || 0 },
+      { name: 'Clinics',    type: 'clinics',    pending: pendingClinics || 0,    approved: approvedClinics || 0 },
+      { name: 'Pharmacies', type: 'pharmacies', pending: pendingPharmacies || 0, approved: approvedPharmacies || 0 },
+      { name: 'Diagnostic Centers', type: 'diagnostic_centers', pending: pendingDiagnosticCenters || 0, approved: approvedDiagnosticCenters || 0 },
+      { name: 'Ambulances', type: 'ambulances', pending: pendingAmbulances || 0, approved: approvedAmbulances || 0 },
     ],
     pendingApprovals: {
       doctors: pendingDoctors || 0,
@@ -629,11 +669,25 @@ const updateUserStatus = async (adminUserId, userId, isActive, reason) => {
 
 // Get active emergencies
 const getActiveEmergencies = async (page = 1, limit = 20) => {
+  const ACTIVE_EMERGENCY_STATUSES = [
+    'active',
+    'pending',
+    'broadcasting',
+    'assigned',
+    'accepted',
+    'dispatched',
+    'en_route_pickup',
+    'en_route',
+    'arrived',
+    'picked_up',
+    'en_route_hospital',
+  ];
+
   const offset = (page - 1) * limit;
   const { data, error, count } = await supabaseAdmin
     .from('emergency_requests')
     .select('*, patient:patients(id, name)', { count: 'exact' })
-    .in('status', ['pending', 'assigned', 'dispatched', 'en_route_pickup'])
+    .in('status', ACTIVE_EMERGENCY_STATUSES)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -661,6 +715,7 @@ const reassignEmergency = async (emergencyId, operatorId, adminId, reason) => {
 
 // Get expiring documents (check ambulance operator licenses)
 const getExpiringDocuments = async (days = 30) => {
+  const now = new Date();
   const futureDate = new Date();
   futureDate.setDate(futureDate.getDate() + days);
 
@@ -670,31 +725,199 @@ const getExpiringDocuments = async (days = 30) => {
     .lte('license_expiry', futureDate.toISOString())
     .gte('license_expiry', new Date().toISOString());
 
-  return { operators: operators || [] };
+  const documents = (operators || []).map((op) => {
+    const expiryDate = op.license_expiry;
+    const expiryTs = expiryDate ? new Date(expiryDate).getTime() : Number.NaN;
+    const daysUntilExpiry = Number.isFinite(expiryTs)
+      ? Math.ceil((expiryTs - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    return {
+      id: op.id,
+      providerName: op.name || 'Unknown',
+      providerType: 'ambulance_operator',
+      documentType: 'Operator License',
+      expiryDate: expiryDate || now.toISOString(),
+      status: daysUntilExpiry <= 0 ? 'expired' : (daysUntilExpiry <= 7 ? 'expiring_soon' : 'valid'),
+      daysUntilExpiry,
+    };
+  });
+
+  return { operators: operators || [], documents };
 };
 
 // Analytics
 const getAnalytics = async (period = '30d') => {
-  const days = parseInt(period) || 30;
-  const since = new Date();
+  const parsePeriodToDays = (value) => {
+    const normalized = String(value || '30d').trim().toLowerCase();
+    if (normalized === '1y') return 365;
+    if (normalized.endsWith('d')) {
+      const d = parseInt(normalized, 10);
+      return Number.isFinite(d) && d > 0 ? d : 30;
+    }
+    const fallback = parseInt(normalized, 10);
+    return Number.isFinite(fallback) && fallback > 0 ? fallback : 30;
+  };
+
+  const pctChange = (current, previous) => {
+    if (!previous) return current > 0 ? 100 : 0;
+    return Number((((current - previous) / previous) * 100).toFixed(1));
+  };
+
+  const days = parsePeriodToDays(period);
+  const now = new Date();
+  const since = new Date(now);
   since.setDate(since.getDate() - days);
+  const prevSince = new Date(since);
+  prevSince.setDate(prevSince.getDate() - days);
+
   const sinceStr = since.toISOString();
+  const nowStr = now.toISOString();
+  const prevSinceStr = prevSince.toISOString();
 
   const [
-    { count: newUsers },
-    { count: newAppointments },
+    // Totals
+    { count: totalUsers },
+    { count: totalAppointments },
+    { count: totalDoctors },
+
+    // Current period
+    { count: usersCurrent },
+    { count: appointmentsCurrent },
+    { count: doctorsCurrent },
+
+    // Previous period
+    { count: usersPrevious },
+    { count: appointmentsPrevious },
+    { count: doctorsPrevious },
+
+    // Supplemental
     { count: completedConsultations },
+    { count: activeNow },
+    reviewsRes,
+    doctorReviewsRes,
+    specialtiesRes,
+    usersSeriesRes,
+    apptSeriesRes,
+    waitSeriesRes,
   ] = await Promise.all([
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr),
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }),
+    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved'),
+
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr).lte('created_at', nowStr),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr).lte('created_at', nowStr),
+    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').gte('created_at', sinceStr).lte('created_at', nowStr),
+
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', prevSinceStr).lt('created_at', sinceStr),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', prevSinceStr).lt('created_at', sinceStr),
+    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').gte('created_at', prevSinceStr).lt('created_at', sinceStr),
+
     supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('status', 'completed').gte('created_at', sinceStr),
+    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true).gte('last_login', new Date(Date.now() - 15 * 60 * 1000).toISOString()),
+    supabaseAdmin.from('reviews').select('rating').eq('is_visible', true),
+    supabaseAdmin.from('doctor_reviews').select('rating'),
+    supabaseAdmin.from('doctors').select('specialization').eq('approval_status', 'approved'),
+    supabaseAdmin.from('users').select('created_at').gte('created_at', sinceStr),
+    supabaseAdmin.from('appointments').select('created_at').gte('created_at', sinceStr),
+    supabaseAdmin.from('consultations').select('created_at,started_at').not('started_at', 'is', null).gte('created_at', sinceStr),
   ]);
+
+  // Monthly/period series aggregation (bucket by month label)
+  const monthKey = (iso) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+  const monthLabel = (key) => {
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleString('en-IN', { month: 'short' });
+  };
+
+  const usersBuckets = new Map();
+  for (const row of usersSeriesRes.data || []) {
+    const key = monthKey(row.created_at);
+    usersBuckets.set(key, (usersBuckets.get(key) || 0) + 1);
+  }
+
+  const apptBuckets = new Map();
+  for (const row of apptSeriesRes.data || []) {
+    const key = monthKey(row.created_at);
+    apptBuckets.set(key, (apptBuckets.get(key) || 0) + 1);
+  }
+
+  const allKeys = Array.from(new Set([...usersBuckets.keys(), ...apptBuckets.keys()])).sort();
+  const monthlyData = allKeys.map((k) => ({
+    month: monthLabel(k),
+    users: usersBuckets.get(k) || 0,
+    appointments: apptBuckets.get(k) || 0,
+  }));
+
+  // Top specialties
+  const specCounts = new Map();
+  for (const row of specialtiesRes.data || []) {
+    const raw = (row.specialization || '').trim();
+    if (!raw) continue;
+    specCounts.set(raw, (specCounts.get(raw) || 0) + 1);
+  }
+  const totalSpecs = Array.from(specCounts.values()).reduce((a, b) => a + b, 0) || 1;
+  const topSpecialties = Array.from(specCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, count]) => ({
+      name,
+      count,
+      percentage: Number(((count / totalSpecs) * 100).toFixed(1)),
+    }));
+
+  // Ratings / satisfaction
+  const allRatings = [];
+  for (const r of reviewsRes.data || []) if (Number.isFinite(r.rating)) allRatings.push(Number(r.rating));
+  for (const r of doctorReviewsRes.data || []) if (Number.isFinite(r.rating)) allRatings.push(Number(r.rating));
+  const avgRating = allRatings.length
+    ? Number((allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1))
+    : 0;
+  const positive = allRatings.filter((r) => r >= 4).length;
+  const patientSatisfaction = allRatings.length
+    ? Number(((positive / allRatings.length) * 100).toFixed(1))
+    : 0;
+
+  // Approx wait time: created_at -> started_at for consultations (capped 0..180 mins)
+  const waits = [];
+  for (const row of waitSeriesRes.data || []) {
+    const created = new Date(row.created_at).getTime();
+    const started = new Date(row.started_at).getTime();
+    if (!Number.isFinite(created) || !Number.isFinite(started)) continue;
+    const mins = (started - created) / 60000;
+    if (mins >= 0 && mins <= 180) waits.push(mins);
+  }
+  const avgWaitMinutes = waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0;
 
   return {
     period,
-    newUsers: newUsers || 0,
-    newAppointments: newAppointments || 0,
+    // backward-compatible fields
+    newUsers: usersCurrent || 0,
+    newAppointments: appointmentsCurrent || 0,
     completedConsultations: completedConsultations || 0,
+
+    // UI contract expected by web analytics page
+    stats: {
+      totalUsers: totalUsers || 0,
+      totalDoctors: totalDoctors || 0,
+      totalAppointments: totalAppointments || 0,
+      platformUptime: 99.9,
+      userGrowth: pctChange(usersCurrent || 0, usersPrevious || 0),
+      doctorGrowth: pctChange(doctorsCurrent || 0, doctorsPrevious || 0),
+      appointmentGrowth: pctChange(appointmentsCurrent || 0, appointmentsPrevious || 0),
+    },
+    monthlyData,
+    topSpecialties,
+    platformMetrics: {
+      avgRating,
+      patientSatisfaction,
+      avgWaitTime: `${avgWaitMinutes}m`,
+      activeNow: activeNow || 0,
+    },
   };
 };
 
@@ -743,11 +966,30 @@ const getSystemHealth = async () => {
     checks.mongodb = { status: 'unavailable' };
   }
 
+  try {
+    const redis = require('../config/redis');
+    const client = redis.getRedisClient();
+    if (!client) {
+      checks.redis = { status: 'unavailable' };
+    } else {
+      await client.ping();
+      checks.redis = { status: 'healthy' };
+    }
+  } catch (e) {
+    checks.redis = { status: 'unavailable' };
+  }
+
   return {
-    status: checks.supabase.status === 'healthy' ? 'healthy' : 'degraded',
+    status: checks.supabase.status === 'healthy' && checks.mongodb.status === 'healthy'
+      ? 'healthy'
+      : 'degraded',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     memory: process.memoryUsage(),
+    // Backward-compatible top-level keys consumed by older UIs
+    database: checks.mongodb,
+    supabase: checks.supabase,
+    redis: checks.redis,
     checks,
   };
 };

@@ -324,6 +324,9 @@ export const adminApi = {
         const params = new URLSearchParams({ page: page.toString() });
         if (filters?.role) params.set('role', String(filters.role));
         if (filters?.status) params.set('status', String(filters.status));
+        if (filters?.isActive !== undefined) params.set('isActive', String(filters.isActive));
+        if (filters?.isVerified !== undefined) params.set('isVerified', String(filters.isVerified));
+        if (filters?.search) params.set('search', String(filters.search));
         return fetchWithAuth(`/admin/users?${params}`);
     },
 
