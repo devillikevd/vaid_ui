@@ -7,6 +7,39 @@ const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 
+const enrichMissingPhonesFromOwners = async (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const ownerIdsNeedingFallback = [
+    ...new Set(
+      rows
+        .filter((row) => row && !row.phone && row.owner_id)
+        .map((row) => row.owner_id)
+    ),
+  ];
+
+  if (ownerIdsNeedingFallback.length === 0) return rows;
+
+  const { data: owners, error } = await supabaseAdmin
+    .from('users')
+    .select('id, phone')
+    .in('id', ownerIdsNeedingFallback);
+
+  if (error || !owners) return rows;
+
+  const ownerPhoneById = new Map(
+    owners
+      .filter((owner) => owner?.id && owner?.phone)
+      .map((owner) => [owner.id, owner.phone])
+  );
+
+  return rows.map((row) => {
+    if (row?.phone || !row?.owner_id) return row;
+    const fallbackPhone = ownerPhoneById.get(row.owner_id);
+    return fallbackPhone ? { ...row, phone: fallbackPhone } : row;
+  });
+};
+
 // Facility types
 const getFacilityTypes = async () => {
   return [
@@ -73,7 +106,9 @@ const getNearbyHospitals = async (latitude, longitude, radius = 10, filters = {}
   const { data, error } = await query;
   if (error) throw error;
 
-  const nearby = (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  const nearby = recordsWithPhone
     .map((h) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: h.latitude, longitude: h.longitude });
       return { ...h, distance: dist, distanceText: formatDistance(dist) };
@@ -101,7 +136,9 @@ const getEmergencyHospitals = async (latitude, longitude) => {
 
   if (error) throw error;
 
-  return (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  return recordsWithPhone
     .map((h) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: h.latitude, longitude: h.longitude });
       return { ...h, distance: dist, distanceText: formatDistance(dist) };
@@ -126,7 +163,9 @@ const getPharmacies = async (latitude, longitude, radius = 5) => {
 
   if (error) throw error;
 
-  return (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  return recordsWithPhone
     .map((p) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: p.latitude, longitude: p.longitude });
       return { ...p, distance: dist, distanceText: formatDistance(dist) };
@@ -151,7 +190,9 @@ const getClinics = async (latitude, longitude, radius = 5) => {
 
   if (error) throw error;
 
-  return (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  return recordsWithPhone
     .map((c) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: c.latitude, longitude: c.longitude });
       return { ...c, distance: dist, distanceText: formatDistance(dist) };
@@ -183,7 +224,7 @@ const searchHospitals = async (query, latitude, longitude) => {
 
   if (error) throw error;
 
-  let results = data || [];
+  let results = await enrichMissingPhonesFromOwners(data || []);
 
   // Add distance if coordinates provided
   if (latitude && longitude) {
@@ -304,6 +345,35 @@ const addReview = async (userId, hospitalId, reviewData) => {
   return review;
 };
 
+// Get reviews for a hospital (public)
+const getReviews = async (hospitalId, page = 1, limit = 20) => {
+  const offset = (page - 1) * limit;
+  const { data, error, count } = await supabaseAdmin
+    .from('reviews')
+    .select('*, patient:patients(name, profile_image_url)', { count: 'exact' })
+    .eq('reviewable_type', 'hospital')
+    .eq('reviewable_id', hospitalId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+  return {
+    data: (data || []).map(r => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      patientName: r.patient?.name || 'Anonymous',
+      patientImage: r.patient?.profile_image_url || null,
+      createdAt: r.created_at,
+    })),
+    pagination: {
+      page, limit,
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / limit),
+    },
+  };
+};
+
 module.exports = {
   getFacilityTypes,
   getHospitals,
@@ -315,4 +385,5 @@ module.exports = {
   searchHospitals,
   getHospitalById,
   addReview,
+  getReviews,
 };

@@ -168,6 +168,16 @@ router.get('/:id',
   })
 );
 
+// Get reviews (public)
+router.get('/:id/reviews',
+  asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const result = await hospitalService.getReviews(req.params.id, page, limit);
+    res.json({ success: true, ...result });
+  })
+);
+
 // Add review (authenticated)
 router.post('/:id/reviews',
   authenticate,

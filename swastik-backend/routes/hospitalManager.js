@@ -9,7 +9,7 @@ const { validate } = require('../middleware/validate');
 const hospitalManagerService = require('../services/hospitalManagerService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // All routes require authentication
 router.use(authenticate);
@@ -22,12 +22,12 @@ router.get('/dashboard', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGE
 }));
 
 // Profile
-router.get('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+router.get('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval, asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     res.json({ success: true, hospital });
 }));
 
-router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval, [
     body('name').optional().isString().trim().isLength({ min: 2, max: 200 }),
     body('phone').optional().isString().trim(),
     body('email').optional().isEmail().normalizeEmail(),

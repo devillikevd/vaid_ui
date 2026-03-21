@@ -12,6 +12,7 @@ import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.VideoCallSession
 import com.example.swastik.data.webrtc.WebRTCManager
+import com.example.swastik.util.vision.ComputerVisionAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,7 @@ class VideoConsultationViewModel @Inject constructor(
     private var webRTCManager: WebRTCManager? = null
     private var isWebRTCInitialized = false
     private var networkMonitorJob: kotlinx.coroutines.Job? = null
+    private var cvAnalyzer: ComputerVisionAnalyzer? = null
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -138,9 +140,12 @@ class VideoConsultationViewModel @Inject constructor(
         isWebRTCInitialized = true
 
         webRTCManager = WebRTCManager(appContext).apply {
+            cvAnalyzer = ComputerVisionAnalyzer(appContext)
+            
             // Set up callbacks
             onLocalVideoTrack = { track ->
                 _localVideoTrack.value = track
+                cvAnalyzer?.let { track.addSink(it) } // Intercept frames for MediaPipe CV Vitals
             }
             onRemoteVideoTrack = { track ->
                 _remoteVideoTrack.value = track
@@ -524,19 +529,21 @@ class VideoConsultationViewModel @Inject constructor(
                 while (coroutineContext.isActive) {
                     kotlinx.coroutines.delay(1500) // 1.5 Hz — 666ms per frame, low-bandwidth
                     if (!_uiState.value.isConnected) continue
+                    
+                    val cvMetrics = cvAnalyzer?.vitalsData?.value ?: ComputerVisionAnalyzer.CVMetrics()
 
                     val payload = org.json.JSONObject().apply {
                         put("session_id", sessionId)
-                        put("heart_rate", (70..85).random().toDouble())
-                        put("respiration_rate", (14..18).random().toDouble())
-                        put("posture", "normal")
-                        put("spine_angle", (0..15).random().toDouble())
+                        put("heart_rate", cvMetrics.heartRate)
+                        put("respiration_rate", cvMetrics.respirationRate)
+                        put("posture", cvMetrics.posture)
+                        put("spine_angle", cvMetrics.spineAngle)
                         put("fall_detected", false)
-                        put("drowsiness_score", 0.1)
-                        put("facial_asymmetry_score", 0.0)
-                        put("tremor_severity", 0.0)
-                        put("tremor_frequency", 0.0)
-                        put("spo2", 98)
+                        put("drowsiness_score", cvMetrics.drowsinessScore)
+                        put("facial_asymmetry_score", cvMetrics.facialAsymmetryScore)
+                        put("tremor_severity", cvMetrics.tremorSeverity)
+                        put("tremor_frequency", cvMetrics.tremorFrequency)
+                        put("spo2", cvMetrics.spo2)
                     }.toString()
 
                     val ws = vitalsWebSocket
@@ -569,6 +576,8 @@ class VideoConsultationViewModel @Inject constructor(
         vitalsWebSocket = null
         _localVideoTrack.value = null
         _remoteVideoTrack.value = null
+        cvAnalyzer?.release()
+        cvAnalyzer = null
         webRTCManager?.release()
         webRTCManager = null
         isWebRTCInitialized = false

@@ -345,6 +345,22 @@ class AppEventEmitter extends EventEmitter {
     this.emitDistributed('catalog:refresh', payload);
   }
 
+  // Improvement #13: Real-time inventory updates
+  emitInventoryUpdated(pharmacyId, pharmacyOwnerId, inventoryItem = {}) {
+    const payload = {
+      pharmacyId,
+      item: inventoryItem,
+      timestamp: new Date().toISOString(),
+    };
+    // Notify patients viewing this pharmacy's inventory
+    this.notifyRoom(`pharmacy:${pharmacyId}`, 'inventory:updated', payload);
+    // Also notify the pharmacy owner for dashboard consistency
+    if (pharmacyOwnerId) {
+      this.notifyUser(pharmacyOwnerId, 'inventory:updated', payload);
+    }
+    this.emitDistributed('inventory:updated', payload);
+  }
+
   // ── Backward-compatible aliases used by tests/legacy callers ────
   emitBulkNotification(userIds = [], notification = {}) {
     for (const userId of userIds) {

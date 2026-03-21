@@ -25,6 +25,28 @@ router.get('/popular',
   })
 );
 
+// Get nearby medicines (Hybrid approach)
+router.get('/nearby',
+  [
+    query('latitude').optional().isFloat().withMessage('Valid latitude is required'),
+    query('longitude').optional().isFloat().withMessage('Valid longitude is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { latitude, longitude, radius = 25, limit = 20 } = req.query;
+    if (!latitude || !longitude) {
+      return res.json({ success: true, data: [] });
+    }
+    const medicines = await medicineService.getNearbyMedicines(
+      parseFloat(latitude),
+      parseFloat(longitude),
+      parseFloat(radius),
+      parseInt(limit)
+    );
+    res.json({ success: true, data: medicines });
+  })
+);
+
 // Search medicines
 router.get('/search',
   asyncHandler(async (req, res) => {

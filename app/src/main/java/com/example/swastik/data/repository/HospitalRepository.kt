@@ -257,6 +257,25 @@ class HospitalRepository @Inject constructor(
     }
 
     /**
+     * Fetch reviews for a hospital.
+     */
+    suspend fun getHospitalReviews(
+        hospitalId: String,
+        page: Int = 1,
+        limit: Int = 20
+    ): List<com.example.swastik.data.remote.dto.HospitalReviewDto> {
+        return try {
+            val response = apiService.getHospitalReviews(hospitalId, page, limit)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data ?: emptyList()
+            } else emptyList()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch hospital reviews: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
      * Fetch full hospital details by ID from the server.
      */
     suspend fun getHospitalDetails(hospitalId: String): MedicalFacility? {

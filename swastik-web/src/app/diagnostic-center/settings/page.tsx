@@ -66,6 +66,16 @@ export default function DiagnosticCenterSettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         setStatus(null);
+        if (!form.phone.trim()) {
+            setStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
+            setSaving(false);
+            return;
+        }
+        if (form.latitude == null || form.longitude == null) {
+            setStatus({ type: 'error', message: 'Location is required so patients can find your center on map.' });
+            setSaving(false);
+            return;
+        }
         try {
             const res = await diagnosticCenterApi.updateProfile({
                 name: form.name, phone: form.phone, address: form.address,

@@ -9,6 +9,39 @@ const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 
+const enrichMissingPhonesFromOwners = async (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const ownerIdsNeedingFallback = [
+    ...new Set(
+      rows
+        .filter((row) => row && !row.phone && row.owner_id)
+        .map((row) => row.owner_id)
+    ),
+  ];
+
+  if (ownerIdsNeedingFallback.length === 0) return rows;
+
+  const { data: owners, error } = await supabaseAdmin
+    .from('users')
+    .select('id, phone')
+    .in('id', ownerIdsNeedingFallback);
+
+  if (error || !owners) return rows;
+
+  const ownerPhoneById = new Map(
+    owners
+      .filter((owner) => owner?.id && owner?.phone)
+      .map((owner) => [owner.id, owner.phone])
+  );
+
+  return rows.map((row) => {
+    if (row?.phone || !row?.owner_id) return row;
+    const fallbackPhone = ownerPhoneById.get(row.owner_id);
+    return fallbackPhone ? { ...row, phone: fallbackPhone } : row;
+  });
+};
+
 // ==================== Public / Discovery ====================
 
 // Search diagnostic centers
@@ -34,8 +67,10 @@ const searchDiagnosticCenters = async (filters = {}, page = 1, limit = 20) => {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
   return {
-    data: data || [],
+    data: recordsWithPhone,
     pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
@@ -56,7 +91,9 @@ const findNearby = async (latitude, longitude, radius = 10) => {
 
   if (error) throw error;
 
-  return (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  return recordsWithPhone
     .map((dc) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: dc.latitude, longitude: dc.longitude });
       return { ...dc, distance: dist, distanceText: formatDistance(dist) };
@@ -78,7 +115,8 @@ const getDiagnosticCenterById = async (id) => {
   if (error || !data) {
     throw new ApiError(404, 'Diagnostic center not found');
   }
-  return data;
+  const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+  return recordWithPhone || data;
 };
 
 // ==================== Owner Registration ====================
@@ -598,6 +636,27 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
   return data;
 };
 
+// DC5: Resolve patient ID from user ID (extracted from route handler)
+const resolvePatientId = async (userId) => {
+  const { data, error } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('user_id', userId)
+    .single();
+  if (error || !data) return null;
+  return data.id;
+};
+
+// DC5: Get center owner ID (extracted from route handler)
+const getCenterOwnerId = async (centerId) => {
+  const { data } = await supabaseAdmin
+    .from('diagnostic_centers')
+    .select('owner_id')
+    .eq('id', centerId)
+    .single();
+  return data?.owner_id || null;
+};
+
 module.exports = {
   // Public / Discovery
   searchDiagnosticCenters,
@@ -622,4 +681,7 @@ module.exports = {
   getAnalytics,
   // Patient-facing
   bookTest,
+  // Helpers (DC5: extracted from inline route handlers)
+  resolvePatientId,
+  getCenterOwnerId,
 };

@@ -125,7 +125,14 @@ export default function ApprovalsPage() {
                                 const provType = approval.provider_type || 'doctors';
                                 const Icon = PROVIDER_ICONS[provType] || Stethoscope;
                                 const colorClass = PROVIDER_COLORS[provType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-                                const isFacility = ['hospitals', 'clinics', 'pharmacies'].includes(provType);
+                                const isFacility = ['hospitals', 'clinics', 'pharmacies', 'diagnostic_centers'].includes(provType);
+                                const isLocationBasedProvider = isFacility;
+                                const missingPhone = isLocationBasedProvider && !(approval.phone || '').trim();
+                                const missingLocation = isLocationBasedProvider && (approval.latitude == null || approval.longitude == null);
+                                const approvalBlockReason = missingPhone
+                                    ? 'Phone is required before approval.'
+                                    : (missingLocation ? 'Location coordinates are required before approval.' : null);
+                                const canApprove = !approvalBlockReason;
                                 const isExpanded = expandedId === approval.id;
                                 return (
                                     <div key={approval.id}>
@@ -155,7 +162,12 @@ export default function ApprovalsPage() {
                                                     </div>
                                                 )}
                                                 <StatusBadge status="pending" size="sm" />
-                                                <ApprovalActions id={approval.id} type={provType} onActionToast={(kind, message) => {
+                                                <ApprovalActions
+                                                    id={approval.id}
+                                                    type={provType}
+                                                    canApprove={canApprove}
+                                                    approveBlockedReason={approvalBlockReason}
+                                                    onActionToast={(kind, message) => {
                                                     if (kind === 'success') {
                                                         toast.success('Success', message);
                                                     } else {
@@ -164,6 +176,11 @@ export default function ApprovalsPage() {
                                                 }} />
                                             </div>
                                         </div>
+                                        {approvalBlockReason && (
+                                            <div className="px-4 pb-2 text-xs text-amber-700 dark:text-amber-300">
+                                                ⚠ {approvalBlockReason}
+                                            </div>
+                                        )}
                                         {/* Expanded detail panel with map preview for facilities */}
                                         {isFacility && isExpanded && (
                                             <ApprovalDetailPanel approval={approval} />
@@ -189,10 +206,14 @@ export default function ApprovalsPage() {
 function ApprovalActions({
     id,
     type,
+    canApprove,
+    approveBlockedReason,
     onActionToast,
 }: {
     id: string;
     type: string;
+    canApprove: boolean;
+    approveBlockedReason: string | null;
     onActionToast?: (kind: 'success' | 'error', message: string) => void;
 }) {
     const { approveProvider, rejectProvider } = useAdminStore();
@@ -203,7 +224,11 @@ function ApprovalActions({
     const handleApprove = async () => {
         setActing(true);
         const ok = await approveProvider(id, type);
-        onActionToast?.(ok ? 'success' : 'error', ok ? 'Provider approved successfully.' : 'Approve failed. Please refresh and retry.');
+        const latestError = useAdminStore.getState().error;
+        onActionToast?.(
+            ok ? 'success' : 'error',
+            ok ? 'Provider approved successfully.' : (latestError || 'Approve failed. Please refresh and retry.')
+        );
         setActing(false);
     };
 
@@ -229,7 +254,8 @@ function ApprovalActions({
                         e.stopPropagation();
                         handleApprove();
                     }}
-                    disabled={acting}
+                    disabled={acting || !canApprove}
+                    title={approveBlockedReason || undefined}
                 >
                     {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                     <span className="ml-1">Approve</span>

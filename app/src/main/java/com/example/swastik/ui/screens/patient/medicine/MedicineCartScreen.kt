@@ -196,7 +196,7 @@ fun MedicineCartScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
-                            enabled = !cartState.isOrdering && cartState.items.isNotEmpty(),
+                            enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && cartState.deliveryAddress.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                             shape = RoundedCornerShape(12.dp)
                         ) {

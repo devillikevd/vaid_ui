@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -80,6 +82,20 @@ fun SwastikApp(tokenManager: TokenManager) {
         ThemePreference.DARK -> true
         ThemePreference.LIGHT -> false
         ThemePreference.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    // Apply Android internal localization when preference changes
+    LaunchedEffect(appSettings.language) {
+        val languageTag = when (appSettings.language) {
+            "Hindi" -> "hi"
+            "Bengali" -> "bn"
+            "Telugu" -> "te"
+            "Tamil" -> "ta"
+            "Kannada" -> "kn"
+            "Marathi" -> "mr"
+            else -> "en"
+        }
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
     }
 
     SwastikTheme(darkTheme = darkTheme) {
@@ -297,6 +313,9 @@ fun SwastikApp(tokenManager: TokenManager) {
                 },
                 onNavigateToOrders = {
                     navController.navigate(Screen.OrderHistory.route)
+                },
+                onNavigateToDiagnosticBooking = {
+                    navController.navigate(Screen.DiagnosticBooking.route)
                 }
             )
         }
@@ -313,6 +332,7 @@ fun SwastikApp(tokenManager: TokenManager) {
             HospitalDetailScreen(
                 hospitalId = hospitalId,
                 onBackClick = { navController.popBackStack() },
+                isLoggedIn = tokenManager.isAuthenticated(),
                 onDoctorBookClick = { doctor, facility ->
                     navController.navigate(
                         Screen.AppointmentBooking.createRoute(
@@ -353,8 +373,7 @@ fun SwastikApp(tokenManager: TokenManager) {
             MedicineDetailScreen(
                 medicineId = medicineId,
                 onBackClick = { navController.popBackStack() },
-                onPharmacyClick = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) },
-                onAddToCart = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) }
+                onNavigateToCart = { navController.navigate(Screen.MedicineCart.route) }
             )
             }
         }

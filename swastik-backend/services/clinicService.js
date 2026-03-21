@@ -8,6 +8,39 @@ const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 
+const enrichMissingPhonesFromOwners = async (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const ownerIdsNeedingFallback = [
+    ...new Set(
+      rows
+        .filter((row) => row && !row.phone && row.owner_id)
+        .map((row) => row.owner_id)
+    ),
+  ];
+
+  if (ownerIdsNeedingFallback.length === 0) return rows;
+
+  const { data: owners, error } = await supabaseAdmin
+    .from('users')
+    .select('id, phone')
+    .in('id', ownerIdsNeedingFallback);
+
+  if (error || !owners) return rows;
+
+  const ownerPhoneById = new Map(
+    owners
+      .filter((owner) => owner?.id && owner?.phone)
+      .map((owner) => [owner.id, owner.phone])
+  );
+
+  return rows.map((row) => {
+    if (row?.phone || !row?.owner_id) return row;
+    const fallbackPhone = ownerPhoneById.get(row.owner_id);
+    return fallbackPhone ? { ...row, phone: fallbackPhone } : row;
+  });
+};
+
 // Search clinics
 const searchClinics = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -29,8 +62,10 @@ const searchClinics = async (filters = {}, page = 1, limit = 20) => {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
   return {
-    data: data || [],
+    data: recordsWithPhone,
     pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
@@ -54,7 +89,9 @@ const findNearby = async (latitude, longitude, radius = 10, specialization) => {
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || [])
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
+  return recordsWithPhone
     .map((c) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: c.latitude, longitude: c.longitude });
       return { ...c, distance: dist, distanceText: formatDistance(dist) };
@@ -76,7 +113,8 @@ const getClinicById = async (id) => {
   if (error || !data) {
     throw new ApiError(404, 'Clinic not found');
   }
-  return data;
+  const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+  return recordWithPhone || data;
 };
 
 // Register clinic

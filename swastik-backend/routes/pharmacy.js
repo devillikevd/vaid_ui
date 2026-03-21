@@ -7,7 +7,7 @@ const router = express.Router();
 const pharmacyService = require('../services/pharmacyService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 const { body, param, query: queryValidator } = require('express-validator');
 const { validate } = require('../middleware/validate');
 
@@ -82,12 +82,31 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
     const ordersResult = await pharmacyService.getOrders(pharmacy.id, { status: 'pending' }, 1, 20);
     const pendingOrders = ordersResult.orders || ordersResult.data || [];
     
+    // Calculate today's revenue from delivered/completed orders
+    let todaysRevenue = 0;
+    try {
+        const { supabaseAdmin } = require('../config/supabase');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const { data: revenueData } = await supabaseAdmin
+            .from('pharmacy_orders')
+            .select('total_amount')
+            .eq('pharmacy_id', pharmacy.id)
+            .in('status', ['delivered', 'completed'])
+            .gte('created_at', today.toISOString());
+        if (revenueData && revenueData.length > 0) {
+            todaysRevenue = revenueData.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0);
+        }
+    } catch (e) {
+        // Silently fallback to 0 if table/column doesn't exist yet
+    }
+
     // Build dashboard stats
     const stats = {
         newPrescriptions: pendingOrders.length,
         pendingOrders: pendingOrders.length,
         lowStockItems: lowStockItems.length,
-        todaysRevenue: 0,
+        todaysRevenue,
     };
     
     res.json({
@@ -115,13 +134,13 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
 }));
 
 // Get own pharmacy
-router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     res.json({ success: true, data: pharmacy });
 }));
 
 // Update pharmacy
-router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
@@ -163,6 +182,9 @@ router.post('/inventory', requireRole(ROLES.PHARMACY_OWNER), [
 ], asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     const item = await pharmacyService.addInventoryItem(pharmacy.id, req.user.id, req.body);
+    // #13: Real-time inventory update
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item);
     res.status(201).json({ success: true, item });
 }));
 
@@ -174,12 +196,18 @@ router.put('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler
         req.user.id,
         req.body
     );
+    // #13: Real-time inventory update
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item);
     res.json({ success: true, item });
 }));
 
 router.delete('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     await pharmacyService.deleteInventoryItem(req.params.itemId, pharmacy.id, req.user.id);
+    // #13: Real-time inventory update (removed item)
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, { id: req.params.itemId, deleted: true });
     res.json({ success: true });
 }));
 

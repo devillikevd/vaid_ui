@@ -8,7 +8,7 @@ const { validate } = require('../middleware/validate');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const vitalsService = require('../services/vitalsService');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
 

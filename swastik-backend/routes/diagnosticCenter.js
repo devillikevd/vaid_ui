@@ -9,7 +9,7 @@ const diagnosticCenterService = require('../services/diagnosticCenterService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // ==================== Public Routes ====================
 
@@ -101,30 +101,21 @@ router.post('/book',
   asyncHandler(async (req, res) => {
     const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes } = req.body;
 
-    // Resolve patient ID from user
-    const { data: patient } = await require('../config/supabase').supabaseAdmin
-        .from('patients')
-        .select('id')
-        .eq('user_id', req.user.id)
-        .single();
-
-    if (!patient) {
+    // DC5: Use service-layer helpers instead of inline Supabase calls
+    const patientId = await diagnosticCenterService.resolvePatientId(req.user.id);
+    if (!patientId) {
         return res.status(400).json({ success: false, message: 'Patient profile not found' });
     }
 
     const booking = await diagnosticCenterService.bookTest(
-        patient.id,
+        patientId,
         centerId,
         testId,
         { bookingDate, bookingTime, collectionType, collectionAddress, notes }
     );
 
-    // Also notify the center owner directly
-    const { data: center } = await require('../config/supabase').supabaseAdmin
-        .from('diagnostic_centers')
-        .select('owner_id')
-        .eq('id', centerId)
-        .single();
+    // DC5: Use service-layer helper for center owner lookup
+    const centerOwnerId = await diagnosticCenterService.getCenterOwnerId(centerId);
 
     // Emit real-time event so diagnostic center dashboard gets notified
     const eventEmitter = require('../services/eventEmitter');
@@ -132,7 +123,7 @@ router.post('/book',
         ...booking,
         patient_id: req.user.id,
         center_id: centerId,
-        center_owner_id: center?.owner_id || null,
+        center_owner_id: centerOwnerId,
     });
 
     res.status(201).json({ success: true, data: booking });
@@ -148,12 +139,12 @@ router.get('/owner/dashboard', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requi
 }));
 
 // Profile
-router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     res.json({ success: true, data: center });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [

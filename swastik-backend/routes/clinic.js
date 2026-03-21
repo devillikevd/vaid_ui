@@ -7,7 +7,7 @@ const router = express.Router();
 const clinicService = require('../services/clinicService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // Public routes
 router.get('/search', asyncHandler(async (req, res) => {
@@ -60,12 +60,12 @@ router.get('/owner/dashboard', requireRole(ROLES.CLINIC_OWNER), requireApproval,
     res.json({ success: true, ...dashboard });
 }));
 
-router.get('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     res.json({ success: true, data: clinic });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [

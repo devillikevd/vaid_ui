@@ -3,6 +3,7 @@ package com.example.swastik.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.MedicalFacility
+import com.example.swastik.data.remote.dto.HospitalReviewDto
 import com.example.swastik.data.repository.HospitalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +18,9 @@ data class HospitalDetailUiState(
     val error: String? = null,
     val reviewSubmitting: Boolean = false,
     val reviewSuccess: Boolean = false,
-    val reviewError: String? = null
+    val reviewError: String? = null,
+    val reviews: List<HospitalReviewDto> = emptyList(),
+    val reviewsLoading: Boolean = false
 )
 
 @HiltViewModel
@@ -38,6 +41,8 @@ class HospitalDetailViewModel @Inject constructor(
                         facility = facility,
                         isLoading = false
                     )
+                    // Also load reviews when details load
+                    loadReviews(hospitalId)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -50,6 +55,17 @@ class HospitalDetailViewModel @Inject constructor(
                     error = e.message ?: "Failed to load hospital details"
                 )
             }
+        }
+    }
+
+    fun loadReviews(hospitalId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(reviewsLoading = true)
+            val reviews = hospitalRepository.getHospitalReviews(hospitalId)
+            _uiState.value = _uiState.value.copy(
+                reviews = reviews,
+                reviewsLoading = false
+            )
         }
     }
 
@@ -66,7 +82,7 @@ class HospitalDetailViewModel @Inject constructor(
                 reviewSuccess = success,
                 reviewError = if (!success) "Failed to submit review. You may have already reviewed this hospital." else null
             )
-            // Reload hospital to show updated rating
+            // Reload hospital to show updated rating + reload reviews list
             if (success) {
                 loadHospitalDetails(hospitalId)
             }

@@ -14,7 +14,7 @@ const rateLimit = require('express-rate-limit');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const healthCardService = require('../services/healthCardService');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
 

@@ -80,7 +80,7 @@ export default function HospitalDashboard() {
                         </p>
                     </div>
                     <div className="hidden md:block">
-                        <Button className="bg-white dark:bg-gray-900/20 hover:bg-white dark:bg-gray-900/30 text-white border-0" onClick={() => router.push('/hospital/doctors')}>
+                        <Button className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white border-0" onClick={() => router.push('/hospital/doctors')}>
                             <Plus className="h-4 w-4 mr-2" />
                             Add Doctor
                         </Button>

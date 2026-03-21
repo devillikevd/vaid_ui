@@ -4,7 +4,7 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
-const { calculateDistance, formatDistance } = require('../utils/geo');
+const { calculateDistance, formatDistance, getBoundingBox } = require('../utils/geo');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { logSearch } = require('../utils/auditLogger');
 
@@ -126,6 +126,67 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
     .sort((a, b) => a.distance - b.distance);
 };
 
+// Get nearby medicines (hybrid aggregation)
+const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) => {
+  if (!latitude || !longitude) return [];
+
+  const bounds = getBoundingBox({ latitude, longitude }, radius);
+
+  // 1. Get active nearby pharmacies
+  const { data: pharmacies } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, latitude, longitude')
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .gte('latitude', bounds.minLat)
+    .lte('latitude', bounds.maxLat)
+    .gte('longitude', bounds.minLng)
+    .lte('longitude', bounds.maxLng);
+
+  if (!pharmacies || pharmacies.length === 0) return [];
+  
+  // Filter pharmacies strictly by true distance
+  const validPharmacyIds = pharmacies
+    .filter(p => calculateDistance({ latitude, longitude }, { latitude: p.latitude, longitude: p.longitude }) <= radius)
+    .map(p => p.id);
+
+  if (validPharmacyIds.length === 0) return [];
+
+  // 2. Query inventory linked to those pharmacies, ensuring stock > 0
+  const { data: inventoryItems } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('*, pharmacy:pharmacies(id, name, address)')
+    .in('pharmacy_id', validPharmacyIds)
+    .gt('quantity', 0)
+    .limit(limit * 3); // Overfetch to allow for deduplication
+
+  if (!inventoryItems) return [];
+  
+  // Deduplicate by medicine_name/medicine_id (showing the cheapest or closest option)
+  const uniqueMedicines = new Map();
+  for (const item of inventoryItems) {
+    const key = item.medicine_id || item.medicine_name.toLowerCase();
+    if (!uniqueMedicines.has(key) || uniqueMedicines.get(key).price > item.price) {
+      uniqueMedicines.set(key, item);
+    }
+  }
+
+  // Convert to array and shape it beautifully for the frontend
+  return Array.from(uniqueMedicines.values())
+    .map(item => ({
+       id: item.id, // Inventory ID
+       medicineId: item.medicine_id,
+       name: item.name || item.medicine_name,
+       category: item.category,
+       price: item.price,
+       pharmacyName: item.pharmacy?.name,
+       pharmacyId: item.pharmacy_id,
+       inStock: true,
+       quantity: item.quantity
+    }))
+    .slice(0, limit);
+};
+
 // Get alternatives (generic equivalents)
 const getAlternatives = async (medicineId) => {
   // Get the medicine's generic name
@@ -239,6 +300,7 @@ module.exports = {
   searchMedicines,
   getMedicineById,
   getMedicineAvailability,
+  getNearbyMedicines,
   getAlternatives,
   findPharmaciesWithMedicine,
   checkPrescriptionRequirement,

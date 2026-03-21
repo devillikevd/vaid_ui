@@ -20,7 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.swastik.R
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
@@ -35,8 +37,7 @@ import java.util.Locale
 fun MedicineDetailScreen(
     medicineId: String,
     onBackClick: () -> Unit,
-    onAddToCart: () -> Unit = {},
-    onPharmacyClick: (String) -> Unit = {},
+    onNavigateToCart: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     // Load medicine detail + availability from API
@@ -50,6 +51,7 @@ fun MedicineDetailScreen(
     // Map API availability to PharmacyInfo for display
     val pharmacies = detailState.availability.map { avail ->
         PharmacyInfo(
+            id = avail.pharmacyId,
             name = avail.pharmacyName,
             distance = avail.distance?.let { "${String.format(Locale.US, "%.1f", it)} km" } ?: "N/A",
             available = avail.inStock,
@@ -62,7 +64,7 @@ fun MedicineDetailScreen(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Medicine Details", fontWeight = FontWeight.SemiBold) },
+                    title = { Text(stringResource(R.string.medicine_details), fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -80,7 +82,7 @@ fun MedicineDetailScreen(
                 if (detailState.isLoading) {
                     CircularProgressIndicator(color = SwastikPurple)
                 } else {
-                    Text("Medicine not found", color = Color.Gray)
+                    Text(stringResource(R.string.medicine_not_found), color = Color.Gray)
                 }
             }
         }
@@ -92,7 +94,7 @@ fun MedicineDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Medicine Details",
+                        stringResource(R.string.medicine_details),
                         fontWeight = FontWeight.SemiBold
                     )
                 },
@@ -113,7 +115,7 @@ fun MedicineDetailScreen(
             MedicineDetailBottomBar(
                 price = medicine.price?.toInt(),
                 inStock = medicine.inStock,
-                onAddToCart = onAddToCart
+                onViewCart = onNavigateToCart
             )
         },
         containerColor = Color(0xFFF5F5F5)
@@ -224,14 +226,14 @@ fun MedicineDetailScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Description",
+                        stringResource(R.string.description),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = Color.Black
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        medicine.description ?: "No description available",
+                        medicine.description ?: stringResource(R.string.no_description),
                         fontSize = 14.sp,
                         color = Color.DarkGray,
                         lineHeight = 22.sp
@@ -241,12 +243,12 @@ fun MedicineDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Available at Pharmacies
+            // Available at Pharmacies Header
             Text(
-                "Available at Nearby Pharmacies",
+                stringResource(R.string.select_pharmacy_to_order),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = Color.Black,
+                color = SwastikPurple,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -264,7 +266,7 @@ fun MedicineDetailScreen(
                 }
             } else if (pharmacies.isEmpty()) {
                 Text(
-                    "No pharmacy availability data",
+                    stringResource(R.string.no_pharmacy_data),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     fontSize = 14.sp,
                     color = Color.Gray
@@ -273,7 +275,12 @@ fun MedicineDetailScreen(
                 pharmacies.forEach { pharmacy ->
                     PharmacyAvailabilityCard(
                         pharmacy = pharmacy,
-                        onClick = { onPharmacyClick(pharmacy.name) }
+                        onClick = {
+                            if (pharmacy.available) {
+                                viewModel.addToCart(medicine, pharmacy.id, pharmacy.name)
+                                onNavigateToCart()
+                            }
+                        }
                     )
                 }
             }
@@ -408,7 +415,7 @@ private fun PharmacyAvailabilityCard(
 private fun MedicineDetailBottomBar(
     price: Int?,
     inStock: Boolean,
-    onAddToCart: () -> Unit
+    onViewCart: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -423,12 +430,12 @@ private fun MedicineDetailBottomBar(
         ) {
             Column {
                 Text(
-                    "Price",
+                    stringResource(R.string.price),
                     fontSize = 12.sp,
                     color = Color.Gray
                 )
                 Text(
-                    price?.let { "₹$it" } ?: "Price unavailable",
+                    price?.let { "₹$it" } ?: stringResource(R.string.price_unavailable),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = SwastikPurple
@@ -438,8 +445,8 @@ private fun MedicineDetailBottomBar(
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = onAddToCart,
-                enabled = inStock,
+                onClick = onViewCart,
+                enabled = true,
                 modifier = Modifier
                     .height(50.dp)
                     .width(180.dp),
@@ -454,7 +461,7 @@ private fun MedicineDetailBottomBar(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (inStock) "Find Pharmacy" else "Out of Stock",
+                    stringResource(R.string.view_cart),
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -464,6 +471,7 @@ private fun MedicineDetailBottomBar(
 
 // Helper data class
 private data class PharmacyInfo(
+    val id: String,
     val name: String,
     val distance: String,
     val available: Boolean,

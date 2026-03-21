@@ -37,6 +37,7 @@ fun HospitalDetailScreen(
     hospitalId: String,
     onBackClick: () -> Unit,
     onDoctorBookClick: (HospitalDoctor, MedicalFacility) -> Unit = { _, _ -> },
+    isLoggedIn: Boolean = true,
     viewModel: HospitalDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -237,7 +238,16 @@ fun HospitalDetailScreen(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Hospital Information", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(
+                                    text = when (facility.type) {
+                                        FacilityType.CLINIC -> "Clinic Information"
+                                        FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic Center Information"
+                                        FacilityType.MEDICAL_STORE -> "Medical Store Information"
+                                        else -> "Hospital Information"
+                                    },
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp
+                                )
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 // Address
@@ -324,7 +334,8 @@ fun HospitalDetailScreen(
                             hospitalId = facility.id,
                             rating = facility.rating,
                             reviewCount = facility.reviewCount,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            isLoggedIn = isLoggedIn
                         )
                     }
 
@@ -355,7 +366,8 @@ private fun HospitalReviewSection(
     hospitalId: String,
     rating: Float,
     reviewCount: Int,
-    viewModel: HospitalDetailViewModel
+    viewModel: HospitalDetailViewModel,
+    isLoggedIn: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showReviewForm by remember { mutableStateOf(false) }
@@ -381,13 +393,21 @@ private fun HospitalReviewSection(
                     )
                 }
                 if (!showReviewForm) {
-                    OutlinedButton(
-                        onClick = { showReviewForm = true },
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.RateReview, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Write Review", fontSize = 13.sp)
+                    if (isLoggedIn) {
+                        OutlinedButton(
+                            onClick = { showReviewForm = true },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.RateReview, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Write Review", fontSize = 13.sp)
+                        }
+                    } else {
+                        Text(
+                            "Login to write a review",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -489,6 +509,87 @@ private fun HospitalReviewSection(
                         }
                     }
                 }
+            }
+
+            // ==================== Existing Reviews List ====================
+            if (uiState.reviews.isNotEmpty() || uiState.reviewsLoading) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("Patient Reviews", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (uiState.reviewsLoading) {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                } else {
+                    uiState.reviews.forEach { review ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            // Avatar
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    (review.patientName?.firstOrNull() ?: 'A').uppercase(),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = SwastikPurple
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        review.patientName ?: "Anonymous",
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 13.sp
+                                    )
+                                    // Star rating
+                                    Row {
+                                        repeat(5) { i ->
+                                            Icon(
+                                                if (i < review.rating) Icons.Default.Star else Icons.Default.StarBorder,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFFC107),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                if (!review.comment.isNullOrBlank()) {
+                                    Text(
+                                        review.comment,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "No reviews yet. Be the first to review!",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

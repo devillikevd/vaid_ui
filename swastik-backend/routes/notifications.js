@@ -7,7 +7,7 @@ const { body, param, query } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const notificationService = require('../services/notificationService');
 const { authenticate } = require('../middleware/auth');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // All routes require authentication
 router.use(authenticate);

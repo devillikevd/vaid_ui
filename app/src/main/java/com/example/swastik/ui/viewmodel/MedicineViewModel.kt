@@ -8,6 +8,7 @@ import com.example.swastik.data.model.CartItem
 import com.example.swastik.data.remote.dto.MedicineAvailabilityDto
 import com.example.swastik.data.remote.dto.MedicineOrderRequest
 import com.example.swastik.data.remote.dto.MedicineOrderDto
+import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.data.remote.dto.OrderItemRequest
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.MedicineRepository
@@ -30,7 +31,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class MedicineUiState(
-    val medicines: List<Medicine> = emptyList(),
+    val medicines: List<Medicine> = emptyList(), // Popular/Global
+    val nearbyMedicines: List<NearbyMedicineDto> = emptyList(), // Hybrid location-based
     val isLoading: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
@@ -45,6 +47,12 @@ data class MedicineDetailUiState(
     val error: String? = null
 )
 
+data class PharmacyConflict(
+    val newPharmacyId: String,
+    val newPharmacyName: String?,
+    val medicine: Medicine
+)
+
 data class CartUiState(
     val items: List<CartItem> = emptyList(),
     val selectedPharmacyId: String? = null,
@@ -53,7 +61,8 @@ data class CartUiState(
     val isOrdering: Boolean = false,
     val orderResult: MedicineOrderDto? = null,
     val orderError: String? = null,
-    val orderSuccess: Boolean = false
+    val orderSuccess: Boolean = false,
+    val pharmacyConflict: PharmacyConflict? = null
 ) {
     val totalItems: Int get() = items.sumOf { it.quantity }
     val totalPrice: Float get() = items.sumOf { it.totalPrice.toDouble() }.toFloat()
@@ -162,21 +171,36 @@ class MedicineViewModel @Inject constructor(
     fun loadPopularMedicines() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            // 1. Fetch Global Popular
+            var globalMedicines: List<Medicine>? = null
+            var errorMsg: String? = null
             when (val result = medicineRepository.getPopularMedicines()) {
-                is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        medicines = result.data,
-                        isLoading = false
-                    )
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-                is Result.Loading -> {}
+                is Result.Success -> globalMedicines = result.data
+                is Result.Error -> errorMsg = result.message
+                else -> {}
             }
+
+            // 2. Fetch Nearby Inventory (Hybrid)
+            var nearbyItems: List<NearbyMedicineDto>? = null
+            try {
+                val location = locationHelper.getLastLocation()
+                if (location != null) {
+                    when (val result = medicineRepository.getNearbyMedicines(location.latitude, location.longitude)) {
+                        is Result.Success -> nearbyItems = result.data
+                        else -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore location errors
+            }
+
+            _uiState.value = _uiState.value.copy(
+                medicines = globalMedicines ?: _uiState.value.medicines,
+                nearbyMedicines = nearbyItems ?: _uiState.value.nearbyMedicines,
+                isLoading = false,
+                error = errorMsg
+            )
         }
     }
 
@@ -279,7 +303,15 @@ class MedicineViewModel @Inject constructor(
     // ==================== CART & ORDER ====================
 
     fun addToCart(medicine: Medicine, pharmacyId: String? = null, pharmacyName: String? = null) {
-        val currentItems = _cartState.value.items.toMutableList()
+        val cart = _cartState.value
+        if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
+            _cartState.value = cart.copy(
+                pharmacyConflict = PharmacyConflict(pharmacyId, pharmacyName, medicine)
+            )
+            return
+        }
+
+        val currentItems = cart.items.toMutableList()
         val existingIndex = currentItems.indexOfFirst { it.medicine.id == medicine.id }
         if (existingIndex >= 0) {
             currentItems[existingIndex] = currentItems[existingIndex].copy(
@@ -288,11 +320,26 @@ class MedicineViewModel @Inject constructor(
         } else {
             currentItems.add(CartItem(medicine = medicine, quantity = 1))
         }
-        _cartState.value = _cartState.value.copy(
+        _cartState.value = cart.copy(
             items = currentItems,
-            selectedPharmacyId = pharmacyId ?: _cartState.value.selectedPharmacyId,
-            selectedPharmacyName = pharmacyName ?: _cartState.value.selectedPharmacyName
+            selectedPharmacyId = pharmacyId ?: cart.selectedPharmacyId,
+            selectedPharmacyName = pharmacyName ?: cart.selectedPharmacyName,
+            pharmacyConflict = null
         )
+    }
+
+    fun resolvePharmacyConflict(clearCartAndAdd: Boolean) {
+        val conflict = _cartState.value.pharmacyConflict ?: return
+        if (clearCartAndAdd) {
+            _cartState.value = CartUiState(
+                selectedPharmacyId = conflict.newPharmacyId,
+                selectedPharmacyName = conflict.newPharmacyName,
+                deliveryAddress = _cartState.value.deliveryAddress
+            )
+            addToCart(conflict.medicine, conflict.newPharmacyId, conflict.newPharmacyName)
+        } else {
+            _cartState.value = _cartState.value.copy(pharmacyConflict = null)
+        }
     }
 
     fun removeFromCart(medicineId: String) {

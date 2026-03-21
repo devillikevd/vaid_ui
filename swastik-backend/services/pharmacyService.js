@@ -9,6 +9,39 @@ const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 
+const enrichMissingPhonesFromOwners = async (rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const ownerIdsNeedingFallback = [
+    ...new Set(
+      rows
+        .filter((row) => row && !row.phone && row.owner_id)
+        .map((row) => row.owner_id)
+    ),
+  ];
+
+  if (ownerIdsNeedingFallback.length === 0) return rows;
+
+  const { data: owners, error } = await supabaseAdmin
+    .from('users')
+    .select('id, phone')
+    .in('id', ownerIdsNeedingFallback);
+
+  if (error || !owners) return rows;
+
+  const ownerPhoneById = new Map(
+    owners
+      .filter((owner) => owner?.id && owner?.phone)
+      .map((owner) => [owner.id, owner.phone])
+  );
+
+  return rows.map((row) => {
+    if (row?.phone || !row?.owner_id) return row;
+    const fallbackPhone = ownerPhoneById.get(row.owner_id);
+    return fallbackPhone ? { ...row, phone: fallbackPhone } : row;
+  });
+};
+
 // Search pharmacies globally (not limited to nearby)
 const searchPharmacies = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -31,8 +64,10 @@ const searchPharmacies = async (filters = {}, page = 1, limit = 20) => {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+  const recordsWithPhone = await enrichMissingPhonesFromOwners(data || []);
+
   return {
-    data: data || [],
+    data: recordsWithPhone,
     pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
@@ -55,7 +90,9 @@ const findNearbyWithMedicine = async (latitude, longitude, medicineId, radius = 
   if (!pharmacies || pharmacies.length === 0) return [];
 
   // Filter by distance
-  let nearby = pharmacies
+  const pharmaciesWithPhone = await enrichMissingPhonesFromOwners(pharmacies || []);
+
+  let nearby = pharmaciesWithPhone
     .map((p) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: p.latitude, longitude: p.longitude });
       return { ...p, distance: dist, distanceText: formatDistance(dist) };
@@ -123,7 +160,8 @@ const getPharmacyByOwner = async (userId) => {
     throw new ApiError(404, 'Pharmacy not found for this user');
   }
 
-  return data;
+  const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+  return recordWithPhone || data;
 };
 
 // Update pharmacy
@@ -413,33 +451,42 @@ const createOrder = async (patientUserId, orderData) => {
     throw new ApiError(404, 'Patient profile not found');
   }
 
-  // Batch-fetch all inventory items in one query instead of N+1
+  // Batch-fetch all inventory items in one query
   const itemIds = (orderData.items || []).map(i => i.inventoryItemId || i.medicineId).filter(Boolean);
   let inventoryMap = {};
   if (itemIds.length > 0) {
     const { data: invItems } = await supabaseAdmin
       .from('pharmacy_inventory')
-      .select('id, price, name, medicine_name')
+      .select('id, price, name, medicine_name, medicine_id')
       .eq('pharmacy_id', orderData.pharmacyId)
-      .in('id', itemIds);
-    inventoryMap = (invItems || []).reduce((m, item) => { m[item.id] = item; return m; }, {});
+      .or(`id.in.(${itemIds.join(',')}),medicine_id.in.(${itemIds.join(',')})`);
+      
+    inventoryMap = (invItems || []).reduce((m, item) => { 
+      m[item.id] = item; 
+      if (item.medicine_id) m[item.medicine_id] = item;
+      return m; 
+    }, {});
   }
 
   let totalAmount = 0;
   const enrichedItems = [];
   for (const item of (orderData.items || [])) {
-    const invItem = inventoryMap[item.inventoryItemId || item.medicineId];
+    const reqItemId = item.inventoryItemId || item.medicineId;
+    const invItem = inventoryMap[reqItemId];
+    
+    if (!invItem) {
+      throw new ApiError(400, `Item ${reqItemId} not available at this pharmacy`);
+    }
 
-    const price = invItem?.price || item.price || 0;
-    const quantity = item.quantity || 1;
-    totalAmount += price * quantity;
+    const itemPrice = invItem.price || 0;
+    totalAmount += itemPrice * (item.quantity || 1);
+    
     enrichedItems.push({
-      medicineId: item.medicineId,
-      inventoryItemId: item.inventoryItemId,
-      name: item.name || invItem?.name || invItem?.medicine_name || 'Medicine',
-      quantity,
-      price,
-      subtotal: price * quantity,
+      inventory_id: invItem.id, // always save the actual inventory ID
+      medicine_id: invItem.medicine_id,
+      quantity: item.quantity || 1,
+      price: itemPrice,
+      name: invItem.name || invItem.medicine_name
     });
   }
 

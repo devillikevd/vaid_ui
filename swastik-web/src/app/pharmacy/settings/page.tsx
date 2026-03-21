@@ -42,6 +42,16 @@ export default function PharmacySettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         setStatus(null);
+        if (!form.phone.trim()) {
+            setStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
+            setSaving(false);
+            return;
+        }
+        if (form.latitude == null || form.longitude == null) {
+            setStatus({ type: 'error', message: 'Location is required so patients can find your pharmacy on map.' });
+            setSaving(false);
+            return;
+        }
         try {
             const res = await pharmacyApi.updateProfile({ name: form.name, phone: form.phone, address: form.address, licenseNumber: form.licenseNumber, ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}) });
             if (res.success) setStatus({ type: 'success', message: 'Settings saved successfully.' });

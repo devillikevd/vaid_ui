@@ -186,6 +186,25 @@ data class PatientDto(
     val linkedHospitals: Int? = null
 )
 
+data class EmergencyProvider(
+    val id: String,
+    val name: String,
+    val distanceText: String,
+    val estimatedArrival: String
+)
+
+data class NearbyMedicineDto(
+    val id: String, // Inventory ID
+    val medicineId: String?,
+    val name: String,
+    val category: String?,
+    val price: Float,
+    val pharmacyName: String?,
+    val pharmacyId: String?,
+    val inStock: Boolean,
+    val quantity: Int
+)
+
 data class EmergencyContactDto(
     val id: String,
     val name: String,
@@ -944,8 +963,13 @@ data class ClinicDoctorDto(
     val specialization: String?,
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     @SerializedName("consultation_fee") val consultationFee: Int?,
-    @SerializedName("experience_years") val experienceYears: Int?
-)
+    @SerializedName("experience_years") val experienceYears: Int?,
+    val rating: Float? = null,
+    @SerializedName("average_rating") val averageRating: Float? = null
+) {
+    /** Unified accessor: prefer explicit rating, then average_rating, default 0 */
+    val resolvedRating: Float get() = rating ?: averageRating ?: 0f
+}
 
 // ==================== PHARMACY INVENTORY DTOs (public browse) ====================
 
@@ -961,6 +985,7 @@ data class PharmacyInventoryResponse(
 
 data class PharmacyInventoryItemDto(
     val id: String,
+    @SerializedName("medicine_id") val medicineId: String?,
     val name: String?,
     @SerializedName("medicine_name") val medicineName: String?,
     val category: String?,
@@ -977,3 +1002,14 @@ data class PharmacyInventoryItemDto(
     /** In stock if quantity > 0 */
     val inStock: Boolean get() = (quantity ?: 0) > 0
 }
+
+// ==================== HOSPITAL REVIEW DTO ====================
+
+data class HospitalReviewDto(
+    val id: String,
+    val rating: Int,
+    val comment: String?,
+    val patientName: String?,
+    val patientImage: String?,
+    val createdAt: String?
+)

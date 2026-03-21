@@ -22,8 +22,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import java.util.Locale
 
+import com.example.swastik.R
 import com.example.swastik.data.model.Doctor
 import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.ReminderType
@@ -49,13 +51,13 @@ fun SmartReminderSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Today's Reminders",
+                text = stringResource(R.string.todays_reminders),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
             TextButton(onClick = onViewAllClick) {
-                Text("View All", color = SwastikPurple, fontSize = 14.sp)
+                Text(stringResource(R.string.view_all), color = SwastikPurple, fontSize = 14.sp)
             }
         }
 
@@ -76,12 +78,12 @@ fun SmartReminderSection(
                     Text("📅", fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "No reminders for today",
+                        stringResource(R.string.no_reminders_today),
                         fontSize = 14.sp,
                         color = Color.Gray
                     )
                     Text(
-                        "Your upcoming appointments and medicine reminders will appear here",
+                        stringResource(R.string.reminders_description),
                         fontSize = 12.sp,
                         color = Color.LightGray,
                         textAlign = TextAlign.Center
@@ -192,7 +194,7 @@ fun QuickActionsSection(
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
-            text = "Quick Actions",
+            text = stringResource(R.string.quick_actions),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -206,21 +208,21 @@ fun QuickActionsSection(
         ) {
             QuickActionButton(
                 icon = Icons.Outlined.DirectionsCar,
-                label = "Ambulance",
+                label = stringResource(R.string.ambulance),
                 iconTint = Color(0xFFE53935),
                 bgColor = Color(0xFFE53935).copy(alpha = 0.12f),
                 onClick = { onAmbulanceClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.MonitorHeart,
-                label = "Vitals",
+                label = stringResource(R.string.vitals),
                 iconTint = Color(0xFF4CAF50),
                 bgColor = Color(0xFF4CAF50).copy(alpha = 0.12f),
                 onClick = { onVitalsClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.Receipt,
-                label = "Prescription",
+                label = stringResource(R.string.prescription),
                 iconTint = Color(0xFFFF9800),
                 bgColor = Color(0xFFFF9800).copy(alpha = 0.12f),
                 onClick = onPrescriptionClick
@@ -235,21 +237,21 @@ fun QuickActionsSection(
         ) {
             QuickActionButton(
                 icon = Icons.Outlined.HelpOutline,
-                label = "Help",
+                label = stringResource(R.string.help),
                 iconTint = SwastikPurple,
                 bgColor = SwastikPurple.copy(alpha = 0.12f),
                 onClick = { onHelpClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.ShoppingBag,
-                label = "My Orders",
+                label = stringResource(R.string.my_orders),
                 iconTint = Color(0xFF00897B),
                 bgColor = Color(0xFF00897B).copy(alpha = 0.12f),
                 onClick = { onOrderHistoryClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.Science,
-                label = "My Tests",
+                label = stringResource(R.string.my_tests),
                 iconTint = Color(0xFF5C6BC0),
                 bgColor = Color(0xFF5C6BC0).copy(alpha = 0.12f),
                 onClick = { onBookingHistoryClick() }
@@ -268,7 +270,7 @@ fun CareDirectorySection(
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
-            text = "Care Services",
+            text = stringResource(R.string.care_services),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -277,7 +279,7 @@ fun CareDirectorySection(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Hospitals, clinics, pharmacy, and diagnostic booking in separate flows.",
+            text = stringResource(R.string.care_services_desc),
             fontSize = 13.sp,
             color = Color.Gray,
             lineHeight = 18.sp
@@ -291,9 +293,9 @@ fun CareDirectorySection(
         ) {
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = "Hospitals",
-                subtitle = "Beds, emergency care, specialists",
-                tag = "Nearby hospitals",
+                title = stringResource(R.string.hospitals),
+                subtitle = stringResource(R.string.hospitals_subtitle),
+                tag = stringResource(R.string.nearby_hospitals),
                 icon = Icons.Outlined.LocalHospital,
                 accent = Color(0xFFD84315),
                 container = Color(0xFFFFF3EE),
@@ -301,9 +303,9 @@ fun CareDirectorySection(
             )
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = "Clinics",
-                subtitle = "OPD visits and local doctors",
-                tag = "Clinic visits",
+                title = stringResource(R.string.clinics),
+                subtitle = stringResource(R.string.clinics_subtitle),
+                tag = stringResource(R.string.clinic_visits),
                 icon = Icons.Outlined.MedicalServices,
                 accent = Color(0xFF2E7D32),
                 container = Color(0xFFF2FBF3),
@@ -319,9 +321,9 @@ fun CareDirectorySection(
         ) {
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = "Pharmacy",
-                subtitle = "Check stores and medicine access",
-                tag = "Medical stores",
+                title = stringResource(R.string.pharmacy),
+                subtitle = stringResource(R.string.pharmacy_subtitle),
+                tag = stringResource(R.string.medical_stores),
                 icon = Icons.Outlined.LocalPharmacy,
                 accent = Color(0xFF1565C0),
                 container = Color(0xFFEFF6FF),
@@ -329,9 +331,9 @@ fun CareDirectorySection(
             )
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = "Diagnostics",
-                subtitle = "Book tests and find centers",
-                tag = "Labs and scans",
+                title = stringResource(R.string.diagnostics),
+                subtitle = stringResource(R.string.diagnostics_subtitle),
+                tag = stringResource(R.string.labs_and_scans),
                 icon = Icons.Outlined.Science,
                 accent = Color(0xFF6A1B9A),
                 container = Color(0xFFF7F0FF),
@@ -512,13 +514,13 @@ fun DoctorRecommendationSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recommended for You",
+                text = stringResource(R.string.recommended_for_you),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
             TextButton(onClick = onSeeAllClick) {
-                Text("See All", color = SwastikPurple, fontSize = 14.sp)
+                Text(stringResource(R.string.see_all), color = SwastikPurple, fontSize = 14.sp)
             }
         }
 
@@ -541,12 +543,12 @@ fun DoctorRecommendationSection(
                     Text("👨‍⚕️", fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "No doctor recommendations available",
+                        stringResource(R.string.no_doctor_recommendations),
                         fontSize = 14.sp,
                         color = Color.Gray
                     )
                     Text(
-                        "Recommendations will appear after your activity is synced",
+                        stringResource(R.string.recommendations_description),
                         fontSize = 12.sp,
                         color = Color.LightGray,
                         textAlign = TextAlign.Center
@@ -651,7 +653,7 @@ private fun DoctorCard(
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text("Book", fontSize = 12.sp)
+                Text(stringResource(R.string.book), fontSize = 12.sp)
             }
         }
     }
@@ -671,7 +673,7 @@ fun EnhancedChatBotSection(
 
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
-            text = "AI Health Assistant",
+            text = stringResource(R.string.ai_health_assistant),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -707,13 +709,13 @@ fun EnhancedChatBotSection(
 
                     Column {
                         Text(
-                            text = "How can I help you today?",
+                            text = stringResource(R.string.how_can_i_help),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
                         )
                         Text(
-                            text = "Describe your symptoms or ask a question",
+                            text = stringResource(R.string.describe_symptoms),
                             fontSize = 12.sp,
                             color = Color.Gray
                         )

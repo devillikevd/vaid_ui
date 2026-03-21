@@ -124,6 +124,22 @@ class MedicineRepository @Inject constructor(
     }
 
     /**
+     * Get nearby medicines from local pharmacies based on geolocation.
+     */
+    suspend fun getNearbyMedicines(latitude: Double, longitude: Double): Result<List<NearbyMedicineDto>> {
+        return try {
+            val response = apiService.getNearbyMedicines(latitude = latitude, longitude = longitude)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error("Failed to load nearby medicines")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
      * Get medicine details by ID — network-first with cache fallback.
      */
     suspend fun getMedicineById(id: String): Result<Medicine> {

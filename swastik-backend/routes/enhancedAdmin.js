@@ -9,7 +9,7 @@ const { validate } = require('../middleware/validate');
 const enhancedAdminService = require('../services/enhancedAdminService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../utils/helpers');
+const { asyncHandler } = require('../middleware/errorHandler');
 
 // All admin routes require authentication and admin role
 router.use(authenticate);

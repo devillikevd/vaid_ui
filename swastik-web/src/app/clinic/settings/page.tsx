@@ -42,6 +42,16 @@ export default function ClinicSettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         setStatus(null);
+        if (!form.phone.trim()) {
+            setStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
+            setSaving(false);
+            return;
+        }
+        if (form.latitude == null || form.longitude == null) {
+            setStatus({ type: 'error', message: 'Location is required so patients can find your clinic on map.' });
+            setSaving(false);
+            return;
+        }
         try {
             const payload: Record<string, unknown> = {
                 name: form.name,

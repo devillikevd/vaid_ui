@@ -270,6 +270,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Error approving provider:', error);
+            set({ error: error instanceof Error ? error.message : 'Failed to approve provider' });
             return false;
         }
     },

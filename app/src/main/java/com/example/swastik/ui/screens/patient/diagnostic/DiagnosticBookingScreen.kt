@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.diagnostic
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,10 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.DiagnosticCenterDto
 import com.example.swastik.data.remote.dto.DiagnosticTestDto
@@ -47,8 +52,31 @@ fun DiagnosticBookingScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
+    // DC3: Use location-aware search on initial load when possible
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
-        viewModel.searchCenters()
+        val hasLocationPermission = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasLocationPermission) {
+            try {
+                val locationManager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as? LocationManager
+                val location = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (location != null) {
+                    viewModel.findNearbyCenters(location.latitude, location.longitude)
+                } else {
+                    viewModel.searchCenters()
+                }
+            } catch (_: SecurityException) {
+                viewModel.searchCenters()
+            }
+        } else {
+            viewModel.searchCenters()
+        }
     }
 
     // Booking success dialog
@@ -73,7 +101,10 @@ fun DiagnosticBookingScreen(
         )
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Diagnostic Centers", fontWeight = FontWeight.Bold) },
@@ -248,6 +279,10 @@ fun DiagnosticBookingScreen(
     // Error snackbar
     uiState.error?.let { error ->
         LaunchedEffect(error) {
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
             viewModel.clearError()
         }
     }
@@ -367,7 +402,7 @@ private fun CenterTestsView(
             Text(center.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
 
-        Divider(modifier = Modifier.padding(horizontal = 16.dp))
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
         if (tests.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

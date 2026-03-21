@@ -34,6 +34,44 @@ const PROVIDER_USER_FIELDS = {
 const getProviderUserId = (provider) => provider?.user_id || provider?.owner_id || null;
 const LOCATION_PROVIDER_TYPES = new Set(['hospital', 'pharmacy', 'clinic', 'diagnostic_center']);
 
+const resolveProviderPhone = async (provider) => {
+  if (provider?.phone) return provider.phone;
+  const userId = getProviderUserId(provider);
+  if (!userId) return null;
+
+  const { data: user, error } = await supabaseAdmin
+    .from('users')
+    .select('phone')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) return null;
+  return user?.phone || null;
+};
+
+const assertProviderApprovalReadiness = async (type, provider) => {
+  if (!provider?.id) throw new ApiError(404, 'Provider not found');
+
+  const phone = await resolveProviderPhone(provider);
+  if (!phone) {
+    throw new ApiError(
+      400,
+      'Provider phone is required before approval. Update provider profile (or owner phone) and try again.'
+    );
+  }
+
+  if (LOCATION_PROVIDER_TYPES.has(type)) {
+    const hasLatitude = typeof provider.latitude === 'number' && !Number.isNaN(provider.latitude);
+    const hasLongitude = typeof provider.longitude === 'number' && !Number.isNaN(provider.longitude);
+    if (!hasLatitude || !hasLongitude) {
+      throw new ApiError(
+        400,
+        'Provider latitude/longitude are required before approval so patients can discover this provider on map.'
+      );
+    }
+  }
+};
+
 const getProviderSnapshot = async (type, id) => {
   const table = PROVIDER_TABLES[type];
   const userField = PROVIDER_USER_FIELDS[type];
@@ -383,6 +421,13 @@ const approveProvider = async (type, id, adminId, notes) => {
   const table = PROVIDER_TABLES[type];
   if (!table) throw new ApiError(400, 'Invalid provider type');
   const before = await getProviderSnapshot(type, id);
+  let providerDraft = await getProviderDetails(type, id);
+
+  if (LOCATION_PROVIDER_TYPES.has(type)) {
+    providerDraft = await backfillProviderCoordinates(type, providerDraft);
+  }
+
+  await assertProviderApprovalReadiness(type, providerDraft);
 
   // Build update payload — only use columns that exist in the DB schema
   // All tables have: is_approved, approval_status, approval_notes, approved_by, approved_at

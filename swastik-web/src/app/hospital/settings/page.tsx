@@ -42,6 +42,16 @@ export default function HospitalSettingsPage() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         setSaveStatus(null);
+        if (!profile.phone.trim()) {
+            setSaveStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
+            setIsSaving(false);
+            return;
+        }
+        if (profile.latitude == null || profile.longitude == null) {
+            setSaveStatus({ type: 'error', message: 'Location is required so patients can find your hospital on map.' });
+            setIsSaving(false);
+            return;
+        }
         try {
             const res = await hospitalApi.updateProfile({
                 name: profile.name, phone: profile.phone, address: profile.address,

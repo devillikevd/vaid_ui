@@ -197,6 +197,13 @@ interface ApiService {
         @Body request: com.example.swastik.data.remote.dto.ReviewRequest
     ): Response<ApiResponse<Review>>
 
+    @GET("hospitals/{id}/reviews")
+    suspend fun getHospitalReviews(
+        @Path("id") hospitalId: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<ApiResponse<List<HospitalReviewDto>>>
+
     @GET("hospitals/search")
     suspend fun searchHospitals(
         @Query("q") query: String,
@@ -264,6 +271,13 @@ interface ApiService {
 
     @GET("medicines/popular")
     suspend fun getPopularMedicines(): Response<PaginatedResponse<Medicine>>
+
+    @GET("medicines/nearby")
+    suspend fun getNearbyMedicines(
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("radius") radius: Int = 25
+    ): Response<ApiResponse<List<NearbyMedicineDto>>>
 
     @GET("medicines/{id}")
     suspend fun getMedicineDetails(@Path("id") id: String): Response<ApiResponse<Medicine>>

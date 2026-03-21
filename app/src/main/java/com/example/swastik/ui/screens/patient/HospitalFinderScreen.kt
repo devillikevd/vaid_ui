@@ -58,10 +58,14 @@ fun HospitalFinderScreen(
     onMedicineClick: (String) -> Unit = {},
     onNavigateToCart: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
+    onNavigateToDiagnosticBooking: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     isDarkMode: Boolean = false,
     viewModel: HospitalFinderViewModel = hiltViewModel(),
     medicineViewModel: MedicineViewModel = hiltViewModel()
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val _unusedOnMedicineClick = onMedicineClick
     val appContext = LocalContext.current
     var selectedFacilityTypeOverride by remember { mutableStateOf<FacilityType?>(null) }
     var selectedFacility by remember { mutableStateOf<MedicalFacility?>(null) }
@@ -96,7 +100,7 @@ fun HospitalFinderScreen(
         val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
-            viewModel.fetchLocationAndLoad()
+            viewModel.fetchLocationAndLoad(selectedFacilityType)
         }
     }
 
@@ -174,7 +178,16 @@ fun HospitalFinderScreen(
 
         if (selectedTypeMissingInCurrentRadius) {
             distanceFilter = MAX_DISCOVERY_RADIUS_KM
-            viewModel.loadNearbyFacilities(radius = MAX_DISCOVERY_RADIUS_KM.toInt())
+            viewModel.loadNearbyFacilities(
+                radius = MAX_DISCOVERY_RADIUS_KM.toInt(),
+                facilityType = selectedFacilityType
+            )
+        }
+    }
+
+    LaunchedEffect(selectedFacilityType, hospitalState.locationAvailable) {
+        if (hospitalState.locationAvailable) {
+            viewModel.loadNearbyFacilities(facilityType = selectedFacilityType)
         }
     }
 
@@ -217,10 +230,7 @@ fun HospitalFinderScreen(
                                 tint = textColor
                             )
                         }
-                        val notifContext = LocalContext.current
-                        IconButton(onClick = {
-                            android.widget.Toast.makeText(notifContext, "No new notifications", android.widget.Toast.LENGTH_SHORT).show()
-                        }) {
+                        IconButton(onClick = onNavigateToNotifications) {
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "Notifications",
@@ -325,7 +335,7 @@ fun HospitalFinderScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
-                                onClick = { viewModel.fetchLocationAndLoad() },
+                                onClick = { viewModel.fetchLocationAndLoad(selectedFacilityType) },
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                             ) {
                                 Text("Retry")
@@ -341,12 +351,11 @@ fun HospitalFinderScreen(
                             onFacilityClick = { facility ->
                                 selectedFacility = facility
                                 showBottomSheet = true
-                            },
-                            isDarkMode = isDarkMode
+                            }
                         )
 
                         FloatingActionButton(
-                            onClick = { viewModel.fetchLocationAndLoad() },
+                            onClick = { viewModel.fetchLocationAndLoad(selectedFacilityType) },
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(16.dp)
@@ -362,7 +371,7 @@ fun HospitalFinderScreen(
                                 selectedFacilityType = selectedFacilityType,
                                 activeRadiusKm = hospitalState.activeRadiusKm,
                                 onResetFilters = resetFilters,
-                                onRefreshNearby = { viewModel.loadNearbyFacilities() },
+                                onRefreshNearby = { viewModel.loadNearbyFacilities(facilityType = selectedFacilityType) },
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(horizontal = 16.dp, vertical = 24.dp)
@@ -394,7 +403,7 @@ fun HospitalFinderScreen(
                         selectedFacilityType = selectedFacilityType,
                         activeRadiusKm = hospitalState.activeRadiusKm,
                         onResetFilters = resetFilters,
-                        onRefreshNearby = { viewModel.loadNearbyFacilities() }
+                        onRefreshNearby = { viewModel.loadNearbyFacilities(facilityType = selectedFacilityType) }
                     )
                 } else {
                     LazyColumn(
@@ -430,7 +439,32 @@ fun HospitalFinderScreen(
                 sheetState = sheetState,
                 containerColor = surfaceColor
             ) {
-                when (facility.type) {
+                val cartState by medicineViewModel.cartState.collectAsState()
+                cartState.pharmacyConflict?.let { conflict ->
+                    AlertDialog(
+                        onDismissRequest = { medicineViewModel.resolvePharmacyConflict(false) },
+                        title = { Text("Change Pharmacy?", fontWeight = FontWeight.Bold) },
+                        text = {
+                            Text("Your cart contains items from another pharmacy. Would you like to clear your cart and add this item from ${conflict.newPharmacyName ?: "the new pharmacy"}?")
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = { medicineViewModel.resolvePharmacyConflict(true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                            ) { Text("Clear & Add") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { medicineViewModel.resolvePharmacyConflict(false) }) { Text("Cancel") }
+                        }
+                    )
+                }
+
+                if (isEmergencyMode && facility.isEmergencyAvailable) {
+                    EmergencyFacilityDetailSheet(
+                        facility = facility,
+                        isDarkMode = isDarkMode
+                    )
+                } else when (facility.type) {
                     FacilityType.MEDICAL_STORE -> {
                         // Load inventory when pharmacy sheet opens
                         LaunchedEffect(facility.id) {
@@ -438,7 +472,7 @@ fun HospitalFinderScreen(
                             // Pre-set the pharmacy in cart so orders go to this store
                             medicineViewModel.setPharmacy(facility.id, facility.name)
                         }
-                        val cartState by medicineViewModel.cartState.collectAsState()
+                        val pharmacyCartState by medicineViewModel.cartState.collectAsState()
                         MedicalStoreDetailSheet(
                             facility = facility,
                             inventoryItems = hospitalState.pharmacyInventory,
@@ -447,7 +481,7 @@ fun HospitalFinderScreen(
                             onAddInventoryToCart = { item ->
                                 // Convert PharmacyInventoryItemDto → Medicine → add to cart
                                 val medicine = Medicine(
-                                    id = item.id,
+                                    id = item.medicineId ?: item.id,
                                     name = item.displayName,
                                     genericName = null,
                                     manufacturer = item.manufacturer,
@@ -462,7 +496,7 @@ fun HospitalFinderScreen(
                                 )
                                 medicineViewModel.addToCart(medicine, facility.id, facility.name)
                             },
-                            cartItemCount = cartState.totalItems,
+                            cartItemCount = pharmacyCartState.totalItems,
                             onViewCart = {
                                 showBottomSheet = false
                                 onNavigateToCart()
@@ -494,7 +528,7 @@ fun HospitalFinderScreen(
                                         name = doc.name,
                                         specialization = doc.specialization ?: "Specialization not listed",
                                         experience = doc.experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Experience not listed",
-                                        rating = 0f,
+                                        rating = doc.resolvedRating,
                                         consultationFee = doc.consultationFee ?: 0
                                     )
                                 } ?: facility.doctors.firstOrNull()
@@ -516,6 +550,10 @@ fun HospitalFinderScreen(
                     FacilityType.DIAGNOSTIC_CENTER -> {
                         DiagnosticCenterDetailSheet(
                             facility = facility,
+                            onBookTest = {
+                                showBottomSheet = false
+                                onNavigateToDiagnosticBooking()
+                            },
                             isDarkMode = isDarkMode
                         )
                     }
@@ -581,8 +619,7 @@ private fun EnhancedMapView(
     facilities: List<MedicalFacility>,
     userLat: Double = 0.0,
     userLng: Double = 0.0,
-    onFacilityClick: (MedicalFacility) -> Unit,
-    isDarkMode: Boolean
+    onFacilityClick: (MedicalFacility) -> Unit
 ) {
     // Use actual user GPS location as map center (if available), fallback to facility centroid
     val centerLat = if (userLat != 0.0) userLat
@@ -1975,7 +2012,7 @@ private fun ClinicDetailSheet(
                         name = doc.name,
                         specialization = doc.specialization ?: "Specialization not listed",
                         experience = doc.experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Experience not listed",
-                        rating = 0f,
+                        rating = doc.resolvedRating,
                         consultationFee = doc.consultationFee ?: 0
                     )
                     DoctorCard(doctor = hospitalDoctor, onBook = { onDoctorBook(hospitalDoctor) }, isDarkMode = isDarkMode)
@@ -1993,6 +2030,7 @@ private fun ClinicDetailSheet(
 @Composable
 private fun DiagnosticCenterDetailSheet(
     facility: MedicalFacility,
+    onBookTest: () -> Unit = {},
     isDarkMode: Boolean
 ) {
     val dcContext = LocalContext.current
@@ -2161,24 +2199,19 @@ private fun DiagnosticCenterDetailSheet(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Info note about booking
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF7C3AED).copy(alpha = 0.08f)),
+        // Book Test Button
+        Button(
+            onClick = onBookTest,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(52.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("Book Tests", fontWeight = FontWeight.SemiBold, color = Color(0xFF7C3AED), fontSize = 14.sp)
-                    Text(
-                        "To book diagnostic tests, use the Diagnostic Centers section from the main menu for full test catalog and booking.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF7C3AED).copy(alpha = 0.8f)
-                    )
-                }
-            }
+            Icon(Icons.Default.Science, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Book a Test", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -2350,6 +2383,7 @@ private fun EmergencyHospitalCard(
     facility: MedicalFacility,
     onClick: () -> Unit
 ) {
+    val cardContext = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -2358,83 +2392,281 @@ private fun EmergencyHospitalCard(
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(2.dp, Color(0xFFE53935))
     ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(Color(0xFFE53935), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.LocalHospital,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        facility.name,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            if (facility.distance.isNotBlank()) facility.distance else "Distance unavailable",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        // ETA estimate
+                        if (facility.distanceKm > 0) {
+                            val etaMin = NavigationHelper.estimateEtaMinutes(facility.distanceKm, 50.0)
+                            Text(
+                                " • ~${etaMin} min",
+                                fontSize = 12.sp,
+                                color = Color(0xFFFFA726),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "24/7 Emergency Services",
+                        color = Color(0xFF4CAF50),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    // Show phone number inline
+                    if (facility.phone.isNotBlank()) {
+                        Text(
+                            "📞 ${facility.phone}",
+                            color = Color.Gray,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action buttons: Call + Navigate
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Call button
+                Button(
+                    onClick = {
+                        if (facility.phone.isNotBlank()) {
+                            NavigationHelper.openDialer(cardContext, facility.phone)
+                        } else {
+                            NavigationHelper.openDialer(cardContext, "108")
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        if (facility.phone.isNotBlank()) "Call" else "Call 108",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Navigate button
+                Button(
+                    onClick = {
+                        NavigationHelper.openDirections(
+                            cardContext,
+                            facility.latitude,
+                            facility.longitude,
+                            facility.name
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = facility.latitude != 0.0 && facility.longitude != 0.0
+                ) {
+                    Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Navigate", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmergencyFacilityDetailSheet(
+    facility: MedicalFacility,
+    isDarkMode: Boolean
+) {
+    val emergencyContext = LocalContext.current
+    val textColor = if (isDarkMode) Color.White else Color.Black
+    val subtextColor = if (isDarkMode) Color.LightGray else Color.Gray
+    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp)
+    ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(Color(0xFFE53935), RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFE53935).copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.LocalHospital,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier.size(30.dp)
                 )
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    facility.name,
-                    color = Color.White,
+                    text = facility.name,
+                    color = textColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFFE53935),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        if (facility.distance.isNotBlank()) facility.distance else "Distance unavailable",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "24/7 Emergency Services",
-                    color = Color(0xFF4CAF50),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    text = if (facility.distance.isNotBlank()) "${facility.distance} away" else "Distance unavailable",
+                    color = subtextColor,
+                    fontSize = 13.sp
                 )
             }
+            StatusBadge(isOpen = facility.isOpen)
+        }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val callContext = LocalContext.current
-                IconButton(
-                    onClick = {
-                        if (facility.phone.isNotBlank()) {
-                            NavigationHelper.openDialer(callContext, facility.phone)
-                        } else {
-                            NavigationHelper.openDialer(callContext, "108")
-                        }
-                    },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(Color(0xFF4CAF50), CircleShape)
-                ) {
-                    Icon(
-                        Icons.Default.Call,
-                        contentDescription = "Call",
-                        tint = Color.White
-                    )
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE53935).copy(alpha = 0.1f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE53935))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text("Emergency-ready facility", fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
+                    Text("Quick call and turn-by-turn navigation", fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.85f))
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "Call",
-                    color = Color.White,
-                    fontSize = 12.sp
-                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = {
+                    if (facility.phone.isNotBlank()) {
+                        NavigationHelper.openDialer(emergencyContext, facility.phone)
+                    } else {
+                        NavigationHelper.openDialer(emergencyContext, "108")
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Icon(Icons.Default.Call, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (facility.phone.isNotBlank()) "Call Hospital" else "Call 108", fontWeight = FontWeight.SemiBold)
+            }
+
+            Button(
+                onClick = {
+                    NavigationHelper.openDirections(
+                        emergencyContext,
+                        facility.latitude,
+                        facility.longitude,
+                        facility.name
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                enabled = facility.latitude != 0.0 && facility.longitude != 0.0
+            ) {
+                Icon(Icons.Default.Navigation, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Navigate", fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(facility.address.ifBlank { "Address unavailable" }, color = textColor, fontSize = 14.sp)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(facility.phone.ifBlank { "N/A (fallback: 108)" }, color = textColor, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -2738,89 +2970,194 @@ private fun FacilityMapCard(
 ) {
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color.White
     val textColor = if (isDarkMode) Color.White else Color.Black
+    val mapCardContext = LocalContext.current
 
     Card(
         modifier = Modifier
-            .width(280.dp)
+            .width(300.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(facility.type.getMarkerColor().copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = facility.type.getMarkerIcon(),
-                    contentDescription = null,
-                    tint = facility.type.getMarkerColor(),
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = facility.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = textColor,
-                        modifier = Modifier.weight(1f)
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(facility.type.getMarkerColor().copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = facility.type.getMarkerIcon(),
+                        contentDescription = null,
+                        tint = facility.type.getMarkerColor(),
+                        modifier = Modifier.size(26.dp)
                     )
-                    if (facility.isEmergencyAvailable) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFE53935), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                "24/7",
-                                fontSize = 9.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = facility.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = textColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (facility.isEmergencyAvailable) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFFE53935), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    "24/7",
+                                    fontSize = 9.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
-                Text(
-                    text = facility.type.getDisplayName(),
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = null,
-                        tint = Color(0xFFFFC107),
-                        modifier = Modifier.size(14.dp)
-                    )
                     Text(
-                        text = " ${facility.rating} • ${facility.distance}",
-                        fontSize = 11.sp,
+                        text = facility.type.getDisplayName(),
+                        fontSize = 12.sp,
                         color = Color.Gray
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    StatusBadge(isOpen = facility.isOpen, small = true)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFFC107),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = " ${facility.rating} • ${facility.distance}",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        StatusBadge(isOpen = facility.isOpen, small = true)
+                    }
                 }
             }
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.Gray
-            )
+
+            // Quick action row: Call + Navigate + View Details
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Call
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (facility.phone.isNotBlank()) {
+                                NavigationHelper.openDialer(mapCardContext, facility.phone)
+                            } else {
+                                NavigationHelper.openDialer(mapCardContext, "108")
+                            }
+                        },
+                    color = if (facility.phone.isNotBlank()) Color(0xFF4CAF50).copy(alpha = 0.1f) else Color(0xFFFFA726).copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Call,
+                            contentDescription = "Call",
+                            tint = if (facility.phone.isNotBlank()) Color(0xFF4CAF50) else Color(0xFFF57C00),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            if (facility.phone.isNotBlank()) "Call" else "Call 108",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (facility.phone.isNotBlank()) Color(0xFF4CAF50) else Color(0xFFF57C00)
+                        )
+                    }
+                }
+
+                // Navigate
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            NavigationHelper.openDirections(
+                                mapCardContext,
+                                facility.latitude,
+                                facility.longitude,
+                                facility.name
+                            )
+                        },
+                    color = Color(0xFF2196F3).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Navigation,
+                            contentDescription = "Navigate",
+                            tint = Color(0xFF2196F3),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Navigate",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF2196F3)
+                        )
+                    }
+                }
+
+                // View Details
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onClick() },
+                    color = SwastikPurple.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = "Details",
+                            tint = SwastikPurple,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Details",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = SwastikPurple
+                        )
+                    }
+                }
+            }
         }
     }
 }
