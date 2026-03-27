@@ -5,6 +5,72 @@ const { paginate, paginatedResponse } = require('../utils/helpers');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet } = require('../config/redis');
 
+const DAY_NAME_TO_INDEX = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+const normalizeDayOfWeek = (slot) => {
+  if (Number.isInteger(slot?.dayOfWeek)) return slot.dayOfWeek;
+  if (Number.isInteger(slot?.day_of_week)) return slot.day_of_week;
+  if (Number.isInteger(slot?.day)) return slot.day;
+
+  const dayRaw = (slot?.day ?? slot?.dayName ?? '').toString().trim().toLowerCase();
+  if (dayRaw in DAY_NAME_TO_INDEX) return DAY_NAME_TO_INDEX[dayRaw];
+
+  const parsed = Number.parseInt(dayRaw, 10);
+  if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 6) return parsed;
+  return null;
+};
+
+const normalizeTime24 = (timeRaw) => {
+  if (typeof timeRaw !== 'string') return null;
+  const value = timeRaw.trim();
+  if (!value) return null;
+
+  // 24h format: HH:mm or HH:mm:ss
+  let match = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    const hour = Number.parseInt(match[1], 10);
+    const minute = Number.parseInt(match[2], 10);
+    if (Number.isNaN(hour) || Number.isNaN(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+  }
+
+  // 12h format: h:mm AM/PM or h AM/PM
+  match = value.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!match) return null;
+
+  let hour12 = Number.parseInt(match[1], 10);
+  const minute = Number.parseInt(match[2] || '0', 10);
+  const meridiem = match[3].toUpperCase();
+
+  if (Number.isNaN(hour12) || Number.isNaN(minute) || hour12 < 1 || hour12 > 12 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  if (hour12 === 12) hour12 = 0;
+  const hour24 = meridiem === 'PM' ? hour12 + 12 : hour12;
+  return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+};
+
+const toMinutes = (time24) => {
+  if (typeof time24 !== 'string') return null;
+  const parts = time24.split(':');
+  if (parts.length < 2) return null;
+  const h = Number.parseInt(parts[0], 10);
+  const m = Number.parseInt(parts[1], 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return (h * 60) + m;
+};
+
 class DoctorService {
   // Get doctor profile
   async getProfile(userId) {
@@ -173,6 +239,10 @@ class DoctorService {
         totalPatientsToday,
         completedToday,
         earningsToday: totalEarningsToday,
+        todaysAppointments: todayAppointments.length,
+        completed: completedToday,
+        pending: pendingCount,
+        todaysEarnings: totalEarningsToday,
       },
     };
 
@@ -400,12 +470,25 @@ class DoctorService {
       throw new ApiError(404, 'Doctor profile not found');
     }
 
-    // M2: Atomic delete + insert via Supabase RPC (single transaction)
-    const slotsJson = slots.map(slot => ({
-      day_of_week: slot.dayOfWeek,
-      start_time: slot.startTime,
-      end_time: slot.endTime,
-    }));
+    // Accept both backend-native slot shape and web UI shape.
+    // Prevent invalid rows like day_of_week = null, which makes patient slot lookup fail.
+    const slotsJson = slots.map((slot) => {
+      const day_of_week = normalizeDayOfWeek(slot);
+      const start_time = normalizeTime24(slot.startTime ?? slot.start_time);
+      const end_time = normalizeTime24(slot.endTime ?? slot.end_time);
+
+      if (day_of_week === null || !start_time || !end_time) {
+        throw new ApiError(400, 'Invalid slot format. Provide valid day, startTime, and endTime.');
+      }
+
+      const startMinutes = toMinutes(start_time);
+      const endMinutes = toMinutes(end_time);
+      if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
+        throw new ApiError(400, 'Invalid slot range. endTime must be after startTime.');
+      }
+
+      return { day_of_week, start_time, end_time };
+    });
 
     const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('rpc_replace_doctor_slots', {
       p_doctor_id: doctor.id,
@@ -423,14 +506,14 @@ class DoctorService {
         throw new ApiError(400, 'Failed to update slots');
       }
 
-      const fallbackRows = slots.map((slot) => ({
+      const fallbackRows = slotsJson.map((slot) => ({
         doctor_id: doctor.id,
-        day_of_week: slot.dayOfWeek,
-        start_time: slot.startTime,
-        end_time: slot.endTime,
-        slot_duration: slot.slotDuration || 15,
-        is_video_enabled: slot.isVideoEnabled ?? true,
-        is_clinic_enabled: slot.isClinicEnabled ?? true,
+        day_of_week: slot.day_of_week,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        slot_duration: 15,
+        is_video_enabled: true,
+        is_clinic_enabled: true,
         is_active: true,
       }));
 

@@ -3,6 +3,9 @@ package com.example.swastik.ui.screens.consultation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.ConsultationMode
 import com.example.swastik.ui.viewmodel.ChatMessageUi
 import org.webrtc.EglBase
@@ -35,6 +37,7 @@ fun VideoCallScreen(
     connectionStatus: String = "Connecting...",
     isMicMuted: Boolean = false,
     isCameraOff: Boolean = false,
+    isSpeakerOn: Boolean = true,
     localVideoTrack: VideoTrack? = null,
     remoteVideoTrack: VideoTrack? = null,
     eglBaseContext: EglBase.Context? = null,
@@ -45,15 +48,19 @@ fun VideoCallScreen(
     onBackClick: () -> Unit,
     onEndCall: () -> Unit,
     onMicToggle: () -> Unit = {},
+    onCameraToggle: () -> Unit = {},
     onCameraFlip: () -> Unit = {},
     onSpeakerToggle: () -> Unit = {},
     onSendChatMessage: (String) -> Unit = {},
     onSwitchMode: (ConsultationMode) -> Unit = {}
 ) {
-    var isSpeakerOn by remember { mutableStateOf(true) }
     var chatInput by remember { mutableStateOf("") }
+    val screenBackground = Color(0xFF111827)
+    val surfaceColor = Color(0xFF1F2937)
+    val accentColor = Color(0xFF3B82F6)
+    val warningColor = Color(0xFFF59E0B)
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(screenBackground)) {
         when (connectionMode) {
             ConsultationMode.CHAT -> {
                 // ── Full-screen Chat Mode ──────────────────────────
@@ -70,7 +77,8 @@ fun VideoCallScreen(
                     },
                     onEndCall = onEndCall,
                     onBackClick = onBackClick,
-                    modeBanner = modeBanner
+                    modeBanner = modeBanner,
+                    onSwitchMode = onSwitchMode
                 )
             }
             ConsultationMode.AUDIO -> {
@@ -83,119 +91,168 @@ fun VideoCallScreen(
                     onBackClick = onBackClick,
                     onEndCall = onEndCall,
                     onMicToggle = onMicToggle,
-                    onSpeakerToggle = {
-                        isSpeakerOn = !isSpeakerOn
-                        onSpeakerToggle()
-                    },
-                    isSpeakerOn = isSpeakerOn
+                    onSpeakerToggle = onSpeakerToggle,
+                    isSpeakerOn = isSpeakerOn,
+                    onSwitchMode = onSwitchMode
                 )
             }
             ConsultationMode.VIDEO -> {
-        // Remote Video (Full Screen Background)
-        if (hasRemoteVideo && remoteVideoTrack != null && eglBaseContext != null) {
-            WebRTCVideoView(
-                videoTrack = remoteVideoTrack,
-                eglContext = eglBaseContext,
-                mirror = false,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            // Placeholder when no remote video
-            DoctorVideoPlaceholder(
-                doctorName = doctorName,
-                status = connectionStatus,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    ConsultationTopBar(
+                        title = doctorName,
+                        connectionStatus = connectionStatus,
+                        statusAccent = if (hasRemoteVideo) Color(0xFF22C55E) else warningColor,
+                        onBackClick = onBackClick,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-        // Back Button
-        IconButton(
-            onClick = onBackClick,
-            modifier = Modifier
-                .padding(16.dp)
-                .padding(top = 24.dp)
-                .align(Alignment.TopStart)
-        ) {
+                    if (modeBanner != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(warningColor.copy(alpha = 0.94f))
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = modeBanner,
+                                color = Color.Black,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (hasRemoteVideo && remoteVideoTrack != null && eglBaseContext != null) {
+                            WebRTCVideoView(
+                                videoTrack = remoteVideoTrack,
+                                eglContext = eglBaseContext,
+                                mirror = false,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            DoctorVideoPlaceholder(
+                                doctorName = doctorName,
+                                status = connectionStatus,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        if (!hasRemoteVideo) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 20.dp)
+                                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = connectionStatus,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        if (!isCameraOff && localVideoTrack != null && eglBaseContext != null) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(end = 16.dp, bottom = 24.dp)
+                                    .align(Alignment.BottomEnd)
+                                    .size(width = 112.dp, height = 156.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .border(2.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                            ) {
+                                WebRTCVideoView(
+                                    videoTrack = localVideoTrack,
+                                    eglContext = eglBaseContext,
+                                    mirror = true,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        } else {
+                            SelfVideoPlaceholder(
+                                isCameraOff = isCameraOff,
+                                modifier = Modifier
+                                    .padding(end = 16.dp, bottom = 24.dp)
+                                    .align(Alignment.BottomEnd)
+                            )
+                        }
+                    }
+
+                    VideoCallControls(
+                        isMicMuted = isMicMuted,
+                        isCameraOff = isCameraOff,
+                        isSpeakerOn = isSpeakerOn,
+                        currentMode = connectionMode,
+                        accentColor = accentColor,
+                        surfaceColor = surfaceColor,
+                        onMicToggle = onMicToggle,
+                        onCameraToggle = onCameraToggle,
+                        onEndCall = onEndCall,
+                        onCameraFlip = onCameraFlip,
+                        onSpeakerToggle = onSpeakerToggle,
+                        onSwitchMode = onSwitchMode,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } // end VIDEO
+        } // end when
+    }
+}
+
+@Composable
+private fun ConsultationTopBar(
+    title: String,
+    connectionStatus: String,
+    statusAccent: Color,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(Color(0xFF1F2937))
+            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .padding(top = 24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBackClick) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
+                tint = Color.White
             )
         }
-
-        // Connection status overlay
-        if (!hasRemoteVideo) {
+        Spacer(modifier = Modifier.width(6.dp))
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 80.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = connectionStatus,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-
-        // Self Video Thumbnail (Bottom Left) — actual camera feed
-        if (!isCameraOff && localVideoTrack != null && eglBaseContext != null) {
-            Box(
-                modifier = Modifier
-                    .padding(start = 16.dp, bottom = 180.dp)
-                    .align(Alignment.BottomStart)
-                    .size(100.dp, 140.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(3.dp, Color.White, RoundedCornerShape(12.dp))
-            ) {
-                WebRTCVideoView(
-                    videoTrack = localVideoTrack,
-                    eglContext = eglBaseContext,
-                    mirror = true, // Front camera is mirrored
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        } else {
-            SelfVideoPlaceholder(
-                isCameraOff = isCameraOff,
-                modifier = Modifier
-                    .padding(start = 16.dp, bottom = 180.dp)
-                    .align(Alignment.BottomStart)
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(statusAccent)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = connectionStatus,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
-
-        // Bottom Control Bar
-        VideoCallControls(
-            isMicMuted = isMicMuted,
-            isSpeakerOn = isSpeakerOn,
-            onMicToggle = onMicToggle,
-            onEndCall = onEndCall,
-            onCameraFlip = onCameraFlip,
-            onSpeakerToggle = {
-                isSpeakerOn = !isSpeakerOn
-                onSpeakerToggle()
-            },
-            modifier = Modifier.align(Alignment.BottomCenter)
+        Text(
+            text = title,
+            color = Color.White.copy(alpha = 0.72f),
+            fontSize = 13.sp
         )
-
-        // Mode transition banner for video mode
-        if (modeBanner != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 80.dp)
-                    .background(Color(0xFFFFC107).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Text(text = modeBanner, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
-        }
-            } // end VIDEO
-        } // end when
     }
 }
 
@@ -248,7 +305,8 @@ private fun AudioModeScreen(
     onBackClick: () -> Unit,
     onEndCall: () -> Unit,
     onMicToggle: () -> Unit,
-    onSpeakerToggle: () -> Unit
+    onSpeakerToggle: () -> Unit,
+    onSwitchMode: (ConsultationMode) -> Unit
 ) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A2E)),
@@ -278,7 +336,11 @@ private fun AudioModeScreen(
             Text(doctorName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Audio Consultation", fontSize = 14.sp, color = Color(0xFF4CAF50))
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Low bandwidth — video disabled", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+            Text(connectionStatus, fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("Low bandwidth or manual audio mode", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.height(20.dp))
+            ConsultationModeSelector(currentMode = ConsultationMode.AUDIO, onSwitchMode = onSwitchMode)
             Spacer(modifier = Modifier.height(40.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 ControlButton(icon = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = "Mic", onClick = onMicToggle, isActive = !isMicMuted)
@@ -309,8 +371,17 @@ private fun ChatModeScreen(
     onSendMessage: () -> Unit,
     onEndCall: () -> Unit,
     onBackClick: () -> Unit,
-    modeBanner: String?
+    modeBanner: String?,
+    onSwitchMode: (ConsultationMode) -> Unit
 ) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(chatMessages.size) {
+        if (chatMessages.isNotEmpty()) {
+            listState.animateScrollToItem(chatMessages.lastIndex)
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF1A1A2E))) {
         // Header
         Row(
@@ -323,7 +394,7 @@ private fun ChatModeScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(doctorName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                Text("Chat Consultation • Poor network", fontSize = 12.sp, color = Color(0xFF64B5F6))
+                Text("Chat Consultation", fontSize = 12.sp, color = Color(0xFF64B5F6))
             }
             FloatingActionButton(onClick = onEndCall, containerColor = Color(0xFFE57373), shape = CircleShape, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.CallEnd, contentDescription = "End", tint = Color.White, modifier = Modifier.size(20.dp))
@@ -336,34 +407,46 @@ private fun ChatModeScreen(
             }
         }
 
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+            ConsultationModeSelector(currentMode = ConsultationMode.CHAT, onSwitchMode = onSwitchMode)
+        }
+
         // Messages
-        Column(
-            modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.Bottom
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (chatMessages.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Send a message to continue", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
-                }
-            }
-            chatMessages.forEach { msg ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
+                item {
                     Box(
                         modifier = Modifier
-                            .align(if (msg.isMe) Alignment.CenterEnd else Alignment.CenterStart)
-                            .background(
-                                if (msg.isMe) Color(0xFF3F51B5) else Color(0xFF2D2D44),
-                                RoundedCornerShape(16.dp)
-                            )
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .fillParentMaxWidth()
+                            .padding(top = 48.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column {
-                            Text(msg.message, color = Color.White, fontSize = 14.sp)
-                            Text(msg.timestamp, color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                        Text("Send a message to continue", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
+                    }
+                }
+            } else {
+                items(chatMessages, key = { it.id }) { msg ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(if (msg.isMe) Alignment.CenterEnd else Alignment.CenterStart)
+                                .background(
+                                    if (msg.isMe) Color(0xFF3F51B5) else Color(0xFF2D2D44),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        ) {
+                            Column {
+                                Text(msg.message, color = Color.White, fontSize = 14.sp)
+                                Text(formatChatTimestamp(msg.timestamp), color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                            }
                         }
                     }
                 }
@@ -392,6 +475,7 @@ private fun ChatModeScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             IconButton(onClick = onSendMessage, modifier = Modifier.size(48.dp).background(Color(0xFF3F51B5), CircleShape)) {
+                @Suppress("DEPRECATION")
                 Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
@@ -404,7 +488,7 @@ private fun ChatModeScreen(
 @Composable
 private fun DoctorVideoPlaceholder(doctorName: String, status: String, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.background(Color(0xFF1A1A2E)),
+        modifier = modifier.background(Color(0xFF111827)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -412,36 +496,40 @@ private fun DoctorVideoPlaceholder(doctorName: String, status: String, modifier:
         ) {
             Box(
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(92.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF16213E)),
+                    .background(Color(0xFF2563EB)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
-                    modifier = Modifier.size(80.dp),
-                    tint = Color.White.copy(alpha = 0.7f)
+                    modifier = Modifier.size(44.dp),
+                    tint = Color.White
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Text(
-                doctorName,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                text = if (status.contains("Connected", ignoreCase = true)) doctorName else "Waiting for doctor",
+                fontSize = 21.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = Color.White
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                status,
-                fontSize = 14.sp,
-                color = when {
-                    status.contains("Connected") -> Color(0xFF4CAF50)
-                    status.contains("Waiting") -> Color(0xFFFFC107)
-                    else -> Color.White.copy(alpha = 0.6f)
-                },
-                fontWeight = if (status.contains("Connected")) FontWeight.Bold else FontWeight.Normal
+                text = if (status.contains("Connected", ignoreCase = true)) "The consultation is live" else "The consultation will begin shortly",
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.55f)
             )
+            if (!status.contains("Connected", ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(18.dp))
+                Text(
+                    text = doctorName,
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
@@ -453,10 +541,10 @@ private fun DoctorVideoPlaceholder(doctorName: String, status: String, modifier:
 private fun SelfVideoPlaceholder(isCameraOff: Boolean, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(100.dp, 140.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF2D2D44))
-            .border(3.dp, Color.White, RoundedCornerShape(12.dp)),
+            .size(width = 112.dp, height = 156.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1F2937))
+            .border(2.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -471,7 +559,7 @@ private fun SelfVideoPlaceholder(isCameraOff: Boolean, modifier: Modifier = Modi
             Text(
                 if (isCameraOff) "Camera Off" else "You",
                 fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = 0.72f),
                 fontWeight = FontWeight.Medium
             )
         }
@@ -481,96 +569,128 @@ private fun SelfVideoPlaceholder(isCameraOff: Boolean, modifier: Modifier = Modi
 @Composable
 private fun VideoCallControls(
     isMicMuted: Boolean,
+    isCameraOff: Boolean,
     isSpeakerOn: Boolean,
+    currentMode: ConsultationMode,
+    accentColor: Color,
+    surfaceColor: Color,
     onMicToggle: () -> Unit,
+    onCameraToggle: () -> Unit,
     onEndCall: () -> Unit,
     onCameraFlip: () -> Unit,
     onSpeakerToggle: () -> Unit,
+    onSwitchMode: (ConsultationMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .background(Color(0xFF1F2937))
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // End Call Button (Floating above control bar)
-        FloatingActionButton(
-            onClick = onEndCall,
+        Row(
             modifier = Modifier
-                .size(64.dp)
-                .offset(y = 32.dp),
-            containerColor = Color(0xFFE57373),
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                .fillMaxWidth()
+                .padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.CallEnd,
-                contentDescription = "End Call",
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
+            ControlButton(
+                icon = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                contentDescription = if (isMicMuted) "Unmute" else "Mute",
+                onClick = onMicToggle,
+                isActive = !isMicMuted,
+                activeColor = surfaceColor,
+                inactiveColor = Color(0xFFDC2626)
+            )
+
+            ControlButton(
+                icon = if (isCameraOff) Icons.Default.VideocamOff else Icons.Default.Videocam,
+                contentDescription = if (isCameraOff) "Turn camera on" else "Turn camera off",
+                onClick = onCameraToggle,
+                isActive = !isCameraOff,
+                activeColor = surfaceColor,
+                inactiveColor = Color(0xFFDC2626)
+            )
+
+            FloatingActionButton(
+                onClick = onEndCall,
+                modifier = Modifier.size(58.dp),
+                containerColor = Color(0xFFEF4444),
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(4.dp)
+            ) {
+                Icon(
+                    Icons.Default.CallEnd,
+                    contentDescription = "End Call",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            ControlButton(
+                icon = Icons.Default.Cameraswitch,
+                contentDescription = "Flip Camera",
+                onClick = onCameraFlip,
+                activeColor = surfaceColor,
+                inactiveColor = surfaceColor
+            )
+
+            ControlButton(
+                icon = if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                contentDescription = if (isSpeakerOn) "Speaker on" else "Speaker off",
+                onClick = onSpeakerToggle,
+                isActive = isSpeakerOn,
+                activeColor = surfaceColor,
+                inactiveColor = Color(0xFF374151)
             )
         }
 
-        // Control Bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .background(SwastikPurple)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 40.dp)
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Mic Button
-                ControlButton(
-                    icon = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                    contentDescription = if (isMicMuted) "Unmute" else "Mute",
-                    onClick = onMicToggle,
-                    isActive = !isMicMuted
+        ConsultationModeSelector(
+            currentMode = currentMode,
+            accentColor = accentColor,
+            onSwitchMode = onSwitchMode
+        )
+    }
+}
+
+@Composable
+private fun ConsultationModeSelector(
+    currentMode: ConsultationMode,
+    accentColor: Color = Color(0xFF3F51B5),
+    onSwitchMode: (ConsultationMode) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        ConsultationMode.values().forEach { mode ->
+            val isSelected = mode == currentMode
+            AssistChip(
+                onClick = { onSwitchMode(mode) },
+                label = {
+                    Text(
+                        when (mode) {
+                            ConsultationMode.VIDEO -> "Video"
+                            ConsultationMode.AUDIO -> "Audio"
+                            ConsultationMode.CHAT -> "Chat"
+                        },
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f)
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = if (isSelected) accentColor else Color.White.copy(alpha = 0.12f),
+                    labelColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f)
                 )
-
-                Spacer(modifier = Modifier.width(80.dp))
-
-                // Camera Flip Button
-                ControlButton(
-                    icon = Icons.Default.Cameraswitch,
-                    contentDescription = "Flip Camera",
-                    onClick = onCameraFlip
-                )
-            }
-
-            // Speaker Control (Bottom Center)
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                IconButton(onClick = onSpeakerToggle) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            if (isSpeakerOn) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            if (isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                            contentDescription = "Speaker",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
+            )
         }
     }
+}
+
+private fun formatChatTimestamp(raw: String): String {
+    return runCatching {
+        val instant = java.time.Instant.parse(raw)
+        java.time.format.DateTimeFormatter.ofPattern("hh:mm a")
+            .withZone(java.time.ZoneId.systemDefault())
+            .format(instant)
+    }.getOrDefault(raw)
 }
 
 @Composable
@@ -578,14 +698,16 @@ private fun ControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
-    isActive: Boolean = true
+    isActive: Boolean = true,
+    activeColor: Color = Color.White.copy(alpha = 0.16f),
+    inactiveColor: Color = Color.White.copy(alpha = 0.3f)
 ) {
     IconButton(
         onClick = onClick,
         modifier = Modifier
             .size(56.dp)
             .background(
-                Color.White.copy(alpha = if (isActive) 0.2f else 0.4f),
+                if (isActive) activeColor else inactiveColor,
                 CircleShape
             )
     ) {

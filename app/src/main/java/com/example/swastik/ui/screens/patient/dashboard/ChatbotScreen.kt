@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -52,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.ChatLanguage
 import com.example.swastik.ui.viewmodel.ChatUiMessage
@@ -512,6 +515,7 @@ fun ChatbotScreen(
             // Image preview dialog
             if (showImagePreview && selectedImageUri != null) {
                 ImagePreviewDialog(
+                    imageUri = selectedImageUri!!,
                     description = imageDescription,
                     onDescriptionChange = { imageDescription = it },
                     onSend = {
@@ -617,11 +621,13 @@ private fun AttachmentOption(icon: ImageVector, label: String, subtitle: String,
 
 @Composable
 private fun ImagePreviewDialog(
+    imageUri: Uri,
     description: String,
     onDescriptionChange: (String) -> Unit,
     onSend: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -638,13 +644,15 @@ private fun ImagePreviewDialog(
                     modifier = Modifier.fillMaxWidth().height(160.dp),
                     shape = RoundedCornerShape(12.dp), color = Color(0xFFF0F0F0)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("\uD83D\uDCF7", fontSize = 40.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Image selected", fontSize = 12.sp, color = Color.Gray)
-                        }
-                    }
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageUri)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Selected image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Add a description (optional)", fontSize = 12.sp, color = Color.Gray)
@@ -740,13 +748,19 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                     // Show image indicator for user image messages
                     if (message.isUser && message.imageUri != null) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().height(100.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 220.dp),
                             shape = RoundedCornerShape(8.dp),
                             color = Color.White.copy(alpha = 0.2f)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("\uD83D\uDCF7", fontSize = 36.sp)
-                            }
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(message.imageUri)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Uploaded image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                     }

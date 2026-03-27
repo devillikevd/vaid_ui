@@ -316,12 +316,12 @@ const getManagers = async (hospitalId, userId) => {
 
 // Add manager
 const addManager = async (hospitalId, userId, managerData) => {
-  const { email, name, permissions } = managerData;
+  const { email, name, phone, permissions } = managerData;
 
   // Find user by email
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, name, email, role')
+    .select('id, name, email, phone, role')
     .eq('email', email)
     .single();
 
@@ -341,23 +341,38 @@ const addManager = async (hospitalId, userId, managerData) => {
     throw new ApiError(409, 'This user is already a manager for this hospital');
   }
 
+  const { data: existingManagerAssignment } = await supabaseAdmin
+    .from('hospital_managers')
+    .select('hospital_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existingManagerAssignment && existingManagerAssignment.hospital_id !== hospitalId) {
+    throw new ApiError(409, 'This user is already assigned as a manager for another hospital');
+  }
+
   // Check if user already has a provider role that shouldn't be overwritten
   const protectedRoles = ['doctor', 'hospital_owner', 'pharmacy_owner', 'clinic_owner', 'diagnostic_center_owner', 'ambulance_operator', 'admin', 'super_admin'];
   if (protectedRoles.includes(user.role)) {
     throw new ApiError(409, `Cannot assign hospital_manager role: user already has role '${user.role}'. They must use a different account.`);
   }
 
-  // Update user role (only from patient or unset)
-  await supabaseAdmin
+  const userUpdates = { role: 'hospital_manager' };
+  if (!user.name && name) userUpdates.name = name;
+  if (!user.phone && phone) userUpdates.phone = phone;
+
+  const { error: userUpdateError } = await supabaseAdmin
     .from('users')
-    .update({ role: 'hospital_manager' })
+    .update(userUpdates)
     .eq('id', user.id);
+  if (userUpdateError) throw userUpdateError;
 
   const { data: manager, error } = await supabaseAdmin
     .from('hospital_managers')
     .insert({
       hospital_id: hospitalId,
       user_id: user.id,
+      name: name || user.name || user.email,
       role: 'manager',
       permissions: permissions || ['view_appointments', 'manage_doctors'],
     })

@@ -69,7 +69,7 @@ data class HealthTip(
 
 data class UploadResponse(
     val url: String,
-    @SerializedName("file_name") val fileName: String
+    @SerializedName("file_name") val fileName: String? = null
 )
 
 // ==================== HEALTH CARD DTOs ====================
@@ -166,6 +166,8 @@ data class PatientDto(
     val email: String?,
     val phone: String?,
     val age: Int?,
+    @SerializedName("date_of_birth")
+    val dateOfBirth: String? = null,
     val gender: String?,
     @SerializedName("blood_group")
     val bloodGroup: String?,

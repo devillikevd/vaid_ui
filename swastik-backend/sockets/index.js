@@ -451,6 +451,25 @@ const initializeSocketIO = (io) => {
       }
 
       socket.join(`video:${roomId}`);
+
+      // Send current room state to the joining socket so clients can decide
+      // whether they should initiate WebRTC immediately even if peers joined earlier.
+      try {
+        const roomSockets = await io.in(`video:${roomId}`).fetchSockets();
+        const participantUserIds = roomSockets
+          .filter((s) => s.id !== socket.id)
+          .map((s) => s.userId)
+          .filter(Boolean);
+
+        socket.emit('video:room-state', {
+          roomId,
+          participants: Array.from(new Set(participantUserIds)),
+          participantCount: participantUserIds.length,
+        });
+      } catch (stateErr) {
+        console.warn(`Failed to emit video:room-state for ${roomId}:`, stateErr.message);
+      }
+
       socket.to(`video:${roomId}`).emit('video:user-joined', {
         userId: userId,
         socketId: socket.id,
@@ -490,6 +509,19 @@ const initializeSocketIO = (io) => {
       socket.to(`video:${data.roomId}`).emit('video:ice-candidate', {
         candidate: data.candidate,
         from: userId,
+      });
+    }));
+
+    socket.on('video:mode', safeHandler(socket, (data) => {
+      if (!hasRole(socket, VIDEO_ROLES)) return;
+      if (!validateData(data, ['roomId', 'mode'])) return;
+      if (!['video', 'audio', 'chat'].includes(data.mode)) return;
+
+      socket.to(`video:${data.roomId}`).emit('video:mode', {
+        roomId: data.roomId,
+        mode: data.mode,
+        from: userId,
+        timestamp: new Date().toISOString(),
       });
     }));
 
@@ -536,6 +568,11 @@ const initializeSocketIO = (io) => {
       }
 
       socket.join(`chat:${consultationId}`);
+    }));
+
+    socket.on('chat:leave', safeHandler(socket, (consultationId) => {
+      if (!consultationId || typeof consultationId !== 'string') return;
+      socket.leave(`chat:${consultationId}`);
     }));
 
     socket.on('chat:message', safeHandler(socket, (data) => {

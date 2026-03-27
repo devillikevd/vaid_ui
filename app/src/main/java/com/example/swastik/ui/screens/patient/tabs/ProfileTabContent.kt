@@ -64,14 +64,14 @@ fun ProfileTabContent(
                 val compressed = ImageCompressor.compressFromUri(context, it)
                 if (compressed != null) {
                     val requestBody = compressed.bytes.toRequestBody(compressed.mimeType.toMediaTypeOrNull())
-                    val imagePart = MultipartBody.Part.createFormData("file", "profile.jpg", requestBody)
+                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
                     viewModel?.uploadProfileImage(imagePart)
                 } else {
                     val inputStream = context.contentResolver.openInputStream(it)
                     val bytes = inputStream?.readBytes() ?: return@let
                     inputStream.close()
                     val requestBody = bytes.toRequestBody("image/*".toMediaTypeOrNull())
-                    val imagePart = MultipartBody.Part.createFormData("file", "profile.jpg", requestBody)
+                    val imagePart = MultipartBody.Part.createFormData("image", "profile.jpg", requestBody)
                     viewModel?.uploadProfileImage(imagePart)
                 }
             } catch (e: Exception) {
@@ -87,7 +87,10 @@ fun ProfileTabContent(
             .background(Color.White)
     ) {
         ProfileHeader(
-            onQrClick = { showQrDialog = true },
+            onQrClick = {
+                viewModel?.checkHealthCardStatus()
+                showQrDialog = true
+            },
             onSettingsClick = { showNotificationDialog = true }
         )
 

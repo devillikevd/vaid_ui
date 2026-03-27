@@ -132,7 +132,8 @@ fun PatientLoginScreen(
                     leadingIcon = { Icon(Icons.Default.Email, null) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -154,7 +155,8 @@ fun PatientLoginScreen(
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading,
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -222,4 +224,3 @@ fun PatientLoginScreen(
         }
     }
 }
-

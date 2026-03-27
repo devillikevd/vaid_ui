@@ -31,31 +31,44 @@ class NetworkObserver @Inject constructor(
         get() {
             val network = connectivityManager.activeNetwork ?: return false
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                   capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            return hasValidatedInternet(capabilities)
         }
+
+    private fun hasValidatedInternet(capabilities: NetworkCapabilities): Boolean {
+        val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val hasUsableTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+
+        // API 35 emulators can intermittently miss VALIDATED despite working internet.
+        return hasInternet && (isValidated || hasUsableTransport)
+    }
 
     /**
      * Observes connectivity changes as a Flow.
      * Emits true when connected, false when disconnected.
      */
     fun observe(): Flow<Boolean> = callbackFlow {
+        fun emitCurrentState() {
+            trySend(isConnected)
+        }
+
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                trySend(true)
+                emitCurrentState()
             }
 
             override fun onLost(network: Network) {
-                trySend(false)
+                emitCurrentState()
             }
 
             override fun onCapabilitiesChanged(
                 network: Network,
                 capabilities: NetworkCapabilities
             ) {
-                val connected = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                trySend(connected)
+                emitCurrentState()
             }
         }
 

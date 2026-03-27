@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheGet, cacheSet } = require('../config/redis');
+const { enrichAuthUser, requiresAuthUserEnrichment } = require('../utils/authUserEnrichment');
 
 /**
  * Authenticate middleware - verifies JWT token and attaches user to request
@@ -48,9 +49,14 @@ const authenticate = async (req, res, next) => {
         });
       }
       user = dbUser;
-      // Cache for 60 seconds (reduced from 5 minutes to limit stale data after deactivation)
-      await cacheSet(cacheKey, user, 60);
     }
+
+    if (requiresAuthUserEnrichment(user.role) && user.approval_status === undefined) {
+      user = await enrichAuthUser(user, supabaseAdmin);
+    }
+
+    // Cache for 60 seconds (reduced from 5 minutes to limit stale data after deactivation)
+    await cacheSet(cacheKey, user, 60);
 
     if (!user.is_active) {
       return res.status(403).json({
@@ -69,6 +75,10 @@ const authenticate = async (req, res, next) => {
       is_active: user.is_active,
       is_verified: user.is_verified,
       profile_image_url: user.profile_image_url,
+      approval_status: user.approval_status,
+      approval_notes: user.approval_notes,
+      provider_id: user.provider_id,
+      company_name: user.company_name,
     };
 
     next();
@@ -108,11 +118,15 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, config.jwt.accessSecret);
 
-    const { data: user } = await supabaseAdmin
+    let { data: user } = await supabaseAdmin
       .from('users')
       .select('id, email, name, phone, role, is_active')
       .eq('id', decoded.userId || decoded.id)
       .single();
+
+    if (user && requiresAuthUserEnrichment(user.role)) {
+      user = await enrichAuthUser(user, supabaseAdmin);
+    }
 
     // Don't attach deactivated users even in optional auth
     req.user = (user && user.is_active) ? user : null;

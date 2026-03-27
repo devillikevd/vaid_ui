@@ -29,7 +29,7 @@ async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string
 const ROUTE_ROLES: Record<string, string[]> = {
     '/admin': ['admin', 'super_admin'],
     '/doctor': ['doctor'],
-    '/hospital': ['hospital_owner'],
+    '/hospital': ['hospital_owner', 'hospital_manager'],
     '/clinic': ['clinic_owner'],
     '/diagnostic-center': ['diagnostic_center_owner'],
     '/pharmacy': ['pharmacy_owner'],

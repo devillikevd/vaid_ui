@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -123,6 +124,13 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            user.companyName?.takeIf { it.isNotBlank() }?.let { companyName ->
+                                Text(
+                                    text = companyName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             user.phone?.let { phone ->
                                 Text(
                                     text = phone,
@@ -139,6 +147,10 @@ fun ProfileScreen(
                                     Icon(Icons.Default.Badge, contentDescription = null, Modifier.size(18.dp))
                                 }
                             )
+                            user.approvalStatus?.let { status ->
+                                Spacer(Modifier.height(8.dp))
+                                ApprovalChip(status)
+                            }
                         }
                     }
                 }
@@ -286,6 +298,29 @@ private fun StatusChip(status: String) {
         "busy", "on_trip" -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.outline
     }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = color.copy(alpha = 0.12f)
+    ) {
+        Text(
+            text = status.replace("_", " ").replaceFirstChar { it.uppercase() },
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color
+        )
+    }
+}
+
+@Composable
+private fun ApprovalChip(status: String) {
+    val normalizedStatus = status.lowercase()
+    val color = when (normalizedStatus) {
+        "approved" -> Color(0xFF1B8A3C)
+        "pending", "under_review", "review" -> Color(0xFFC15A00)
+        "rejected", "suspended" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.outline
+    }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = color.copy(alpha = 0.12f)

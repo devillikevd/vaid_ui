@@ -35,6 +35,13 @@ const bannerConfig: Record<ApprovalStatus, {
         className: 'bg-blue-50 border-blue-200',
         iconClassName: 'text-blue-600',
     },
+    under_review: {
+        icon: Eye,
+        title: 'Under Review',
+        description: 'An admin is currently reviewing your documents. This usually takes 24-48 hours.',
+        className: 'bg-blue-50 border-blue-200',
+        iconClassName: 'text-blue-600',
+    },
     approved: {
         icon: CheckCircle,
         title: 'Profile Approved',

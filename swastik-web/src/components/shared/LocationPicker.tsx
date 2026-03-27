@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { MapPin, Search, Loader2, Navigation, X } from 'lucide-react';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 interface LocationPickerProps {
     /** Current latitude */
@@ -70,16 +73,17 @@ export default function LocationPicker({
     // Default center: India
     const defaultLat = 20.5937;
     const defaultLng = 78.9629;
-    const defaultZoom = latitude && longitude ? 15 : 5;
+    const hasCoordinates = latitude != null && longitude != null && !(latitude === 0 && longitude === 0);
+    const defaultZoom = hasCoordinates ? 15 : 5;
 
     // Fix Leaflet icon paths (Next.js bundling issue)
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
-            iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-            iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            iconRetinaUrl: markerIcon2x.src,
+            iconUrl: markerIcon.src,
+            shadowUrl: markerShadow.src,
         });
     }, []);
 
@@ -88,7 +92,7 @@ export default function LocationPicker({
         if (!containerRef.current || mapRef.current) return;
 
         const map = L.map(containerRef.current, {
-            center: [latitude ?? defaultLat, longitude ?? defaultLng],
+            center: [hasCoordinates ? latitude! : defaultLat, hasCoordinates ? longitude! : defaultLng],
             zoom: defaultZoom,
             scrollWheelZoom: true,
             zoomControl: true,
@@ -100,7 +104,7 @@ export default function LocationPicker({
         }).addTo(map);
 
         // Add marker if coordinates exist
-        if (latitude && longitude) {
+        if (hasCoordinates) {
             markerRef.current = L.marker([latitude, longitude], { draggable: !readOnly }).addTo(map);
             if (!readOnly && markerRef.current) {
                 markerRef.current.on('dragend', () => {
@@ -129,15 +133,7 @@ export default function LocationPicker({
             markerRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Update marker position externally
-    useEffect(() => {
-        if (latitude && longitude && mapRef.current) {
-            setMarkerPosition(latitude, longitude);
-            mapRef.current.setView([latitude, longitude], 15);
-        }
-    }, [latitude, longitude]);
+    }, [defaultZoom, hasCoordinates, latitude, longitude, readOnly]);
 
     const setMarkerPosition = useCallback((lat: number, lng: number) => {
         setDisplayLat(lat);
@@ -161,6 +157,13 @@ export default function LocationPicker({
 
         mapRef.current.setView([lat, lng], Math.max(mapRef.current.getZoom(), 15));
     }, [readOnly, onLocationChange]);
+
+    // Keep the marker in sync when parent-controlled coordinates change.
+    useEffect(() => {
+        if (!hasCoordinates || latitude == null || longitude == null || !mapRef.current) return;
+        setMarkerPosition(latitude, longitude);
+        mapRef.current.setView([latitude, longitude], 15);
+    }, [hasCoordinates, latitude, longitude, setMarkerPosition]);
 
     // Geocode address text via Nominatim
     const geocodeAddress = useCallback(async (query: string) => {
@@ -238,7 +241,7 @@ export default function LocationPicker({
 
     // Auto-geocode when address prop changes (debounced)
     useEffect(() => {
-        if (!address || readOnly || (displayLat && displayLng)) return;
+        if (!address || readOnly || (displayLat != null && displayLng != null && !(displayLat === 0 && displayLng === 0))) return;
         const timer = setTimeout(() => {
             geocodeAddress(address);
         }, 1500); // Wait 1.5s after user stops typing
@@ -312,7 +315,7 @@ export default function LocationPicker({
 
             {/* Coordinate display */}
             <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                {displayLat && displayLng ? (
+                {displayLat != null && displayLng != null && !(displayLat === 0 && displayLng === 0) ? (
                     <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3 text-green-500" />
                         {displayLat.toFixed(6)}, {displayLng.toFixed(6)}
@@ -322,7 +325,7 @@ export default function LocationPicker({
                         {readOnly ? 'No coordinates available' : 'Click the map or search to set location'}
                     </span>
                 )}
-                {!readOnly && displayLat && displayLng && (
+                {!readOnly && displayLat != null && displayLng != null && !(displayLat === 0 && displayLng === 0) && (
                     <button
                         onClick={() => {
                             setDisplayLat(null);

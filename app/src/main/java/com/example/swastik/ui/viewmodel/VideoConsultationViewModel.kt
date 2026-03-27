@@ -1,10 +1,15 @@
 package com.example.swastik.ui.viewmodel
 
 import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.SignalingEvent
+import com.example.swastik.data.remote.ApiConfig
+import com.example.swastik.data.remote.ConsultationEndedEvent
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.repository.AppointmentRepository
@@ -34,6 +39,23 @@ import javax.inject.Inject
  */
 enum class ConsultationMode { VIDEO, AUDIO, CHAT }
 
+private fun ConsultationMode.rank(): Int = when (this) {
+    ConsultationMode.CHAT -> 0
+    ConsultationMode.AUDIO -> 1
+    ConsultationMode.VIDEO -> 2
+}
+
+private fun mostRestrictiveMode(vararg modes: ConsultationMode): ConsultationMode =
+    modes.minByOrNull { it.rank() } ?: ConsultationMode.VIDEO
+
+private fun ConsultationMode.toWireValue(): String = name.lowercase()
+
+private fun consultationModeFromWire(value: String?): ConsultationMode = when (value?.lowercase()) {
+    "chat" -> ConsultationMode.CHAT
+    "audio" -> ConsultationMode.AUDIO
+    else -> ConsultationMode.VIDEO
+}
+
 /**
  * UI State for video consultation
  */
@@ -42,6 +64,7 @@ data class VideoConsultationUiState(
     val isConnected: Boolean = false,
     val isMicEnabled: Boolean = true,
     val isCameraEnabled: Boolean = true,
+    val isSpeakerOn: Boolean = true,
     val session: VideoCallSession? = null,
     val error: String? = null,
     val chatMessages: List<ChatMessageUi> = emptyList(),
@@ -49,7 +72,8 @@ data class VideoConsultationUiState(
     val hasRemoteVideo: Boolean = false,
     val connectionMode: ConsultationMode = ConsultationMode.VIDEO,
     val networkQuality: WebRTCManager.NetworkQuality = WebRTCManager.NetworkQuality.GOOD,
-    val modeBanner: String? = null
+    val modeBanner: String? = null,
+    val consultationCompleted: Boolean = false
 )
 
 data class ChatMessageUi(
@@ -81,12 +105,20 @@ class VideoConsultationViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(VideoConsultationUiState())
     val uiState: StateFlow<VideoConsultationUiState> = _uiState.asStateFlow()
+    private val audioManager by lazy {
+        appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
 
     // WebRTC Manager
     private var webRTCManager: WebRTCManager? = null
     private var isWebRTCInitialized = false
     private var networkMonitorJob: kotlinx.coroutines.Job? = null
     private var cvAnalyzer: ComputerVisionAnalyzer? = null
+    private var userPreferredMode = ConsultationMode.VIDEO
+    private var localBandwidthMode = ConsultationMode.VIDEO
+    private var remoteRequestedMode = ConsultationMode.VIDEO
+    private var userMicPreference = true
+    private var lastPublishedModeConstraint = ConsultationMode.VIDEO
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -130,6 +162,12 @@ class VideoConsultationViewModel @Inject constructor(
                 handleSignalingEvent(event)
             }
         }
+
+        viewModelScope.launch {
+            socketManager.consultationEnded.collect { event ->
+                handleConsultationEnded(event)
+            }
+        }
     }
 
     /**
@@ -141,6 +179,7 @@ class VideoConsultationViewModel @Inject constructor(
 
         webRTCManager = WebRTCManager(appContext).apply {
             cvAnalyzer = ComputerVisionAnalyzer(appContext)
+            applySpeakerRoute(_uiState.value.isSpeakerOn)
             
             // Set up callbacks
             onLocalVideoTrack = { track ->
@@ -179,7 +218,14 @@ class VideoConsultationViewModel @Inject constructor(
                 when (state) {
                     PeerConnection.IceConnectionState.CONNECTED,
                     PeerConnection.IceConnectionState.COMPLETED -> {
-                        _uiState.value = _uiState.value.copy(isConnected = true, isConnecting = false)
+                        localBandwidthMode = ConsultationMode.VIDEO
+                        _uiState.value = _uiState.value.copy(
+                            isConnected = true,
+                            isConnecting = false,
+                            consultationCompleted = false
+                        )
+                        publishModeConstraintIfNeeded()
+                        applyEffectiveMediaState()
                         startNetworkQualityMonitor()
                         startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
                     }
@@ -195,11 +241,15 @@ class VideoConsultationViewModel @Inject constructor(
                         }
                     }
                     PeerConnection.IceConnectionState.FAILED -> {
+                        localBandwidthMode = ConsultationMode.CHAT
                         _uiState.value = _uiState.value.copy(
                             isConnected = false,
-                            hasRemoteVideo = false,
-                            connectionMode = ConsultationMode.CHAT,
-                            modeBanner = "❌ Connection lost — switched to Chat mode"
+                            hasRemoteVideo = false
+                        )
+                        publishModeConstraintIfNeeded()
+                        applyEffectiveMediaState(
+                            banner = "❌ Connection lost — switched to Chat mode",
+                            clearDelayMs = 5000
                         )
                         networkMonitorJob?.cancel()
                     }
@@ -254,48 +304,51 @@ class VideoConsultationViewModel @Inject constructor(
      * VIDEO → AUDIO (poor) → CHAT (critical); restores when quality improves.
      */
     private fun handleQualityChange(quality: WebRTCManager.NetworkQuality) {
-        val currentMode = _uiState.value.connectionMode
+        val previousMode = localBandwidthMode
+        val nextMode = when (quality) {
+            WebRTCManager.NetworkQuality.CRITICAL -> ConsultationMode.CHAT
+            WebRTCManager.NetworkQuality.POOR -> ConsultationMode.AUDIO
+            WebRTCManager.NetworkQuality.GOOD,
+            WebRTCManager.NetworkQuality.EXCELLENT -> ConsultationMode.VIDEO
+        }
+
+        if (nextMode == previousMode) return
+
+        localBandwidthMode = nextMode
+        publishModeConstraintIfNeeded()
+
         when {
-            quality == WebRTCManager.NetworkQuality.CRITICAL && currentMode != ConsultationMode.CHAT -> {
-                webRTCManager?.setCameraEnabled(false)
-                webRTCManager?.setMicEnabled(false)
-                _uiState.value = _uiState.value.copy(
-                    connectionMode = ConsultationMode.CHAT,
-                    isCameraEnabled = false,
-                    isMicEnabled = false,
-                    modeBanner = "⚠️ Very poor network — switched to Chat mode"
+            nextMode == ConsultationMode.CHAT -> {
+                applyEffectiveMediaState(
+                    banner = "⚠️ Very poor network — switched to Chat mode",
+                    clearDelayMs = 5000
                 )
-                clearBannerAfterDelay(5000)
             }
-            quality == WebRTCManager.NetworkQuality.POOR && currentMode == ConsultationMode.VIDEO -> {
-                webRTCManager?.setCameraEnabled(false)
-                _uiState.value = _uiState.value.copy(
-                    connectionMode = ConsultationMode.AUDIO,
-                    isCameraEnabled = false,
-                    modeBanner = "📶 Low bandwidth — switched to Audio-only mode"
+            nextMode == ConsultationMode.AUDIO && previousMode == ConsultationMode.VIDEO -> {
+                applyEffectiveMediaState(
+                    banner = "📶 Low bandwidth — switched to Audio-only mode",
+                    clearDelayMs = 5000
                 )
-                clearBannerAfterDelay(5000)
             }
-            (quality == WebRTCManager.NetworkQuality.GOOD || quality == WebRTCManager.NetworkQuality.EXCELLENT) && currentMode == ConsultationMode.AUDIO -> {
-                webRTCManager?.setCameraEnabled(true)
-                _uiState.value = _uiState.value.copy(
-                    connectionMode = ConsultationMode.VIDEO,
-                    isCameraEnabled = true,
-                    modeBanner = "✅ Network improved — Video restored"
+            nextMode == ConsultationMode.AUDIO && previousMode == ConsultationMode.CHAT -> {
+                applyEffectiveMediaState(
+                    banner = "📶 Connection stabilizing — switched to Audio-only mode",
+                    clearDelayMs = 5000
                 )
-                clearBannerAfterDelay(3000)
             }
-            (quality == WebRTCManager.NetworkQuality.GOOD || quality == WebRTCManager.NetworkQuality.EXCELLENT) && currentMode == ConsultationMode.CHAT -> {
-                webRTCManager?.setCameraEnabled(true)
-                webRTCManager?.setMicEnabled(true)
-                _uiState.value = _uiState.value.copy(
-                    connectionMode = ConsultationMode.VIDEO,
-                    isCameraEnabled = true,
-                    isMicEnabled = true,
-                    modeBanner = "✅ Network recovered — Video restored"
+            nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.CHAT -> {
+                applyEffectiveMediaState(
+                    banner = "✅ Network recovered — Video restored",
+                    clearDelayMs = 3000
                 )
-                clearBannerAfterDelay(3000)
             }
+            nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.AUDIO -> {
+                applyEffectiveMediaState(
+                    banner = "✅ Network improved — Video restored",
+                    clearDelayMs = 3000
+                )
+            }
+            else -> applyEffectiveMediaState()
         }
     }
 
@@ -310,23 +363,8 @@ class VideoConsultationViewModel @Inject constructor(
      * Manually switch consultation mode (user override).
      */
     fun switchMode(mode: ConsultationMode) {
-        when (mode) {
-            ConsultationMode.VIDEO -> {
-                webRTCManager?.setCameraEnabled(true)
-                webRTCManager?.setMicEnabled(true)
-                _uiState.value = _uiState.value.copy(connectionMode = mode, isCameraEnabled = true, isMicEnabled = true)
-            }
-            ConsultationMode.AUDIO -> {
-                webRTCManager?.setCameraEnabled(false)
-                webRTCManager?.setMicEnabled(true)
-                _uiState.value = _uiState.value.copy(connectionMode = mode, isCameraEnabled = false, isMicEnabled = true)
-            }
-            ConsultationMode.CHAT -> {
-                webRTCManager?.setCameraEnabled(false)
-                webRTCManager?.setMicEnabled(false)
-                _uiState.value = _uiState.value.copy(connectionMode = mode, isCameraEnabled = false, isMicEnabled = false)
-            }
-        }
+        userPreferredMode = mode
+        applyEffectiveMediaState()
     }
 
     /**
@@ -335,8 +373,9 @@ class VideoConsultationViewModel @Inject constructor(
     private fun handleSignalingEvent(event: SignalingEvent) {
         when (event) {
             is SignalingEvent.UserJoined -> {
-                // Remote user joined — create offer to initiate connection
-                webRTCManager?.createOffer()
+                // Doctor web is the single offer initiator to avoid SDP glare.
+                // The patient app only answers incoming offers.
+                publishModeConstraintIfNeeded(force = true)
             }
             is SignalingEvent.Offer -> {
                 // Received offer — set remote description and create answer
@@ -350,12 +389,62 @@ class VideoConsultationViewModel @Inject constructor(
                 // Add remote ICE candidate
                 webRTCManager?.addIceCandidate(event.sdpMid, event.sdpMLineIndex, event.sdp)
             }
+            is SignalingEvent.ModeChanged -> {
+                val sessionRoomId = _uiState.value.session?.sessionId ?: return
+                if (event.roomId != sessionRoomId) return
+
+                val nextRemoteMode = consultationModeFromWire(event.mode)
+                if (nextRemoteMode == remoteRequestedMode) return
+
+                val previousRemoteMode = remoteRequestedMode
+                remoteRequestedMode = nextRemoteMode
+                when {
+                    nextRemoteMode == ConsultationMode.CHAT -> {
+                        applyEffectiveMediaState(
+                            banner = "Peer switched to Chat mode for network stability",
+                            clearDelayMs = 5000
+                        )
+                    }
+                    nextRemoteMode == ConsultationMode.AUDIO -> {
+                        applyEffectiveMediaState(
+                            banner = "Peer switched to Audio-only mode for network stability",
+                            clearDelayMs = 5000
+                        )
+                    }
+                    previousRemoteMode != ConsultationMode.VIDEO -> {
+                        applyEffectiveMediaState(
+                            banner = "Peer network recovered",
+                            clearDelayMs = 3000
+                        )
+                    }
+                    else -> applyEffectiveMediaState()
+                }
+            }
             is SignalingEvent.UserLeft -> {
+                remoteRequestedMode = ConsultationMode.VIDEO
                 // Remote user left — clean up
                 _remoteVideoTrack.value = null
-                _uiState.value = _uiState.value.copy(isConnected = false, hasRemoteVideo = false)
+                _uiState.value = _uiState.value.copy(
+                    isConnected = false,
+                    hasRemoteVideo = false,
+                    modeBanner = "Doctor left the video room"
+                )
             }
         }
+    }
+
+    private fun handleConsultationEnded(event: ConsultationEndedEvent) {
+        val session = _uiState.value.session ?: return
+        val activeConsultationId = session.consultationId.ifEmpty { session.sessionId }
+        if (event.consultationId != activeConsultationId) return
+
+        socketManager.leaveVideoRoom(session.sessionId)
+        socketManager.leaveChat(session.sessionId)
+        releaseWebRTC()
+        _uiState.value = VideoConsultationUiState(
+            consultationCompleted = true,
+            modeBanner = "Consultation completed"
+        )
     }
 
     /**
@@ -363,6 +452,7 @@ class VideoConsultationViewModel @Inject constructor(
      */
     fun joinConsultation(appointmentId: String) {
         viewModelScope.launch {
+            resetModeControllers()
             _uiState.value = _uiState.value.copy(isConnecting = true, error = null)
 
             // Initialize WebRTC before joining
@@ -372,12 +462,23 @@ class VideoConsultationViewModel @Inject constructor(
                 is Result.Success -> {
                     // REST join succeeded. Don't set isConnected=true yet —
                     // the WebRTC ICE callback will set it when peer-to-peer connects.
+                    val session = result.data
                     _uiState.value = _uiState.value.copy(
                         isConnecting = false,
-                        session = result.data
+                        session = session,
+                        consultationCompleted = false
                     )
+
+                    // Join signaling/chat rooms only after the session is present in state.
+                    // This avoids a race where the doctor sends an offer immediately and
+                    // the patient app cannot answer because its roomId is still null.
+                    appointmentRepository.joinVideoRoom(session.sessionId)
+                    appointmentRepository.joinChat(session.sessionId)
+                    publishModeConstraintIfNeeded(force = true)
+                    applyEffectiveMediaState()
                 }
                 is Result.Error -> {
+                    releaseWebRTC()
                     _uiState.value = _uiState.value.copy(
                         isConnecting = false,
                         error = result.message
@@ -426,18 +527,26 @@ class VideoConsultationViewModel @Inject constructor(
      * Toggle microphone.
      */
     fun toggleMic() {
-        val newState = !_uiState.value.isMicEnabled
-        _uiState.value = _uiState.value.copy(isMicEnabled = newState)
-        webRTCManager?.setMicEnabled(newState)
+        userMicPreference = !userMicPreference
+        applyEffectiveMediaState()
     }
 
     /**
      * Toggle camera.
      */
     fun toggleCamera() {
-        val newState = !_uiState.value.isCameraEnabled
-        _uiState.value = _uiState.value.copy(isCameraEnabled = newState)
-        webRTCManager?.setCameraEnabled(newState)
+        userPreferredMode = if (userPreferredMode == ConsultationMode.VIDEO) {
+            ConsultationMode.AUDIO
+        } else {
+            ConsultationMode.VIDEO
+        }
+        applyEffectiveMediaState()
+    }
+
+    fun toggleSpeaker() {
+        val newState = !_uiState.value.isSpeakerOn
+        applySpeakerRoute(newState)
+        _uiState.value = _uiState.value.copy(isSpeakerOn = newState)
     }
 
     /**
@@ -463,8 +572,9 @@ class VideoConsultationViewModel @Inject constructor(
 
         // 2. Leave socket room and release local resources
         socketManager.leaveVideoRoom(roomId)
+        socketManager.leaveChat(roomId)
         releaseWebRTC()
-        _uiState.value = VideoConsultationUiState() // Reset state
+        _uiState.value = VideoConsultationUiState(consultationCompleted = true)
     }
 
     private var vitalsStreamJob: kotlinx.coroutines.Job? = null
@@ -486,7 +596,7 @@ class VideoConsultationViewModel @Inject constructor(
                 val authSuffix = if (token != null)
                     "?token=${java.net.URLEncoder.encode(token, "UTF-8")}" else ""
                 val request = okhttp3.Request.Builder()
-                    .url("ws://10.0.2.2:8000/ws/vitals/$sessionId/patient$authSuffix")
+                    .url("${ApiConfig.AI_WS_URL}/ws/vitals/$sessionId/patient$authSuffix")
                     .build()
 
                 vitalsWebSocket = okHttpClient.newWebSocket(request, object : okhttp3.WebSocketListener() {
@@ -529,21 +639,29 @@ class VideoConsultationViewModel @Inject constructor(
                 while (coroutineContext.isActive) {
                     kotlinx.coroutines.delay(1500) // 1.5 Hz — 666ms per frame, low-bandwidth
                     if (!_uiState.value.isConnected) continue
+                    if (_uiState.value.connectionMode != ConsultationMode.VIDEO || !_uiState.value.isCameraEnabled) continue
                     
                     val cvMetrics = cvAnalyzer?.vitalsData?.value ?: ComputerVisionAnalyzer.CVMetrics()
+                    val metricsAgeMs = System.currentTimeMillis() - cvMetrics.capturedAtMs
+                    val hasFreshFrame = cvMetrics.isFaceDetected && cvMetrics.capturedAtMs > 0L && metricsAgeMs <= 4_000L
+                    if (!hasFreshFrame) continue
 
                     val payload = org.json.JSONObject().apply {
                         put("session_id", sessionId)
-                        put("heart_rate", cvMetrics.heartRate)
-                        put("respiration_rate", cvMetrics.respirationRate)
-                        put("posture", cvMetrics.posture)
-                        put("spine_angle", cvMetrics.spineAngle)
-                        put("fall_detected", false)
-                        put("drowsiness_score", cvMetrics.drowsinessScore)
-                        put("facial_asymmetry_score", cvMetrics.facialAsymmetryScore)
-                        put("tremor_severity", cvMetrics.tremorSeverity)
-                        put("tremor_frequency", cvMetrics.tremorFrequency)
-                        put("spo2", cvMetrics.spo2)
+                        putIfNotNull("heart_rate", cvMetrics.heartRate)
+                        putIfNotNull("respiration_rate", cvMetrics.respirationRate)
+                        putIfNotNull("posture", cvMetrics.posture)
+                        putIfNotNull("spine_angle", cvMetrics.spineAngle)
+                        putIfNotNull("drowsiness_score", cvMetrics.drowsinessScore)
+                        putIfNotNull("pain_score", cvMetrics.painScore)
+                        putIfNotNull("facial_asymmetry_score", cvMetrics.facialAsymmetryScore)
+                        putIfNotNull("tremor_detected", cvMetrics.tremorDetected)
+                        putIfNotNull("tremor_severity", cvMetrics.tremorSeverity)
+                        putIfNotNull("tremor_frequency", cvMetrics.tremorFrequency)
+                        putIfNotNull("pallor_score", cvMetrics.pallorScore)
+                        putIfNotNull("hemoglobin_estimate", cvMetrics.hemoglobinEstimate)
+                        putIfNotNull("spo2", cvMetrics.spo2)
+                        put("processed_at", java.time.Instant.now().toString())
                     }.toString()
 
                     val ws = vitalsWebSocket
@@ -581,13 +699,102 @@ class VideoConsultationViewModel @Inject constructor(
         webRTCManager?.release()
         webRTCManager = null
         isWebRTCInitialized = false
+        resetAudioRoute()
+    }
+
+    private fun resetModeControllers() {
+        userPreferredMode = ConsultationMode.VIDEO
+        localBandwidthMode = ConsultationMode.VIDEO
+        remoteRequestedMode = ConsultationMode.VIDEO
+        userMicPreference = true
+        lastPublishedModeConstraint = ConsultationMode.VIDEO
+    }
+
+    private fun effectiveMode(): ConsultationMode =
+        mostRestrictiveMode(userPreferredMode, localBandwidthMode, remoteRequestedMode)
+
+    private fun applyEffectiveMediaState(
+        banner: String? = null,
+        clearDelayMs: Long? = null
+    ) {
+        val effectiveMode = effectiveMode()
+        val micEnabled = userMicPreference && effectiveMode != ConsultationMode.CHAT
+        val cameraEnabled = effectiveMode == ConsultationMode.VIDEO
+
+        webRTCManager?.setMicEnabled(micEnabled)
+        webRTCManager?.setCameraEnabled(cameraEnabled)
+
+        _uiState.value = _uiState.value.copy(
+            connectionMode = effectiveMode,
+            isMicEnabled = micEnabled,
+            isCameraEnabled = cameraEnabled,
+            modeBanner = banner ?: _uiState.value.modeBanner
+        )
+
+        if (banner != null && clearDelayMs != null) {
+            clearBannerAfterDelay(clearDelayMs)
+        }
+    }
+
+    private fun publishModeConstraintIfNeeded(force: Boolean = false) {
+        val roomId = _uiState.value.session?.sessionId ?: return
+        if (!force && localBandwidthMode == lastPublishedModeConstraint) return
+        socketManager.sendVideoMode(roomId, localBandwidthMode.toWireValue())
+        lastPublishedModeConstraint = localBandwidthMode
+    }
+
+    private fun applySpeakerRoute(isSpeakerOn: Boolean) {
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val targetType = if (isSpeakerOn) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            val communicationDevice = audioManager
+                .availableCommunicationDevices
+                .firstOrNull { it.type == targetType }
+                ?: audioManager.availableCommunicationDevices.firstOrNull()
+            if (communicationDevice != null) {
+                audioManager.setCommunicationDevice(communicationDevice)
+            } else {
+                audioManager.clearCommunicationDevice()
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            run {
+                audioManager.isSpeakerphoneOn = isSpeakerOn
+            }
+        }
+    }
+
+    private fun resetAudioRoute() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.clearCommunicationDevice()
+        } else {
+            @Suppress("DEPRECATION")
+            run {
+                audioManager.isSpeakerphoneOn = false
+            }
+        }
+        audioManager.mode = AudioManager.MODE_NORMAL
+    }
+
+    fun dismissCompletion() {
+        _uiState.value = _uiState.value.copy(
+            consultationCompleted = false,
+            modeBanner = null
+        )
+    }
+
+    private fun org.json.JSONObject.putIfNotNull(key: String, value: Any?) {
+        if (value != null) {
+            put(key, value)
+        }
     }
 
     override fun onCleared() {
         super.onCleared()
         val roomId = _uiState.value.session?.sessionId
-        if (roomId != null && _uiState.value.isConnected) {
+        if (roomId != null) {
             socketManager.leaveVideoRoom(roomId)
+            socketManager.leaveChat(roomId)
         }
         releaseWebRTC()
     }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useVideoConsultation, useConsultationChat, useConsultationEnded } from '@/hooks/useSocket';
+import { useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, type ConsultationVideoMode } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
 
@@ -25,12 +25,6 @@ import {
     WifiOff,
     PhoneCall,
     Bot,
-    Loader2,
-    Pill,
-    Stethoscope,
-    FlaskConical,
-    ChevronDown,
-    ChevronUp,
 } from 'lucide-react';
 
 // ── ICE Servers with TURN fallback for NAT traversal ───────────────
@@ -54,24 +48,8 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 // ── Network quality classification ─────────────────────────────────
-type ConnectionMode = 'video' | 'audio' | 'chat';
+type ConnectionMode = ConsultationVideoMode;
 interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; quality: 'excellent' | 'good' | 'poor' | 'critical'; }
-
-interface AIMedication { name: string; dosage: string; frequency: string; duration: string; notes: string; }
-interface AIResponse {
-    answer: string;
-    alerts?: string[];
-    possible_conditions?: string[];
-    suggested_questions?: string[];
-    summary?: string;
-    clinical_notes?: string;
-    risk_indicators?: string[];
-    severity_assessment?: string;
-    suggested_medications?: AIMedication[];
-    differential_diagnoses?: string[];
-    recommended_tests?: string[];
-    vitals_interpretation?: string;
-}
 
 function classifyQuality(rtt: number, lossRate: number, bitrate: number): NetworkStats['quality'] {
     if (rtt < 150 && lossRate < 2 && bitrate > 500) return 'excellent';
@@ -80,11 +58,28 @@ function classifyQuality(rtt: number, lossRate: number, bitrate: number): Networ
     return 'critical';
 }
 
+function modeRank(mode: ConnectionMode): number {
+    switch (mode) {
+        case 'chat':
+            return 0;
+        case 'audio':
+            return 1;
+        case 'video':
+        default:
+            return 2;
+    }
+}
+
+function mostRestrictiveMode(...modes: ConnectionMode[]): ConnectionMode {
+    return modes.reduce((current, next) => (modeRank(next) < modeRank(current) ? next : current), 'video');
+}
+
 export default function VideoConsultation() {
     const router = useRouter();
     const params = useParams();
     const { user } = useAuthStore();
     const consultationId = params.id as string;
+    const isDoctor = user?.role === 'doctor';
 
     // Refs
     const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -96,6 +91,10 @@ export default function VideoConsultation() {
     const prevTimestampRef = useRef<number>(0);
     const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const hasRemoteDescriptionRef = useRef<boolean>(false);
+    const hasInitiatedOfferRef = useRef(false);
+    const userMicEnabledRef = useRef(true);
+    const userVideoEnabledRef = useRef(true);
+    const previousRemoteModeRef = useRef<ConnectionMode>('video');
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -110,15 +109,12 @@ export default function VideoConsultation() {
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
+    const [localBandwidthMode, setLocalBandwidthMode] = useState<ConnectionMode>('video');
     const [networkStats, setNetworkStats] = useState<NetworkStats>({ rtt: 0, packetsLost: 0, bitrate: 0, quality: 'good' });
     const [modeBanner, setModeBanner] = useState<string | null>(null);
 
-    // ── AI Clinical Assistant state (doctor only) ──────────────────
+    // ── Doctor side panel state ────────────────────────────────────
     const [showAIPanel, setShowAIPanel] = useState(false);
-    const [aiQuery, setAiQuery] = useState('');
-    const [aiLoading, setAiLoading] = useState(false);
-    const [aiHistory, setAiHistory] = useState<{ query: string; response: AIResponse }[]>([]);
-    const [aiExpanded, setAiExpanded] = useState<number | null>(null);
 
     // Socket hooks
     const {
@@ -126,10 +122,12 @@ export default function VideoConsultation() {
         offer,
         answer,
         iceCandidate,
+        remoteMode,
         sendOffer,
         sendAnswer,
         sendIceCandidate,
-    } = useVideoConsultation(consultationId);
+        sendModeChange,
+    } = useVideoConsultation(consultationId, localBandwidthMode);
 
     const { messages, sendMessage, setTyping, typingUsers } = useConsultationChat(consultationId);
 
@@ -144,6 +142,25 @@ export default function VideoConsultation() {
         typingTimeoutRef.current = setTimeout(() => setTyping(false), 2000);
     };
 
+    const applyLocalMediaState = useCallback((effectiveMode: ConnectionMode) => {
+        const audioEnabled = userMicEnabledRef.current && effectiveMode !== 'chat';
+        const videoEnabled = userVideoEnabledRef.current && effectiveMode === 'video';
+
+        localStreamRef.current?.getAudioTracks().forEach((track) => {
+            track.enabled = audioEnabled;
+        });
+        localStreamRef.current?.getVideoTracks().forEach((track) => {
+            track.enabled = videoEnabled;
+        });
+
+        setIsMuted(!audioEnabled);
+        setIsVideoOn(videoEnabled);
+        setConnectionMode(effectiveMode);
+        if (effectiveMode === 'chat') {
+            setShowChat(true);
+        }
+    }, []);
+
     // ── Remote call-ended detection ────────────────────────────────
     const [callEndedByRemote, setCallEndedByRemote] = useState(false);
     useConsultationEnded(
@@ -156,7 +173,27 @@ export default function VideoConsultation() {
                     router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/');
                 }, 4000);
             }
-        }, [consultationId])
+        }, [consultationId, router, user?.role])
+    );
+
+    useConsultationPatientLeft(
+        useCallback((data: { consultationId: string }) => {
+            if (!isDoctor || data.consultationId !== consultationId) return;
+            localStreamRef.current?.getTracks().forEach((track) => {
+                track.enabled = false;
+            });
+            setLocalBandwidthMode('chat');
+            applyLocalMediaState('chat');
+            setIsConnected(false);
+            setIsMuted(true);
+            setIsVideoOn(false);
+            setConnectionMode('chat');
+            setShowChat(true);
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+            setModeBanner('Patient left the consultation');
+            setTimeout(() => setModeBanner(null), 5000);
+            hasInitiatedOfferRef.current = false;
+        }, [applyLocalMediaState, consultationId, isDoctor])
     );
 
     // Timer for call duration
@@ -172,9 +209,10 @@ export default function VideoConsultation() {
 
     // Initialize media and peer connection — calls join API first
     useEffect(() => {
+        if (!user?.role) return;
         initializeCall();
         return () => { cleanup(); };
-    }, [consultationId]);
+    }, [consultationId, user?.role]);
 
     // Handle incoming WebRTC signaling
     useEffect(() => {
@@ -197,10 +235,43 @@ export default function VideoConsultation() {
 
     // When remote user joins, initiate connection
     useEffect(() => {
-        if (participants.length > 0 && !isConnected) {
+        if (participants.length === 0) {
+            hasInitiatedOfferRef.current = false;
+            return;
+        }
+        if (isDoctor && participants.length > 0 && !isConnected && !hasInitiatedOfferRef.current) {
+            hasInitiatedOfferRef.current = true;
             initiateCall();
         }
-    }, [participants]);
+    }, [isConnected, isDoctor, participants]);
+
+    useEffect(() => {
+        if (participants.length > 0) {
+            sendModeChange(localBandwidthMode);
+        }
+    }, [localBandwidthMode, participants.length, sendModeChange]);
+
+    useEffect(() => {
+        const effectiveMode = mostRestrictiveMode(localBandwidthMode, remoteMode);
+        applyLocalMediaState(effectiveMode);
+    }, [applyLocalMediaState, localBandwidthMode, remoteMode]);
+
+    useEffect(() => {
+        if (remoteMode === previousRemoteModeRef.current) return;
+
+        if (remoteMode === 'chat') {
+            setModeBanner('Peer switched to Chat mode for network stability');
+            setTimeout(() => setModeBanner(null), 5000);
+        } else if (remoteMode === 'audio') {
+            setModeBanner('Peer switched to Audio-only mode for network stability');
+            setTimeout(() => setModeBanner(null), 5000);
+        } else if (previousRemoteModeRef.current !== 'video') {
+            setModeBanner('Peer network recovered');
+            setTimeout(() => setModeBanner(null), 3000);
+        }
+
+        previousRemoteModeRef.current = remoteMode;
+    }, [remoteMode]);
 
     // ── Network quality monitoring ─────────────────────────────────
     useEffect(() => {
@@ -240,46 +311,54 @@ export default function VideoConsultation() {
 
     // ── Auto-degrade / upgrade mode based on quality ───────────────
     const handleQualityChange = useCallback((quality: NetworkStats['quality']) => {
-        if (quality === 'critical' && connectionMode !== 'chat') {
-            localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = false; });
-            localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = false; });
-            setIsVideoOn(false); setIsMuted(true);
-            setConnectionMode('chat'); setShowChat(true);
+        const nextMode: ConnectionMode =
+            quality === 'critical' ? 'chat' :
+                quality === 'poor' ? 'audio' :
+                    'video';
+
+        if (nextMode === localBandwidthMode) return;
+
+        setLocalBandwidthMode(nextMode);
+        if (nextMode === 'chat') {
             setModeBanner('⚠️ Very poor network — switched to Chat mode');
             setTimeout(() => setModeBanner(null), 5000);
-        } else if (quality === 'poor' && connectionMode === 'video') {
-            localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = false; });
-            setIsVideoOn(false); setConnectionMode('audio');
+        } else if (nextMode === 'audio' && localBandwidthMode === 'video') {
             setModeBanner('📶 Low bandwidth — switched to Audio-only mode');
             setTimeout(() => setModeBanner(null), 5000);
-        } else if ((quality === 'excellent' || quality === 'good') && connectionMode === 'audio') {
-            localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = true; });
-            setIsVideoOn(true); setConnectionMode('video');
-            setModeBanner('✅ Network improved — Video restored');
-            setTimeout(() => setModeBanner(null), 3000);
-        } else if ((quality === 'excellent' || quality === 'good') && connectionMode === 'chat') {
-            localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = true; });
-            localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = true; });
-            setIsVideoOn(true); setIsMuted(false); setConnectionMode('video');
+        } else if (nextMode === 'audio' && localBandwidthMode === 'chat') {
+            setModeBanner('📶 Connection stabilizing — switched to Audio-only mode');
+            setTimeout(() => setModeBanner(null), 5000);
+        } else if (nextMode === 'video' && localBandwidthMode === 'chat') {
             setModeBanner('✅ Network recovered — Video restored');
             setTimeout(() => setModeBanner(null), 3000);
+        } else if (nextMode === 'video' && localBandwidthMode === 'audio') {
+            setModeBanner('✅ Network improved — Video restored');
+            setTimeout(() => setModeBanner(null), 3000);
         }
-    }, [connectionMode]);
+    }, [localBandwidthMode]);
 
     // ── Initialization: join API → media → peer connection ─────────
     const initializeCall = async () => {
         try {
-            // Call join API to authorize participant
-            const joinRes = await api.consultations.join(consultationId);
-            if (joinRes.success && joinRes.data) setConsultationData(joinRes.data);
-            else {
-                const detailRes = await api.consultations.getDetails(consultationId);
-                if (detailRes.success) setConsultationData(detailRes.data);
+            setError(null);
+
+            const response = user?.role === 'patient'
+                ? await api.consultations.join(consultationId)
+                : await api.consultations.getDetails(consultationId);
+
+            if (!response.success || !response.data) {
+                setError(response.error || response.message || 'Unable to load consultation');
+                setIsConnecting(false);
+                return;
             }
+
+            setConsultationData(response.data);
         } catch {
-            // Fallback — try details only
-            try { const d = await api.consultations.getDetails(consultationId); if (d.success) setConsultationData(d.data); } catch {}
+            setError('Unable to load consultation');
+            setIsConnecting(false);
+            return;
         }
+
         await initializeMedia();
     };
 
@@ -302,6 +381,7 @@ export default function VideoConsultation() {
             });
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+            applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
             setupPeerConnection();
             setIsConnecting(false);
         } catch (err) {
@@ -310,7 +390,8 @@ export default function VideoConsultation() {
             try {
                 const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 localStreamRef.current = audioStream;
-                setIsVideoOn(false); setConnectionMode('audio');
+                userVideoEnabledRef.current = false;
+                applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
                 setupPeerConnection();
                 setIsConnecting(false);
                 setModeBanner('📷 Camera unavailable — Audio-only mode');
@@ -359,7 +440,8 @@ export default function VideoConsultation() {
                 setTimeout(() => setModeBanner(null), 5000);
             } else if (state === 'failed') {
                 setIsConnected(false);
-                setConnectionMode('chat'); setShowChat(true);
+                setLocalBandwidthMode('chat');
+                applyLocalMediaState('chat');
                 setModeBanner('❌ Connection lost — switched to Chat mode');
             }
         };
@@ -446,25 +528,14 @@ export default function VideoConsultation() {
     };
 
     const toggleMute = () => {
-        if (localStreamRef.current) {
-            const audioTrack = localStreamRef.current.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                setIsMuted(!audioTrack.enabled);
-            }
-        }
+        userMicEnabledRef.current = !userMicEnabledRef.current;
+        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
     };
 
     const toggleVideo = () => {
         if (connectionMode === 'chat') return;
-        if (localStreamRef.current) {
-            const videoTrack = localStreamRef.current.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                setIsVideoOn(videoTrack.enabled);
-                setConnectionMode(videoTrack.enabled ? 'video' : 'audio');
-            }
-        }
+        userVideoEnabledRef.current = !userVideoEnabledRef.current;
+        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
     };
 
     const toggleFullscreen = () => {
@@ -513,6 +584,7 @@ export default function VideoConsultation() {
         // Reset ICE buffer
         hasRemoteDescriptionRef.current = false;
         pendingIceCandidatesRef.current = [];
+        hasInitiatedOfferRef.current = false;
     };
 
     const handleSendMessage = () => {
@@ -521,26 +593,6 @@ export default function VideoConsultation() {
             setChatInput('');
             setTyping(false);
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        }
-    };
-
-    // ── AI Clinical Assistant handler ──────────────────────────────
-    const handleAIQuery = async () => {
-        if (!aiQuery.trim() || aiLoading) return;
-        const query = aiQuery.trim();
-        setAiQuery('');
-        setAiLoading(true);
-        try {
-            const result = await api.consultations.aiAssist(consultationId, query, consultationData?.diagnosis || '') as any;
-            if (result.success && result.data) {
-                const response: AIResponse = result.data.response || { answer: 'No response received' };
-                setAiHistory(prev => [...prev, { query, response }]);
-                setAiExpanded(aiHistory.length); // expand latest
-            }
-        } catch (err) {
-            setAiHistory(prev => [...prev, { query, response: { answer: '⚠️ AI assistant temporarily unavailable. Please try again.' } }]);
-        } finally {
-            setAiLoading(false);
         }
     };
 
@@ -769,123 +821,6 @@ export default function VideoConsultation() {
                     </div>
                 )}
 
-                {/* ── AI Clinical Assistant Panel (doctor only) ────────── */}
-                {showAIPanel && user?.role === 'doctor' && (
-                    <div className={`absolute ${showChat && connectionMode !== 'chat' ? 'right-80' : 'right-0'} top-0 bottom-20 w-96 bg-gray-900/95 backdrop-blur-lg border-l border-purple-700/50 flex flex-col`}>
-                        <div className="p-4 border-b border-purple-700/50 flex items-center justify-between bg-gradient-to-r from-purple-900/50 to-gray-900">
-                            <div className="flex items-center gap-2">
-                                <Bot className="w-5 h-5 text-purple-400" />
-                                <h3 className="font-semibold text-white">AI Clinical Assistant</h3>
-                            </div>
-                            <button onClick={() => setShowAIPanel(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
-                        </div>
-
-                        {/* AI Quick Prompts */}
-                        <div className="p-3 border-b border-gray-700/50 flex flex-wrap gap-2">
-                            {['Suggest medications', 'Drug interactions check', 'Differential diagnosis', 'Recommend lab tests'].map((prompt) => (
-                                <button key={prompt} onClick={() => { setAiQuery(prompt); }} className="text-xs px-2.5 py-1.5 rounded-full bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors border border-purple-500/30">
-                                    {prompt}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* AI Conversation History */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {aiHistory.length === 0 && (
-                                <div className="text-center py-8">
-                                    <Bot className="w-12 h-12 text-purple-400/50 mx-auto mb-3" />
-                                    <p className="text-gray-400 text-sm">Ask about medications, drug interactions,<br />differential diagnoses, or treatment protocols</p>
-                                    <p className="text-gray-500 text-xs mt-2">Responses are for clinical reference only</p>
-                                </div>
-                            )}
-                            {aiHistory.map((entry, idx) => (
-                                <div key={idx} className="space-y-2">
-                                    {/* Doctor query */}
-                                    <div className="ml-auto max-w-[85%] p-3 rounded-xl bg-purple-600/30 text-purple-100 text-sm border border-purple-500/30">
-                                        {entry.query}
-                                    </div>
-                                    {/* AI response */}
-                                    <div className="max-w-[95%] rounded-xl bg-gray-800 border border-gray-700 overflow-hidden">
-                                        <div className="p-3">
-                                            <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{entry.response.answer}</p>
-                                        </div>
-                                        {/* Expandable sections */}
-                                        {(entry.response.suggested_medications?.length || entry.response.differential_diagnoses?.length || entry.response.recommended_tests?.length) && (
-                                            <div className="border-t border-gray-700">
-                                                <button onClick={() => setAiExpanded(aiExpanded === idx ? null : idx)} className="w-full px-3 py-2 flex items-center justify-between text-xs text-gray-400 hover:bg-gray-700/50">
-                                                    <span>Clinical details</span>
-                                                    {aiExpanded === idx ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                                </button>
-                                                {aiExpanded === idx && (
-                                                    <div className="px-3 pb-3 space-y-3">
-                                                        {/* Medications */}
-                                                        {entry.response.suggested_medications && entry.response.suggested_medications.length > 0 && (
-                                                            <div>
-                                                                <div className="flex items-center gap-1.5 mb-1.5"><Pill className="w-3.5 h-3.5 text-green-400" /><span className="text-xs font-medium text-green-400">Suggested Medications</span></div>
-                                                                <div className="space-y-1.5">
-                                                                    {entry.response.suggested_medications.map((med, mi) => (
-                                                                        <div key={mi} className="bg-gray-700/50 rounded-lg p-2 text-xs">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <span className="font-medium text-white">{med.name}</span>
-                                                                                <span className="text-gray-400">{med.dosage}</span>
-                                                                            </div>
-                                                                            <p className="text-gray-400 mt-0.5">{med.frequency} × {med.duration}</p>
-                                                                            {med.notes && <p className="text-yellow-400/80 mt-1 text-[11px]">⚠️ {med.notes}</p>}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {/* Differential Diagnoses */}
-                                                        {entry.response.differential_diagnoses && entry.response.differential_diagnoses.length > 0 && (
-                                                            <div>
-                                                                <div className="flex items-center gap-1.5 mb-1.5"><Stethoscope className="w-3.5 h-3.5 text-blue-400" /><span className="text-xs font-medium text-blue-400">Differential Diagnoses</span></div>
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {entry.response.differential_diagnoses.map((dx, di) => (
-                                                                        <span key={di} className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md border border-blue-500/30">{dx}</span>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {/* Recommended Tests */}
-                                                        {entry.response.recommended_tests && entry.response.recommended_tests.length > 0 && (
-                                                            <div>
-                                                                <div className="flex items-center gap-1.5 mb-1.5"><FlaskConical className="w-3.5 h-3.5 text-amber-400" /><span className="text-xs font-medium text-amber-400">Recommended Tests</span></div>
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                    {entry.response.recommended_tests.map((test, ti) => (
-                                                                        <span key={ti} className="text-xs bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md border border-amber-500/30">{test}</span>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {/* Severity */}
-                                                        {entry.response.severity_assessment && (
-                                                            <p className="text-xs"><span className="text-gray-400">Severity: </span><span className={`font-medium ${entry.response.severity_assessment === 'severe' ? 'text-red-400' : entry.response.severity_assessment === 'moderate' ? 'text-yellow-400' : 'text-green-400'}`}>{entry.response.severity_assessment}</span></p>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                            {aiLoading && (
-                                <div className="flex items-center gap-2 text-purple-300 text-sm"><Loader2 className="w-4 h-4 animate-spin" />Analyzing...</div>
-                            )}
-                        </div>
-
-                        {/* AI Input */}
-                        <div className="p-3 border-t border-purple-700/50 bg-gray-900">
-                            <div className="flex items-center gap-2">
-                                <input type="text" value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAIQuery()} placeholder="Ask about medications, interactions..." className="flex-1 bg-gray-800 border border-purple-500/30 rounded-xl px-4 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500" disabled={aiLoading} />
-                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim()} className="p-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                                    {aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                </button>
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1.5 text-center">AI suggestions are for clinical reference — verify before prescribing</p>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Doctor Vitals + AI Side Panel */}
@@ -969,7 +904,7 @@ export default function VideoConsultation() {
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
                             className={`p-4 rounded-full transition-colors ${showAIPanel ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-700 hover:bg-gray-600'}`}
-                            title="AI Clinical Assistant"
+                            title="Vitals and AI Assistant"
                         >
                             <Bot className="w-6 h-6 text-white" />
                         </button>
@@ -989,7 +924,7 @@ export default function VideoConsultation() {
                     )}
                     {user?.role === 'doctor' && (
                         <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium ${showAIPanel ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
-                            <Bot className="w-5 h-5" /> AI Assist
+                            <Bot className="w-5 h-5" /> Vitals & AI
                         </button>
                     )}
                 </div>

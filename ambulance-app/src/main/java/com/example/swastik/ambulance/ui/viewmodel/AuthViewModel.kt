@@ -13,6 +13,7 @@ import javax.inject.Inject
 
 data class AuthUiState(
     val isLoading: Boolean = false,
+    val isSessionResolved: Boolean = false,
     val isLoggedIn: Boolean = false,
     val user: UserDto? = null,
     val error: String? = null,
@@ -28,7 +29,41 @@ class AuthViewModel @Inject constructor(
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.value = AuthUiState(isLoggedIn = authRepository.isLoggedIn())
+        if (authRepository.isAuthenticated()) {
+            resolveSession()
+        } else {
+            _uiState.value = AuthUiState(isSessionResolved = true)
+        }
+    }
+
+    fun resolveSession() {
+        if (!authRepository.isAuthenticated()) {
+            _uiState.value = AuthUiState(isSessionResolved = true)
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val result = authRepository.restoreSession()
+            result.fold(
+                onSuccess = { user ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isSessionResolved = true,
+                        isLoggedIn = true,
+                        user = user,
+                        error = null
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = AuthUiState(
+                        isLoading = false,
+                        isSessionResolved = true,
+                        error = e.message ?: "Failed to restore session"
+                    )
+                }
+            )
+        }
     }
 
     fun login(email: String, password: String) {
@@ -48,11 +83,12 @@ class AuthViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, isSessionResolved = false)
             val result = authRepository.login(trimmedEmail, password)
             result.fold(
                 onSuccess = { user ->
                     _uiState.value = AuthUiState(
+                        isSessionResolved = true,
                         isLoggedIn = true,
                         user = user,
                         isLoading = false
@@ -61,6 +97,7 @@ class AuthViewModel @Inject constructor(
                 onFailure = { e ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isSessionResolved = true,
                         error = e.message ?: "Login failed"
                     )
                 }
@@ -138,8 +175,12 @@ class AuthViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
-            _uiState.value = AuthUiState()
+            _uiState.value = AuthUiState(isSessionResolved = true)
         }
+    }
+
+    fun refreshApprovalStatus() {
+        resolveSession()
     }
 
     fun clearError() {

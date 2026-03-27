@@ -54,6 +54,7 @@ fun RecordsTabContent(
 
     val state by viewModel.uiState.collectAsState()
     val consultations = state.consultations
+    val prescriptions = state.prescriptions
     val documents = state.documents
     val context = LocalContext.current
 
@@ -155,7 +156,7 @@ fun RecordsTabContent(
                             }
                         }
                     }
-                } else if (consultations.isEmpty() && documents.isEmpty()) {
+                } else if (consultations.isEmpty() && prescriptions.isEmpty() && documents.isEmpty()) {
                     // Empty state
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -201,22 +202,49 @@ fun RecordsTabContent(
                     when (selectedFilter) {
                         RecordFilter.ALL -> {
                             item { SectionHeader("Recent Consultations", "See All") { selectedFilter = RecordFilter.CONSULTATIONS } }
-                            items(consultations.take(2)) { ConsultationCard(it) }
+                            if (consultations.isEmpty()) {
+                                item { EmptySectionMessage("No consultations yet") }
+                            } else {
+                                items(consultations.take(2)) { ConsultationCard(it) }
+                            }
                             item { Spacer(modifier = Modifier.height(8.dp)) }
-                            item { SectionHeader("Documents", "See All") { selectedFilter = RecordFilter.REPORTS } }
-                            items(documents.take(3)) { DocumentItem(it) }
+                            item { SectionHeader("Recent Prescriptions", if (prescriptions.isNotEmpty()) "See All" else null) { onNavigateToPrescriptions() } }
+                            if (prescriptions.isEmpty()) {
+                                item { EmptySectionMessage("No prescriptions yet") }
+                            } else {
+                                items(prescriptions.take(2)) { PrescriptionSummaryCard(it) }
+                            }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
+                            item { SectionHeader("Documents", if (documents.isNotEmpty()) "See All" else null) { onNavigateToReports() } }
+                            if (documents.isEmpty()) {
+                                item { EmptySectionMessage("No reports uploaded yet") }
+                            } else {
+                                items(documents.take(3)) { DocumentItem(it) }
+                            }
                         }
                         RecordFilter.CONSULTATIONS -> {
                             item { SectionHeader("All Consultations", null) }
-                            items(consultations) { ConsultationCard(it) }
+                            if (consultations.isEmpty()) {
+                                item { EmptySectionMessage("No consultations yet") }
+                            } else {
+                                items(consultations) { ConsultationCard(it) }
+                            }
                         }
                         RecordFilter.PRESCRIPTIONS -> {
                             item { SectionHeader("All Prescriptions", null) }
-                            items(consultations) { PrescriptionCard(it) }
+                            if (prescriptions.isEmpty()) {
+                                item { EmptySectionMessage("No prescriptions yet") }
+                            } else {
+                                items(prescriptions) { PrescriptionSummaryCard(it) }
+                            }
                         }
                         RecordFilter.REPORTS -> {
                             item { SectionHeader("All Reports & Documents", null) }
-                            items(documents) { DocumentItem(it) }
+                            if (documents.isEmpty()) {
+                                item { EmptySectionMessage("No reports uploaded yet") }
+                            } else {
+                                items(documents) { DocumentItem(it) }
+                            }
                         }
                     }
                     item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -349,6 +377,23 @@ private fun SectionHeader(title: String, actionText: String?, onAction: (() -> U
 }
 
 @Composable
+private fun EmptySectionMessage(message: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF8F9FA)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            fontSize = 13.sp,
+            color = Color.Gray
+        )
+    }
+}
+
+@Composable
 private fun ConsultationCard(consultation: ConsultationRecord) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -402,7 +447,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
 }
 
 @Composable
-private fun PrescriptionCard(consultation: ConsultationRecord) {
+private fun PrescriptionSummaryCard(prescription: Prescription) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -418,33 +463,84 @@ private fun PrescriptionCard(consultation: ConsultationRecord) {
                         .background(SwastikPurple.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(consultation.doctorEmoji, fontSize = 22.sp)
+                    Icon(
+                        Icons.Outlined.Medication,
+                        contentDescription = null,
+                        tint = SwastikPurple,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(consultation.doctorName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text(consultation.date, fontSize = 12.sp, color = Color.Gray)
+                    Text(
+                        prescription.doctor?.name ?: "Doctor prescription",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        prescription.createdAt.take(10),
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
                 }
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = SwastikPurple.copy(alpha = 0.1f)
+                    color = when ((prescription.status ?: "").lowercase()) {
+                        "active" -> Color(0xFFE8F5E9)
+                        "expired", "cancelled" -> Color(0xFFFFEBEE)
+                        "fulfilled", "dispensed" -> Color(0xFFE3F2FD)
+                        else -> SwastikPurple.copy(alpha = 0.1f)
+                    }
                 ) {
                     Text(
-                        "${consultation.prescriptions.size} medicines",
+                        (prescription.status ?: "active").replaceFirstChar { it.uppercase() },
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         fontSize = 11.sp,
-                        color = SwastikPurple
+                        color = when ((prescription.status ?: "").lowercase()) {
+                            "active" -> Color(0xFF2E7D32)
+                            "expired", "cancelled" -> Color(0xFFC62828)
+                            "fulfilled", "dispensed" -> Color(0xFF1565C0)
+                            else -> SwastikPurple
+                        }
                     )
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color.LightGray.copy(alpha = 0.5f))
 
-            consultation.prescriptions.forEachIndexed { index, prescription ->
-                PrescriptionItemRow(index + 1, prescription)
-                if (index < consultation.prescriptions.lastIndex) {
-                    Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = prescription.diagnosis.ifBlank { "Prescription details" },
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            )
+
+            if (!prescription.medicines.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                prescription.medicines.take(3).forEachIndexed { index, item ->
+                    PrescriptionItemRow(index + 1, item)
+                    if (index < minOf(prescription.medicines.size, 3) - 1) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
+                if (prescription.medicines.size > 3) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "+${prescription.medicines.size - 3} more medicines",
+                        fontSize = 12.sp,
+                        color = SwastikPurple,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            if (!prescription.instructions.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = prescription.instructions,
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
             }
         }
     }

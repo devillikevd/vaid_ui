@@ -206,7 +206,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                     roleData = {
                         license_number: licenseNumber,
                         address,
-                        ...(latitude && longitude ? { latitude, longitude } : {}),
+                        ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
                     };
                     break;
             }

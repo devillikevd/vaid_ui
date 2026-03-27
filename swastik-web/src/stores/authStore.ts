@@ -26,11 +26,12 @@ export type UserRole =
     | 'doctor'
     | 'patient'
     | 'hospital_owner'
+    | 'hospital_manager'
     | 'clinic_owner'
     | 'diagnostic_center_owner'
     | 'pharmacy_owner';
 
-export type ApprovalStatus = 'pending' | 'review' | 'approved' | 'rejected' | 'suspended';
+export type ApprovalStatus = 'pending' | 'review' | 'under_review' | 'approved' | 'rejected' | 'suspended';
 
 export interface User {
     id: string;
@@ -73,6 +74,7 @@ export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
     doctor: '/doctor',
     patient: '/',
     hospital_owner: '/hospital',
+    hospital_manager: '/hospital',
     clinic_owner: '/clinic',
     diagnostic_center_owner: '/diagnostic-center',
     pharmacy_owner: '/pharmacy',
@@ -84,6 +86,7 @@ export const ROLE_LOGIN_ROUTES: Record<UserRole, string> = {
     doctor: '/login/doctor',
     patient: '/',
     hospital_owner: '/login/hospital',
+    hospital_manager: '/login/hospital',
     clinic_owner: '/login/clinic',
     diagnostic_center_owner: '/login/diagnostic-center',
     pharmacy_owner: '/login/pharmacy',
@@ -123,7 +126,10 @@ export const useAuthStore = create<AuthState>()(
                     const user = data.data?.user || data.user;
                     const tokens = data.data?.tokens || data.tokens || data.data;
 
-                    const roleMatches = user.role === expectedRole || (expectedRole === 'admin' && user.role === 'super_admin');
+                    const roleMatches =
+                        user.role === expectedRole ||
+                        (expectedRole === 'admin' && user.role === 'super_admin') ||
+                        (expectedRole === 'hospital_owner' && user.role === 'hospital_manager');
 
                     if (!roleMatches) {
                         return {
@@ -294,6 +300,7 @@ export function canAccessRoute(userRole: UserRole | undefined, path: string): bo
         doctor: ['/doctor'],
         patient: [],
         hospital_owner: ['/hospital'],
+        hospital_manager: ['/hospital'],
         clinic_owner: ['/clinic'],
         diagnostic_center_owner: ['/diagnostic-center'],
         pharmacy_owner: ['/pharmacy'],

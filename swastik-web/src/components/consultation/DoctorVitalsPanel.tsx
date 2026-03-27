@@ -137,11 +137,11 @@ function ToggleSwitch({ label, value, onChange }: { label: string; value: boolea
    ════════════════════════════════════════════════════════════════════ */
 
 export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consultationId: string; isDoctor: boolean }) {
-    const { latestVitals, vitalsHistory, alerts, criticalAlert } = useVitalsStream(consultationId);
-
     // Feature toggles
     const [toggles, setToggles] = useState<FeatureToggles | null>(null);
     const [showSettings, setShowSettings] = useState(false);
+
+    const { latestVitals, vitalsHistory, alerts, criticalAlert } = useVitalsStream(consultationId, 'doctor', toggles);
 
     // AI Assistant
     const [showAI, setShowAI] = useState(false);

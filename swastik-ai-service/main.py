@@ -1045,6 +1045,7 @@ async def health_check():
         "service": "swastik-ai-consultation",
         "version": "2.0.0",
         "signals_supported": 12,
+        "session_signal_note": "Live consultations may expose only a subset of supported signals depending on device capability, permissions, and signal quality.",
         "timestamp": datetime.utcnow().isoformat(),
         "providers": {
             "groq": bool(GROQ_API_KEY),
@@ -1056,7 +1057,7 @@ async def health_check():
 
 @app.get("/api/ai/signals")
 async def list_signals():
-    """Lists all 12 supported CV health signals with their pipeline descriptions."""
+    """Lists platform-supported CV signals. Individual sessions may expose only a subset."""
     return {
         "signals": [
             {"id": 1, "key": "heart_rate_rppg", "name": "Heart Rate", "method": "rPPG (face ROI → FFT → BPM)", "fields": ["heart_rate"]},
@@ -1079,7 +1080,7 @@ async def list_signals():
 async def ai_consult(ctx: ConsultationContext, user: dict = Depends(verify_doctor_token)):
     """
     Main AI consultation endpoint.
-    Receives vitals (all 12 CV signals) + symptoms + history → structured clinical reasoning.
+    Receives the currently available vitals subset + symptoms + history → structured clinical reasoning.
     """
     start_time = time.time()
 

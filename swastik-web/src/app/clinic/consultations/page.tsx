@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { clinicApi } from '@/lib/api';
-import Link from 'next/link';
 import {
     Video,
     Phone,
@@ -148,9 +147,9 @@ export default function ClinicConsultationsPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             {c.status === 'in_progress' && (c.type === 'video' || c.appointment?.type === 'video') && (
-                                                <Link href={`/consultation/${c.id}`} className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-lg transition-colors">
-                                                    <Video className="w-3.5 h-3.5" /> Join
-                                                </Link>
+                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-100 rounded-lg">
+                                                    <Video className="w-3.5 h-3.5" /> Doctor-only
+                                                </span>
                                             )}
                                         </td>
                                     </tr>

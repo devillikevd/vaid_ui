@@ -2,10 +2,14 @@ package com.example.swastik.util.vision
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
@@ -14,57 +18,107 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
-import org.webrtc.YuvHelper
-import java.nio.ByteBuffer
+import java.io.ByteArrayOutputStream
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Real-time CV Vitals extraction from WebRTC camera frames using MediaPipe FaceLandmarker.
- * Replaces the mock values in the consultation stream with mathematically derived signals.
+ * Real-time edge CV signal extraction from WebRTC camera frames.
+ *
+ * This analyzer only emits signals that can be derived from the current frame
+ * stream. Unsupported or low-confidence metrics stay null instead of falling
+ * back to synthetic values.
  */
 class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
-    
+
     companion object {
         private const val TAG = "CVAnalyzer"
-        private const val FRAME_PROCESS_INTERVAL_MS = 100L // 10 FPS
+        private const val FRAME_PROCESS_INTERVAL_MS = 80L
+        private const val PPG_WINDOW_MS = 12_000L
+        private const val RESPIRATION_WINDOW_MS = 18_000L
+        private const val TREMOR_WINDOW_MS = 6_000L
+        private const val MIN_FACE_WIDTH = 0.16
+        private const val MIN_FACE_HEIGHT = 0.20
     }
 
-    // Exported State Flow for UI/ViewModel to collect the 12 active computational signals
+    data class CVMetrics(
+        val heartRate: Double? = null,
+        val respirationRate: Double? = null,
+        val spo2: Double? = null,
+        val drowsinessScore: Double? = null,
+        val facialAsymmetryScore: Double? = null,
+        val tremorDetected: Boolean? = null,
+        val tremorSeverity: Double? = null,
+        val tremorFrequency: Double? = null,
+        val painScore: Double? = null,
+        val posture: String? = null,
+        val spineAngle: Double? = null,
+        val pallorScore: Double? = null,
+        val hemoglobinEstimate: Double? = null,
+        val isFaceDetected: Boolean = false,
+        val signalQuality: Double? = null,
+        val capturedAtMs: Long = 0L
+    )
+
+    private data class SignalSample(val timeMs: Long, val value: Double)
+
+    private data class FrequencyEstimate(
+        val frequencyHz: Double,
+        val confidence: Double
+    )
+
+    private data class FaceBox(
+        val left: Double,
+        val top: Double,
+        val right: Double,
+        val bottom: Double
+    ) {
+        val width: Double get() = right - left
+        val height: Double get() = bottom - top
+        val area: Double get() = width * height
+    }
+
+    private data class RgbStats(
+        val red: Double,
+        val green: Double,
+        val blue: Double
+    ) {
+        val luminance: Double
+            get() = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+    }
+
+    private data class TremorMetrics(
+        val detected: Boolean?,
+        val severity: Double?,
+        val frequency: Double?
+    )
+
     private val _vitalsData = MutableStateFlow(CVMetrics())
     val vitalsData: StateFlow<CVMetrics> get() = _vitalsData
 
     private var faceLandmarker: FaceLandmarker? = null
     private var lastProcessedTimeMs = 0L
+    private var missingFaceFrames = 0
 
-    // Heart Rate rPPG buffer
-    private val rppgWindow = ArrayList<Float>()
-    private val rppgWindowSize = 60 // 6 seconds at 10fps
+    private val pulseSamples = ArrayDeque<SignalSample>()
+    private val respirationSamples = ArrayDeque<SignalSample>()
+    private val tremorSamples = ArrayDeque<SignalSample>()
 
-    // Math states
-    private var baselineTremor = 0.0f
-    private var baselineAsymmetry = 0.0f
-    
-    // Simulate real physiological parameters to fall back on if face not found
-    private var simulatedHeartRate = 75.0
-    private var simulatedSpO2 = 98.0
-    private var simulatedRR = 16.0
-
-    data class CVMetrics(
-        val heartRate: Double = 0.0,
-        val respirationRate: Double = 0.0,
-        val spo2: Double = 0.0,
-        val drowsinessScore: Double = 0.0,
-        val facialAsymmetryScore: Double = 0.0,
-        val tremorSeverity: Double = 0.0,
-        val tremorFrequency: Double = 0.0,
-        val painScore: Double = 0.0,
-        val posture: String = "unknown",
-        val spineAngle: Double = 0.0,
-        val isFaceDetected: Boolean = false
-    )
+    private var smoothedHeartRate: Double? = null
+    private var smoothedRespirationRate: Double? = null
+    private var smoothedDrowsiness: Double? = null
+    private var smoothedPain: Double? = null
+    private var smoothedAsymmetry: Double? = null
+    private var smoothedPallor: Double? = null
+    private var tremorBaselineX: Double? = null
 
     init {
         try {
@@ -74,198 +128,651 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
 
             val options = FaceLandmarker.FaceLandmarkerOptions.builder()
                 .setBaseOptions(baseOptions)
-                .setRunningMode(RunningMode.IMAGE) // IMAGE mode is safer for synchronous WebRTC intercept
+                .setRunningMode(RunningMode.IMAGE)
                 .setNumFaces(1)
                 .setOutputFaceBlendshapes(true)
                 .build()
 
             faceLandmarker = FaceLandmarker.createFromOptions(context, options)
-            Log.d(TAG, "MediaPipe FaceLandmarker initialized successfully.")
+            Log.d(TAG, "MediaPipe FaceLandmarker initialized.")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize MediaPipe FaceLandmarker. Using CV Fallback mode.", e)
+            Log.e(TAG, "Failed to initialize FaceLandmarker.", e)
             faceLandmarker = null
         }
     }
 
     override fun onFrame(frame: VideoFrame) {
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastProcessedTimeMs < FRAME_PROCESS_INTERVAL_MS) {
-            return // Drop frames to maintain ~10 FPS
+        val currentTimeMs = System.currentTimeMillis()
+        if (currentTimeMs - lastProcessedTimeMs < FRAME_PROCESS_INTERVAL_MS) {
+            return
         }
-        lastProcessedTimeMs = currentTime
+        lastProcessedTimeMs = currentTimeMs
 
-        try {
-            // 1. Convert WebRTC I420Buffer to Bitmap (Heavy process on CPU!)
-            val bitmap = videoFrameToBitmap(frame) ?: return
-
-            // 2. Feed to MediaPipe
-            if (faceLandmarker != null) {
-                val mpImage = BitmapImageBuilder(bitmap).build()
-                val result = faceLandmarker?.detect(mpImage)
-                
-                if (result != null && result.faceLandmarks().isNotEmpty() && result.faceLandmarks()[0].isNotEmpty()) {
-                    calculateSignalsFromLandmarks(result)
-                } else {
-                    emitFallbackSignals(false)
-                }
-            } else {
-                emitFallbackSignals(true)
-            }
+        val bitmap = try {
+            videoFrameToBitmap(frame)
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing frame in CV Analyzer", e)
-        }
-    }
+            Log.e(TAG, "Failed to decode frame.", e)
+            null
+        } ?: return
 
-    private fun calculateSignalsFromLandmarks(result: FaceLandmarkerResult) {
-        val landmarksList = result.faceLandmarks()
-        val blendshapesOpt = result.faceBlendshapes()
-
-        if (landmarksList.isEmpty() || landmarksList[0].isEmpty()) {
-            emitFallbackSignals(false)
+        val landmarker = faceLandmarker
+        if (landmarker == null) {
+            handleFaceLoss()
             return
         }
 
-        val landmarks = landmarksList[0]
-
-        // SIGNAL 5: Drowsiness / EAR (Eye Aspect Ratio)
-        // Left Eye: 33 (outer), 133 (inner), 159 (top), 145 (bottom)
-        val lEar = ((landmarks[159].y() - landmarks[145].y()) / (landmarks[33].x() - landmarks[133].x())).toDouble()
-        val drowsinessScore = if (abs(lEar) < 0.2) 0.8 else 0.1 // 0.8 means very drowsy
-
-        // SIGNAL 12: Facial Asymmetry (Stroke Detection)
-        // Mouth corners: 61 (left), 291 (right) relative to nose tip 1
-        val mouthLDistDiff = abs(landmarks[61].y() - landmarks[1].y())
-        val mouthRDistDiff = abs(landmarks[291].y() - landmarks[1].y())
-        var asymmetry = abs(mouthLDistDiff - mouthRDistDiff).toDouble()
-        // Decay baseline to reduce noise
-        baselineAsymmetry = (baselineAsymmetry * 0.9f) + (asymmetry.toFloat() * 0.1f)
-        val finalAsymmetryScale = (baselineAsymmetry * 2.5).coerceIn(0.0, 1.0) // Normalize
-
-        // SIGNAL 6: Pain (FACS via Blendshapes)
-        var painScore = 0.0
-        if (blendshapesOpt.isPresent && blendshapesOpt.get().isNotEmpty()) {
-            val categories = blendshapesOpt.get()[0]
-            for (category in categories) {
-                val cat = category.categoryName()
-                if (cat == "browDownLeft" || cat == "browDownRight" || cat == "noseSneerLeft") {
-                    painScore += category.score() * 4.0 // Scale up to 0-10
-                }
-            }
+        val result = try {
+            landmarker.detect(BitmapImageBuilder(bitmap).build())
+        } catch (e: Exception) {
+            Log.e(TAG, "FaceLandmarker detection failed.", e)
+            null
         }
-        val finalPain = painScore.coerceIn(0.0, 10.0)
 
-        // SIGNAL 9: Tremor (Nose Tip Micro-Jitter)
-        val noseTipX = landmarks[1].x()
-        val noseTipY = landmarks[1].y()
-        val jitter = Math.random() * 0.02 // Placeholder for real frame-to-frame delta
-        val tremorSeverity = if (jitter > 0.05) 5.0 else 0.5 
+        val landmarks = result?.faceLandmarks()?.firstOrNull()
+        if (landmarks.isNullOrEmpty()) {
+            handleFaceLoss()
+            return
+        }
 
-        // SIGNAL 1 / 3: rPPG / Heart Rate & SpO2
-        // Since extracting color channels synchronously here bottlenecks the thread,
-        // we map realistic physiological shifts.
-        simulatedHeartRate += (Math.random() - 0.5) * 1.5
-        simulatedHeartRate = simulatedHeartRate.coerceIn(60.0, 100.0)
-
-        simulatedSpO2 += (Math.random() - 0.5) * 0.2
-        simulatedSpO2 = simulatedSpO2.coerceIn(95.0, 100.0)
-
-        simulatedRR += (Math.random() - 0.5) * 0.5
-        simulatedRR = simulatedRR.coerceIn(12.0, 20.0)
-
-        val metrics = CVMetrics(
-            heartRate = simulatedHeartRate,
-            respirationRate = simulatedRR,
-            spo2 = simulatedSpO2,
-            drowsinessScore = drowsinessScore,
-            facialAsymmetryScore = finalAsymmetryScale,
-            tremorSeverity = tremorSeverity,
-            tremorFrequency = if (tremorSeverity > 2.0) 5.2 else 0.0, // 5.2Hz Parkinsonian Range
-            painScore = finalPain,
-            posture = "normal",
-            spineAngle = 10.0 + (Math.random() * 2),
-            isFaceDetected = true
-        )
-
-        _vitalsData.value = metrics
+        missingFaceFrames = 0
+        val metrics = calculateMetrics(bitmap, result, currentTimeMs)
+        _vitalsData.value = metrics ?: CVMetrics(isFaceDetected = false, capturedAtMs = currentTimeMs)
     }
 
-    private fun emitFallbackSignals(noModel: Boolean) {
-        simulatedHeartRate += (Math.random() - 0.5) * 0.8
-        simulatedHeartRate = simulatedHeartRate.coerceIn(65.0, 90.0)
+    private fun calculateMetrics(
+        bitmap: Bitmap,
+        result: FaceLandmarkerResult,
+        currentTimeMs: Long
+    ): CVMetrics? {
+        val landmarks = result.faceLandmarks().firstOrNull() ?: return null
+        if (landmarks.isEmpty()) return null
 
-        simulatedSpO2 += (Math.random() - 0.5) * 0.1
-        simulatedSpO2 = simulatedSpO2.coerceIn(96.0, 100.0)
+        val faceBox = extractFaceBox(landmarks) ?: return null
+        if (faceBox.width < MIN_FACE_WIDTH || faceBox.height < MIN_FACE_HEIGHT) {
+            return null
+        }
 
-        _vitalsData.value = CVMetrics(
-            heartRate = simulatedHeartRate,
-            respirationRate = 16.0 + (Math.random() - 0.5),
-            spo2 = simulatedSpO2,
-            drowsinessScore = 0.1,
-            facialAsymmetryScore = 0.0,
-            tremorSeverity = 0.0,
-            tremorFrequency = 0.0,
-            painScore = 0.0,
-            posture = "normal",
-            spineAngle = 12.0,
-            isFaceDetected = noModel // If true, we pretend it's detected since model missing
+        val faceWidth = max(faceBox.width, 1e-6)
+        val faceHeight = max(faceBox.height, 1e-6)
+
+        val leftCheek = samplePatch(bitmap, faceBox, xFactor = 0.32, yFactor = 0.57)
+        val rightCheek = samplePatch(bitmap, faceBox, xFactor = 0.68, yFactor = 0.57)
+        val cheekColor = averageRgb(leftCheek, rightCheek)
+        val lipColor = samplePatch(bitmap, faceBox, xFactor = 0.50, yFactor = 0.78, widthFactor = 0.12, heightFactor = 0.07)
+
+        val signalQuality = cheekColor?.let { computeSignalQuality(faceBox, it) } ?: 0.0
+
+        val leftEar = computeEyeAspectRatio(landmarks, 33, 160, 158, 133, 153, 144)
+        val rightEar = computeEyeAspectRatio(landmarks, 362, 385, 387, 263, 373, 380)
+        val averageEar = listOf(leftEar, rightEar).filterNotNull().averageOrNull()
+        val drowsinessScore = averageEar?.let {
+            smooth(
+                smoothedDrowsiness,
+                ((0.29 - it) / 0.11).coerceIn(0.0, 1.0),
+                alpha = 0.18
+            ).also { value -> smoothedDrowsiness = value }
+        }
+
+        val blendshapes = if (result.faceBlendshapes().isPresent) {
+            result.faceBlendshapes().get().firstOrNull().orEmpty()
+        } else {
+            emptyList()
+        }
+        val painScore = estimatePainScore(blendshapes)
+            ?.let { smooth(smoothedPain, it, alpha = 0.22) }
+            ?.also { value -> smoothedPain = value }
+            ?.round(1)
+
+        val asymmetryScore = estimateFacialAsymmetry(landmarks, faceWidth, faceHeight)
+            ?.let { smooth(smoothedAsymmetry, it, alpha = 0.16) }
+            ?.also { value -> smoothedAsymmetry = value }
+            ?.round(3)
+
+        val heartRate = cheekColor
+            ?.takeIf { signalQuality >= 0.45 }
+            ?.let { estimateHeartRate(currentTimeMs, it) }
+
+        val respirationRate = estimateRespirationRate(currentTimeMs, landmarks)
+
+        val tremor = estimateTremor(currentTimeMs, landmarks, faceWidth, signalQuality)
+
+        val pallorScore = lipColor
+            ?.takeIf { signalQuality >= 0.35 }
+            ?.let { estimatePallorScore(it) }
+            ?.let { smooth(smoothedPallor, it, alpha = 0.12) }
+            ?.also { value -> smoothedPallor = value }
+            ?.round(3)
+
+        val postureEstimate = estimatePosture(landmarks)
+
+        return CVMetrics(
+            heartRate = heartRate,
+            respirationRate = respirationRate,
+            spo2 = null,
+            drowsinessScore = drowsinessScore?.round(3),
+            facialAsymmetryScore = asymmetryScore,
+            tremorDetected = tremor.detected,
+            tremorSeverity = tremor.severity?.round(2),
+            tremorFrequency = tremor.frequency?.round(2),
+            painScore = painScore,
+            posture = postureEstimate?.first,
+            spineAngle = postureEstimate?.second?.round(1),
+            pallorScore = pallorScore,
+            hemoglobinEstimate = null,
+            isFaceDetected = true,
+            signalQuality = signalQuality.round(3),
+            capturedAtMs = currentTimeMs
         )
+    }
+
+    private fun estimateHeartRate(currentTimeMs: Long, cheekColor: RgbStats): Double? {
+        val chroma = cheekColor.green - ((cheekColor.red + cheekColor.blue) * 0.5)
+        pulseSamples.addLast(SignalSample(currentTimeMs, chroma))
+        trimSamples(pulseSamples, currentTimeMs, PPG_WINDOW_MS)
+
+        val estimate = estimateDominantFrequency(
+            samples = pulseSamples,
+            minHz = 0.8,
+            maxHz = 2.4,
+            stepHz = 0.03,
+            minDurationSec = 8.0,
+            minSampleCount = 70
+        ) ?: return null
+
+        if (estimate.confidence < 0.18) {
+            return null
+        }
+
+        val bpm = (estimate.frequencyHz * 60.0).coerceIn(45.0, 160.0)
+        smoothedHeartRate = smooth(smoothedHeartRate, bpm, alpha = 0.2)
+        return smoothedHeartRate?.round(1)
+    }
+
+    private fun estimateRespirationRate(
+        currentTimeMs: Long,
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>
+    ): Double? {
+        val mouthWidth = distance(landmarks, 78, 308)
+        if (mouthWidth == null || mouthWidth < 1e-6) {
+            return null
+        }
+
+        val mouthOpenness = distance(landmarks, 13, 14)?.div(mouthWidth) ?: return null
+        respirationSamples.addLast(SignalSample(currentTimeMs, mouthOpenness))
+        trimSamples(respirationSamples, currentTimeMs, RESPIRATION_WINDOW_MS)
+
+        val estimate = estimateDominantFrequency(
+            samples = respirationSamples,
+            minHz = 0.10,
+            maxHz = 0.60,
+            stepHz = 0.01,
+            minDurationSec = 10.0,
+            minSampleCount = 90
+        ) ?: return null
+
+        if (estimate.confidence < 0.14) {
+            return null
+        }
+
+        val breathsPerMinute = (estimate.frequencyHz * 60.0).coerceIn(6.0, 32.0)
+        smoothedRespirationRate = smooth(smoothedRespirationRate, breathsPerMinute, alpha = 0.16)
+        return smoothedRespirationRate?.round(1)
+    }
+
+    private fun estimateTremor(
+        currentTimeMs: Long,
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
+        faceWidth: Double,
+        signalQuality: Double
+    ): TremorMetrics {
+        val eyeMidX = midpointX(landmarks, 33, 263) ?: return TremorMetrics(null, null, null)
+        val noseX = landmarks[1].x().toDouble()
+        val relativeNoseX = (noseX - eyeMidX) / max(faceWidth, 1e-6)
+
+        tremorBaselineX = smooth(tremorBaselineX, relativeNoseX, alpha = 0.08)
+        val residual = relativeNoseX - (tremorBaselineX ?: relativeNoseX)
+
+        tremorSamples.addLast(SignalSample(currentTimeMs, residual))
+        trimSamples(tremorSamples, currentTimeMs, TREMOR_WINDOW_MS)
+
+        val hasEnoughData = tremorSamples.size >= 30 &&
+            ((tremorSamples.last().timeMs - tremorSamples.first().timeMs) >= 3_000L)
+        if (!hasEnoughData || signalQuality < 0.45) {
+            return TremorMetrics(null, null, null)
+        }
+
+        val estimate = estimateDominantFrequency(
+            samples = tremorSamples,
+            minHz = 2.5,
+            maxHz = 5.5,
+            stepHz = 0.05,
+            minDurationSec = 3.0,
+            minSampleCount = 30
+        )
+
+        val amplitude = stdDev(tremorSamples.map { it.value })
+        val detected = estimate != null && estimate.confidence >= 0.16 && amplitude >= 0.0014
+
+        return if (detected && estimate != null) {
+            val severity = (((amplitude - 0.0014) / 0.0035) * 10.0).coerceIn(0.0, 10.0)
+            TremorMetrics(
+                detected = true,
+                severity = severity,
+                frequency = estimate.frequencyHz
+            )
+        } else {
+            TremorMetrics(detected = false, severity = null, frequency = null)
+        }
+    }
+
+    private fun estimatePainScore(
+        categories: List<com.google.mediapipe.tasks.components.containers.Category>
+    ): Double? {
+        if (categories.isEmpty()) return null
+
+        val scores = categories.associate { it.categoryName() to it.score().toDouble() }
+        fun avg(vararg keys: String): Double {
+            val values = keys.mapNotNull { scores[it] }
+            return if (values.isEmpty()) 0.0 else values.average()
+        }
+
+        val brow = avg("browDownLeft", "browDownRight")
+        val eye = avg("eyeSquintLeft", "eyeSquintRight", "cheekSquintLeft", "cheekSquintRight")
+        val nose = avg("noseSneerLeft", "noseSneerRight")
+        val jaw = avg("jawOpen")
+        val raw = (brow * 3.2) + (eye * 2.4) + (nose * 2.8) + (jaw * 1.2)
+        return raw.coerceIn(0.0, 10.0)
+    }
+
+    private fun estimateFacialAsymmetry(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
+        faceWidth: Double,
+        faceHeight: Double
+    ): Double? {
+        val nose = landmarks[1]
+        val pairs = listOf(
+            61 to 291,
+            33 to 263,
+            159 to 386,
+            145 to 374,
+            105 to 334
+        )
+
+        val perPair = pairs.mapNotNull { (leftIndex, rightIndex) ->
+            val left = landmarks.getOrNull(leftIndex) ?: return@mapNotNull null
+            val right = landmarks.getOrNull(rightIndex) ?: return@mapNotNull null
+
+            val leftDx = abs(left.x().toDouble() - nose.x().toDouble())
+            val rightDx = abs(right.x().toDouble() - nose.x().toDouble())
+            val horizontal = abs(leftDx - rightDx) / max(faceWidth, 1e-6)
+            val vertical = abs(left.y().toDouble() - right.y().toDouble()) / max(faceHeight, 1e-6)
+            (horizontal * 0.7) + (vertical * 0.3)
+        }
+
+        if (perPair.isEmpty()) return null
+        return (perPair.average() * 2.8).coerceIn(0.0, 1.0)
+    }
+
+    private fun estimatePallorScore(color: RgbStats): Double? {
+        if (color.luminance !in 0.10..0.90) {
+            return null
+        }
+
+        val hsv = FloatArray(3)
+        Color.RGBToHSV(
+            (color.red * 255.0).toInt().coerceIn(0, 255),
+            (color.green * 255.0).toInt().coerceIn(0, 255),
+            (color.blue * 255.0).toInt().coerceIn(0, 255),
+            hsv
+        )
+
+        val saturation = hsv[1].toDouble()
+        val redRatio = color.red / max(color.green + color.blue, 1e-6)
+        val lowSaturation = ((0.42 - saturation) / 0.42).coerceIn(0.0, 1.0)
+        val lowRedness = ((0.90 - redRatio) / 0.90).coerceIn(0.0, 1.0)
+        return ((lowSaturation * 0.65) + (lowRedness * 0.35)).coerceIn(0.0, 1.0)
+    }
+
+    private fun estimatePosture(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>
+    ): Pair<String, Double>? {
+        val leftEye = landmarks.getOrNull(33) ?: return null
+        val rightEye = landmarks.getOrNull(263) ?: return null
+        val rollDegrees = abs(
+            atan2(
+                rightEye.y().toDouble() - leftEye.y().toDouble(),
+                rightEye.x().toDouble() - leftEye.x().toDouble()
+            ) * 180.0 / PI
+        )
+
+        return when {
+            rollDegrees >= 55.0 -> "lying_down" to rollDegrees
+            rollDegrees >= 18.0 -> "leaning" to rollDegrees
+            else -> null
+        }
+    }
+
+    private fun computeSignalQuality(faceBox: FaceBox, cheekColor: RgbStats): Double {
+        val areaScore = (faceBox.area / 0.18).coerceIn(0.0, 1.0)
+        val brightnessScore = (1.0 - (abs(cheekColor.luminance - 0.55) / 0.55)).coerceIn(0.0, 1.0)
+        return ((areaScore * 0.65) + (brightnessScore * 0.35)).coerceIn(0.0, 1.0)
+    }
+
+    private fun extractFaceBox(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>
+    ): FaceBox? {
+        if (landmarks.isEmpty()) return null
+
+        var minX = 1.0
+        var minY = 1.0
+        var maxX = 0.0
+        var maxY = 0.0
+
+        for (landmark in landmarks) {
+            minX = min(minX, landmark.x().toDouble())
+            minY = min(minY, landmark.y().toDouble())
+            maxX = max(maxX, landmark.x().toDouble())
+            maxY = max(maxY, landmark.y().toDouble())
+        }
+
+        if (maxX <= minX || maxY <= minY) return null
+        return FaceBox(minX, minY, maxX, maxY)
+    }
+
+    private fun samplePatch(
+        bitmap: Bitmap,
+        faceBox: FaceBox,
+        xFactor: Double,
+        yFactor: Double,
+        widthFactor: Double = 0.14,
+        heightFactor: Double = 0.10
+    ): RgbStats? {
+        val centerX = faceBox.left + (faceBox.width * xFactor)
+        val centerY = faceBox.top + (faceBox.height * yFactor)
+        val patchWidth = faceBox.width * widthFactor
+        val patchHeight = faceBox.height * heightFactor
+
+        val left = ((centerX - (patchWidth / 2.0)) * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+        val right = ((centerX + (patchWidth / 2.0)) * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+        val top = ((centerY - (patchHeight / 2.0)) * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+        val bottom = ((centerY + (patchHeight / 2.0)) * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+
+        if (right <= left || bottom <= top) {
+            return null
+        }
+
+        val stepX = max(1, (right - left) / 6)
+        val stepY = max(1, (bottom - top) / 6)
+        var red = 0.0
+        var green = 0.0
+        var blue = 0.0
+        var count = 0
+
+        var y = top
+        while (y <= bottom) {
+            var x = left
+            while (x <= right) {
+                val pixel = bitmap.getPixel(x, y)
+                red += Color.red(pixel) / 255.0
+                green += Color.green(pixel) / 255.0
+                blue += Color.blue(pixel) / 255.0
+                count++
+                x += stepX
+            }
+            y += stepY
+        }
+
+        if (count == 0) return null
+        return RgbStats(
+            red = red / count,
+            green = green / count,
+            blue = blue / count
+        )
+    }
+
+    private fun averageRgb(first: RgbStats?, second: RgbStats?): RgbStats? {
+        if (first == null && second == null) return null
+        if (first == null) return second
+        if (second == null) return first
+        return RgbStats(
+            red = (first.red + second.red) / 2.0,
+            green = (first.green + second.green) / 2.0,
+            blue = (first.blue + second.blue) / 2.0
+        )
+    }
+
+    private fun computeEyeAspectRatio(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
+        p1: Int,
+        p2: Int,
+        p3: Int,
+        p4: Int,
+        p5: Int,
+        p6: Int
+    ): Double? {
+        val horizontal = distance(landmarks, p1, p4) ?: return null
+        if (horizontal < 1e-6) return null
+        val verticalA = distance(landmarks, p2, p6) ?: return null
+        val verticalB = distance(landmarks, p3, p5) ?: return null
+        return (verticalA + verticalB) / (2.0 * horizontal)
+    }
+
+    private fun midpointX(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
+        first: Int,
+        second: Int
+    ): Double? {
+        val left = landmarks.getOrNull(first) ?: return null
+        val right = landmarks.getOrNull(second) ?: return null
+        return (left.x().toDouble() + right.x().toDouble()) / 2.0
+    }
+
+    private fun distance(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>,
+        first: Int,
+        second: Int
+    ): Double? {
+        val left = landmarks.getOrNull(first) ?: return null
+        val right = landmarks.getOrNull(second) ?: return null
+        return hypot(
+            left.x().toDouble() - right.x().toDouble(),
+            left.y().toDouble() - right.y().toDouble()
+        )
+    }
+
+    private fun estimateDominantFrequency(
+        samples: ArrayDeque<SignalSample>,
+        minHz: Double,
+        maxHz: Double,
+        stepHz: Double,
+        minDurationSec: Double,
+        minSampleCount: Int
+    ): FrequencyEstimate? {
+        if (samples.size < minSampleCount) return null
+
+        val points = samples.toList()
+        val start = points.first().timeMs
+        val durationSec = (points.last().timeMs - start) / 1000.0
+        if (durationSec < minDurationSec) return null
+
+        val values = points.map { it.value }
+        val mean = values.average()
+        val centered = values.map { it - mean }
+        val energy = centered.sumOf { it * it }
+        if (energy < 1e-8) return null
+
+        var bestFrequency = 0.0
+        var bestPower = 0.0
+        var secondBestPower = 0.0
+
+        var frequency = minHz
+        while (frequency <= maxHz) {
+            var real = 0.0
+            var imaginary = 0.0
+            val omega = 2.0 * PI * frequency
+
+            for (index in points.indices) {
+                val timeSec = (points[index].timeMs - start) / 1000.0
+                val value = centered[index]
+                val window = if (points.size > 1) {
+                    0.54 - (0.46 * cos(2.0 * PI * index / (points.size - 1)))
+                } else {
+                    1.0
+                }
+                real += value * window * cos(omega * timeSec)
+                imaginary += value * window * sin(omega * timeSec)
+            }
+
+            val power = (real * real) + (imaginary * imaginary)
+            if (power > bestPower) {
+                secondBestPower = bestPower
+                bestPower = power
+                bestFrequency = frequency
+            } else if (power > secondBestPower) {
+                secondBestPower = power
+            }
+
+            frequency += stepHz
+        }
+
+        if (bestPower <= 0.0) return null
+        val confidence = (bestPower / (energy + 1e-6)).coerceIn(0.0, 1.0)
+        val peakSeparation = (bestPower / max(secondBestPower, 1e-6)).coerceAtMost(4.0) / 4.0
+        return FrequencyEstimate(
+            frequencyHz = bestFrequency,
+            confidence = ((confidence * 0.7) + (peakSeparation * 0.3)).coerceIn(0.0, 1.0)
+        )
+    }
+
+    private fun handleFaceLoss() {
+        missingFaceFrames++
+        if (missingFaceFrames >= 2) {
+            clearBuffers()
+            _vitalsData.value = CVMetrics(
+                isFaceDetected = false,
+                capturedAtMs = System.currentTimeMillis()
+            )
+        }
+    }
+
+    private fun clearBuffers() {
+        pulseSamples.clear()
+        respirationSamples.clear()
+        tremorSamples.clear()
+        smoothedHeartRate = null
+        smoothedRespirationRate = null
+        smoothedDrowsiness = null
+        smoothedPain = null
+        smoothedAsymmetry = null
+        smoothedPallor = null
+        tremorBaselineX = null
+    }
+
+    private fun trimSamples(samples: ArrayDeque<SignalSample>, currentTimeMs: Long, maxAgeMs: Long) {
+        while (samples.isNotEmpty() && currentTimeMs - samples.first().timeMs > maxAgeMs) {
+            samples.removeFirst()
+        }
+    }
+
+    private fun smooth(previous: Double?, current: Double, alpha: Double): Double {
+        return if (previous == null) current else (previous * (1.0 - alpha)) + (current * alpha)
+    }
+
+    private fun stdDev(values: List<Double>): Double {
+        if (values.size < 2) return 0.0
+        val mean = values.average()
+        val variance = values.sumOf { (it - mean) * (it - mean) } / values.size
+        return sqrt(variance)
+    }
+
+    private fun List<Double>.averageOrNull(): Double? {
+        return if (isEmpty()) null else average()
+    }
+
+    private fun Double.round(decimals: Int): Double {
+        val scale = 10.0.pow(decimals.toDouble())
+        return kotlin.math.round(this * scale) / scale
     }
 
     /**
-     * Halves I420Buffer size manually and converts to Bitmap to prevent OOM
+     * Converts a WebRTC I420 frame into a rotated bitmap for MediaPipe inference.
      */
     private fun videoFrameToBitmap(frame: VideoFrame): Bitmap? {
         val buffer = frame.buffer.toI420() ?: return null
-        val width = buffer.width
-        val height = buffer.height
 
-        val y = buffer.dataY
-        val u = buffer.dataU
-        val v = buffer.dataV
+        try {
+            val width = buffer.width
+            val height = buffer.height
+            val nv21 = ByteArray(width * height + (width * height / 2))
 
-        val yStride = buffer.strideY
-        val uStride = buffer.strideU
-        val vStride = buffer.strideV
+            copyPlane(buffer.dataY, buffer.strideY, nv21, width, height, 0)
+            copyUvPlanesToNv21(
+                vBuffer = buffer.dataV,
+                vStride = buffer.strideV,
+                uBuffer = buffer.dataU,
+                uStride = buffer.strideU,
+                destination = nv21,
+                width = width,
+                height = height,
+                offset = width * height
+            )
 
-        // Create NV21 buffer array
-        val nv21 = ByteArray(yStride * height + (yStride / 2) * (height / 2) * 2)
+            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+            val out = ByteArrayOutputStream()
+            yuvImage.compressToJpeg(Rect(0, 0, width, height), 75, out)
+            val bytes = out.toByteArray()
+            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
 
-        // Interleave U and V
-        val uLength = nv21.size - yStride * height
-        var uPos = 0
-        var vPos = 0
-        for (i in yStride * height until nv21.size step 2) {
-            nv21[i] = v[vPos]
-            nv21[i + 1] = u[uPos]
-            vPos++
-            uPos++
+            val matrix = Matrix().apply {
+                postRotate(frame.rotation.toFloat())
+            }
+            return Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+        } finally {
+            buffer.release()
         }
+    }
 
-        // Copy Y
-        val yArray = ByteArray(yStride * height)
-        y.get(yArray, 0, yArray.size)
-        System.arraycopy(yArray, 0, nv21, 0, yArray.size)
+    private fun copyPlane(
+        source: java.nio.ByteBuffer,
+        stride: Int,
+        destination: ByteArray,
+        width: Int,
+        height: Int,
+        offset: Int
+    ) {
+        val duplicate = source.duplicate()
+        for (row in 0 until height) {
+            duplicate.position(row * stride)
+            duplicate.get(destination, offset + (row * width), width)
+        }
+    }
 
-        buffer.release()
+    private fun copyUvPlanesToNv21(
+        vBuffer: java.nio.ByteBuffer,
+        vStride: Int,
+        uBuffer: java.nio.ByteBuffer,
+        uStride: Int,
+        destination: ByteArray,
+        width: Int,
+        height: Int,
+        offset: Int
+    ) {
+        val chromaHeight = height / 2
+        val chromaWidth = width / 2
+        val v = vBuffer.duplicate()
+        val u = uBuffer.duplicate()
 
-        val yuvImage = android.graphics.YuvImage(
-            nv21, android.graphics.ImageFormat.NV21,
-            width, height, intArrayOf(yStride, yStride, yStride)
-        )
-
-        val out = java.io.ByteArrayOutputStream()
-        yuvImage.compressToJpeg(android.graphics.Rect(0, 0, width, height), 80, out)
-        val imageBytes = out.toByteArray()
-        val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-
-        // WebRTC frames from front camera might be rotated or mirrored
-        val matrix = Matrix()
-        matrix.postRotate(frame.rotation.toFloat())
-        
-        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        for (row in 0 until chromaHeight) {
+            for (col in 0 until chromaWidth) {
+                val destIndex = offset + (row * width) + (col * 2)
+                destination[destIndex] = v.get(row * vStride + col)
+                destination[destIndex + 1] = u.get(row * uStride + col)
+            }
+        }
     }
 
     fun release() {
+        clearBuffers()
         faceLandmarker?.close()
         faceLandmarker = null
     }

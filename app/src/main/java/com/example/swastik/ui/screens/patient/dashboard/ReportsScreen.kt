@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.dashboard
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,11 +34,12 @@ import com.example.swastik.ui.viewmodel.RecordsViewModel
 @Composable
 fun ReportsScreen(
     onBackClick: () -> Unit = {},
-    onReportClick: (MedicalDocument) -> Unit = {},
+    onReportClick: ((MedicalDocument) -> Unit)? = null,
     viewModel: RecordsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val reports = uiState.documents
+    val context = LocalContext.current
 
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Lab Reports", "Prescriptions", "Scans", "Other")
@@ -89,6 +94,19 @@ fun ReportsScreen(
                         CircularProgressIndicator(color = SwastikPurple)
                     }
                 }
+                uiState.error != null -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Unable to Load Reports", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(uiState.error ?: "Something went wrong while loading your reports.", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                }
                 filteredReports.isEmpty() -> {
                     Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Outlined.Description, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
@@ -100,7 +118,24 @@ fun ReportsScreen(
                 }
                 else -> {
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(filteredReports) { report -> ReportCard(report = report, onClick = { onReportClick(report) }) }
+                        items(filteredReports) { report ->
+                            ReportCard(
+                                report = report,
+                                onClick = {
+                                    if (onReportClick != null) {
+                                        onReportClick(report)
+                                    } else if (report.fileUrl.isNotBlank()) {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(report.fileUrl)))
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "Unable to open this report", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "No file available for this report", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -151,7 +186,7 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
                 Text(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
                 Spacer(modifier = Modifier.height(2.dp))
                 if (report.doctorName != null) {
-                    Text(text = report.doctorName!!, fontSize = 12.sp, color = Color.Gray)
+                    Text(text = report.doctorName, fontSize = 12.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

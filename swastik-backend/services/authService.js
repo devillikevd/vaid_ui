@@ -16,6 +16,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
+const { enrichAuthUser } = require('../utils/authUserEnrichment');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('./emailService');
 
 // Helper: convert JWT duration string to seconds (e.g., '7d' -> 604800)
@@ -31,6 +32,12 @@ const parseExpiresIn = (duration) => {
     case 'd': return val * 86400;
     default: return 604800;
   }
+};
+
+const parseOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number.parseFloat(String(value));
+  return Number.isNaN(parsed) ? null : parsed;
 };
 
 // Generate JWT tokens
@@ -153,8 +160,8 @@ const createRoleProfile = async (userId, role, data) => {
           license_number: data.licenseNumber || data.license_number || null,
           phone: data.phone || null,
           email: data.email || null,
-          latitude: data.latitude ? parseFloat(data.latitude) : null,
-          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          latitude: parseOptionalNumber(data.latitude),
+          longitude: parseOptionalNumber(data.longitude),
           is_approved: false,
           approval_status: 'pending',
         });
@@ -168,8 +175,8 @@ const createRoleProfile = async (userId, role, data) => {
           license_number: data.licenseNumber || data.license_number || null,
           phone: data.phone || null,
           email: data.email || null,
-          latitude: data.latitude ? parseFloat(data.latitude) : null,
-          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          latitude: parseOptionalNumber(data.latitude),
+          longitude: parseOptionalNumber(data.longitude),
           is_approved: false,
           approval_status: 'pending',
         });
@@ -184,8 +191,8 @@ const createRoleProfile = async (userId, role, data) => {
           license_number: data.licenseNumber || data.license_number || null,
           phone: data.phone || null,
           email: data.email || null,
-          latitude: data.latitude ? parseFloat(data.latitude) : null,
-          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          latitude: parseOptionalNumber(data.latitude),
+          longitude: parseOptionalNumber(data.longitude),
           is_approved: false,
           approval_status: 'pending',
         });
@@ -200,8 +207,8 @@ const createRoleProfile = async (userId, role, data) => {
           license_number: data.licenseNumber || data.license_number || null,
           phone: data.phone || null,
           email: data.email || null,
-          latitude: data.latitude ? parseFloat(data.latitude) : null,
-          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          latitude: parseOptionalNumber(data.latitude),
+          longitude: parseOptionalNumber(data.longitude),
           is_approved: false,
           approval_status: 'pending',
         });
@@ -260,6 +267,16 @@ const assertRoleProfileExists = async (user) => {
         .from('hospitals')
         .select('id')
         .eq('owner_id', user.id)
+        .maybeSingle();
+      if (!existing) throw missingProfileError();
+      break;
+    }
+
+    case 'hospital_manager': {
+      const { data: existing } = await supabaseAdmin
+        .from('hospital_managers')
+        .select('id')
+        .eq('user_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
       break;
@@ -387,7 +404,10 @@ const login = async (rawEmail, password, expectedRole = null) => {
   // Optional role enforcement (portal-specific login)
   // Keep backward compatibility: admin portal accepts both admin and super_admin.
   if (expectedRole) {
-    const roleMatches = user.role === expectedRole || (expectedRole === 'admin' && user.role === 'super_admin');
+    const roleMatches =
+      user.role === expectedRole ||
+      (expectedRole === 'admin' && user.role === 'super_admin') ||
+      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager');
     if (!roleMatches) {
       throw new ApiError(403, 'Invalid credentials for this portal role');
     }
@@ -432,9 +452,10 @@ const login = async (rawEmail, password, expectedRole = null) => {
   logAudit({ userId: user.id, userRole: user.role, action: 'user.login', entityType: 'user', entityId: user.id });
 
   const { password_hash: _, ...safeUser } = user;
+  const enrichedUser = await enrichAuthUser(safeUser, supabaseAdmin);
 
   return {
-    user: safeUser,
+    user: enrichedUser,
     ...tokens,
   };
 };
@@ -498,7 +519,8 @@ const refreshToken = async (token) => {
     } catch (_) { /* non-fatal */ }
 
     const { password_hash: _, ...safeUser } = user;
-    return { user: safeUser, ...tokens };
+    const enrichedUser = await enrichAuthUser(safeUser, supabaseAdmin);
+    return { user: enrichedUser, ...tokens };
   } catch (err) {
     if (err.statusCode) throw err;
     const error = new Error('Invalid or expired refresh token');

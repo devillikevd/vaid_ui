@@ -19,6 +19,26 @@ try {
   ({ getDb } = require('../config/mongodb'));
 } catch { getDb = null; }
 
+const syncConsultationSessionState = async (consultationId, fields = {}) => {
+  const updates = {};
+  if (fields.roomId) updates.room_id = fields.roomId;
+  if (fields.doctorJoinedAt) updates.doctor_joined_at = fields.doctorJoinedAt;
+  if (fields.patientJoinedAt) updates.patient_joined_at = fields.patientJoinedAt;
+  if (fields.durationMinutes != null) updates.duration_minutes = fields.durationMinutes;
+
+  if (Object.keys(updates).length === 0) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from('consultations')
+    .update(updates)
+    .eq('id', consultationId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 // Get consultation history
 const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
@@ -98,12 +118,32 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
 const startConsultation = async (doctorUserId, appointmentId) => {
   const { data: doctor } = await supabaseAdmin
     .from('doctors')
-    .select('id')
+    .select('id, name')
     .eq('user_id', doctorUserId)
     .single();
 
   if (!doctor) {
     throw new ApiError(404, 'Doctor profile not found');
+  }
+
+  const { data: existingConsultation, error: existingConsultationError } = await supabaseAdmin
+    .from('consultations')
+    .select('*')
+    .eq('appointment_id', appointmentId)
+    .eq('doctor_id', doctor.id)
+    .eq('status', 'in_progress')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingConsultationError) throw existingConsultationError;
+
+  if (existingConsultation) {
+    const nowIso = new Date().toISOString();
+    return await syncConsultationSessionState(existingConsultation.id, {
+      roomId: existingConsultation.room_id || existingConsultation.id,
+      doctorJoinedAt: existingConsultation.doctor_joined_at || nowIso,
+    }) || existingConsultation;
   }
 
   // C7: Atomic start — creates consultation + updates appointment in one transaction
@@ -121,7 +161,13 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     throw new ApiError(404, reasons[rpcResult?.reason] || 'Failed to start consultation');
   }
 
-  const consultation = rpcResult.consultation;
+  let consultation = rpcResult.consultation;
+  const nowIso = new Date().toISOString();
+
+  consultation = await syncConsultationSessionState(consultation.id, {
+    roomId: consultation.room_id || consultation.id,
+    doctorJoinedAt: consultation.doctor_joined_at || nowIso,
+  }) || consultation;
 
   // Get patient's user_id for notification
   const { data: patient } = await supabaseAdmin
@@ -134,6 +180,7 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     ...consultation,
     doctor_id: doctorUserId,
     patient_id: patient?.user_id,
+    doctor_name: doctor.name,
   });
 
   return consultation;
@@ -178,6 +225,14 @@ const joinConsultation = async (patientUserId, idParam) => {
 
   if (error || !consultation) {
     throw new ApiError(404, 'Active consultation not found');
+  }
+
+  const nowIso = new Date().toISOString();
+  if (!consultation.room_id || !consultation.patient_joined_at) {
+    consultation = await syncConsultationSessionState(consultation.id, {
+      roomId: consultation.room_id || consultation.id,
+      patientJoinedAt: consultation.patient_joined_at || nowIso,
+    }) || consultation;
   }
 
   return consultation;
@@ -255,7 +310,23 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
     throw new ApiError(404, 'Consultation not found or unauthorized');
   }
 
-  const consultation = rpcResult.consultation;
+  let consultation = rpcResult.consultation;
+
+  const requestedDurationSeconds = Number(data.duration);
+  const requestedDurationMinutes = Number.isFinite(requestedDurationSeconds)
+    ? Math.max(1, Math.ceil(requestedDurationSeconds / 60))
+    : null;
+  const derivedDurationMinutes =
+    consultation.started_at && consultation.ended_at
+      ? Math.max(1, Math.ceil((Date.parse(consultation.ended_at) - Date.parse(consultation.started_at)) / 60000))
+      : null;
+  const durationMinutes = requestedDurationMinutes || derivedDurationMinutes;
+
+  if (durationMinutes != null && consultation.duration_minutes !== durationMinutes) {
+    consultation = await syncConsultationSessionState(consultation.id, {
+      durationMinutes,
+    }) || consultation;
+  }
 
   // Get patient user_id
   const { data: patient } = await supabaseAdmin
@@ -306,7 +377,7 @@ const leaveConsultation = async (patientUserId, consultationId) => {
     .single();
 
   // Emit event so doctor's UI shows "Patient left the call"
-  eventEmitter.emit('consultation:patient-left', {
+  eventEmitter.emitConsultationPatientLeft({
     consultationId,
     patientUserId,
     doctorUserId: doctor?.user_id,
@@ -653,8 +724,16 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     throw new ApiError(400, 'AI consultation assistant is disabled. Enable it in feature toggles.');
   }
 
-  // 4. Vitals are now handled natively inside FastAPI WebSockets. We omit them here.
   let vitalsData = null;
+  try {
+    const vitalsService = require('./vitalsService');
+    const latestVitals = await vitalsService.getLatest(consultationId);
+    if (latestVitals) {
+      vitalsData = await featureToggleService.filterVitalsByToggles(doctorUserId, latestVitals);
+    }
+  } catch (err) {
+    console.warn('[ConsultationService] Failed to load latest vitals for AI assist:', err.message);
+  }
 
   // 5. Get patient history
   let patientHistory = '';
@@ -754,4 +833,3 @@ module.exports = {
   addPrescription,
   aiAssistDoctor,
 };
-

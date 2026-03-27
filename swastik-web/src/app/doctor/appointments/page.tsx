@@ -15,25 +15,28 @@ export default function DoctorAppointmentsPage() {
     const router = useRouter();
     const { appointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, cancelAppointment, clearError } = useDoctorStore();
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('scheduled');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
     const [page, setPage] = useState(1);
 
+    const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
+
     // Real-time Socket.IO — auto-refresh when patient books/cancels
     useAppointmentUpdates(
         useCallback((update: AppointmentUpdate) => {
-            fetchAppointments();
+            fetchAppointments(selectedStatus, undefined, 1);
             const msg = update.status === 'scheduled' ? 'New appointment booked by a patient!' :
                 update.status === 'cancelled' ? 'An appointment was cancelled' :
                 `Appointment status changed to ${update.status}`;
             setNewApptAlert(msg);
             setTimeout(() => setNewApptAlert(null), 5000);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [])
+        }, [fetchAppointments, selectedStatus])
     );
 
-    useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+    useEffect(() => {
+        fetchAppointments(selectedStatus, undefined, 1);
+    }, [fetchAppointments, selectedStatus]);
 
     const filtered = (appointments || []).filter(apt => {
         const matchesSearch = (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -79,7 +82,7 @@ export default function DoctorAppointmentsPage() {
             <div className="flex flex-col items-center justify-center h-96 gap-4">
                 <AlertCircle className="h-12 w-12 text-red-400" />
                 <p className="text-red-600">{error}</p>
-                <Button onClick={() => { clearError(); fetchAppointments(); }} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
+                <Button onClick={() => { clearError(); fetchAppointments(selectedStatus, undefined, 1); }} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
             </div>
         );
     }
@@ -97,7 +100,7 @@ export default function DoctorAppointmentsPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Appointments</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage your patient appointments</p></div>
-                <Button onClick={() => fetchAppointments()} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                <Button onClick={() => fetchAppointments(selectedStatus, undefined, 1)} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
             </div>
 
             <Card padding="sm">

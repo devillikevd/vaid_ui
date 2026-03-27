@@ -56,6 +56,7 @@ export const ROLE_DISPLAY_NAMES: Record<string, string> = {
     doctor: 'Doctor',
     patient: 'Patient',
     hospital_owner: 'Hospital',
+    hospital_manager: 'Hospital Manager',
     clinic_owner: 'Clinic',
     diagnostic_center_owner: 'Diagnostic Center',
     pharmacy_owner: 'Pharmacy',

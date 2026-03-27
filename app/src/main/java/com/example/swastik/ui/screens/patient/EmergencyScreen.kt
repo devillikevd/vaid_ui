@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -30,13 +31,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.swastik.ui.theme.SwastikPurple
-import com.example.swastik.ui.viewmodel.EmergencyViewModel
-import com.example.swastik.ui.viewmodel.EmergencyUiState
-import com.example.swastik.utils.NavigationHelper
-import com.example.swastik.ui.components.OsmMapView
 import com.example.swastik.ui.components.MapMarkerData
+import com.example.swastik.ui.components.OsmMapView
+import com.example.swastik.ui.viewmodel.EmergencyUiState
+import com.example.swastik.ui.viewmodel.EmergencyViewModel
+import com.example.swastik.utils.NavigationHelper
 import org.osmdroid.util.GeoPoint
+
+private val EmergencyCanvas = Color(0xFFF8F2EB)
+private val EmergencySurface = Color(0xFFFFFBF7)
+private val EmergencyInk = Color(0xFF1F2937)
+private val EmergencyMuted = Color(0xFF6B7280)
+private val EmergencyAlert = Color(0xFFB91C1C)
+private val EmergencyAlertStrong = Color(0xFFDC2626)
+private val EmergencyAccent = Color(0xFFF97316)
+private val EmergencySuccess = Color(0xFF15803D)
+private val EmergencyRoute = Color(0xFF4F46E5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,14 +82,23 @@ fun EmergencyScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Emergency Services", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("Emergency Network", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Ambulance dispatch and live response",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.82f)
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFD32F2F),
+                    containerColor = EmergencyAlert,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -128,58 +147,110 @@ private fun EmergencyTypeSelection(
     var selectedType by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) { onCheckActive() }
 
     val emergencyTypes = listOf(
-        EmergencyTypeItem(Icons.Filled.LocalHospital, "General", "general", Color(0xFFD32F2F)),
-        EmergencyTypeItem(Icons.Filled.Warning, "Accident", "accident", Color(0xFFE65100)),
-        EmergencyTypeItem(Icons.Filled.Favorite, "Cardiac", "cardiac", Color(0xFFC62828)),
-        EmergencyTypeItem(Icons.Filled.Person, "Pregnancy", "pregnancy", Color(0xFF6A1B9A)),
-        EmergencyTypeItem(Icons.Filled.MedicalServices, "Other", "other", Color(0xFF1565C0))
+        EmergencyTypeItem(
+            icon = Icons.Filled.LocalHospital,
+            label = "General",
+            value = "general",
+            description = "Sudden illness, collapse, fever, breathlessness",
+            color = EmergencyAlertStrong
+        ),
+        EmergencyTypeItem(
+            icon = Icons.Filled.Warning,
+            label = "Accident",
+            value = "accident",
+            description = "Road trauma, bleeding, falls, fractures",
+            color = EmergencyAccent
+        ),
+        EmergencyTypeItem(
+            icon = Icons.Filled.Favorite,
+            label = "Cardiac",
+            value = "cardiac",
+            description = "Chest pain, stroke signs, unconsciousness",
+            color = Color(0xFFC62828)
+        ),
+        EmergencyTypeItem(
+            icon = Icons.Filled.Person,
+            label = "Pregnancy",
+            value = "pregnancy",
+            description = "Labour pain, urgent maternal transport",
+            color = Color(0xFF7C3AED)
+        ),
+        EmergencyTypeItem(
+            icon = Icons.Filled.MedicalServices,
+            label = "Other",
+            value = "other",
+            description = "Any urgent condition needing ambulance pickup",
+            color = Color(0xFF2563EB)
+        )
     )
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF5F5))
+            .background(EmergencyCanvas)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            // SOS Header
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFD32F2F)),
-                shape = RoundedCornerShape(16.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                Color(0xFF7F1D1D),
+                                EmergencyAlertStrong,
+                                EmergencyAccent
+                            )
+                        )
+                    )
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(24.dp)
                 ) {
-                    Icon(
-                        Icons.Filled.Warning,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.LocalHospital,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        "Request Emergency Ambulance",
+                        "Emergency ambulance, built for real response",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp
                     )
                     Text(
-                        "Select emergency type and request an ambulance",
-                        color = Color.White.copy(alpha = 0.8f),
+                        "Choose the emergency lane, share live GPS, and keep the dispatch journey visible from first alert to hospital handoff.",
+                        color = Color.White.copy(alpha = 0.86f),
                         fontSize = 14.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 4.dp)
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        EmergencyFeatureChip("Live GPS")
+                        EmergencyFeatureChip("Driver contact")
+                        EmergencyFeatureChip("Hospital-ready")
+                    }
                 }
             }
         }
@@ -190,30 +261,35 @@ private fun EmergencyTypeSelection(
                 colors = CardDefaults.cardColors(
                     containerColor = if (uiState.locationAvailable) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         if (uiState.locationAvailable) Icons.Filled.MyLocation else Icons.Filled.LocationDisabled,
                         contentDescription = null,
-                        tint = if (uiState.locationAvailable) Color(0xFF2E7D32) else Color(0xFFE65100)
+                        tint = if (uiState.locationAvailable) EmergencySuccess else EmergencyAccent,
+                        modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            if (uiState.locationAvailable) "Location ready for dispatch" else "Waiting for live location",
+                            if (uiState.locationAvailable) "Location locked for dispatch" else "Live location still needed",
                             fontWeight = FontWeight.SemiBold,
-                            color = if (uiState.locationAvailable) Color(0xFF1B5E20) else Color(0xFFE65100)
+                            color = if (uiState.locationAvailable) Color(0xFF166534) else Color(0xFF9A3412)
                         )
                         Text(
-                            if (uiState.locationAvailable) "Your current GPS will be shared with the responding ambulance." else "Enable GPS so the nearest ambulance can navigate to you accurately.",
+                            if (uiState.locationAvailable) {
+                                "Your current GPS will keep updating so the responding ambulance follows you, not a stale pin."
+                            } else {
+                                "Enable GPS so dispatch and the nearest driver can navigate to you accurately."
+                            },
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = EmergencyMuted
                         )
                     }
                 }
@@ -222,14 +298,14 @@ private fun EmergencyTypeSelection(
 
         item {
             Text(
-                "Emergency Type",
+                "Choose the emergency lane",
                 fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
+                color = EmergencyInk,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
 
-        // Emergency type grid
         items(emergencyTypes.chunked(2)) { rowItems ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -253,11 +329,20 @@ private fun EmergencyTypeSelection(
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Description (optional)") },
-                placeholder = { Text("Describe the emergency...") },
+                label = { Text("Tell dispatch what is happening") },
+                placeholder = { Text("Bleeding after bike accident, labour pain, chest pain, unconscious patient...") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = EmergencyAlertStrong,
+                    unfocusedBorderColor = Color(0xFFE5D8CC),
+                    focusedTextColor = EmergencyInk,
+                    unfocusedTextColor = EmergencyInk,
+                    cursorColor = EmergencyAlertStrong,
+                    focusedContainerColor = EmergencySurface,
+                    unfocusedContainerColor = EmergencySurface
+                )
             )
         }
 
@@ -265,12 +350,12 @@ private fun EmergencyTypeSelection(
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Text(
                         uiState.error,
-                        color = Color(0xFFD32F2F),
-                        modifier = Modifier.padding(12.dp),
+                        color = EmergencyAlertStrong,
+                        modifier = Modifier.padding(14.dp),
                         fontSize = 14.sp
                     )
                 }
@@ -283,9 +368,9 @@ private fun EmergencyTypeSelection(
                 enabled = selectedType.isNotBlank() && !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
-                shape = RoundedCornerShape(12.dp)
+                    .height(58.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmergencyAlertStrong),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
@@ -296,10 +381,25 @@ private fun EmergencyTypeSelection(
                 } else {
                     Icon(Icons.Filled.LocalHospital, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Request Ambulance", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Dispatch Ambulance Now", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        item {
+            OutlinedButton(
+                onClick = { NavigationHelper.openDialer(context, "108") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.Call, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Call 108 Directly", fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 
@@ -307,14 +407,18 @@ private fun EmergencyTypeSelection(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = { Text("Confirm Emergency Request") },
-            text = { Text("Are you sure you want to request an emergency ambulance? This will dispatch the nearest available ambulance to your location.") },
+            text = {
+                Text(
+                    "This will trigger the ambulance response flow with your current location so the nearest available vehicle can be routed to you."
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showConfirmDialog = false
                         onRequestEmergency(selectedType, description)
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
                 ) {
                     Text("Yes, Request Now")
                 }
@@ -337,39 +441,253 @@ private fun EmergencyTypeCard(
 ) {
     Card(
         modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) item.color.copy(alpha = 0.15f) else Color.White
+            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else EmergencySurface
         ),
         border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else null,
-        elevation = CardDefaults.cardElevation(if (isSelected) 4.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(item.color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    item.icon,
-                    contentDescription = null,
-                    tint = item.color,
-                    modifier = Modifier.size(28.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(item.color.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        item.icon,
+                        contentDescription = null,
+                        tint = item.color,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = item.color,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 item.label,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = if (isSelected) item.color else EmergencyInk
+            )
+            Text(
+                item.description,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = EmergencyMuted,
+                minLines = 2
+            )
+            Text(
+                if (isSelected) "Selected for dispatch" else "Tap to choose",
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
+                color = if (isSelected) item.color else EmergencyMuted.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmergencyFeatureChip(label: String) {
+    Surface(
+        color = Color.White.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun ActiveEmergencyHeroCard(
+    requestId: String?,
+    statusText: String,
+    statusSubtext: String,
+    isTrackingAmbulance: Boolean,
+    resolvedDriverName: String?,
+    resolvedVehicleNumber: String?,
+    trackingSummary: String?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF3F0D12),
+                            EmergencyAlert,
+                            EmergencyAlertStrong
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text(
+                                text = "Request ${requestId ?: "Pending"}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            )
+                        }
+                        if (isTrackingAmbulance) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(999.dp)
+                            ) {
+                                Text(
+                                    text = "Live GPS Active",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.LocalShipping,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = statusText,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp
+                    )
+                    Text(
+                        text = statusSubtext,
+                        color = Color.White.copy(alpha = 0.86f),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EmergencyMetricTile(
+                        modifier = Modifier.weight(1f),
+                        label = "Driver",
+                        value = resolvedDriverName ?: "Assigning now"
+                    )
+                    EmergencyMetricTile(
+                        modifier = Modifier.weight(1f),
+                        label = "Vehicle",
+                        value = resolvedVehicleNumber ?: "Preparing"
+                    )
+                }
+
+                if (!trackingSummary.isNullOrBlank()) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Route,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = trackingSummary,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmergencyMetricTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                color = Color.White.copy(alpha = 0.76f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                color = Color.White,
                 fontSize = 14.sp,
-                color = if (isSelected) item.color else Color.Black
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -387,145 +705,124 @@ private fun ActiveEmergencyView(
     val resolvedDriverPhone = uiState.driverPhone ?: emergency?.resolvedDriverPhone()
     val resolvedVehicleNumber = uiState.vehicleNumber ?: emergency?.resolvedVehicleNumber()
 
-    Column(
+    val statusText = when (resolvedStatus) {
+        "pending" -> "Finding Ambulance..."
+        "broadcasting" -> "Searching Nearby Ambulances..."
+        "assigned" -> "Ambulance Assigned — Waiting for Driver"
+        "accepted" -> "Driver Accepted — Preparing"
+        "dispatched" -> "Ambulance Dispatched"
+        "en_route" -> "Ambulance On The Way"
+        "arrived" -> "Ambulance Arrived!"
+        "picked_up" -> "You've Been Picked Up"
+        "en_route_hospital" -> "On The Way to Hospital"
+        "arrived_hospital" -> "Arrived at Hospital"
+        "completed" -> "Emergency Completed"
+        "timeout" -> "Search Timed Out — Retrying..."
+        "no_ambulance" -> "No Ambulance Available"
+        else -> "Ambulance On The Way"
+    }
+
+    val statusSubtext = when (resolvedStatus) {
+        "pending", "broadcasting" -> "We're notifying nearby ambulance drivers"
+        "assigned" -> "Driver has been assigned to your request"
+        "accepted" -> "Driver accepted — will start soon"
+        "en_route" -> "Help is coming to your location"
+        "arrived" -> "The ambulance is at your pickup point"
+        "picked_up" -> "Heading to the nearest hospital"
+        "en_route_hospital" -> "Transporting to the hospital"
+        "arrived_hospital" -> "You've arrived at the hospital"
+        "timeout", "no_ambulance" -> "Please call 108 for immediate help"
+        else -> "Help is coming to your location"
+    }
+
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF5F5))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(EmergencyCanvas),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Pulsing ambulance icon
-        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        val scale by infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.2f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1000),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "scale"
-        )
-
-        Box(
-            modifier = Modifier
-                .size((80 * scale).dp)
-                .clip(CircleShape)
-                .background(Color(0xFFD32F2F)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("🚑", fontSize = 36.sp)
+        item {
+            ActiveEmergencyHeroCard(
+                requestId = emergency?.resolvedRequestId(),
+                statusText = statusText,
+                statusSubtext = statusSubtext,
+                isTrackingAmbulance = uiState.isTrackingAmbulance,
+                resolvedDriverName = resolvedDriverName,
+                resolvedVehicleNumber = resolvedVehicleNumber,
+                trackingSummary = listOfNotNull(
+                    uiState.ambulanceDistanceKm?.let { String.format(java.util.Locale.US, "%.1f km away", it) },
+                    uiState.ambulanceEta
+                ).takeIf { it.isNotEmpty() }?.joinToString(" • ")
+            )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val statusText = when (resolvedStatus) {
-            "pending" -> "Finding Ambulance..."
-            "broadcasting" -> "Searching Nearby Ambulances..."
-            "assigned" -> "Ambulance Assigned — Waiting for Driver"
-            "accepted" -> "Driver Accepted — Preparing"
-            "dispatched" -> "Ambulance Dispatched"
-            "en_route" -> "Ambulance On The Way"
-            "arrived" -> "Ambulance Arrived!"
-            "picked_up" -> "You've Been Picked Up"
-            "en_route_hospital" -> "On The Way to Hospital"
-            "arrived_hospital" -> "Arrived at Hospital"
-            "completed" -> "Emergency Completed"
-            "timeout" -> "Search Timed Out — Retrying..."
-            "no_ambulance" -> "No Ambulance Available"
-            else -> "Ambulance On The Way"
-        }
-
-        val statusSubtext = when (resolvedStatus) {
-            "pending", "broadcasting" -> "We're notifying nearby ambulance drivers"
-            "assigned" -> "Driver has been assigned to your request"
-            "accepted" -> "Driver accepted — will start soon"
-            "en_route" -> "Help is coming to your location"
-            "arrived" -> "The ambulance is at your pickup point"
-            "picked_up" -> "Heading to the nearest hospital"
-            "en_route_hospital" -> "Transporting to the hospital"
-            "arrived_hospital" -> "You've arrived at the hospital"
-            "timeout", "no_ambulance" -> "Please call 108 for immediate help"
-            else -> "Help is coming to your location"
-        }
-
-        Text(
-            statusText,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
-            color = Color(0xFFD32F2F)
-        )
-        Text(
-            statusSubtext,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        PatientEmergencyOverviewCard(
-            uiState = uiState,
-            statusText = statusText,
-            statusSubtext = statusSubtext,
-            resolvedDriverName = resolvedDriverName,
-            resolvedVehicleNumber = resolvedVehicleNumber,
-            resolvedDriverPhone = resolvedDriverPhone
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Live tracking indicator
         if (uiState.isTrackingAmbulance) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val dotAlpha by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(600),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "dot"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF4CAF50).copy(alpha = dotAlpha))
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "📡 Live tracking active",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF2E7D32)
-                    )
+            item {
+                val trackingPulse = rememberInfiniteTransition(label = "tracking")
+                val dotAlpha by trackingPulse.animateFloat(
+                    initialValue = 0.35f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(700),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "trackingDot"
+                )
 
-                    if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
-                        Spacer(modifier = Modifier.weight(1f))
-                        val speedKmh = (uiState.ambulanceSpeed * 3.6f).toInt()
-                        Text(
-                            "${speedKmh} km/h",
-                            fontSize = 12.sp,
-                            color = Color(0xFF388E3C)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF22C55E).copy(alpha = dotAlpha))
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Live response tracking is active",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF166534)
+                            )
+                            Text(
+                                "Dispatch, driver movement, and your pickup location will keep syncing here.",
+                                fontSize = 12.sp,
+                                color = EmergencyMuted
+                            )
+                        }
+                        if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
+                            Text(
+                                "${(uiState.ambulanceSpeed * 3.6f).toInt()} km/h",
+                                fontSize = 12.sp,
+                                color = EmergencySuccess,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        item {
+            PatientEmergencyOverviewCard(
+                uiState = uiState,
+                statusText = statusText,
+                statusSubtext = statusSubtext,
+                resolvedDriverName = resolvedDriverName,
+                resolvedVehicleNumber = resolvedVehicleNumber,
+                resolvedDriverPhone = resolvedDriverPhone
+            )
+        }
 
-        // ── Embedded real-time OSM tracking map ──
         if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
             val ambLat = uiState.ambulanceLatitude
             val ambLng = uiState.ambulanceLongitude
@@ -550,162 +847,196 @@ private fun ActiveEmergencyView(
                 )
             )
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                OsmMapView(
-                    modifier = Modifier.fillMaxSize(),
-                    center = GeoPoint(midLat, midLng),
-                    zoom = 14.0,
-                    markers = trackingMarkers,
-                    showUserLocation = false
-                )
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.Map, contentDescription = null, tint = EmergencyRoute)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Live route view", fontWeight = FontWeight.Bold, color = EmergencyInk)
+                                Text("Your location and the ambulance are shown together.", fontSize = 12.sp, color = EmergencyMuted)
+                            }
+                        }
+                        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+                            OsmMapView(
+                                modifier = Modifier.fillMaxSize(),
+                                center = GeoPoint(midLat, midLng),
+                                zoom = 14.0,
+                                markers = trackingMarkers,
+                                showUserLocation = false
+                            )
+                        }
+                    }
+                }
             }
         } else if (uiState.latitude != 0.0 && uiState.longitude != 0.0) {
-            // Show patient location while waiting for ambulance GPS
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                OsmMapView(
-                    modifier = Modifier.fillMaxSize(),
-                    center = GeoPoint(uiState.latitude, uiState.longitude),
-                    zoom = 15.0,
-                    markers = emptyList(),
-                    showUserLocation = true,
-                    userLatitude = uiState.latitude,
-                    userLongitude = uiState.longitude
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Emergency info card
-        if (emergency != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    InfoRow("Request #", emergency.resolvedRequestId())
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    InfoRow("Status", resolvedStatus)
-                    InfoRow("Type", emergency.emergencyType ?: "Emergency")
-                    if (emergency.estimatedArrival != null) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        InfoRow("ETA", emergency.estimatedArrival)
-                    }
-                    if (resolvedDriverName != null) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        InfoRow("Driver", resolvedDriverName)
-                        if (resolvedVehicleNumber != null) InfoRow("Vehicle", resolvedVehicleNumber)
-                        if (resolvedDriverPhone != null) InfoRow("Phone", resolvedDriverPhone)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = EmergencyRoute)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Pickup point ready", fontWeight = FontWeight.Bold, color = EmergencyInk)
+                                Text("We have your current location while the ambulance GPS connects.", fontSize = 12.sp, color = EmergencyMuted)
+                            }
+                        }
+                        Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                            OsmMapView(
+                                modifier = Modifier.fillMaxSize(),
+                                center = GeoPoint(uiState.latitude, uiState.longitude),
+                                zoom = 15.0,
+                                markers = emptyList(),
+                                showUserLocation = true,
+                                userLatitude = uiState.latitude,
+                                userLongitude = uiState.longitude
+                            )
+                        }
                     }
                 }
             }
         }
 
-        PatientResponseJourneyCard(currentStatus = resolvedStatus)
+        if (emergency != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text("Dispatch details", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmergencyInk)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        InfoRow("Request #", emergency.resolvedRequestId())
+                        InfoRow("Status", resolvedStatus)
+                        InfoRow("Type", emergency.emergencyType ?: "Emergency")
+                        if (emergency.estimatedArrival != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            InfoRow("ETA", emergency.estimatedArrival)
+                        }
+                        if (resolvedDriverName != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            InfoRow("Driver", resolvedDriverName)
+                            if (resolvedVehicleNumber != null) InfoRow("Vehicle", resolvedVehicleNumber)
+                            if (resolvedDriverPhone != null) InfoRow("Phone", resolvedDriverPhone)
+                        }
+                    }
+                }
+            }
+        }
 
-        // Ambulance location card — distance, ETA, direction + navigate button
+        item {
+            PatientResponseJourneyCard(currentStatus = resolvedStatus)
+        }
+
         if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
             val ambulanceLat = uiState.ambulanceLatitude
             val ambulanceLng = uiState.ambulanceLongitude
-            val context = LocalContext.current
             val distanceKm = NavigationHelper.calculateDistanceKm(
                 uiState.latitude, uiState.longitude,
                 ambulanceLat, ambulanceLng
             )
             val distanceText = NavigationHelper.formatDistance(distanceKm)
-            val etaMinutes = NavigationHelper.estimateEtaMinutes(distanceKm, 50.0) // ambulance speed
+            val etaMinutes = NavigationHelper.estimateEtaMinutes(distanceKm, 50.0)
             val dirArrow = NavigationHelper.getDirectionArrow(
                 uiState.latitude, uiState.longitude,
                 ambulanceLat, ambulanceLng
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "$dirArrow Ambulance is $distanceText away",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = Color(0xFF6A1B9A)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
-                        fontSize = 14.sp,
-                        color = Color(0xFF8E24AA)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            NavigationHelper.openDirectionsFromTo(
-                                context,
-                                uiState.latitude, uiState.longitude,
-                                ambulanceLat, ambulanceLng,
-                                "Ambulance Location"
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A1B9A)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Navigation, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Track in Maps App", fontWeight = FontWeight.Bold)
+            item {
+                val context = LocalContext.current
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "$dirArrow Ambulance is $distanceText away",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = EmergencyRoute
+                        )
+                        Text(
+                            "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF4338CA)
+                        )
+                        Button(
+                            onClick = {
+                                NavigationHelper.openDirectionsFromTo(
+                                    context,
+                                    uiState.latitude, uiState.longitude,
+                                    ambulanceLat, ambulanceLng,
+                                    "Ambulance Location"
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmergencyRoute),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Navigation, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Open Live Route in Maps", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
 
-        // Call Driver button
         if (!resolvedDriverPhone.isNullOrBlank()) {
-            val context = LocalContext.current
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { NavigationHelper.openDialer(context, resolvedDriverPhone) },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Icon(Icons.Default.Call, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Call Ambulance Driver", fontWeight = FontWeight.Bold)
+            item {
+                val context = LocalContext.current
+                Button(
+                    onClick = { NavigationHelper.openDialer(context, resolvedDriverPhone) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmergencySuccess),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Call Ambulance Driver", fontWeight = FontWeight.Bold)
+                }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        OutlinedButton(
-            onClick = onCancel,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-            shape = RoundedCornerShape(12.dp),
-            enabled = !uiState.isLoading
-        ) {
-            Text("Cancel Emergency Request")
+        item {
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
+                shape = RoundedCornerShape(14.dp),
+                enabled = !uiState.isLoading
+            ) {
+                Text("Cancel Emergency Request")
+            }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -720,8 +1051,8 @@ private fun PatientEmergencyOverviewCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EmergencySurface),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -729,14 +1060,14 @@ private fun PatientEmergencyOverviewCard(
                 text = "Emergency response in progress",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = Color(0xFF212121)
+                color = EmergencyInk
             )
 
             Text(
                 text = statusText,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
-                color = Color(0xFFD32F2F),
+                color = EmergencyAlertStrong,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -744,7 +1075,7 @@ private fun PatientEmergencyOverviewCard(
             Text(
                 text = statusSubtext,
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = EmergencyMuted
             )
 
             Row(
@@ -755,13 +1086,13 @@ private fun PatientEmergencyOverviewCard(
                     modifier = Modifier.weight(1f),
                     title = "Driver",
                     value = resolvedDriverName ?: "Matching...",
-                    accent = Color(0xFF1976D2)
+                    accent = EmergencyRoute
                 )
                 SummaryPill(
                     modifier = Modifier.weight(1f),
                     title = "Vehicle",
                     value = resolvedVehicleNumber ?: "Pending",
-                    accent = Color(0xFF6A1B9A)
+                    accent = EmergencyAccent
                 )
             }
 
@@ -770,7 +1101,7 @@ private fun PatientEmergencyOverviewCard(
                     modifier = Modifier.fillMaxWidth(),
                     title = "Contact",
                     value = resolvedDriverPhone,
-                    accent = Color(0xFF2E7D32)
+                    accent = EmergencySuccess
                 )
             }
 
@@ -782,7 +1113,7 @@ private fun PatientEmergencyOverviewCard(
                         uiState.ambulanceDistanceKm?.let { String.format(java.util.Locale.US, "%.1f km away", it) },
                         uiState.ambulanceEta
                     ).joinToString(" • "),
-                    accent = Color(0xFFD32F2F)
+                    accent = EmergencyAlertStrong
                 )
             }
         }
@@ -798,13 +1129,12 @@ private fun SummaryPill(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(14.dp)
+        colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.1f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, fontSize = 11.sp, color = accent, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(value, fontSize = 13.sp, color = Color(0xFF212121), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(value, fontSize = 13.sp, color = EmergencyInk, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -828,12 +1158,12 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = EmergencySurface),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmergencyInk)
 
             stages.forEachIndexed { index, (_, label) ->
                 val active = index <= currentIndex
@@ -842,12 +1172,12 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(if (active) Color(0xFFD32F2F) else Color(0xFFE0E0E0))
+                            .background(if (active) EmergencyAlertStrong else Color(0xFFE5E7EB))
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         label,
-                        color = if (active) Color(0xFF212121) else Color.Gray,
+                        color = if (active) EmergencyInk else EmergencyMuted,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         fontSize = 14.sp
                     )
@@ -866,7 +1196,7 @@ private fun EmergencyConfirmation(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF5F5))
+            .background(EmergencyCanvas)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -885,7 +1215,7 @@ private fun EmergencyConfirmation(
         Icon(
             Icons.Filled.CheckCircle,
             contentDescription = null,
-            tint = Color(0xFF4CAF50),
+            tint = EmergencySuccess,
             modifier = Modifier
                 .size(80.dp)
                 .alpha(alpha)
@@ -895,12 +1225,13 @@ private fun EmergencyConfirmation(
         Text(
             "Emergency Request Sent!",
             fontWeight = FontWeight.Bold,
-            fontSize = 22.sp
+            fontSize = 22.sp,
+            color = EmergencyInk
         )
         Text(
             "An ambulance is being dispatched to your location",
             textAlign = TextAlign.Center,
-            color = Color.Gray,
+            color = EmergencyMuted,
             modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
         )
 
@@ -908,8 +1239,9 @@ private fun EmergencyConfirmation(
 
         OutlinedButton(
             onClick = onCancel,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F)),
-            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
+            border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
+            shape = RoundedCornerShape(14.dp),
             enabled = !uiState.isLoading
         ) {
             Text("Cancel Request")
@@ -925,8 +1257,8 @@ private fun InfoRow(label: String, value: String) {
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = Color.Gray, fontSize = 14.sp)
-        Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Text(label, color = EmergencyMuted, fontSize = 14.sp)
+        Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = EmergencyInk)
     }
 }
 
@@ -934,5 +1266,6 @@ private data class EmergencyTypeItem(
     val icon: ImageVector,
     val label: String,
     val value: String,
+    val description: String,
     val color: Color
 )

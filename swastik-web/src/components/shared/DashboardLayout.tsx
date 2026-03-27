@@ -28,6 +28,8 @@ export interface NavItem {
     icon: LucideIcon;
     /** Optional badge count (e.g. new orders) */
     badge?: number;
+    /** Optional roles allowed to see this nav item */
+    allowedRoles?: string[];
     /** Callback when this nav item is clicked */
     onClick?: () => void;
 }
@@ -41,7 +43,7 @@ export interface DashboardTheme {
 
 export interface DashboardConfig {
     /** Role required to access this dashboard */
-    role: string;
+    role: string | string[];
     /** Login page path for redirects */
     loginPath: string;
     /** Portal title (e.g. "Admin Portal") */
@@ -230,9 +232,17 @@ export default function DashboardLayout({
     const colors = COLOR_CLASSES[config.theme.color] || COLOR_CLASSES.blue;
     const subtitleColor = SUBTITLE_CLASSES[config.theme.color] || 'text-blue-300';
 
+    const visibleNavItems = config.navItems.filter((item) =>
+        !item.allowedRoles || (user?.role != null && item.allowedRoles.includes(user.role))
+    );
     // The base route for this dashboard (first nav item or derive from role)
-    const baseRoute = config.navItems[0]?.href || '/';
-    const roleMatches = user?.role === config.role || (config.role === 'admin' && user?.role === 'super_admin');
+    const baseRoute = visibleNavItems[0]?.href || config.navItems[0]?.href || '/';
+    const allowedRoles = Array.isArray(config.role) ? config.role : [config.role];
+    const roleMatches = user?.role != null && (
+        allowedRoles.includes(user.role) ||
+        (allowedRoles.includes('admin') && user.role === 'super_admin')
+    );
+    const normalizedApprovalStatus = user?.approval_status === 'under_review' ? 'review' : user?.approval_status;
 
     useEffect(() => {
         if (_hasHydrated && (!isAuthenticated || !roleMatches)) {
@@ -320,7 +330,7 @@ export default function DashboardLayout({
 
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
-                    {config.navItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const isActive = pathname === item.href ||
                             (item.href !== baseRoute && pathname.startsWith(item.href));
                         const Icon = item.icon;
@@ -485,16 +495,16 @@ export default function DashboardLayout({
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                                        {user?.approval_status === 'pending' && 'Approval Required'}
-                                        {user?.approval_status === 'review' && 'Under Review'}
-                                        {user?.approval_status === 'rejected' && 'Profile Rejected'}
-                                        {user?.approval_status === 'suspended' && 'Account Suspended'}
+                                        {normalizedApprovalStatus === 'pending' && 'Approval Required'}
+                                        {normalizedApprovalStatus === 'review' && 'Under Review'}
+                                        {normalizedApprovalStatus === 'rejected' && 'Profile Rejected'}
+                                        {normalizedApprovalStatus === 'suspended' && 'Account Suspended'}
                                     </h2>
                                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-md">
-                                        {user?.approval_status === 'pending' && 'Your profile must be approved by an admin before you can access this feature. Please complete your profile and wait for approval.'}
-                                        {user?.approval_status === 'review' && 'Your profile is currently being reviewed. This usually takes 24-48 hours. You will be notified once approved.'}
-                                        {user?.approval_status === 'rejected' && 'Your profile was rejected. Please update your documents in Settings and resubmit for review.'}
-                                        {user?.approval_status === 'suspended' && 'Your account has been suspended. Please contact support for more information.'}
+                                        {normalizedApprovalStatus === 'pending' && 'Your profile must be approved by an admin before you can access this feature. Please complete your profile and wait for approval.'}
+                                        {normalizedApprovalStatus === 'review' && 'Your profile is currently being reviewed. This usually takes 24-48 hours. You will be notified once approved.'}
+                                        {normalizedApprovalStatus === 'rejected' && 'Your profile was rejected. Please update your documents in Settings and resubmit for review.'}
+                                        {normalizedApprovalStatus === 'suspended' && 'Your account has been suspended. Please contact support for more information.'}
                                     </p>
                                 </div>
                                 <div className="flex gap-3">

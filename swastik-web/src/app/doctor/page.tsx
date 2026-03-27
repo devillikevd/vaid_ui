@@ -25,10 +25,11 @@ import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function DoctorDashboard() {
-    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData } = useDoctorStore();
+    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation } = useDoctorStore();
     const { user } = useAuthStore();
     const router = useRouter();
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
+    const [launchingAppointmentId, setLaunchingAppointmentId] = useState<string | null>(null);
 
     const shortcuts = useMemo(() => [
         { key: 'a', description: 'Go to Appointments', action: () => router.push('/doctor/appointments') },
@@ -58,6 +59,29 @@ export default function DoctorDashboard() {
     }, [fetchDashboardData]);
 
     const currentTime = new Date();
+    const nextAppointment = todaysAppointments.find((appointment: Appointment) =>
+        ['scheduled', 'confirmed', 'in_progress', 'active'].includes(appointment.status)
+    );
+
+    const isVideoAppointment = useCallback((appointment: Appointment) =>
+        ['video', 'Video'].includes(appointment.type),
+    []);
+
+    const canOpenConsultation = useCallback((appointment: Appointment) =>
+        isVideoAppointment(appointment) && ['scheduled', 'confirmed', 'in_progress', 'active'].includes(appointment.status),
+    [isVideoAppointment]);
+
+    const handleOpenConsultation = useCallback(async (appointment: Appointment) => {
+        setLaunchingAppointmentId(appointment.id);
+        try {
+            const consultationId = await startConsultation(appointment.id);
+            if (consultationId) {
+                router.push(`/consultation/${consultationId}`);
+            }
+        } finally {
+            setLaunchingAppointmentId(null);
+        }
+    }, [router, startConsultation]);
 
     // Stats configuration using real data
     const STATS = [
@@ -105,7 +129,7 @@ export default function DoctorDashboard() {
                         <div className="text-right">
                             <p className="text-sm text-emerald-200">Next Appointment</p>
                             <p className="font-medium">
-                                {todaysAppointments.find((a: Appointment) => a.status === 'pending')?.time || 'No pending'}
+                                {nextAppointment?.time || 'No upcoming'}
                             </p>
                         </div>
                     </div>
@@ -149,9 +173,15 @@ export default function DoctorDashboard() {
                     <CardContent>
                         <div className="space-y-3">
                             {todaysAppointments.map((appointment: Appointment) => (
+                                (() => {
+                                    const consultationReady = canOpenConsultation(appointment);
+                                    const consultationLive = ['in_progress', 'active'].includes(appointment.status);
+                                    const isLaunching = launchingAppointmentId === appointment.id;
+
+                                    return (
                                 <div
                                     key={appointment.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border ${appointment.status === 'active'
+                                    className={`flex items-center justify-between p-4 rounded-xl border ${consultationLive
                                         ? 'border-emerald-300 bg-emerald-50'
                                         : 'border-gray-200 dark:border-gray-700'
                                         }`}
@@ -179,18 +209,25 @@ export default function DoctorDashboard() {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={appointment.status} size="sm" />
-                                        {appointment.status === 'active' && (
-                                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push(`/consultation/${appointment.id}`)}>
-                                                Join Call
+                                        {consultationReady && (
+                                            <Button
+                                                size="sm"
+                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                                disabled={isLaunching}
+                                                onClick={() => handleOpenConsultation(appointment)}
+                                            >
+                                                {isLaunching ? 'Opening...' : consultationLive ? 'Join Call' : 'Start Call'}
                                             </Button>
                                         )}
-                                        {appointment.status === 'pending' && (
+                                        {!consultationReady && ['scheduled', 'confirmed'].includes(appointment.status) && (
                                             <Button size="sm" variant="outline" onClick={() => router.push(`/doctor/appointments`)}>
-                                                Start
+                                                Manage
                                             </Button>
                                         )}
                                     </div>
                                 </div>
+                                    );
+                                })()
                             ))}
                         </div>
                     </CardContent>

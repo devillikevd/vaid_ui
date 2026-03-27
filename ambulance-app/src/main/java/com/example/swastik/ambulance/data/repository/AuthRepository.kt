@@ -15,6 +15,23 @@ class AuthRepository @Inject constructor(
     private val tokenManager: TokenManager,
     private val socketManager: SocketManager
 ) {
+    private fun shouldEnableRealtime(user: UserDto): Boolean {
+        return user.role == "ambulance_driver" ||
+            (user.role == "ambulance_operator" && user.approvalStatus.equals("approved", ignoreCase = true))
+    }
+
+    private fun syncRealtimeConnection(user: UserDto, accessToken: String? = tokenManager.getAccessToken()) {
+        if (shouldEnableRealtime(user) && !accessToken.isNullOrBlank()) {
+            if (socketManager.isConnected) {
+                socketManager.reconnect(accessToken)
+            } else {
+                socketManager.connect(accessToken, user.id)
+            }
+        } else if (socketManager.isConnected) {
+            socketManager.disconnect()
+        }
+    }
+
     suspend fun registerOperator(
         name: String,
         email: String,
@@ -70,13 +87,12 @@ class AuthRepository @Inject constructor(
                     }
                     val expiresIn = body.resolvedExpiresIn()
                     tokenManager.saveTokens(accessToken, refreshToken, expiresIn)
-                    tokenManager.saveUserId(user.id)
-                    tokenManager.saveUserName(user.name ?: user.email)
+                    val hydratedUser = getProfile().getOrNull() ?: user
+                    tokenManager.saveUserId(hydratedUser.id)
+                    tokenManager.saveUserName(hydratedUser.name ?: hydratedUser.email)
+                    syncRealtimeConnection(hydratedUser, accessToken)
 
-                    // Connect socket for real-time updates
-                    socketManager.connect(accessToken, user.id)
-
-                    Result.success(user)
+                    Result.success(hydratedUser)
                 } else {
                     Result.failure(Exception(body?.message ?: "Login failed"))
                 }
@@ -124,6 +140,34 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("AuthRepo", "Refresh token error", e)
             false
+        }
+    }
+
+    suspend fun restoreSession(): Result<UserDto> {
+        val result = getProfile()
+        result.onSuccess { user ->
+            tokenManager.saveUserId(user.id)
+            tokenManager.saveUserName(user.name ?: user.email)
+            syncRealtimeConnection(user)
+        }
+        return result
+    }
+
+    suspend fun getProfile(): Result<UserDto> {
+        return try {
+            val response = apiService.getProfile()
+            if (response.isSuccessful && response.body()?.data != null) {
+                Result.success(response.body()!!.data!!)
+            } else {
+                if (response.code() == 401) {
+                    socketManager.disconnect()
+                    tokenManager.clearAll()
+                }
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to load profile")))
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepo", "Get profile error", e)
+            Result.failure(e)
         }
     }
 

@@ -23,6 +23,7 @@ sealed class SignalingEvent {
     data class Offer(val sdp: String, val type: String) : SignalingEvent()
     data class Answer(val sdp: String, val type: String) : SignalingEvent()
     data class IceCandidate(val sdpMid: String, val sdpMLineIndex: Int, val sdp: String) : SignalingEvent()
+    data class ModeChanged(val roomId: String, val mode: String, val fromUserId: String?) : SignalingEvent()
     data class UserLeft(val userId: String) : SignalingEvent()
 }
 
@@ -220,6 +221,10 @@ class SocketManager @Inject constructor(
 
     /** Track the active ambulance room for reconnect re-subscription */
     private var activeTrackingRequestId: String? = null
+    /** Track active consultation rooms for reconnect re-subscription */
+    private var activeVideoRoomId: String? = null
+    private var activeVideoMode: String? = null
+    private var activeChatConsultationId: String? = null
 
     companion object {
         private const val TAG = "SocketManager"
@@ -240,6 +245,12 @@ class SocketManager @Inject constructor(
             try {
                 val token = tokenManager.accessToken
                 if (token != null) {
+                    // If a stale socket instance exists, fully clean it before re-creating
+                    // to avoid duplicate listeners and duplicate signaling events.
+                    socket?.off()
+                    socket?.disconnect()
+                    socket = null
+
                     val opts = IO.Options()
                     // Safe map handling
                     val authMap = java.util.HashMap<String, String>()
@@ -271,6 +282,23 @@ class SocketManager @Inject constructor(
             activeTrackingRequestId?.let { requestId ->
                 socket?.emit("ambulance:track", requestId)
                 Log.d(TAG, "Re-joined ambulance tracking room: $requestId")
+            }
+
+            // Re-join active consultation rooms after reconnect
+            activeVideoRoomId?.let { roomId ->
+                socket?.emit("video:join", roomId)
+                Log.d(TAG, "Re-joined video room: $roomId")
+                activeVideoMode?.let { mode ->
+                    socket?.emit("video:mode", JSONObject().apply {
+                        put("roomId", roomId)
+                        put("mode", mode)
+                    })
+                    Log.d(TAG, "Re-published video mode for room $roomId: $mode")
+                }
+            }
+            activeChatConsultationId?.let { consultationId ->
+                socket?.emit("chat:join", consultationId)
+                Log.d(TAG, "Re-joined chat room: $consultationId")
             }
         }
 
@@ -364,6 +392,21 @@ class SocketManager @Inject constructor(
                     ))
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing video:ice-candidate", e) }
+        }
+
+        socket?.on("video:mode") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _signalingEvents.emit(
+                        SignalingEvent.ModeChanged(
+                            roomId = data.optString("roomId", ""),
+                            mode = data.optString("mode", "video"),
+                            fromUserId = data.optNullableString("from")
+                        )
+                    )
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing video:mode", e) }
         }
         
         socket?.on("video:user-left") { args ->
@@ -678,11 +721,42 @@ class SocketManager @Inject constructor(
     // --- Emitters ---
 
     fun joinVideoRoom(roomId: String) {
-        socket?.emit("video:join", roomId)
+        activeVideoRoomId = roomId
+        val s = socket
+        if (s?.connected() == true) {
+            s.emit("video:join", roomId)
+            activeVideoMode?.let { mode ->
+                sendVideoMode(roomId, mode)
+            }
+        } else {
+            Log.w(TAG, "Socket not connected yet; video room will auto-join on connect: $roomId")
+            connect()
+        }
     }
 
     fun leaveVideoRoom(roomId: String) {
+        if (activeVideoRoomId == roomId) {
+            activeVideoRoomId = null
+            activeVideoMode = null
+        }
         socket?.emit("video:leave", roomId)
+    }
+
+    fun sendVideoMode(roomId: String, mode: String) {
+        activeVideoRoomId = roomId
+        activeVideoMode = mode
+        val payload = JSONObject().apply {
+            put("roomId", roomId)
+            put("mode", mode)
+        }
+
+        val s = socket
+        if (s?.connected() == true) {
+            s.emit("video:mode", payload)
+        } else {
+            Log.w(TAG, "Socket not connected yet; video mode will publish on connect: $mode")
+            connect()
+        }
     }
 
     fun sendOffer(roomId: String, sdp: String, type: String) {
@@ -723,7 +797,19 @@ class SocketManager @Inject constructor(
     }
 
     fun joinChat(consultationId: String) {
-        socket?.emit("chat:join", consultationId)
+        activeChatConsultationId = consultationId
+        val s = socket
+        if (s?.connected() == true) {
+            s.emit("chat:join", consultationId)
+        } else {
+            Log.w(TAG, "Socket not connected yet; chat room will auto-join on connect: $consultationId")
+            connect()
+        }
+    }
+
+    fun leaveChat(consultationId: String) {
+        if (activeChatConsultationId == consultationId) activeChatConsultationId = null
+        socket?.emit("chat:leave", consultationId)
     }
 
     fun sendChatMessage(consultationId: String, message: String) {

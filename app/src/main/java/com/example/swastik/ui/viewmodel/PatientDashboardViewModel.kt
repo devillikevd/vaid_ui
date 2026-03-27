@@ -376,6 +376,7 @@ class PatientDashboardViewModel @Inject constructor(
         val token: String? = null,
         val expiresAt: String? = null,
         val hasActiveCard: Boolean = false,
+        val hasCheckedStatus: Boolean = false,
         val error: String? = null
     )
 
@@ -391,12 +392,14 @@ class PatientDashboardViewModel @Inject constructor(
                         url = result.data.url,
                         token = result.data.token,
                         expiresAt = result.data.expiresAt,
-                        hasActiveCard = true
+                        hasActiveCard = true,
+                        hasCheckedStatus = true
                     )
                 }
                 is Result.Error -> {
                     _healthCardState.value = _healthCardState.value.copy(
                         isLoading = false,
+                        hasCheckedStatus = true,
                         error = result.message
                     )
                 }
@@ -407,15 +410,24 @@ class PatientDashboardViewModel @Inject constructor(
 
     fun checkHealthCardStatus() {
         viewModelScope.launch {
+            _healthCardState.value = _healthCardState.value.copy(isLoading = true, error = null)
             when (val result = patientRepository.getHealthCardStatus()) {
                 is Result.Success -> {
                     _healthCardState.value = HealthCardState(
+                        isLoading = false,
                         hasActiveCard = result.data.hasActiveCard,
                         url = result.data.url,
-                        expiresAt = result.data.expiresAt
+                        expiresAt = result.data.expiresAt,
+                        hasCheckedStatus = true
                     )
                 }
-                is Result.Error -> { /* Silently ignore — no active card */ }
+                is Result.Error -> {
+                    _healthCardState.value = _healthCardState.value.copy(
+                        isLoading = false,
+                        hasCheckedStatus = true,
+                        error = result.message
+                    )
+                }
                 is Result.Loading -> {}
             }
         }
@@ -426,11 +438,12 @@ class PatientDashboardViewModel @Inject constructor(
             _healthCardState.value = _healthCardState.value.copy(isLoading = true)
             when (patientRepository.revokeHealthCard()) {
                 is Result.Success -> {
-                    _healthCardState.value = HealthCardState() // reset
+                    _healthCardState.value = HealthCardState(hasCheckedStatus = true)
                 }
                 is Result.Error -> {
                     _healthCardState.value = _healthCardState.value.copy(
                         isLoading = false,
+                        hasCheckedStatus = true,
                         error = "Failed to revoke"
                     )
                 }

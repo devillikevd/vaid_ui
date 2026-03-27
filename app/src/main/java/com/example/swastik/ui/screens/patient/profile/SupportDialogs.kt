@@ -168,10 +168,20 @@ fun QrCodeDialog(
     val context = LocalContext.current
     val healthCardState by viewModel?.healthCardState?.collectAsState()
         ?: remember { mutableStateOf(PatientDashboardViewModel.HealthCardState()) }
+    val formattedExpiry = remember(healthCardState.expiresAt) {
+        healthCardState.expiresAt?.let { expiresAt ->
+            runCatching {
+                java.time.OffsetDateTime.parse(expiresAt)
+                    .toLocalDateTime()
+                    .toString()
+                    .replace('T', ' ')
+            }.getOrElse { expiresAt }
+        }
+    }
 
-    LaunchedEffect(Unit) {
-        if (healthCardState.url == null && !healthCardState.isLoading) {
-            viewModel?.generateHealthCard()
+    LaunchedEffect(viewModel, healthCardState.hasCheckedStatus, healthCardState.isLoading) {
+        if (viewModel != null && !healthCardState.hasCheckedStatus && !healthCardState.isLoading) {
+            viewModel.checkHealthCardStatus()
         }
     }
 
@@ -220,7 +230,7 @@ fun QrCodeDialog(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(modifier = Modifier.size(48.dp), color = SwastikPurple)
                                 Spacer(Modifier.height(8.dp))
-                                Text("Generating...", fontSize = 12.sp, color = Color.Gray)
+                                Text("Checking health card...", fontSize = 12.sp, color = Color.Gray)
                             }
                         }
                         healthCardState.error != null -> {
@@ -258,7 +268,14 @@ fun QrCodeDialog(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                         Icon(Icons.Outlined.Schedule, null, tint = SwastikPurple, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Valid for 24 hours", fontSize = 11.sp, color = SwastikPurple)
+                        Text("Valid until $formattedExpiry", fontSize = 11.sp, color = SwastikPurple)
+                    }
+                } else if (healthCardState.hasActiveCard) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Icon(Icons.Outlined.VerifiedUser, null, tint = SwastikPurple, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Active health card ready to share", fontSize = 11.sp, color = SwastikPurple)
                     }
                 }
 

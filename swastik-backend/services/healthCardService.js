@@ -99,7 +99,9 @@ class HealthCardService {
       has_active_card: true,
       url: `${config.frontendWebUrl}/health-card/${token}`,
       generated_at: data.generatedAt,
-      expires_at: null, // Redis doesn't expose exact TTL easily; UI shows "24h from generation"
+      expires_at: data.generatedAt
+        ? new Date(new Date(data.generatedAt).getTime() + TOKEN_EXPIRY_SECONDS * 1000).toISOString()
+        : null,
     };
   }
 

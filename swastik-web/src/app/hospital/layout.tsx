@@ -15,7 +15,7 @@ import {
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
 const HOSPITAL_CONFIG: DashboardConfig = {
-    role: 'hospital_owner',
+    role: ['hospital_owner', 'hospital_manager'],
     loginPath: '/login/hospital',
     portalTitle: 'Hospital Portal',
     portalSubtitle: 'Operations Hub',

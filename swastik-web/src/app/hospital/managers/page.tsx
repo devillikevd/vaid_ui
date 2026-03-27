@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Search, Loader2, RefreshCw, UserPlus, Trash2, AlertCircle, X, Shield } from 'lucide-react';
+import { Users, Search, Loader2, RefreshCw, UserPlus, AlertCircle, X, Shield } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { hospitalApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
+import { useAuthStore } from '@/stores/authStore';
 
 interface Manager {
     id: string;
@@ -23,12 +24,14 @@ interface Manager {
 }
 
 export default function HospitalManagersPage() {
+    const { user } = useAuthStore();
+    const canManageManagers = user?.role === 'hospital_owner';
     const [managers, setManagers] = useState<Manager[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
-    const [addData, setAddData] = useState({ userId: '' });
+    const [addData, setAddData] = useState({ email: '', name: '', phone: '' });
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const toast = useToast();
 
@@ -56,14 +59,19 @@ export default function HospitalManagersPage() {
     }, []);
 
     const handleAddManager = async () => {
-        if (!addData.userId.trim()) return;
+        if (!canManageManagers) return;
+        if (!addData.email.trim() || !addData.name.trim()) return;
         setActionLoading('add');
         try {
-            const response = await hospitalApi.addManager({ userId: addData.userId.trim() });
+            const response = await hospitalApi.addManager({
+                email: addData.email.trim(),
+                name: addData.name.trim(),
+                phone: addData.phone.trim() || undefined,
+            });
             if (response.success) {
                 toast.success('Manager Added', 'New manager has been added to the hospital');
                 setShowAddModal(false);
-                setAddData({ userId: '' });
+                setAddData({ email: '', name: '', phone: '' });
                 fetchManagers();
             } else {
                 toast.error('Failed', response.error || 'Could not add manager');
@@ -128,14 +136,22 @@ export default function HospitalManagersPage() {
                     >
                         Refresh
                     </Button>
-                    <Button
-                        onClick={() => setShowAddModal(true)}
-                        leftIcon={<UserPlus className="h-4 w-4" />}
-                    >
-                        Add Manager
-                    </Button>
+                    {canManageManagers && (
+                        <Button
+                            onClick={() => setShowAddModal(true)}
+                            leftIcon={<UserPlus className="h-4 w-4" />}
+                        >
+                            Add Manager
+                        </Button>
+                    )}
                 </div>
             </div>
+
+            {!canManageManagers && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    Managers can review the hospital access roster here. Only the hospital owner can invite new managers.
+                </div>
+            )}
 
             <Card padding="sm">
                 <Input
@@ -219,7 +235,7 @@ export default function HospitalManagersPage() {
             </Card>
 
             {/* Add Manager Modal */}
-            {showAddModal && (
+            {canManageManagers && showAddModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md">
                         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -236,17 +252,44 @@ export default function HospitalManagersPage() {
                         <div className="p-4 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    User ID *
+                                    Manager Email *
                                 </label>
                                 <Input
-                                    value={addData.userId}
+                                    value={addData.email}
                                     onChange={(e) =>
-                                        setAddData((d) => ({ ...d, userId: e.target.value }))
+                                        setAddData((d) => ({ ...d, email: e.target.value }))
                                     }
-                                    placeholder="Enter the user's ID"
+                                    placeholder="manager@hospital.com"
                                 />
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    The user must already have an account on the platform.
+                                    The invited person must already have a platform account with this email.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Manager Name *
+                                </label>
+                                <Input
+                                    value={addData.name}
+                                    onChange={(e) =>
+                                        setAddData((d) => ({ ...d, name: e.target.value }))
+                                    }
+                                    placeholder="Enter manager name"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Phone
+                                </label>
+                                <Input
+                                    value={addData.phone}
+                                    onChange={(e) =>
+                                        setAddData((d) => ({ ...d, phone: e.target.value }))
+                                    }
+                                    placeholder="+91XXXXXXXXXX"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Optional, but useful for onboarding and contact verification.
                                 </p>
                             </div>
                         </div>
@@ -257,7 +300,7 @@ export default function HospitalManagersPage() {
                             <Button
                                 onClick={handleAddManager}
                                 isLoading={actionLoading === 'add'}
-                                disabled={!addData.userId.trim()}
+                                disabled={!addData.email.trim() || !addData.name.trim()}
                             >
                                 Add Manager
                             </Button>

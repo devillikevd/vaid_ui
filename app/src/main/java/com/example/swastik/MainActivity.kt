@@ -398,9 +398,11 @@ fun SwastikApp(tokenManager: TokenManager) {
         }
 
         composable(Screen.Reports.route) {
+            AuthGuard(navController, tokenManager) {
             ReportsScreen(
                 onBackClick = { navController.popBackStack() }
             )
+            }
         }
 
         composable(

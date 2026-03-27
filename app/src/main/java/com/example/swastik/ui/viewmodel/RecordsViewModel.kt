@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.ConsultationRecord
 import com.example.swastik.data.model.MedicalDocument
 import com.example.swastik.data.model.DocumentType
+import com.example.swastik.data.model.Prescription
 import com.example.swastik.data.model.PrescriptionItem
 import com.example.swastik.data.repository.RecordsRepository
 import com.example.swastik.data.remote.dto.ConsultationDto
@@ -21,6 +22,7 @@ import javax.inject.Inject
 
 data class RecordsUiState(
     val consultations: List<ConsultationRecord> = emptyList(),
+    val prescriptions: List<Prescription> = emptyList(),
     val documents: List<MedicalDocument> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -58,6 +60,12 @@ class RecordsViewModel @Inject constructor(
                     }
                 }
                 launch {
+                    try { loadPrescriptions() }
+                    catch (e: Exception) {
+                        _uiState.update { it.copy(error = e.message ?: "Failed to load prescriptions") }
+                    }
+                }
+                launch {
                     try { loadReports() }
                     catch (e: Exception) {
                         _uiState.update { it.copy(error = e.message ?: "Failed to load reports") }
@@ -73,6 +81,11 @@ class RecordsViewModel @Inject constructor(
         val consultations = dtos.map { it.toConsultationRecord() }
         // Thread-safe update using update {} to prevent race condition
         _uiState.update { it.copy(consultations = consultations) }
+    }
+
+    private suspend fun loadPrescriptions() {
+        val prescriptions = recordsRepository.getPatientPrescriptions(page = 1)
+        _uiState.update { it.copy(prescriptions = prescriptions) }
     }
 
     private suspend fun loadReports() {

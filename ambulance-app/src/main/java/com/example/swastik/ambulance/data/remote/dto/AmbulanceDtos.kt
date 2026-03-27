@@ -63,6 +63,8 @@ data class UserDto(
     val name: String?,
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     @SerializedName("approval_status") val approvalStatus: String?,
+    @SerializedName("approval_notes") val approvalNotes: String? = null,
+    @SerializedName("company_name") val companyName: String? = null,
     @SerializedName("created_at") val createdAt: String?
 )
 

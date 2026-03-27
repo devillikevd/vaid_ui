@@ -217,7 +217,7 @@ const filterVitalsByToggles = async (doctorUserId, vitalsData) => {
   // Filter alerts based on toggles
   if (toggles.risk_alerts && vitalsData.alerts) {
     filtered.alerts = vitalsData.alerts.filter(alert => {
-      const v = alert.vital;
+      const v = alert.metric || alert.vital;
       if (v === 'heart_rate') return toggles.heart_rate_rppg;
       if (v === 'respiration_rate') return toggles.respiration_monitoring;
       if (v === 'spo2') return toggles.spo2_estimation;
@@ -226,10 +226,10 @@ const filterVitalsByToggles = async (doctorUserId, vitalsData) => {
       if (v === 'pain_score') return toggles.pain_level_facs;
       if (v === 'posture') return toggles.posture_analysis;
       if (v === 'fall_detected') return toggles.fall_detection;
-      if (v === 'tremor') return toggles.tremor_detection;
+      if (v === 'tremor' || v === 'tremor_severity' || v === 'tremor_frequency') return toggles.tremor_detection;
       if (v === 'skin_condition') return toggles.skin_condition_screening;
-      if (v === 'pallor') return toggles.facial_pallor_anemia;
-      if (v === 'facial_asymmetry') return toggles.facial_asymmetry_stroke;
+      if (v === 'pallor' || v === 'pallor_score' || v === 'hemoglobin_estimate') return toggles.facial_pallor_anemia;
+      if (v === 'facial_asymmetry' || v === 'facial_asymmetry_score') return toggles.facial_asymmetry_stroke;
       if (v === 'temperature') return toggles.temperature_monitoring;
       return true;
     });

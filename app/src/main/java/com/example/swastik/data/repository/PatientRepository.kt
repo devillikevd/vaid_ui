@@ -124,32 +124,7 @@ class PatientRepository @Inject constructor(
                 val patientData = profileResponse.body()?.data
                 if (patientData != null) {
                     patient = patientData.toPatient()
-                    val profile = PatientProfile(
-                        id = patientData.id,
-                        name = patientData.name,
-                        phoneNumber = patientData.phone ?: "",
-                        email = patientData.email ?: "",
-                        age = patientData.age ?: 0,
-                        bloodGroup = patientData.bloodGroup ?: "",
-                        weight = patientData.weight ?: 0f, 
-                        height = patientData.height ?: 0f, 
-                        gender = patientData.gender ?: "",
-                        location = patientData.location ?: "",
-                        abhaNumber = patientData.abhaNumber ?: "",
-                        profileImageUrl = patientData.profileImageUrl ?: "",
-                        isVerified = patientData.isVerified,
-                        linkedHospitals = patientData.linkedHospitals ?: 0,
-                        familyMembers = patientData.familyMembers?.map {
-                            FamilyMember(id = it.id, name = it.name, relationship = it.relationship, phone = it.phone ?: "")
-                        } ?: emptyList(),
-                        emergencyContacts = patientData.emergencyContacts?.map {
-                            EmergencyContact(id = it.id, name = it.name, phone = it.phone, relationship = it.relationship)
-                        } ?: emptyList(),
-                        savedAddresses = patientData.savedAddresses?.map {
-                            SavedAddress(id = it.id, label = it.label, address = it.address, city = it.city ?: "", pincode = it.pincode ?: "", isDefault = it.isDefault)
-                        } ?: emptyList()
-                    )
-                    _patientProfile.value = profile
+                    _patientProfile.value = patientData.toPatientProfile()
                 }
             }
 
@@ -292,31 +267,7 @@ class PatientRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 val patientData = response.body()?.data
                 if (patientData != null) {
-                    val profile = PatientProfile(
-                        id = patientData.id,
-                        name = patientData.name,
-                        phoneNumber = patientData.phone ?: "",
-                        email = patientData.email ?: "",
-                        age = patientData.age ?: 0,
-                        bloodGroup = patientData.bloodGroup ?: "",
-                        weight = patientData.weight ?: 0f,
-                        height = patientData.height ?: 0f,
-                        gender = patientData.gender ?: "",
-                        location = patientData.location ?: "",
-                        abhaNumber = patientData.abhaNumber ?: "",
-                        profileImageUrl = patientData.profileImageUrl ?: "",
-                        isVerified = patientData.isVerified,
-                        linkedHospitals = patientData.linkedHospitals ?: 0,
-                        familyMembers = patientData.familyMembers?.map {
-                            FamilyMember(id = it.id, name = it.name, relationship = it.relationship, phone = it.phone ?: "")
-                        } ?: emptyList(),
-                        emergencyContacts = patientData.emergencyContacts?.map {
-                            EmergencyContact(id = it.id, name = it.name, phone = it.phone, relationship = it.relationship)
-                        } ?: emptyList(),
-                        savedAddresses = patientData.savedAddresses?.map {
-                            SavedAddress(id = it.id, label = it.label, address = it.address, city = it.city ?: "", pincode = it.pincode ?: "", isDefault = it.isDefault)
-                        } ?: emptyList()
-                    )
+                    val profile = patientData.toPatientProfile()
                     _patientProfile.value = profile
                     Result.Success(profile)
                 } else {
@@ -478,7 +429,7 @@ class PatientRepository @Inject constructor(
 
     /**
      * Upload profile image
-     * POST /api/uploads/profile
+     * POST /api/patients/profile/image
      */
     suspend fun uploadProfileImage(imagePart: okhttp3.MultipartBody.Part): Result<String> {
         return try {
@@ -811,7 +762,7 @@ class PatientRepository @Inject constructor(
              name = name,
              phone = phone ?: "",
              email = email,
-             dateOfBirth = null, // mapping incomplete fields from DTO
+             dateOfBirth = dateOfBirth,
              gender = gender,
              bloodGroup = bloodGroup,
              emergencyContact = null,
@@ -820,6 +771,42 @@ class PatientRepository @Inject constructor(
              allergies = null,
              chronicConditions = null
          )
+    }
+
+    private fun PatientDto.toPatientProfile(): PatientProfile {
+        val resolvedAge = age ?: calculateAge(dateOfBirth)
+        return PatientProfile(
+            id = id,
+            name = name,
+            phoneNumber = phone ?: "",
+            email = email ?: "",
+            age = resolvedAge,
+            bloodGroup = bloodGroup ?: "",
+            weight = weight ?: 0f,
+            height = height ?: 0f,
+            gender = gender ?: "",
+            location = location ?: "",
+            abhaNumber = abhaNumber ?: "",
+            profileImageUrl = profileImageUrl ?: "",
+            isVerified = isVerified,
+            linkedHospitals = linkedHospitals ?: 0,
+            familyMembers = familyMembers?.map {
+                FamilyMember(id = it.id, name = it.name, relationship = it.relationship, phone = it.phone ?: "")
+            } ?: emptyList(),
+            emergencyContacts = emergencyContacts?.map {
+                EmergencyContact(id = it.id, name = it.name, phone = it.phone, relationship = it.relationship)
+            } ?: emptyList(),
+            savedAddresses = savedAddresses?.map {
+                SavedAddress(
+                    id = it.id,
+                    label = it.label,
+                    address = it.address,
+                    city = it.city ?: "",
+                    pincode = it.pincode ?: "",
+                    isDefault = it.isDefault
+                )
+            } ?: emptyList()
+        )
     }
     
     private fun AppointmentDto.toAppointment(): Appointment {

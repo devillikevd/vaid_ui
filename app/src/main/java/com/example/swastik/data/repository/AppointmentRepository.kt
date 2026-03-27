@@ -12,6 +12,8 @@ import com.example.swastik.utils.NetworkObserver
 import android.util.Log
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.first
+import okhttp3.ResponseBody
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,6 +37,18 @@ class AppointmentRepository @Inject constructor(
     }
 
     private val gson = Gson()
+
+    private fun parseApiErrorMessage(errorBody: ResponseBody?): String? {
+        return try {
+            val raw = errorBody?.string()?.trim().orEmpty()
+            if (raw.isBlank()) return null
+            val json = JSONObject(raw)
+            json.optString("message").ifBlank { null }
+                ?: json.optString("error").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
     
     /**
      * Get all appointments with optional filters.
@@ -153,7 +167,8 @@ class AppointmentRepository @Inject constructor(
                     Result.Error("Failed to parse appointment data")
                 }
             } else {
-                Result.Error(response.body()?.message ?: "Failed to book appointment")
+                val backendMessage = parseApiErrorMessage(response.errorBody())
+                Result.Error(backendMessage ?: response.body()?.message ?: "Failed to book appointment")
             }
         } catch (e: Exception) {
             // Network error during call — queue for sync
@@ -312,6 +327,7 @@ class AppointmentRepository @Inject constructor(
     val signalingEvents = socketManager.signalingEvents
     val chatMessages = socketManager.chatMessages
 
+    fun joinVideoRoom(roomId: String) = socketManager.joinVideoRoom(roomId)
     fun sendOffer(roomId: String, sdp: String, type: String) = socketManager.sendOffer(roomId, sdp, type)
     fun sendAnswer(roomId: String, sdp: String, type: String) = socketManager.sendAnswer(roomId, sdp, type)
     fun sendIceCandidate(roomId: String, sdpMid: String, sdpMLineIndex: Int, candidate: String) = socketManager.sendIceCandidate(roomId, sdpMid, sdpMLineIndex, candidate)
@@ -321,7 +337,7 @@ class AppointmentRepository @Inject constructor(
     /**
      * Join a video consultation
      * 1. Calls backend POST /consultations/:appointmentId/join to register participation
-     * 2. Connects socket and joins the video/chat rooms
+     * 2. Connects socket
      * Returns the consultation session info
      */
     suspend fun joinVideoConsultation(appointmentId: String): Result<VideoCallSession> {
@@ -356,12 +372,11 @@ class AppointmentRepository @Inject constructor(
                 }
             }
             
-            // 3. Join video and chat socket rooms
-            // Use raw consultationId as roomId — must match web client which uses consultationId directly
+            // Expose the room/session details back to the caller first.
+            // The ViewModel joins the socket rooms only after its session state
+            // is set, which prevents signaling callbacks from racing with a null roomId.
             val roomId = consultationId
-            socketManager.joinVideoRoom(roomId)
-            socketManager.joinChat(roomId)
-            
+
             Result.Success(
                 VideoCallSession(
                     sessionId = roomId,

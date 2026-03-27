@@ -39,8 +39,8 @@ fun VideoConsultationFlow(
     }
 
     // If was connected and now disconnected, show completion
-    LaunchedEffect(uiState.isConnected, hasBeenConnected) {
-        if (hasBeenConnected && !uiState.isConnected && !uiState.isConnecting) {
+    LaunchedEffect(uiState.consultationCompleted, hasBeenConnected) {
+        if (hasBeenConnected && uiState.consultationCompleted) {
             showCompletionDialog = true
         }
     }
@@ -49,18 +49,19 @@ fun VideoConsultationFlow(
     val statusMessage = when {
         uiState.isConnecting -> "Connecting..."
         uiState.isConnected && uiState.hasRemoteVideo -> "Connected"
-        uiState.isConnected -> "Waiting for doctor..."
+        uiState.isConnected || uiState.session != null -> "Waiting for doctor to join"
         uiState.error != null -> uiState.error ?: "Error"
         else -> "Ready"
     }
 
     // Determine current screen — show video/audio/chat based on connectionMode
-    if (uiState.isConnected || uiState.connectionMode == com.example.swastik.ui.viewmodel.ConsultationMode.CHAT) {
+    if (uiState.isConnected || uiState.session != null || uiState.connectionMode == com.example.swastik.ui.viewmodel.ConsultationMode.CHAT) {
         VideoCallScreen(
             doctorName = doctorName,
             connectionStatus = statusMessage,
             isMicMuted = !uiState.isMicEnabled,
             isCameraOff = !uiState.isCameraEnabled,
+            isSpeakerOn = uiState.isSpeakerOn,
             localVideoTrack = localVideoTrack,
             remoteVideoTrack = remoteVideoTrack,
             eglBaseContext = eglBaseContext,
@@ -76,8 +77,9 @@ fun VideoConsultationFlow(
                 viewModel.endCall()
             },
             onMicToggle = { viewModel.toggleMic() },
+            onCameraToggle = { viewModel.toggleCamera() },
             onCameraFlip = { viewModel.switchCamera() },
-            onSpeakerToggle = { /* Speaker toggle handled by AudioManager if needed */ },
+            onSpeakerToggle = { viewModel.toggleSpeaker() },
             onSendChatMessage = { viewModel.sendChatMessage(it) },
             onSwitchMode = { viewModel.switchMode(it) }
         )
@@ -99,6 +101,7 @@ fun VideoConsultationFlow(
             userName = patientName,
             onDismiss = {
                 showCompletionDialog = false
+                viewModel.dismissCompletion()
                 onConsultationComplete()
             }
         )

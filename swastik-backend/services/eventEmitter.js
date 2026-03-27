@@ -107,6 +107,23 @@ class AppEventEmitter extends EventEmitter {
     }
   }
 
+  normalizeConsultationEventPayload(consultation = {}) {
+    const consultationId = consultation.consultationId || consultation.consultation_id || consultation.id || '';
+    const appointmentId = consultation.appointmentId || consultation.appointment_id || null;
+
+    return {
+      ...consultation,
+      consultationId,
+      appointmentId,
+      roomId: consultation.roomId || consultation.room_id || consultationId,
+      doctorName: consultation.doctorName || consultation.doctor_name || consultation.doctor?.name || 'Doctor',
+      type: consultation.type || null,
+      duration: consultation.duration ?? consultation.duration_minutes ?? null,
+      prescriptionId: consultation.prescriptionId || consultation.prescription_id || null,
+      timestamp: consultation.timestamp || consultation.updated_at || consultation.started_at || consultation.ended_at || new Date().toISOString(),
+    };
+  }
+
   // ── Notification helpers ─────────────────────────────────────────
   // I20 Fix: Wrap all emit calls with try-catch to prevent crashes
   notifyUser(userId, event, data) {
@@ -206,16 +223,31 @@ class AppEventEmitter extends EventEmitter {
   }
 
   emitConsultationStarted(consultation) {
-    const { doctor_id, patient_id } = consultation;
-    this.notifyUser(patient_id, 'consultation:started', consultation);
-    this.emitDistributed('consultation:started', consultation);
+    const normalized = this.normalizeConsultationEventPayload(consultation);
+    const { patient_id } = normalized;
+    this.notifyUser(patient_id, 'consultation:started', normalized);
+    this.emitDistributed('consultation:started', normalized);
   }
 
   emitConsultationEnded(consultation) {
-    const { doctor_id, patient_id } = consultation;
-    this.notifyUser(doctor_id, 'consultation:ended', consultation);
-    this.notifyUser(patient_id, 'consultation:ended', consultation);
-    this.emitDistributed('consultation:ended', consultation);
+    const normalized = this.normalizeConsultationEventPayload(consultation);
+    const { doctor_id, patient_id } = normalized;
+    this.notifyUser(doctor_id, 'consultation:ended', normalized);
+    this.notifyUser(patient_id, 'consultation:ended', normalized);
+    this.emitDistributed('consultation:ended', normalized);
+  }
+
+  emitConsultationPatientLeft(payload) {
+    const normalized = {
+      ...payload,
+      consultationId: payload.consultationId || payload.consultation_id || payload.id || '',
+      timestamp: payload.timestamp || new Date().toISOString(),
+    };
+
+    if (normalized.doctorUserId) {
+      this.notifyUser(normalized.doctorUserId, 'consultation:patient-left', normalized);
+    }
+    this.emitDistributed('consultation:patient-left', normalized);
   }
 
   emitEmergencyRequest(emergency) {

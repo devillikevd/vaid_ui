@@ -2,6 +2,7 @@ package com.example.swastik.data.repository
 
 import android.content.Context
 import android.net.Uri
+import com.example.swastik.data.model.Prescription
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.dto.ConsultationDto
 import com.example.swastik.data.remote.dto.ReportDto
@@ -50,8 +51,21 @@ class RecordsRepository @Inject constructor(
     }
 
     /**
+     * Fetch patient prescriptions from the API.
+     * @throws Exception on network/API failure with descriptive message
+     */
+    suspend fun getPatientPrescriptions(page: Int = 1): List<Prescription> {
+        val response = apiService.getPatientPrescriptions(page = page)
+        if (response.isSuccessful && response.body()?.success == true) {
+            return response.body()?.data ?: emptyList()
+        }
+        val errorMsg = response.errorBody()?.string() ?: "Failed to load prescriptions"
+        throw Exception(errorMsg)
+    }
+
+    /**
      * Upload a medical report file from a content URI.
-     * Uses the uploads/report endpoint for MinIO file storage.
+     * Creates a real patient report record after file upload.
      */
     suspend fun uploadReport(uri: Uri, name: String, type: String) {
         val contentResolver = context.contentResolver
@@ -71,13 +85,19 @@ class RecordsRepository @Inject constructor(
 
         val requestBody = bytes.toRequestBody(finalMimeType.toMediaTypeOrNull())
         val fileName = name.replace(" ", "_").lowercase() + when {
-            mimeType.contains("pdf") -> ".pdf"
-            mimeType.contains("image") -> ".jpg"
+            finalMimeType.contains("pdf") -> ".pdf"
+            finalMimeType.contains("image") -> ".jpg"
             else -> ""
         }
         val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
-
-        val response = apiService.uploadMedicalReport(part)
+        val plainText = "text/plain".toMediaTypeOrNull()
+        val today = java.time.LocalDate.now().toString().toRequestBody(plainText)
+        val response = apiService.createPatientReport(
+            file = part,
+            name = name.toRequestBody(plainText),
+            type = type.toRequestBody(plainText),
+            date = today
+        )
         if (!response.isSuccessful) {
             val errorMsg = response.errorBody()?.string() ?: "Upload failed"
             throw Exception(errorMsg)

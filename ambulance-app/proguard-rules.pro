@@ -20,7 +20,17 @@
 # ── Retrofit ──
 -dontwarn retrofit2.**
 -keep class retrofit2.** { *; }
--keepattributes Exceptions
+-keepattributes Exceptions,Signature,InnerClasses,EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
+-keep class kotlin.Metadata { *; }
+-keep class kotlin.coroutines.Continuation
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+  @retrofit2.http.* <methods>;
+}
+-keep,allowobfuscation interface * {
+  @retrofit2.http.* <methods>;
+}
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }

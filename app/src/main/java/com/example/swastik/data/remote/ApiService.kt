@@ -107,6 +107,17 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<ReportDto>>
+
+    @Multipart
+    @POST("reports")
+    suspend fun createPatientReport(
+        @Part file: MultipartBody.Part,
+        @Part("name") name: RequestBody,
+        @Part("type") type: RequestBody,
+        @Part("date") date: RequestBody? = null,
+        @Part("notes") notes: RequestBody? = null,
+        @Part("labName") labName: RequestBody? = null
+    ): Response<ApiResponse<ReportDto>>
     
     @DELETE("reports/{id}")
     suspend fun deleteReport(@Path("id") id: String): Response<ApiResponse<Unit>>
@@ -499,9 +510,9 @@ interface ApiService {
     // ==================== UPLOADS ====================
     
     @Multipart
-    @POST("uploads/profile")
+    @POST("patients/profile/image")
     suspend fun uploadProfileImage(
-        @Part file: okhttp3.MultipartBody.Part
+        @Part image: okhttp3.MultipartBody.Part
     ): Response<ApiResponse<UploadResponse>>
     
     @Multipart

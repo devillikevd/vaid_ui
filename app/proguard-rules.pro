@@ -27,7 +27,17 @@
 # ── Retrofit ──
 -dontwarn retrofit2.**
 -keep class retrofit2.** { *; }
--keepattributes Exceptions
+-keepattributes Exceptions,Signature,InnerClasses,EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
+-keep class kotlin.Metadata { *; }
+-keep class kotlin.coroutines.Continuation
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+  @retrofit2.http.* <methods>;
+}
+-keep,allowobfuscation interface * {
+  @retrofit2.http.* <methods>;
+}
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
@@ -51,6 +61,18 @@
 
 # ── EncryptedSharedPreferences ──
 -keep class androidx.security.crypto.** { *; }
+
+# ── R8 Missing Class Suppressions (AGP-generated) ──
+# Some transitive libraries ship annotation-processor artifacts (AutoValue/Javapoet)
+# that reference javax.lang.model.* (JDK compiler APIs not present on Android runtime).
+# These are not used at runtime and can be safely ignored for app minification.
+-dontwarn javax.lang.model.SourceVersion
+-dontwarn javax.lang.model.element.Element
+-dontwarn javax.lang.model.element.ElementKind
+-dontwarn javax.lang.model.element.Modifier
+-dontwarn javax.lang.model.type.TypeMirror
+-dontwarn javax.lang.model.type.TypeVisitor
+-dontwarn javax.lang.model.util.SimpleTypeVisitor8
 
 # Preserve line numbers for debugging stack traces
 -keepattributes SourceFile,LineNumberTable

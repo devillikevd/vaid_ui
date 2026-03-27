@@ -1,5 +1,15 @@
 import java.util.Properties
 
+val localBuildProperties = Properties().apply {
+    val localPropsFile = rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        load(localPropsFile.inputStream())
+    }
+}
+
+fun localBuildProperty(key: String): String? =
+    localBuildProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -28,6 +38,7 @@ android {
 
         // Default API base URL (Android Emulator → host localhost)
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5001/api/\"")
+        buildConfigField("String", "AI_WS_BASE_URL", "\"\"")
 
 
     }
@@ -35,23 +46,26 @@ android {
     buildTypes {
         debug {
             // Override from local.properties if set (e.g. for physical device testing)
-            val localProps = project.rootProject.file("local.properties")
-            if (localProps.exists()) {
-                val props = Properties().apply { load(localProps.inputStream()) }
-                val apiUrl = props.getProperty("API_BASE_URL")
-                if (apiUrl != null) {
-                    buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
-                }
+            localBuildProperty("API_BASE_URL")?.let { apiUrl ->
+                buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
+            }
+            localBuildProperty("AI_WS_BASE_URL")?.let { aiWsUrl ->
+                buildConfigField("String", "AI_WS_BASE_URL", "\"$aiWsUrl\"")
             }
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "API_BASE_URL", "\"https://api.swastik.health/api/\"")
+            // Allow locally built release APKs to target a LAN backend for real-phone testing.
+            val releaseApiUrl = localBuildProperty("API_BASE_URL") ?: "https://api.swastik.health/api/"
+            val releaseAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApiUrl\"")
+            buildConfigField("String", "AI_WS_BASE_URL", "\"$releaseAiWsUrl\"")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

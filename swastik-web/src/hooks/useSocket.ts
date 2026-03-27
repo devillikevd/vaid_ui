@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { vitalsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 // Socket.IO event types
@@ -91,6 +92,22 @@ export interface ConsultationEnded {
     duration?: number;
     prescriptionId?: string;
     timestamp: string;
+}
+
+export interface ConsultationPatientLeft {
+    consultationId: string;
+    patientUserId: string;
+    doctorUserId?: string;
+    timestamp: string;
+}
+
+export type ConsultationVideoMode = 'video' | 'audio' | 'chat';
+
+export interface ConsultationModeUpdate {
+    roomId: string;
+    mode: ConsultationVideoMode;
+    from?: string;
+    timestamp?: string;
 }
 
 export interface PrescriptionUpdate {
@@ -248,6 +265,23 @@ export function useSocket() {
  * Hook for handling notifications — persists in localStorage to survive page refreshes.
  */
 export function useNotifications(onNotification?: (notification: Notification) => void) {
+    const dedupeNotifications = useCallback((list: Notification[]) => {
+        const seenIds = new Set<string>();
+        const unique: Notification[] = [];
+
+        for (const n of list) {
+            const id = n.id?.trim();
+            if (id) {
+                if (seenIds.has(id)) continue;
+                seenIds.add(id);
+            }
+            unique.push(n);
+            if (unique.length >= 50) break;
+        }
+
+        return unique;
+    }, []);
+
     const { on } = useSocket();
     const [notifications, setNotifications] = useState<Notification[]>(() => {
         if (typeof window === 'undefined') return [];
@@ -255,7 +289,20 @@ export function useNotifications(onNotification?: (notification: Notification) =
             const stored = localStorage.getItem('swastik-notifications');
             if (!stored) return [];
             const parsed = JSON.parse(stored);
-            return Array.isArray(parsed) ? parsed : [];
+            if (!Array.isArray(parsed)) return [];
+
+            const seenIds = new Set<string>();
+            const unique: Notification[] = [];
+            for (const n of parsed as Notification[]) {
+                const id = n?.id?.trim();
+                if (id) {
+                    if (seenIds.has(id)) continue;
+                    seenIds.add(id);
+                }
+                unique.push(n);
+                if (unique.length >= 50) break;
+            }
+            return unique;
         } catch {
             // Corrupted data — clear it
             try { localStorage.removeItem('swastik-notifications'); } catch { /* ignore */ }
@@ -273,12 +320,12 @@ export function useNotifications(onNotification?: (notification: Notification) =
 
     useEffect(() => {
         const handleNotification = (notification: Notification) => {
-            setNotifications((prev) => [notification, ...prev].slice(0, 50));
+            setNotifications((prev) => dedupeNotifications([notification, ...prev]));
             onNotification?.(notification);
         };
 
         return on('notification:new', handleNotification);
-    }, [on, onNotification]);
+    }, [on, onNotification, dedupeNotifications]);
 
     const clearNotifications = useCallback(() => {
         setNotifications([]);
@@ -417,39 +464,86 @@ export function useVitalsUpdates(onNewVital?: (vital: VitalUpdate) => void) {
 /**
  * Hook for video consultation events
  */
-export function useVideoConsultation(roomId: string | null) {
+export function useVideoConsultation(roomId: string | null, localMode?: ConsultationVideoMode) {
     const { emit, on } = useSocket();
     const [participants, setParticipants] = useState<string[]>([]);
     const [offer, setOffer] = useState<RTCSessionDescriptionInit | null>(null);
     const [answer, setAnswer] = useState<RTCSessionDescriptionInit | null>(null);
     const [iceCandidate, setIceCandidate] = useState<RTCIceCandidateInit | null>(null);
+    const [remoteMode, setRemoteMode] = useState<ConsultationVideoMode>('video');
+    const localModeRef = useRef<ConsultationVideoMode | undefined>(localMode);
+
+    useEffect(() => {
+        localModeRef.current = localMode;
+        if (roomId && localMode) {
+            emit('video:mode', { roomId, mode: localMode });
+        }
+    }, [roomId, localMode, emit]);
 
     useEffect(() => {
         if (!roomId) return;
 
-        // Join room
-        emit('video:join', roomId);
+        const joinRoom = () => emit('video:join', roomId);
+        const handleConnect = () => {
+            joinRoom();
+            if (localModeRef.current) {
+                emit('video:mode', { roomId, mode: localModeRef.current });
+            }
+        };
 
         const handleUserJoined = (data: { userId: string }) => {
             setParticipants((prev) => [...new Set([...prev, data.userId])]);
         };
 
         const handleUserLeft = (data: { userId: string }) => {
-            setParticipants((prev) => prev.filter((id) => id !== data.userId));
+            setParticipants((prev) => {
+                const next = prev.filter((id) => id !== data.userId);
+                if (next.length === 0) {
+                    setRemoteMode('video');
+                }
+                return next;
+            });
+        };
+
+        const handleRoomState = (data: { roomId?: string; participants?: string[] }) => {
+            if (data?.roomId && data.roomId !== roomId) return;
+            if (!Array.isArray(data?.participants) || data.participants.length === 0) return;
+            const roomParticipants = data.participants;
+            setParticipants((prev) => [...new Set([...prev, ...roomParticipants])]);
         };
 
         const handleOffer = (data: { offer: RTCSessionDescriptionInit }) => setOffer(data.offer);
         const handleAnswer = (data: { answer: RTCSessionDescriptionInit }) => setAnswer(data.answer);
         const handleIceCandidate = (data: { candidate: RTCIceCandidateInit }) => setIceCandidate(data.candidate);
+        const handleMode = (data: ConsultationModeUpdate) => {
+            if (!data?.roomId || data.roomId !== roomId) return;
+            if (data.mode === 'video' || data.mode === 'audio' || data.mode === 'chat') {
+                setRemoteMode(data.mode);
+            }
+        };
 
+        // Register listeners before the initial join so we don't miss the
+        // immediate `video:room-state` response when the peer is already present.
         const unsubs = [
+            on('connect', handleConnect),
+            on('video:room-state', handleRoomState),
             on('video:user-joined', handleUserJoined),
             on('video:user-left', handleUserLeft),
             on('video:offer', handleOffer),
             on('video:answer', handleAnswer),
             on('video:ice-candidate', handleIceCandidate),
+            on('video:mode', handleMode),
         ];
 
+        setParticipants([]);
+        setOffer(null);
+        setAnswer(null);
+        setIceCandidate(null);
+        setRemoteMode('video');
+        joinRoom();
+        if (localModeRef.current) {
+            emit('video:mode', { roomId, mode: localModeRef.current });
+        }
         return () => {
             emit('video:leave', roomId);
             unsubs.forEach((unsub) => unsub());
@@ -477,14 +571,23 @@ export function useVideoConsultation(roomId: string | null) {
         [roomId, emit]
     );
 
+    const sendModeChange = useCallback(
+        (mode: ConsultationVideoMode) => {
+            emit('video:mode', { roomId, mode });
+        },
+        [roomId, emit]
+    );
+
     return {
         participants,
         offer,
         answer,
         iceCandidate,
+        remoteMode,
         sendOffer,
         sendAnswer,
         sendIceCandidate,
+        sendModeChange,
     };
 }
 
@@ -524,6 +627,22 @@ export function useConsultationEnded(onEnded?: (data: ConsultationEnded) => void
     }, [on, onEnded]);
 
     return { endedConsultation };
+}
+
+export function useConsultationPatientLeft(onPatientLeft?: (data: ConsultationPatientLeft) => void) {
+    const { on } = useSocket();
+    const [leftConsultation, setLeftConsultation] = useState<ConsultationPatientLeft | null>(null);
+
+    useEffect(() => {
+        const handlePatientLeft = (data: ConsultationPatientLeft) => {
+            setLeftConsultation(data);
+            onPatientLeft?.(data);
+        };
+
+        return on('consultation:patient-left', handlePatientLeft);
+    }, [on, onPatientLeft]);
+
+    return { leftConsultation };
 }
 
 /**
@@ -656,6 +775,131 @@ export interface VitalsAlert {
     timestamp: string;
 }
 
+type VitalsSignalToggles = Record<string, boolean>;
+
+const ALERT_TOGGLE_MAP: Record<string, string> = {
+    heart_rate: 'heart_rate_rppg',
+    respiration_rate: 'respiration_monitoring',
+    spo2: 'spo2_estimation',
+    stress: 'stress_hrv',
+    stress_level: 'stress_hrv',
+    hrv_rmssd: 'stress_hrv',
+    hrv_sdnn: 'stress_hrv',
+    drowsiness_score: 'drowsiness_detection',
+    pain_score: 'pain_level_facs',
+    pain_action_units: 'pain_level_facs',
+    posture: 'posture_analysis',
+    spine_angle: 'posture_analysis',
+    fall_detected: 'fall_detection',
+    tremor: 'tremor_detection',
+    tremor_detected: 'tremor_detection',
+    tremor_severity: 'tremor_detection',
+    tremor_frequency: 'tremor_detection',
+    skin_condition: 'skin_condition_screening',
+    skin_classification: 'skin_condition_screening',
+    pallor: 'facial_pallor_anemia',
+    pallor_score: 'facial_pallor_anemia',
+    hemoglobin_estimate: 'facial_pallor_anemia',
+    facial_asymmetry: 'facial_asymmetry_stroke',
+    facial_asymmetry_score: 'facial_asymmetry_stroke',
+    temperature: 'temperature_monitoring',
+    blood_pressure_systolic: 'blood_pressure_monitoring',
+    blood_pressure_diastolic: 'blood_pressure_monitoring',
+};
+
+function isToggleEnabled(toggles: VitalsSignalToggles | null | undefined, key: string) {
+    if (!toggles) return true;
+    return toggles[key] !== false;
+}
+
+function filterAlertsByToggles(alerts: VitalsAlert[] | undefined, toggles: VitalsSignalToggles | null | undefined) {
+    if (!alerts?.length) return [];
+    if (toggles && toggles.risk_alerts === false) return [];
+
+    return alerts.filter((alert) => {
+        const metric = alert.metric || alert.code;
+        const toggleKey = ALERT_TOGGLE_MAP[metric];
+        return toggleKey ? isToggleEnabled(toggles, toggleKey) : true;
+    });
+}
+
+function mergeAlerts(existing: VitalsAlert[], incoming: VitalsAlert[]) {
+    const seen = new Set<string>();
+    const merged: VitalsAlert[] = [];
+
+    for (const alert of [...incoming, ...existing]) {
+        const key = `${alert.code}:${alert.timestamp}:${alert.message}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(alert);
+        if (merged.length >= 50) break;
+    }
+
+    return merged;
+}
+
+function filterVitalsPayload<T extends VitalsStreamData & Record<string, unknown>>(
+    vitals: T | null,
+    toggles: VitalsSignalToggles | null | undefined
+): T | null {
+    if (!vitals) return null;
+    if (!toggles) return vitals;
+    if (toggles.ai_vitals_monitoring === false) return null;
+
+    const filtered: Record<string, unknown> = {
+        session_id: vitals.session_id,
+        processed_at: vitals.processed_at,
+        patient_user_id: vitals.patient_user_id,
+    };
+
+    if ('_stream_id' in vitals) filtered._stream_id = vitals._stream_id;
+    if (Array.isArray(vitals.active_signals)) filtered.active_signals = vitals.active_signals;
+    if (typeof vitals.total_signals === 'number') filtered.total_signals = vitals.total_signals;
+
+    if (isToggleEnabled(toggles, 'heart_rate_rppg') && vitals.heart_rate !== undefined) filtered.heart_rate = vitals.heart_rate;
+    if (isToggleEnabled(toggles, 'respiration_monitoring') && vitals.respiration_rate !== undefined) filtered.respiration_rate = vitals.respiration_rate;
+    if (isToggleEnabled(toggles, 'spo2_estimation') && vitals.spo2 !== undefined) filtered.spo2 = vitals.spo2;
+    if (isToggleEnabled(toggles, 'stress_hrv')) {
+        if (vitals.stress_level !== undefined) filtered.stress_level = vitals.stress_level;
+        if (vitals.hrv_rmssd !== undefined) filtered.hrv_rmssd = vitals.hrv_rmssd;
+        if (vitals.hrv_sdnn !== undefined) filtered.hrv_sdnn = vitals.hrv_sdnn;
+    }
+    if (isToggleEnabled(toggles, 'drowsiness_detection') && vitals.drowsiness_score !== undefined) filtered.drowsiness_score = vitals.drowsiness_score;
+    if (isToggleEnabled(toggles, 'pain_level_facs')) {
+        if (vitals.pain_score !== undefined) filtered.pain_score = vitals.pain_score;
+        if (vitals.pain_action_units !== undefined) filtered.pain_action_units = vitals.pain_action_units;
+    }
+    if (isToggleEnabled(toggles, 'posture_analysis')) {
+        if (vitals.posture !== undefined) filtered.posture = vitals.posture;
+        if (vitals.spine_angle !== undefined) filtered.spine_angle = vitals.spine_angle;
+    }
+    if (isToggleEnabled(toggles, 'fall_detection') && vitals.fall_detected !== undefined) filtered.fall_detected = vitals.fall_detected;
+    if (isToggleEnabled(toggles, 'tremor_detection')) {
+        if (vitals.tremor_detected !== undefined) filtered.tremor_detected = vitals.tremor_detected;
+        if (vitals.tremor_severity !== undefined) filtered.tremor_severity = vitals.tremor_severity;
+        if (vitals.tremor_frequency !== undefined) filtered.tremor_frequency = vitals.tremor_frequency;
+    }
+    if (isToggleEnabled(toggles, 'skin_condition_screening')) {
+        if (vitals.skin_condition !== undefined) filtered.skin_condition = vitals.skin_condition;
+        if (vitals.skin_classification !== undefined) filtered.skin_classification = vitals.skin_classification;
+        if (vitals.skin_confidence !== undefined) filtered.skin_confidence = vitals.skin_confidence;
+    }
+    if (isToggleEnabled(toggles, 'facial_pallor_anemia')) {
+        if (vitals.pallor_score !== undefined) filtered.pallor_score = vitals.pallor_score;
+        if (vitals.hemoglobin_estimate !== undefined) filtered.hemoglobin_estimate = vitals.hemoglobin_estimate;
+    }
+    if (isToggleEnabled(toggles, 'facial_asymmetry_stroke') && vitals.facial_asymmetry_score !== undefined) filtered.facial_asymmetry_score = vitals.facial_asymmetry_score;
+    if (isToggleEnabled(toggles, 'temperature_monitoring') && vitals.temperature !== undefined) filtered.temperature = vitals.temperature;
+    if (isToggleEnabled(toggles, 'blood_pressure_monitoring')) {
+        if (vitals.blood_pressure_systolic !== undefined) filtered.blood_pressure_systolic = vitals.blood_pressure_systolic;
+        if (vitals.blood_pressure_diastolic !== undefined) filtered.blood_pressure_diastolic = vitals.blood_pressure_diastolic;
+    }
+
+    filtered.alerts = filterAlertsByToggles(vitals.alerts, toggles);
+
+    return filtered as T;
+}
+
 /**
  * Hook for real-time vitals streaming during consultation.
  * Native FastAPI WebSockets architecture.
@@ -665,7 +909,11 @@ export interface VitalsAlert {
  * Production-hardened: JWT auth, exponential backoff reconnect,
  * stream replay via last_id, and application-level ping/pong.
  */
-export function useVitalsStream(sessionId: string | null, role: 'doctor' | 'patient' = 'doctor') {
+export function useVitalsStream(
+    sessionId: string | null,
+    role: 'doctor' | 'patient' = 'doctor',
+    signalToggles: VitalsSignalToggles | null = null
+) {
     const [latestVitals, setLatestVitals] = useState<VitalsStreamData | null>(null);
     const [vitalsHistory, setVitalsHistory] = useState<VitalsStreamData[]>([]);
     const [alerts, setAlerts] = useState<VitalsAlert[]>([]);
@@ -675,9 +923,66 @@ export function useVitalsStream(sessionId: string | null, role: 'doctor' | 'pati
     const wsRef = useRef<WebSocket | null>(null);
     const lastMessageIdRef = useRef<string | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const restPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const reconnectAttemptsRef = useRef(0);
     const isUnmountedRef = useRef(false);
     const connectRef = useRef<(() => void) | null>(null);
+
+    const bootstrapFromBackend = useCallback(async () => {
+        if (!sessionId || role !== 'doctor') return;
+
+        try {
+            const [latestRes, historyRes, alertsRes] = await Promise.all([
+                vitalsApi.getLatest(sessionId),
+                vitalsApi.getHistory(sessionId, 30),
+                vitalsApi.getAlerts(sessionId),
+            ]);
+
+            const history = (Array.isArray(historyRes.data) ? historyRes.data : [])
+                .map((entry) => filterVitalsPayload(entry as VitalsStreamData & Record<string, unknown>, signalToggles))
+                .filter(Boolean) as VitalsStreamData[];
+
+            if (history.length > 0) {
+                setVitalsHistory(history.slice(0, 120));
+                setLatestVitals(history[0]);
+            } else {
+                const latest = filterVitalsPayload(
+                    (latestRes.data as VitalsStreamData & Record<string, unknown>) || null,
+                    signalToggles
+                );
+                setLatestVitals(latest);
+            }
+
+            const filteredAlerts = filterAlertsByToggles(
+                Array.isArray(alertsRes.data) ? alertsRes.data as VitalsAlert[] : [],
+                signalToggles
+            );
+            setAlerts(filteredAlerts.slice(0, 50));
+        } catch (err) {
+            console.error('Vitals REST bootstrap failed:', err);
+        }
+    }, [role, sessionId, signalToggles]);
+
+    const applyIncomingVitals = useCallback((payload: VitalsStreamData & Record<string, unknown>) => {
+        const filtered = filterVitalsPayload(payload, signalToggles);
+        if (!filtered) {
+            setLatestVitals(null);
+            return;
+        }
+
+        setLatestVitals(filtered);
+        setVitalsHistory((prev) => [filtered, ...prev].slice(0, 120));
+
+        const incomingAlerts = filtered.alerts ?? [];
+        if (incomingAlerts.length > 0) {
+            setAlerts((prev) => mergeAlerts(prev, incomingAlerts));
+            const criticals = incomingAlerts.filter((alert) => alert.severity === 'critical');
+            if (criticals.length > 0 && sessionId) {
+                setCriticalAlert({ sessionId, alerts: criticals });
+                setTimeout(() => setCriticalAlert(null), 10000);
+            }
+        }
+    }, [sessionId, signalToggles]);
 
     const connect = useCallback(() => {
         if (!sessionId || isUnmountedRef.current) return;
@@ -723,19 +1028,7 @@ export function useVitalsStream(sessionId: string | null, role: 'doctor' | 'pati
                 }
 
                 // Regular CV Edge Stream payload
-                setLatestVitals(data);
-                setVitalsHistory(prev => [data, ...prev].slice(0, 120));
-
-                if (data.alerts?.length > 0) {
-                    const incoming = data.alerts as VitalsAlert[];
-                    setAlerts(prev => [...incoming, ...prev].slice(0, 50));
-                    // Only flash critical-severity alerts as the visual overlay
-                    const criticals = incoming.filter(a => a.severity === 'critical');
-                    if (criticals.length > 0) {
-                        setCriticalAlert({ sessionId, alerts: criticals });
-                        setTimeout(() => setCriticalAlert(null), 10000);
-                    }
-                }
+                applyIncomingVitals(data);
             } catch (err) {
                 console.error('FastAPI WS parse error:', err);
             }
@@ -756,19 +1049,32 @@ export function useVitalsStream(sessionId: string | null, role: 'doctor' | 'pati
         };
 
         ws.onerror = () => ws.close();
-    }, [sessionId, role]);
+    }, [applyIncomingVitals, role, sessionId]);
 
     useEffect(() => {
         isUnmountedRef.current = false;
         connectRef.current = connect;
+        if (signalToggles?.ai_vitals_monitoring === false) {
+            setLatestVitals(null);
+            setVitalsHistory([]);
+            setAlerts([]);
+        }
+        if (role === 'doctor') {
+            bootstrapFromBackend();
+            restPollingRef.current = setInterval(() => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) return;
+                bootstrapFromBackend();
+            }, 5000);
+        }
         connect();
         return () => {
             isUnmountedRef.current = true;
             if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            if (restPollingRef.current) clearInterval(restPollingRef.current);
             wsRef.current?.close();
             wsRef.current = null;
         };
-    }, [connect]);
+    }, [bootstrapFromBackend, connect, role, signalToggles]);
 
     const sendVitals = useCallback((vitals: Partial<VitalsStreamData>) => {
         if (!sessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;

@@ -199,6 +199,10 @@ data class Prescription(
     val notes: String?,
     @SerializedName("follow_up_date") val followUpDate: String?,
     @SerializedName("created_at") val createdAt: String,
+    val status: String? = null,
+    @SerializedName("valid_until") val validUntil: String? = null,
+    @SerializedName("is_dispensed") val isDispensed: Boolean? = null,
+    val instructions: String? = null,
     val doctor: Doctor?,
     val medicines: List<PrescriptionItem>?
 )

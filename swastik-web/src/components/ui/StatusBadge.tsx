@@ -31,6 +31,11 @@ const statusConfig: Record<string, {
         icon: Eye,
         className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
     },
+    under_review: {
+        label: 'Under Review',
+        icon: Eye,
+        className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+    },
     approved: {
         label: 'Approved',
         icon: CheckCircle,
@@ -76,6 +81,11 @@ const statusConfig: Record<string, {
         icon: Clock,
         className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
     },
+    in_progress: {
+        label: 'In Progress',
+        icon: Clock,
+        className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+    },
     processing: {
         label: 'Processing',
         icon: Clock,
@@ -115,6 +125,11 @@ const statusConfig: Record<string, {
         label: 'Fulfilled',
         icon: CheckCircle,
         className: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700',
+    },
+    dispatched: {
+        label: 'Dispatched',
+        icon: CheckCircle,
+        className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
     },
 };
 

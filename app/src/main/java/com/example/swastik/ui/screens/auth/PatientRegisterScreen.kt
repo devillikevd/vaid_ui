@@ -148,10 +148,7 @@ fun PatientRegisterScreen(
                     placeholder = { Text("Fullname") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedBorderColor = SwastikPurple
-                    )
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -175,10 +172,7 @@ fun PatientRegisterScreen(
                             .fillMaxWidth()
                             .menuAnchor(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedBorderColor = SwastikPurple
-                        )
+                        colors = authOutlinedTextFieldColors()
                     )
                     ExposedDropdownMenu(
                         expanded = roleExpanded,
@@ -205,13 +199,10 @@ fun PatientRegisterScreen(
                     value = email,
                     onValueChange = { email = it },
                     placeholder = { Text("Enter your email") },
-                    leadingIcon = { Icon(Icons.Default.Email, null, tint = Color.Gray) },
+                    leadingIcon = { Icon(Icons.Default.Email, null) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedBorderColor = SwastikPurple
-                    )
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -223,23 +214,19 @@ fun PatientRegisterScreen(
                     value = password,
                     onValueChange = { password = it },
                     placeholder = { Text("Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, null, tint = Color.Gray) },
+                    leadingIcon = { Icon(Icons.Default.Lock, null) },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
                                 if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                null,
-                                tint = Color.Gray
+                                null
                             )
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedBorderColor = SwastikPurple
-                    )
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -275,10 +262,7 @@ fun PatientRegisterScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedBorderColor = SwastikPurple
-                    )
+                    colors = authOutlinedTextFieldColors()
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))

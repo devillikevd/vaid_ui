@@ -1,5 +1,6 @@
 package com.example.swastik.data.repository
 
+import android.util.Log
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.local.db.SwastikDatabase
 import com.example.swastik.data.remote.ApiService
@@ -22,6 +23,9 @@ class AuthRepository @Inject constructor(
     private val database: SwastikDatabase,
     private val chatbotRepository: ChatbotRepository
 ) {
+    companion object {
+        private const val TAG = "AuthRepository"
+    }
 
     /**
      * Login with email and password.
@@ -61,7 +65,8 @@ class AuthRepository @Inject constructor(
                 emit(Result.Error(parseErrorMessage(errorBody) ?: "Login failed"))
             }
         } catch (e: Exception) {
-            emit(Result.Error(e.message ?: "Network error"))
+            Log.e(TAG, "Login failed", e)
+            emit(Result.Error(userFriendlyErrorMessage(e)))
         }
     }
 
@@ -93,7 +98,8 @@ class AuthRepository @Inject constructor(
                 emit(Result.Error(parseErrorMessage(errorBody) ?: "Registration failed"))
             }
         } catch (e: Exception) {
-            emit(Result.Error(e.message ?: "Network error"))
+            Log.e(TAG, "Registration failed", e)
+            emit(Result.Error(userFriendlyErrorMessage(e)))
         }
     }
 
@@ -109,7 +115,8 @@ class AuthRepository @Inject constructor(
                 Result.Error(response.body()?.message ?: "Failed to resend verification email")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Log.e(TAG, "Resend verification failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
         }
     }
 
@@ -150,7 +157,8 @@ class AuthRepository @Inject constructor(
                 Result.Error(response.body()?.message ?: "Failed to send reset email")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Log.e(TAG, "Forgot password failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
         }
     }
 
@@ -194,7 +202,8 @@ class AuthRepository @Inject constructor(
                 Result.Error(response.body()?.message ?: "Failed to fetch user")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Log.e(TAG, "Fetching current user failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
         }
     }
 
@@ -213,7 +222,8 @@ class AuthRepository @Inject constructor(
                 Result.Error(response.body()?.message ?: "Failed to reset password")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            Log.e(TAG, "Reset password failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
         }
     }
 
@@ -229,5 +239,13 @@ class AuthRepository @Inject constructor(
         } catch (_: Exception) {
             errorBody
         }
+    }
+
+    private fun userFriendlyErrorMessage(exception: Exception): String {
+        val rawMessage = exception.message
+        if (exception is ClassCastException && rawMessage?.contains("ParameterizedType") == true) {
+            return "This APK has an incompatible login build. Install the latest app build and try again."
+        }
+        return rawMessage ?: "Network error"
     }
 }
