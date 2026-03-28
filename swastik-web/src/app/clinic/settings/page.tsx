@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Save, Loader2, AlertCircle, RefreshCw, Lock } from 'lucide-react';
+import { Save, Loader2, Lock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { clinicApi, authApi } from '@/lib/api';
 
@@ -16,7 +17,18 @@ export default function ClinicSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    const [form, setForm] = useState({ name: '', phone: '', address: '', email: '', profileImage: '' as string | null, latitude: null as number | null, longitude: null as number | null });
+    const [form, setForm] = useState({
+        name: '',
+        phone: '',
+        address: '',
+        email: '',
+        registrationNumber: '',
+        licenseNumber: '',
+        licenseDocumentUrl: '',
+        profileImage: '' as string | null,
+        latitude: null as number | null,
+        longitude: null as number | null,
+    });
     const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [pwSaving, setPwSaving] = useState(false);
 
@@ -27,7 +39,18 @@ export default function ClinicSettingsPage() {
             if (res.success && res.data) {
                 const raw = res.data as any;
                 const d = raw.data || raw;
-                setForm({ name: d.name || user?.name || '', phone: d.phone || '', address: d.address || '', email: d.email || user?.email || '', profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.image_url || d.avatar_url || null, latitude: d.latitude ?? null, longitude: d.longitude ?? null });
+                setForm({
+                    name: d.name || user?.name || '',
+                    phone: d.phone || '',
+                    address: d.address || '',
+                    email: d.email || user?.email || '',
+                    registrationNumber: d.registration_number || '',
+                    licenseNumber: d.license_number || '',
+                    licenseDocumentUrl: d.license_document_url || '',
+                    profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.image_url || d.avatar_url || null,
+                    latitude: d.latitude ?? null,
+                    longitude: d.longitude ?? null,
+                });
             } else {
                 setForm(f => ({ ...f, name: user?.name || '', email: user?.email || '' }));
             }
@@ -57,6 +80,9 @@ export default function ClinicSettingsPage() {
                 name: form.name,
                 phone: form.phone,
                 address: form.address,
+                registration_number: form.registrationNumber.trim() || undefined,
+                license_number: form.licenseNumber.trim() || undefined,
+                license_document_url: form.licenseDocumentUrl.trim() || undefined,
             };
             // Include location if both lat/lng are set
             if (form.latitude != null && form.longitude != null) {
@@ -119,6 +145,8 @@ export default function ClinicSettingsPage() {
                         <Input label="Clinic Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                         <Input label="Email" value={form.email} readOnly className="bg-gray-50 dark:bg-gray-800" />
                         <Input label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 XXXXX XXXXX" />
+                        <Input label="Registration Number" value={form.registrationNumber} onChange={e => setForm(f => ({ ...f, registrationNumber: e.target.value }))} placeholder="Clinic registration number" />
+                        <Input label="License Number" value={form.licenseNumber} onChange={e => setForm(f => ({ ...f, licenseNumber: e.target.value }))} placeholder="Clinic license number" />
                         <Input label="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Clinic address" />
                     </div>
                     <div className="mt-4">
@@ -136,6 +164,15 @@ export default function ClinicSettingsPage() {
                             accentColor="pink"
                             label="Clinic Location"
                             height="250px"
+                        />
+                    </div>
+                    <div className="mt-4">
+                        <ComplianceDocumentUpload
+                            label="Clinic License Document"
+                            providerType="clinic"
+                            value={form.licenseDocumentUrl}
+                            onChange={(url) => setForm((prev) => ({ ...prev, licenseDocumentUrl: url }))}
+                            description="Upload the clinic license or paste the hosted document URL used for admin review."
                         />
                     </div>
                 </CardContent>

@@ -51,14 +51,32 @@ interface AvailableAmbulance {
     eta: string;
 }
 
+const PENDING_STATUSES = ['pending', 'broadcasting'];
+const ASSIGNED_STATUSES = ['assigned'];
+const ACTIVE_STATUSES = ['en_route', 'arrived', 'picked_up', 'en_route_hospital', 'arrived_hospital'];
+
+const CANONICAL_STATUS_MAP: Record<string, string> = {
+    accepted: 'assigned',
+    dispatched: 'assigned',
+    en_route_pickup: 'en_route',
+    arrived_pickup: 'arrived',
+    patient_onboard: 'picked_up',
+};
+
+const toCanonicalStatus = (status: string) => CANONICAL_STATUS_MAP[status] || status;
+
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
     pending: { color: 'bg-red-100 text-red-700', label: 'PENDING', icon: '🔴' },
     broadcasting: { color: 'bg-orange-100 text-orange-700', label: 'BROADCASTING', icon: '📡' },
     assigned: { color: 'bg-blue-100 text-blue-700', label: 'ASSIGNED', icon: '📋' },
+    dispatched: { color: 'bg-sky-100 text-sky-700', label: 'DISPATCHED', icon: '🚨' },
     accepted: { color: 'bg-indigo-100 text-indigo-700', label: 'ACCEPTED', icon: '✅' },
     en_route: { color: 'bg-yellow-100 text-yellow-700', label: 'EN ROUTE', icon: '🚑' },
+    en_route_pickup: { color: 'bg-amber-100 text-amber-700', label: 'TO PICKUP', icon: '🧭' },
     arrived: { color: 'bg-green-100 text-green-700', label: 'ARRIVED', icon: '📍' },
+    arrived_pickup: { color: 'bg-lime-100 text-lime-700', label: 'AT PICKUP', icon: '📍' },
     picked_up: { color: 'bg-purple-100 text-purple-700', label: 'PICKED UP', icon: '🏥' },
+    patient_onboard: { color: 'bg-fuchsia-100 text-fuchsia-700', label: 'PATIENT ONBOARD', icon: '🛏️' },
     en_route_hospital: { color: 'bg-teal-100 text-teal-700', label: 'TO HOSPITAL', icon: '🏥' },
     arrived_hospital: { color: 'bg-emerald-100 text-emerald-700', label: 'AT HOSPITAL', icon: '✅' },
     completed: { color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', label: 'COMPLETED', icon: '✔️' },
@@ -172,9 +190,9 @@ export default function HospitalEmergencyPage() {
         return mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
     };
 
-    const pendingCount = emergencies.filter(e => ['pending', 'broadcasting'].includes(e.status)).length;
-    const activeCount = emergencies.filter(e => ['accepted', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'].includes(e.status)).length;
-    const assignedCount = emergencies.filter(e => e.status === 'assigned').length;
+    const pendingCount = emergencies.filter(e => PENDING_STATUSES.includes(toCanonicalStatus(e.status))).length;
+    const activeCount = emergencies.filter(e => ACTIVE_STATUSES.includes(toCanonicalStatus(e.status))).length;
+    const assignedCount = emergencies.filter(e => ASSIGNED_STATUSES.includes(toCanonicalStatus(e.status))).length;
 
     // Map markers
     const mapMarkers: MapMarker[] = [];
@@ -182,16 +200,16 @@ export default function HospitalEmergencyPage() {
         const patientLat = e.latitude;
         const patientLng = e.longitude;
         if (Number.isFinite(patientLat) && Number.isFinite(patientLng)) {
-            mapMarkers.push({
-                id: `patient-${e.id}`,
-                lat: patientLat as number,
-                lng: patientLng as number,
-                title: e.patientName,
-                popup: `${e.type || 'Emergency'} • ${STATUS_CONFIG[e.status]?.label || e.status}`,
-                color: e.priority === 'critical' ? '#DC2626' : e.priority === 'high' ? '#F59E0B' : '#3B82F6',
-                pulse: ['pending', 'broadcasting'].includes(e.status),
-            });
-        }
+                mapMarkers.push({
+                    id: `patient-${e.id}`,
+                    lat: patientLat as number,
+                    lng: patientLng as number,
+                    title: e.patientName,
+                    popup: `${e.type || 'Emergency'} • ${STATUS_CONFIG[toCanonicalStatus(e.status)]?.label || toCanonicalStatus(e.status)}`,
+                    color: e.priority === 'critical' ? '#DC2626' : e.priority === 'high' ? '#F59E0B' : '#3B82F6',
+                    pulse: PENDING_STATUSES.includes(e.status),
+                });
+            }
         const ambulanceLat = e.ambulance?.latitude;
         const ambulanceLng = e.ambulance?.longitude;
         if (Number.isFinite(ambulanceLat) && Number.isFinite(ambulanceLng)) {
@@ -239,7 +257,7 @@ export default function HospitalEmergencyPage() {
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-100 rounded-xl"><Ambulance className="h-6 w-6 text-blue-600" /></div>
                         <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Assigned / Waiting Accept</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Confirmed</p>
                             <p className="text-2xl font-bold text-blue-600">{assignedCount}</p>
                         </div>
                     </div>
@@ -248,7 +266,7 @@ export default function HospitalEmergencyPage() {
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-green-100 rounded-xl"><Navigation className="h-6 w-6 text-green-600" /></div>
                         <div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Active (En Route / On Scene)</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Active Transport</p>
                             <p className="text-2xl font-bold text-green-600">{activeCount}</p>
                         </div>
                     </div>
@@ -330,7 +348,7 @@ export default function HospitalEmergencyPage() {
                     <CardHeader><CardTitle>Active Emergencies ({emergencies.length})</CardTitle></CardHeader>
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
                         {emergencies.map((e) => {
-                            const statusCfg = STATUS_CONFIG[e.status] || STATUS_CONFIG.pending;
+                            const statusCfg = STATUS_CONFIG[toCanonicalStatus(e.status)] || STATUS_CONFIG.pending;
                             const priorityCfg = PRIORITY_COLORS[e.priority] || PRIORITY_COLORS.normal;
                             return (
                                 <div key={e.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">

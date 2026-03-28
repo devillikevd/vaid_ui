@@ -2,6 +2,7 @@ package com.example.swastik.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.swastik.data.model.FacilityType
 import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.remote.dto.HospitalReviewDto
 import com.example.swastik.data.repository.HospitalRepository
@@ -32,27 +33,56 @@ class HospitalDetailViewModel @Inject constructor(
     val uiState: StateFlow<HospitalDetailUiState> = _uiState.asStateFlow()
 
     fun loadHospitalDetails(hospitalId: String) {
+        loadFacilityDetails(hospitalId, FacilityType.HOSPITAL)
+    }
+
+    fun loadFacilityDetails(facilityId: String, facilityType: FacilityType) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                facility = null,
+                isLoading = true,
+                error = null,
+                reviews = emptyList(),
+                reviewsLoading = false,
+                reviewSuccess = false,
+                reviewError = null
+            )
             try {
-                val facility = hospitalRepository.getHospitalDetails(hospitalId)
+                val facility = when (facilityType) {
+                    FacilityType.CLINIC -> hospitalRepository.getClinicDetails(facilityId)
+                    else -> hospitalRepository.getHospitalDetails(facilityId)
+                }
                 if (facility != null) {
                     _uiState.value = _uiState.value.copy(
                         facility = facility,
                         isLoading = false
                     )
-                    // Also load reviews when details load
-                    loadReviews(hospitalId)
+                    if (facilityType == FacilityType.HOSPITAL) {
+                        loadReviews(facilityId)
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            reviews = emptyList(),
+                            reviewsLoading = false,
+                            reviewSuccess = false,
+                            reviewError = null
+                        )
+                    }
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Hospital not found"
+                        error = when (facilityType) {
+                            FacilityType.CLINIC -> "Clinic not found"
+                            else -> "Hospital not found"
+                        }
                     )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Failed to load hospital details"
+                    error = e.message ?: when (facilityType) {
+                        FacilityType.CLINIC -> "Failed to load clinic details"
+                        else -> "Failed to load hospital details"
+                    }
                 )
             }
         }

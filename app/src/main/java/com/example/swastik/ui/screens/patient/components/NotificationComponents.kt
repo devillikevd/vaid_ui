@@ -29,7 +29,8 @@ fun NotificationPanelDialog(
     notifications: List<NotificationItem>,
     onDismiss: () -> Unit,
     onMarkAllRead: () -> Unit = {},
-    onMarkAsRead: (String) -> Unit = {}
+    onMarkAsRead: (String) -> Unit = {},
+    onActionClick: (NotificationItem) -> Unit = {}
 ) {
 
     var selectedFilter by remember { mutableStateOf("All") }
@@ -114,7 +115,8 @@ fun NotificationPanelDialog(
                         items(filteredNotifications) { notification ->
                             NotificationCard(
                                 notification = notification,
-                                onMarkAsRead = onMarkAsRead
+                                onMarkAsRead = onMarkAsRead,
+                                onActionClick = onActionClick
                             )
                         }
                     }
@@ -133,7 +135,8 @@ fun NotificationPanelDialog(
 @Composable
 private fun NotificationCard(
     notification: NotificationItem,
-    onMarkAsRead: (String) -> Unit = {}
+    onMarkAsRead: (String) -> Unit = {},
+    onActionClick: (NotificationItem) -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -214,7 +217,7 @@ private fun NotificationCard(
 
                     if (notification.actionLabel != null) {
                         TextButton(
-                            onClick = { onMarkAsRead(notification.id) },
+                            onClick = { onActionClick(notification) },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
                             Text(
@@ -248,5 +251,4 @@ private fun getNotificationTypeColor(type: NotificationType) = when (type) {
     NotificationType.OFFER -> Color(0xFFE91E63)
     NotificationType.SYSTEM -> Color.Gray
 }
-
 

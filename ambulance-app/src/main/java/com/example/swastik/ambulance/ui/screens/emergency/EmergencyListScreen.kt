@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,7 +40,7 @@ fun EmergencyListScreen(
                 title = { Text("Emergencies", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -127,10 +128,16 @@ private fun EmergencyListItem(
     emergency: EmergencyDto,
     onClick: () -> Unit
 ) {
+    val patientName = emergency.resolvedPatientName
     val statusColor = when (emergency.status) {
         "completed" -> Color(0xFF4CAF50)
         "cancelled" -> Color.Gray
-        "en_route", "transporting" -> Color(0xFF2196F3)
+        "accepted", "assigned", "dispatched", "broadcasting" -> Color(0xFFFB8C00)
+        "en_route", "en_route_pickup", "transporting" -> Color(0xFF2196F3)
+        "arrived", "arrived_pickup" -> Color(0xFF00897B)
+        "picked_up", "patient_onboard", "en_route_hospital" -> Color(0xFFD32F2F)
+        "arrived_hospital" -> Color(0xFF2E7D32)
+        "timeout", "no_ambulance" -> Color(0xFFC62828)
         else -> Color(0xFFFF9800)
     }
 
@@ -155,8 +162,8 @@ private fun EmergencyListItem(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-                if (emergency.patientName != null) {
-                    Text(emergency.patientName, fontSize = 14.sp, color = Color.Gray)
+                if (patientName != null) {
+                    Text(patientName, fontSize = 14.sp, color = Color.Gray)
                 }
                 if (emergency.address != null) {
                     Text(

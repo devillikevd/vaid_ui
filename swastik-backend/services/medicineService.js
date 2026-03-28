@@ -22,6 +22,66 @@ const CATEGORIES = [
   { id: 'ayurvedic', name: 'Ayurvedic' },
 ];
 
+const normalizeMedicineText = (value) =>
+  sanitizeSearch(String(value || ''))
+    .trim()
+    .toLowerCase();
+
+const getInventoryDisplayName = (item = {}) =>
+  item.name || item.generic_name || item.medicine_name || 'Medicine';
+
+const getInventoryDiscoveryKey = (item = {}) =>
+  item.medicine_id ||
+  normalizeMedicineText(item.generic_name) ||
+  normalizeMedicineText(item.name) ||
+  normalizeMedicineText(item.medicine_name) ||
+  item.id;
+
+const inventoryMatchesMedicine = (item = {}, medicine = {}) => {
+  if (!item || !medicine) return false;
+  if (item.medicine_id && medicine.id && item.medicine_id === medicine.id) return true;
+
+  const inventoryNames = [
+    normalizeMedicineText(item.name),
+    normalizeMedicineText(item.generic_name),
+    normalizeMedicineText(item.medicine_name),
+  ].filter(Boolean);
+  const medicineNames = [
+    normalizeMedicineText(medicine.name),
+    normalizeMedicineText(medicine.generic_name),
+  ].filter(Boolean);
+
+  return medicineNames.some((term) => inventoryNames.includes(term));
+};
+
+const getNearbyActivePharmacies = async (latitude, longitude, radius = 10) => {
+  const bounds = getBoundingBox({ latitude, longitude }, radius);
+
+  const { data: pharmacies, error } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, name, address, phone, latitude, longitude')
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .gte('latitude', bounds.minLat)
+    .lte('latitude', bounds.maxLat)
+    .gte('longitude', bounds.minLng)
+    .lte('longitude', bounds.maxLng);
+
+  if (error) throw error;
+  if (!pharmacies || pharmacies.length === 0) return [];
+
+  return pharmacies
+    .map((pharmacy) => ({
+      ...pharmacy,
+      distance: calculateDistance(
+        { latitude, longitude },
+        { latitude: pharmacy.latitude, longitude: pharmacy.longitude }
+      ),
+    }))
+    .filter((pharmacy) => pharmacy.distance <= radius)
+    .sort((left, right) => left.distance - right.distance);
+};
+
 // Get categories
 const getCategories = async () => {
   return CATEGORIES;
@@ -100,91 +160,110 @@ const getMedicineById = async (id) => {
 
 // Get medicine availability at nearby pharmacies
 const getMedicineAvailability = async (medicineId, latitude, longitude, radius = 10) => {
-  // Get pharmacy inventory for this medicine
-  const { data: inventory } = await supabaseAdmin
+  const [medicine, nearbyPharmacies] = await Promise.all([
+    supabaseAdmin
+      .from('medicines')
+      .select('id, name, generic_name')
+      .eq('id', medicineId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        return data;
+      }),
+    getNearbyActivePharmacies(latitude, longitude, radius),
+  ]);
+
+  if (!medicine || nearbyPharmacies.length === 0) return [];
+
+  const pharmacyIds = nearbyPharmacies.map((pharmacy) => pharmacy.id);
+  const pharmacyById = new Map(nearbyPharmacies.map((pharmacy) => [pharmacy.id, pharmacy]));
+
+  const { data: inventory, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('*, pharmacy:pharmacies(id, name, address, phone, latitude, longitude)')
-    .eq('medicine_id', medicineId)
+    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price')
+    .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0);
 
+  if (error) throw error;
   if (!inventory) return [];
 
-  // Filter by distance
-  return inventory
-    .filter(i => i.pharmacy?.latitude && i.pharmacy?.longitude)
-    .map(i => {
-      const dist = calculateDistance({ latitude, longitude }, { latitude: i.pharmacy.latitude, longitude: i.pharmacy.longitude });
-      return {
-        pharmacy: i.pharmacy,
-        quantity: i.quantity,
-        price: i.price,
-        distance: dist,
-        distanceText: formatDistance(dist),
-      };
-    })
-    .filter(i => i.distance <= radius)
-    .sort((a, b) => a.distance - b.distance);
+  const availabilityByPharmacy = new Map();
+  for (const item of inventory) {
+    if (!inventoryMatchesMedicine(item, medicine)) continue;
+
+    const pharmacy = pharmacyById.get(item.pharmacy_id);
+    if (!pharmacy) continue;
+
+    const existing = availabilityByPharmacy.get(item.pharmacy_id);
+    const candidate = {
+      pharmacy_id: pharmacy.id,
+      pharmacy_name: pharmacy.name,
+      address: pharmacy.address,
+      price: item.price,
+      in_stock: (item.quantity || 0) > 0,
+      distance: pharmacy.distance,
+    };
+
+    if (!existing || (candidate.price ?? Number.MAX_SAFE_INTEGER) < (existing.price ?? Number.MAX_SAFE_INTEGER)) {
+      availabilityByPharmacy.set(item.pharmacy_id, candidate);
+    }
+  }
+
+  return Array.from(availabilityByPharmacy.values()).sort((left, right) => left.distance - right.distance);
 };
 
 // Get nearby medicines (hybrid aggregation)
 const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) => {
   if (!latitude || !longitude) return [];
+  const nearbyPharmacies = await getNearbyActivePharmacies(latitude, longitude, radius);
+  if (nearbyPharmacies.length === 0) return [];
 
-  const bounds = getBoundingBox({ latitude, longitude }, radius);
+  const pharmacyIds = nearbyPharmacies.map((pharmacy) => pharmacy.id);
+  const pharmacyById = new Map(nearbyPharmacies.map((pharmacy) => [pharmacy.id, pharmacy]));
 
-  // 1. Get active nearby pharmacies
-  const { data: pharmacies } = await supabaseAdmin
-    .from('pharmacies')
-    .select('id, latitude, longitude')
-    .eq('is_active', true)
-    .eq('is_approved', true)
-    .gte('latitude', bounds.minLat)
-    .lte('latitude', bounds.maxLat)
-    .gte('longitude', bounds.minLng)
-    .lte('longitude', bounds.maxLng);
-
-  if (!pharmacies || pharmacies.length === 0) return [];
-  
-  // Filter pharmacies strictly by true distance
-  const validPharmacyIds = pharmacies
-    .filter(p => calculateDistance({ latitude, longitude }, { latitude: p.latitude, longitude: p.longitude }) <= radius)
-    .map(p => p.id);
-
-  if (validPharmacyIds.length === 0) return [];
-
-  // 2. Query inventory linked to those pharmacies, ensuring stock > 0
-  const { data: inventoryItems } = await supabaseAdmin
+  const { data: inventoryItems, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('*, pharmacy:pharmacies(id, name, address)')
-    .in('pharmacy_id', validPharmacyIds)
+    .select('id, pharmacy_id, medicine_id, name, generic_name, category, price, quantity')
+    .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0)
-    .limit(limit * 3); // Overfetch to allow for deduplication
+    .limit(limit * 5);
 
+  if (error) throw error;
   if (!inventoryItems) return [];
-  
-  // Deduplicate by medicine_name/medicine_id (showing the cheapest or closest option)
+
   const uniqueMedicines = new Map();
   for (const item of inventoryItems) {
-    const key = item.medicine_id || item.medicine_name.toLowerCase();
-    if (!uniqueMedicines.has(key) || uniqueMedicines.get(key).price > item.price) {
-      uniqueMedicines.set(key, item);
+    const pharmacy = pharmacyById.get(item.pharmacy_id);
+    if (!pharmacy) continue;
+
+    const key = getInventoryDiscoveryKey(item);
+    const candidate = {
+      id: item.id,
+      medicineId: item.medicine_id,
+      name: getInventoryDisplayName(item),
+      category: item.category,
+      price: item.price || 0,
+      pharmacyName: pharmacy.name,
+      pharmacyId: pharmacy.id,
+      inStock: (item.quantity || 0) > 0,
+      quantity: item.quantity || 0,
+      distance: pharmacy.distance,
+    };
+
+    const existing = uniqueMedicines.get(key);
+    if (
+      !existing ||
+      candidate.price < existing.price ||
+      (candidate.price === existing.price && candidate.distance < existing.distance)
+    ) {
+      uniqueMedicines.set(key, candidate);
     }
   }
 
-  // Convert to array and shape it beautifully for the frontend
   return Array.from(uniqueMedicines.values())
-    .map(item => ({
-       id: item.id, // Inventory ID
-       medicineId: item.medicine_id,
-       name: item.name || item.medicine_name,
-       category: item.category,
-       price: item.price,
-       pharmacyName: item.pharmacy?.name,
-       pharmacyId: item.pharmacy_id,
-       inStock: true,
-       quantity: item.quantity
-    }))
-    .slice(0, limit);
+    .sort((left, right) => left.distance - right.distance)
+    .slice(0, limit)
+    .map(({ distance, ...item }) => item);
 };
 
 // Get alternatives (generic equivalents)

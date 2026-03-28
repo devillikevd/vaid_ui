@@ -33,8 +33,8 @@ fun OrderHistoryScreen(
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Pending", "Confirmed", "Processing", "Delivered", "Cancelled")
-    val statusFilters = listOf(null, "pending", "confirmed", "processing", "delivered", "cancelled")
+    val tabs = listOf("All", "Pending", "Confirmed", "Processing", "Ready", "Dispatched", "Delivered", "Cancelled")
+    val statusFilters = listOf(null, "pending", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled")
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -56,6 +56,7 @@ fun OrderHistoryScreen(
                 "confirmed" -> "🧾"
                 "processing" -> "🔄"
                 "ready" -> "📦"
+                "dispatched" -> "🚚"
                 "delivered" -> "✅"
                 "cancelled" -> "❌"
                 else -> "📦"

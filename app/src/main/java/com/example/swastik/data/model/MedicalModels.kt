@@ -27,7 +27,8 @@ data class MedicalFacility(
     @SerializedName("is_emergency_available") val isEmergencyAvailable: Boolean = false,
     val specializations: List<String> = emptyList(),
     val doctors: List<HospitalDoctor> = emptyList(),
-    val hospitalSubType: String? = null // "Government" or "Private"
+    val hospitalSubType: String? = null, // "Government" or "Private"
+    val departments: List<String> = emptyList()
 )
 
 enum class FacilityType {

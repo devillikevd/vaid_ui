@@ -258,8 +258,8 @@ fun RecordsTabContent(
     if (showUploadDialog) {
         UploadReportDialog(
             onDismiss = { showUploadDialog = false },
-            onUpload = { uri, name, type ->
-                viewModel.uploadReport(uri, name, type)
+            onUpload = { uri, name, type, externalUrl ->
+                viewModel.uploadReport(uri, name, type, externalUrl)
                 showUploadDialog = false
             },
             isUploading = state.uploadState is UploadState.Uploading
@@ -705,7 +705,7 @@ private enum class RecordFilter {
 @Composable
 private fun UploadReportDialog(
     onDismiss: () -> Unit,
-    onUpload: (Uri, String, String) -> Unit,
+    onUpload: (Uri?, String, String, String?) -> Unit,
     isUploading: Boolean
 ) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
@@ -713,6 +713,7 @@ private fun UploadReportDialog(
     var reportName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("blood_test") }
     var typeExpanded by remember { mutableStateOf(false) }
+    var manualUrl by remember { mutableStateOf("") }
 
     val reportTypes = listOf(
         "blood_test" to "Blood Test",
@@ -764,6 +765,22 @@ private fun UploadReportDialog(
                         maxLines = 1
                     )
                 }
+
+                OutlinedTextField(
+                    value = manualUrl,
+                    onValueChange = { manualUrl = it },
+                    label = { Text("Or Paste Report Link") },
+                    placeholder = { Text("https://example.com/report.pdf") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isUploading,
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(Icons.Outlined.Link, contentDescription = null)
+                    },
+                    supportingText = {
+                        Text("Use this when your report is already hosted or uploads are temporarily unavailable.")
+                    }
+                )
 
                 // Report name
                 OutlinedTextField(
@@ -828,12 +845,16 @@ private fun UploadReportDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    selectedUri?.let { uri ->
-                        val name = reportName.ifBlank { selectedFileName }
-                        onUpload(uri, name, selectedType)
+                    val normalizedUrl = manualUrl.trim().takeIf { it.isNotBlank() }
+                    val defaultName = when {
+                        reportName.isNotBlank() -> reportName
+                        selectedFileName.isNotBlank() -> selectedFileName
+                        normalizedUrl != null -> "Shared Report"
+                        else -> ""
                     }
+                    onUpload(selectedUri, defaultName, selectedType, normalizedUrl)
                 },
-                enabled = selectedUri != null && !isUploading,
+                enabled = (selectedUri != null || manualUrl.isNotBlank()) && !isUploading,
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
             ) {
                 Text("Upload")

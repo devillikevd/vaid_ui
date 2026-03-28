@@ -1,13 +1,27 @@
 import { create } from 'zustand';
 import { pharmacyApi } from '../lib/api';
 
-// ==================== Types ====================
+export interface PaginationState {
+    page: number;
+    totalPages: number;
+    total: number;
+    hasMore: boolean;
+}
 
 export interface PharmacyDashboardStats {
     newPrescriptions: number;
     pendingOrders: number;
     lowStockItems: number;
     todaysRevenue: number;
+}
+
+export interface PharmacyAnalytics {
+    period: string;
+    totalOrders: number;
+    pendingOrders: number;
+    totalInventoryItems: number;
+    lowStockItems: number;
+    totalInventoryValue: number;
 }
 
 export interface InventoryItem {
@@ -19,6 +33,7 @@ export interface InventoryItem {
     unit: string;
     price?: number;
     expiryDate?: string;
+    manufacturer?: string;
     isLowStock: boolean;
     requiresPrescription?: boolean;
 }
@@ -57,6 +72,88 @@ export interface Prescription {
     date?: string;
 }
 
+export interface OrderSummary {
+    total: number;
+    pending: number;
+    active: number;
+    completed: number;
+    delivered: number;
+}
+
+interface InventoryQuery {
+    page?: number;
+    limit?: number;
+    search?: string;
+    lowStock?: boolean;
+    category?: string;
+}
+
+interface OrdersQuery {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    group?: string;
+}
+
+interface PrescriptionsQuery {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+}
+
+const defaultPagination: PaginationState = {
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    hasMore: false,
+};
+
+const defaultOrderSummary: OrderSummary = {
+    total: 0,
+    pending: 0,
+    active: 0,
+    completed: 0,
+    delivered: 0,
+};
+
+function normalizePagination(
+    pagination: Record<string, number> | undefined,
+    page: number,
+    fallbackTotal: number
+): PaginationState {
+    const safePage = pagination?.page || page;
+    const totalPages = pagination?.totalPages || 1;
+    const total = pagination?.total ?? fallbackTotal;
+
+    return {
+        page: safePage,
+        totalPages,
+        total,
+        hasMore: safePage < totalPages,
+    };
+}
+
+function normalizeInventoryItem(raw: Record<string, any>): InventoryItem {
+    const quantity = Number(raw.quantity ?? raw.stock ?? 0);
+    const minQuantity = Number(raw.minQuantity ?? raw.min_quantity ?? raw.reorder_level ?? 10);
+
+    return {
+        id: raw.id || '',
+        name: raw.name || raw.medicine_name || 'Medicine',
+        genericName: raw.genericName || raw.generic_name || raw.medicine_name || undefined,
+        quantity,
+        minQuantity,
+        unit: raw.unit || 'units',
+        price: raw.price ?? raw.mrp ?? undefined,
+        expiryDate: raw.expiryDate || raw.expiry_date || undefined,
+        manufacturer: raw.manufacturer || undefined,
+        isLowStock: raw.isLowStock ?? quantity < minQuantity,
+        requiresPrescription: raw.requiresPrescription ?? raw.requires_prescription ?? false,
+    };
+}
+
 function normalizeOrder(raw: Record<string, any>): Order {
     const items = Array.isArray(raw.items) ? raw.items : [];
     const derivedTotal = items.reduce((sum: number, item: any) => sum + (item.subtotal || ((item.price || 0) * (item.quantity || 1))), 0);
@@ -72,11 +169,46 @@ function normalizeOrder(raw: Record<string, any>): Order {
     } as Order;
 }
 
+function normalizePrescription(raw: Record<string, any>): Prescription {
+    const medications = Array.isArray(raw.medications)
+        ? raw.medications
+        : Array.isArray(raw.prescription_medicines)
+            ? raw.prescription_medicines
+            : [];
+
+    return {
+        id: raw.id || '',
+        patientName: raw.patientName || raw.patient?.name || raw.patients?.name || 'Patient',
+        doctorName: raw.doctorName || raw.doctor?.name || raw.doctors?.name || '',
+        items: Number(raw.items ?? medications.length ?? 0),
+        time: raw.time || raw.created_at || raw.date || '',
+        status: raw.status || (raw.is_dispensed ? 'fulfilled' : 'pending'),
+        medications,
+        date: raw.date || raw.created_at || raw.prescribed_at || '',
+    };
+}
+
+function normalizeAnalytics(raw: Record<string, any>, fallbackPeriod: string): PharmacyAnalytics {
+    return {
+        period: String(raw.period || fallbackPeriod),
+        totalOrders: Number(raw.totalOrders || 0),
+        pendingOrders: Number(raw.pendingOrders || 0),
+        totalInventoryItems: Number(raw.totalInventoryItems || 0),
+        lowStockItems: Number(raw.lowStockItems || 0),
+        totalInventoryValue: Number(raw.totalInventoryValue || 0),
+    };
+}
+
 interface PharmacyState {
     stats: PharmacyDashboardStats | null;
+    analytics: PharmacyAnalytics | null;
     inventory: InventoryItem[];
+    inventoryPagination: PaginationState;
     orders: Order[];
+    ordersPagination: PaginationState;
+    orderSummary: OrderSummary;
     prescriptions: Prescription[];
+    prescriptionsPagination: PaginationState;
     pendingPrescriptions: Prescription[];
     lowStockItems: InventoryItem[];
     isLoading: boolean;
@@ -84,13 +216,18 @@ interface PharmacyState {
     loadingInventory: boolean;
     loadingOrders: boolean;
     loadingPrescriptions: boolean;
+    loadingAnalytics: boolean;
     error: string | null;
+    inventoryQuery: InventoryQuery;
+    ordersQuery: OrdersQuery;
+    prescriptionsQuery: PrescriptionsQuery;
 
     fetchDashboardData: () => Promise<void>;
-    fetchInventory: (search?: string) => Promise<void>;
-    fetchOrders: (status?: string) => Promise<void>;
-    fetchPrescriptions: (status?: string) => Promise<void>;
+    fetchInventory: (params?: InventoryQuery) => Promise<void>;
+    fetchOrders: (params?: OrdersQuery) => Promise<void>;
+    fetchPrescriptions: (params?: PrescriptionsQuery) => Promise<void>;
     fetchLowStockItems: () => Promise<void>;
+    fetchAnalytics: (period?: string) => Promise<void>;
     addInventoryItem: (data: Record<string, unknown>) => Promise<boolean>;
     updateInventoryItem: (id: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteInventoryItem: (id: string) => Promise<boolean>;
@@ -99,13 +236,16 @@ interface PharmacyState {
     reset: () => void;
 }
 
-// ==================== Store ====================
-
 const pharmacyInitialState = {
     stats: null as PharmacyDashboardStats | null,
+    analytics: null as PharmacyAnalytics | null,
     inventory: [] as InventoryItem[],
+    inventoryPagination: { ...defaultPagination },
     orders: [] as Order[],
+    ordersPagination: { ...defaultPagination },
+    orderSummary: { ...defaultOrderSummary },
     prescriptions: [] as Prescription[],
+    prescriptionsPagination: { ...defaultPagination },
     pendingPrescriptions: [] as Prescription[],
     lowStockItems: [] as InventoryItem[],
     isLoading: false,
@@ -113,7 +253,11 @@ const pharmacyInitialState = {
     loadingInventory: false,
     loadingOrders: false,
     loadingPrescriptions: false,
+    loadingAnalytics: false,
     error: null as string | null,
+    inventoryQuery: { page: 1, limit: 10 } as InventoryQuery,
+    ordersQuery: { page: 1, limit: 10 } as OrdersQuery,
+    prescriptionsQuery: { page: 1, limit: 10 } as PrescriptionsQuery,
 };
 
 export const usePharmacyStore = create<PharmacyState>((set, get) => ({
@@ -134,11 +278,16 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 });
                 return;
             }
+
             const data = response.data as Record<string, unknown>;
-            const prescriptions = (data.pendingPrescriptions || data.recentPrescriptions || []) as Prescription[];
+            const prescriptions = ((data.pendingPrescriptions || data.recentPrescriptions || []) as Record<string, any>[])
+                .map(normalizePrescription);
+            const lowStockItems = ((data.lowStockItems || []) as Record<string, any>[])
+                .map(normalizeInventoryItem);
+
             set({
                 stats: (data.stats as PharmacyDashboardStats) || null,
-                lowStockItems: (data.lowStockItems as InventoryItem[]) || [],
+                lowStockItems,
                 pendingPrescriptions: prescriptions,
                 loadingDashboard: false,
                 isLoading: false,
@@ -153,66 +302,117 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         }
     },
 
-    fetchInventory: async (search?: string) => {
+    fetchInventory: async (params = {}) => {
         set({ loadingInventory: true, error: null });
         try {
-            const response = await pharmacyApi.getInventory(1, search);
+            const query = {
+                ...get().inventoryQuery,
+                ...params,
+                page: params.page ?? 1,
+                limit: params.limit ?? get().inventoryQuery.limit ?? 10,
+            };
+            const response = await pharmacyApi.getInventory(query);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load inventory', loadingInventory: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
+
             const rawData = response.data;
+            const inventory = (Array.isArray(rawData) ? rawData : (rawData as any)?.items || (rawData as any)?.inventory || (rawData as any)?.data || [])
+                .map((item: Record<string, any>) => normalizeInventoryItem(item)) as InventoryItem[];
+            const pagination = normalizePagination((response as any).pagination, query.page || 1, inventory.length);
+
             set({
-                inventory: (Array.isArray(rawData) ? rawData : (rawData as any)?.items || (rawData as any)?.inventory || (rawData as any)?.data || []) as InventoryItem[],
+                inventory,
+                inventoryPagination: pagination,
+                inventoryQuery: query,
                 loadingInventory: false,
             });
         } catch (error) {
             console.error('Error fetching inventory:', error);
-            set({ error: 'Failed to load inventory.', loadingInventory: false });
+            set({
+                error: 'Failed to load inventory.',
+                loadingInventory: false,
+                inventoryPagination: { ...defaultPagination },
+            });
         }
     },
 
-    fetchOrders: async (status?: string) => {
+    fetchOrders: async (params = {}) => {
         set({ loadingOrders: true, error: null });
         try {
-            const response = await pharmacyApi.getOrders(status);
+            const query = {
+                ...get().ordersQuery,
+                ...params,
+                page: params.page ?? 1,
+                limit: params.limit ?? get().ordersQuery.limit ?? 10,
+            };
+            const response = await pharmacyApi.getOrders(query);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load orders', loadingOrders: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
+
             const rawData = response.data;
-            const orders = (Array.isArray(rawData) ? rawData : (rawData as any)?.orders || (rawData as any)?.data || []) as Record<string, any>[];
+            const orders = (Array.isArray(rawData) ? rawData : (rawData as any)?.orders || (rawData as any)?.data || [])
+                .map((order: Record<string, any>) => normalizeOrder(order)) as Order[];
+            const pagination = normalizePagination((response as any).pagination, query.page || 1, orders.length);
+
             set({
-                orders: orders.map(normalizeOrder),
+                orders,
+                ordersPagination: pagination,
+                orderSummary: {
+                    ...defaultOrderSummary,
+                    ...((response as any).summary as Partial<OrderSummary> | undefined),
+                },
+                ordersQuery: query,
                 loadingOrders: false,
             });
         } catch (error) {
             console.error('Error fetching orders:', error);
-            set({ error: 'Failed to load orders.', loadingOrders: false });
+            set({
+                error: 'Failed to load orders.',
+                loadingOrders: false,
+                ordersPagination: { ...defaultPagination },
+                orderSummary: { ...defaultOrderSummary },
+            });
         }
     },
 
-    fetchPrescriptions: async (status?: string) => {
+    fetchPrescriptions: async (params = {}) => {
         set({ loadingPrescriptions: true, error: null });
         try {
-            const response = await pharmacyApi.getPrescriptions(status);
+            const query = {
+                ...get().prescriptionsQuery,
+                ...params,
+                page: params.page ?? 1,
+                limit: params.limit ?? get().prescriptionsQuery.limit ?? 10,
+            };
+            const response = await pharmacyApi.getPrescriptions(query);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load prescriptions', loadingPrescriptions: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
+
             const rawData = response.data;
-            const allPrescriptions = (Array.isArray(rawData) ? rawData : (rawData as any)?.prescriptions || (rawData as any)?.data || []) as Prescription[];
+            const prescriptions = (Array.isArray(rawData) ? rawData : (rawData as any)?.prescriptions || (rawData as any)?.data || [])
+                .map((prescription: Record<string, any>) => normalizePrescription(prescription)) as Prescription[];
+            const pagination = normalizePagination((response as any).pagination, query.page || 1, prescriptions.length);
+
             set({
-                prescriptions: allPrescriptions,
-                pendingPrescriptions: allPrescriptions.filter((p: Prescription) => p.status === 'pending'),
+                prescriptions,
+                pendingPrescriptions: prescriptions.filter((prescription) => ['pending', 'ready'].includes(prescription.status)),
+                prescriptionsPagination: pagination,
+                prescriptionsQuery: query,
                 loadingPrescriptions: false,
             });
         } catch (error) {
             console.error('Error fetching prescriptions:', error);
-            set({ error: 'Failed to load prescriptions.', loadingPrescriptions: false });
+            set({
+                error: 'Failed to load prescriptions.',
+                loadingPrescriptions: false,
+                prescriptionsPagination: { ...defaultPagination },
+            });
         }
     },
 
@@ -224,9 +424,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
                 set({ error: response.error || 'Failed to load low stock items', loadingInventory: false });
                 return;
             }
+
             const data = response.data as Record<string, unknown>;
             set({
-                lowStockItems: (data.lowStockItems as InventoryItem[]) || [],
+                lowStockItems: ((data.lowStockItems || []) as Record<string, any>[]).map(normalizeInventoryItem),
                 loadingInventory: false,
             });
         } catch (error) {
@@ -235,11 +436,34 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         }
     },
 
+    fetchAnalytics: async (period = '30d') => {
+        set({ loadingAnalytics: true, error: null });
+        try {
+            const response = await pharmacyApi.getAnalytics(period);
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load analytics', loadingAnalytics: false });
+                return;
+            }
+
+            const data = response.data as Record<string, any>;
+            set({
+                analytics: data ? normalizeAnalytics(data, period) : null,
+                loadingAnalytics: false,
+            });
+        } catch (error) {
+            console.error('Error fetching analytics:', error);
+            set({ error: 'Failed to load analytics.', loadingAnalytics: false });
+        }
+    },
+
     addInventoryItem: async (data) => {
         try {
             const response = await pharmacyApi.addInventoryItem(data);
             if (response.success) {
-                get().fetchInventory();
+                await Promise.allSettled([
+                    get().fetchInventory(get().inventoryQuery),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to add inventory item' });
@@ -255,7 +479,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         try {
             const response = await pharmacyApi.updateInventoryItem(id, data);
             if (response.success) {
-                get().fetchInventory();
+                await Promise.allSettled([
+                    get().fetchInventory(get().inventoryQuery),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to update inventory item' });
@@ -271,7 +498,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         try {
             const response = await pharmacyApi.deleteInventoryItem(id);
             if (response.success) {
-                get().fetchInventory();
+                await Promise.allSettled([
+                    get().fetchInventory(get().inventoryQuery),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to delete inventory item' });
@@ -287,8 +517,10 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
         try {
             const response = await pharmacyApi.updateOrderStatus(orderId, status);
             if (response.success) {
-                get().fetchOrders();
-                get().fetchDashboardData();
+                await Promise.allSettled([
+                    get().fetchOrders(get().ordersQuery),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to update order status' });

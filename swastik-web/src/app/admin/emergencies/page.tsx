@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import {
     Siren, MapPin, Clock, Phone, AlertTriangle,
     CheckCircle, Ambulance, RefreshCw, Loader2,
-    Radio, Eye
+    Radio
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
+import { useToast } from '@/components/ui/Toast';
 import { adminApi } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 import OsmMap from '@/components/shared/OsmMapDynamic';
@@ -33,6 +35,17 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string
     no_ambulance: { color: 'bg-red-100 text-red-800 border-red-300', label: 'NO AMBULANCE', icon: '⚠️' },
 };
 
+const CANONICAL_STATUS_MAP: Record<string, string> = {
+    active: 'pending',
+    accepted: 'assigned',
+    dispatched: 'assigned',
+    en_route_pickup: 'en_route',
+    arrived_pickup: 'arrived',
+    patient_onboard: 'picked_up',
+};
+
+const toCanonicalStatus = (status: string) => CANONICAL_STATUS_MAP[status] || status;
+
 interface Emergency {
     id: string;
     patientName: string;
@@ -44,47 +57,97 @@ interface Emergency {
     dispatchMode?: string;
     requestedAt: string;
     ambulance?: string;
+    ambulanceId?: string;
     ambulanceVehicle?: string;
     ambulanceDriver?: string;
     latitude?: number;
     longitude?: number;
 }
 
+const STATUS_FILTERS = [
+    { id: 'active', label: 'Active' },
+    { id: 'all', label: 'All' },
+    { id: 'resolved', label: 'Resolved' },
+    { id: 'cancelled', label: 'Cancelled' },
+];
+
+const EMERGENCY_STATUS_TRANSITIONS: Record<string, string[]> = {
+    pending: ['broadcasting', 'assigned', 'dispatched', 'cancelled', 'no_ambulance'],
+    broadcasting: ['assigned', 'dispatched', 'timeout', 'cancelled', 'no_ambulance'],
+    assigned: ['dispatched', 'en_route', 'cancelled'],
+    accepted: ['en_route', 'cancelled'],
+    dispatched: ['en_route', 'cancelled'],
+    en_route_pickup: ['arrived', 'picked_up', 'cancelled'],
+    en_route: ['arrived', 'picked_up', 'cancelled'],
+    arrived: ['picked_up', 'completed', 'cancelled'],
+    picked_up: ['en_route_hospital', 'completed', 'cancelled'],
+    en_route_hospital: ['arrived_hospital', 'completed', 'cancelled'],
+    arrived_hospital: ['completed'],
+    timeout: ['broadcasting', 'cancelled'],
+    no_ambulance: ['broadcasting', 'cancelled'],
+};
+
 export default function EmergenciesPage() {
     const [emergencies, setEmergencies] = useState<Emergency[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState('active');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [summary, setSummary] = useState({ pending: 0, active: 0, resolved: 0, cancelled: 0 });
+    const [statusDrafts, setStatusDrafts] = useState<Record<string, string>>({});
+    const [updatingEmergencyId, setUpdatingEmergencyId] = useState<string | null>(null);
     const { on, emit } = useSocket();
+    const toast = useToast();
 
     const fetchEmergencies = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const result = await adminApi.getEmergencies();
+            const result = await adminApi.getEmergencies(page, 20, statusFilter);
             if (!result.success) throw new Error('Failed');
-            const apiData = (result.data as any)?.data || (result.data as any) || [];
+            const apiData = Array.isArray(result.data) ? result.data : [];
             const normalized: Emergency[] = (Array.isArray(apiData) ? apiData : []).map((item: any) => ({
                 id: item.id,
                 patientName: item.requester_name || item.patient?.name || item.patientName || 'Unknown patient',
-                phone: item.requester_phone || item.phone || '',
+                phone: item.requester_phone || item.patient?.user?.phone || item.phone || '',
                 location: item.pickup_address || item.location || '',
                 type: item.emergency_type || item.type || 'medical',
                 status: item.status || 'pending',
                 priority: item.priority,
                 dispatchMode: item.dispatch_mode || item.dispatchMode,
                 requestedAt: item.requested_at || item.created_at || item.requestedAt || '',
-                ambulance: item.ambulance?.name || item.ambulance_name || item.ambulance || '',
-                ambulanceVehicle: item.ambulance?.vehicle_number || item.vehicle_number || item.ambulanceVehicle || item.vehicle_id || '',
-                ambulanceDriver: item.ambulance?.driver_name || item.ambulanceDriver || '',
+                ambulance: item.vehicle?.vehicle_number || item.ambulance?.name || item.ambulance_name || item.ambulance || '',
+                ambulanceId: item.vehicle?.id || item.vehicle_id || undefined,
+                ambulanceVehicle: item.vehicle?.vehicle_number || item.ambulance?.vehicle_number || item.vehicle_number || item.ambulanceVehicle || item.vehicle_id || '',
+                ambulanceDriver: item.vehicle?.driver_name || item.ambulance?.driver_name || item.ambulanceDriver || '',
                 latitude: item.pickup_latitude ?? item.latitude,
                 longitude: item.pickup_longitude ?? item.longitude,
             }));
             setEmergencies(normalized);
-        } catch { setError('Failed to load emergency data'); }
+            setTotalPages(result.pagination?.totalPages || 1);
+            setTotalItems(result.pagination?.total || normalized.length);
+            const summary = (result.summary as {
+                pending?: number;
+                active?: number;
+                resolved?: number;
+                cancelled?: number;
+            } | undefined) || {};
+            setSummary({
+                pending: summary.pending || 0,
+                active: summary.active || 0,
+                resolved: summary.resolved || 0,
+                cancelled: summary.cancelled || 0,
+            });
+        } catch {
+            setError('Failed to load emergency data');
+        }
         setIsLoading(false);
-    }, []);
+    }, [page, statusFilter]);
 
     useEffect(() => { fetchEmergencies(); }, [fetchEmergencies]);
+    useEffect(() => { setPage(1); }, [statusFilter]);
 
     // Join dispatch room for live updates
     useEffect(() => {
@@ -112,9 +175,9 @@ export default function EmergenciesPage() {
         return () => clearInterval(interval);
     }, [fetchEmergencies]);
 
-    const pendingCount = emergencies.filter(e => ['active', 'pending', 'broadcasting'].includes(e.status)).length;
-    const activeCount = emergencies.filter(e => ['dispatched', 'assigned', 'accepted', 'en_route_pickup', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'].includes(e.status)).length;
-    const resolvedCount = emergencies.filter(e => ['resolved', 'completed'].includes(e.status)).length;
+    const pendingCount = summary.pending;
+    const activeCount = summary.active;
+    const resolvedCount = summary.resolved;
 
     const formatTime = (dateStr: string) => {
         const d = new Date(dateStr);
@@ -122,18 +185,52 @@ export default function EmergenciesPage() {
         return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     };
 
+    const humanizeStatus = (status: string) => status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
+    const handleStatusUpdate = async (emergencyId: string) => {
+        const nextStatus = statusDrafts[emergencyId];
+        if (!nextStatus) return;
+
+        setUpdatingEmergencyId(emergencyId);
+        try {
+            const result = await adminApi.updateEmergencyStatus(emergencyId, nextStatus);
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update status');
+            }
+            toast.success('Emergency updated', `Status changed to ${humanizeStatus(nextStatus)}.`);
+            setStatusDrafts((prev) => {
+                const next = { ...prev };
+                delete next[emergencyId];
+                return next;
+            });
+            await fetchEmergencies();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to update emergency status';
+            toast.error('Update failed', message);
+        } finally {
+            setUpdatingEmergencyId(null);
+        }
+    };
+
     // Map markers for all geo-located emergencies
-    const geoEmergencies = emergencies.filter(e => e.latitude && e.longitude && !['completed', 'cancelled', 'resolved'].includes(e.status));
-    const mapMarkers: MapMarker[] = geoEmergencies.map(e => ({
+    const geoEmergencies = emergencies.filter((e) =>
+        typeof e.latitude === 'number'
+        && typeof e.longitude === 'number'
+        && !['completed', 'cancelled', 'resolved'].includes(e.status)
+    );
+    const mapMarkers: MapMarker[] = geoEmergencies.map(e => {
+        const canonicalStatus = toCanonicalStatus(e.status);
+        return ({
         id: e.id,
         lat: e.latitude!,
         lng: e.longitude!,
         title: e.patientName,
-        popup: `${e.type} • ${STATUS_CONFIG[e.status]?.label || e.status}<br/>${e.location || ''}`,
-        color: ['pending', 'active', 'broadcasting'].includes(e.status) ? '#DC2626' :
-            ['dispatched', 'assigned', 'accepted', 'en_route_pickup', 'en_route'].includes(e.status) ? '#F59E0B' : '#059669',
-        pulse: ['active', 'pending', 'broadcasting'].includes(e.status),
-    }));
+        popup: `${e.type} • ${STATUS_CONFIG[canonicalStatus]?.label || canonicalStatus}<br/>${e.location || ''}`,
+        color: ['pending', 'broadcasting'].includes(canonicalStatus) ? '#DC2626' :
+            ['assigned', 'en_route'].includes(canonicalStatus) ? '#F59E0B' : '#059669',
+        pulse: ['pending', 'broadcasting'].includes(canonicalStatus),
+    });
+    });
 
     return (
         <div className="space-y-6">
@@ -143,6 +240,22 @@ export default function EmergenciesPage() {
                     <p className="text-gray-600 dark:text-gray-400 mt-1">Real-time monitoring of all emergency requests (hospitals manage dispatch independently)</p>
                 </div>
                 <Button onClick={fetchEmergencies} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                {STATUS_FILTERS.map((filter) => (
+                    <button
+                        key={filter.id}
+                        onClick={() => setStatusFilter(filter.id)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            statusFilter === filter.id
+                                ? 'bg-red-600 text-white'
+                                : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                        }`}
+                    >
+                        {filter.label}
+                    </button>
+                ))}
             </div>
 
             {/* Stats */}
@@ -156,7 +269,7 @@ export default function EmergenciesPage() {
                 <Card padding="md">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-yellow-100 rounded-xl"><Ambulance className="h-6 w-6 text-yellow-600" /></div>
-                        <div><p className="text-sm text-gray-600 dark:text-gray-400">Active / Dispatched</p><p className="text-2xl font-bold text-yellow-600">{activeCount}</p></div>
+                        <div><p className="text-sm text-gray-600 dark:text-gray-400">Confirmed / Transport</p><p className="text-2xl font-bold text-yellow-600">{activeCount}</p></div>
                     </div>
                 </Card>
                 <Card padding="md">
@@ -194,7 +307,9 @@ export default function EmergenciesPage() {
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
                         {emergencies.map((emergency) => {
-                            const statusCfg = STATUS_CONFIG[emergency.status] || STATUS_CONFIG.pending;
+                            const canonicalStatus = toCanonicalStatus(emergency.status);
+                            const statusCfg = STATUS_CONFIG[canonicalStatus] || STATUS_CONFIG.pending;
+                            const transitionKey = EMERGENCY_STATUS_TRANSITIONS[canonicalStatus] ? canonicalStatus : emergency.status;
                             return (
                                 <div key={emergency.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <div className="flex items-start justify-between gap-4">
@@ -234,11 +349,33 @@ export default function EmergenciesPage() {
                                                 )}
                                             </div>
                                         </div>
-                                        {/* Monitor-only indicator */}
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <span className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                                <Eye className="h-3.5 w-3.5" /> Monitoring
-                                            </span>
+                                            {EMERGENCY_STATUS_TRANSITIONS[transitionKey]?.length ? (
+                                                <>
+                                                    <select
+                                                        value={statusDrafts[emergency.id] || ''}
+                                                        onChange={(e) => setStatusDrafts((prev) => ({ ...prev, [emergency.id]: e.target.value }))}
+                                                        className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200"
+                                                    >
+                                                        <option value="">Next status</option>
+                                                        {EMERGENCY_STATUS_TRANSITIONS[transitionKey].map((status) => (
+                                                            <option key={status} value={status}>{humanizeStatus(status)}</option>
+                                                        ))}
+                                                    </select>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleStatusUpdate(emergency.id)}
+                                                        disabled={!statusDrafts[emergency.id] || updatingEmergencyId === emergency.id}
+                                                        isLoading={updatingEmergencyId === emergency.id}
+                                                    >
+                                                        Update
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <span className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                    Final state
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -246,6 +383,13 @@ export default function EmergenciesPage() {
                         })}
                     </div>
                 )}
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    totalItems={totalItems}
+                    itemsPerPage={20}
+                />
             </Card>
         </div>
     );

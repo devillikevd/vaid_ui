@@ -11,17 +11,20 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDial
 import { useToast } from '@/components/ui/Toast';
 
 export default function HospitalDepartmentsPage() {
-    const { departments, isLoading, error, fetchDepartments, addDepartment, updateDepartment, deleteDepartment, clearError } = useHospitalStore();
+    const { departments, doctors, loadingDepartments, error, fetchDepartments, fetchDoctors, addDepartment, updateDepartment, deleteDepartment, clearError } = useHospitalStore();
     const toast = useToast();
     const { dialogProps, confirm } = useConfirmDialog();
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [editingDept, setEditingDept] = useState<any>(null);
-    const [form, setForm] = useState({ name: '', head: '', status: 'active' });
+    const [form, setForm] = useState({ name: '', headDoctorId: '', description: '', status: 'active' });
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-    useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
+    useEffect(() => {
+        fetchDepartments();
+        fetchDoctors(1, '', 200);
+    }, [fetchDepartments, fetchDoctors]);
 
     const filtered = (departments || []).filter((dept: any) =>
         (dept.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -31,23 +34,34 @@ export default function HospitalDepartmentsPage() {
     const paginatedItems = paginate(page);
 
     const resetForm = () => {
-        setForm({ name: '', head: '', status: 'active' });
+        setForm({ name: '', headDoctorId: '', description: '', status: 'active' });
         setEditingDept(null);
         setShowForm(false);
     };
 
     const openEdit = (dept: any) => {
         setEditingDept(dept);
-        setForm({ name: dept.name || '', head: dept.head || '', status: dept.status || 'active' });
+        setForm({
+            name: dept.name || '',
+            headDoctorId: dept.headDoctorId || '',
+            description: dept.description || '',
+            status: dept.status || 'active',
+        });
         setShowForm(true);
     };
 
     const handleSubmit = async () => {
         if (!form.name.trim()) return;
         setActionLoading('save');
+        const payload = {
+            name: form.name,
+            headDoctorId: form.headDoctorId || undefined,
+            description: form.description || undefined,
+            status: form.status,
+        };
         const success = editingDept
-            ? await updateDepartment(editingDept.id, form)
-            : await addDepartment(form);
+            ? await updateDepartment(editingDept.id, payload)
+            : await addDepartment(payload);
         if (success) {
             resetForm();
             toast.success(editingDept ? 'Department Updated' : 'Department Added',
@@ -73,7 +87,7 @@ export default function HospitalDepartmentsPage() {
         setActionLoading(null);
     };
 
-    if (isLoading && departments.length === 0) {
+    if (loadingDepartments && departments.length === 0) {
         return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /><span className="ml-2 text-gray-600 dark:text-gray-400">Loading departments...</span></div>;
     }
 
@@ -112,7 +126,22 @@ export default function HospitalDepartmentsPage() {
                         </div>
                         <div className="space-y-3">
                             <Input label="Department Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Enter department name" />
-                            <Input label="Head of Department" value={form.head} onChange={e => setForm(f => ({ ...f, head: e.target.value }))} placeholder="Enter department head name" />
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Head of Department</label>
+                                <select
+                                    value={form.headDoctorId}
+                                    onChange={e => setForm(f => ({ ...f, headDoctorId: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-teal-500"
+                                >
+                                    <option value="">No head doctor selected</option>
+                                    {doctors.map((doctor) => (
+                                        <option key={doctor.id} value={doctor.id}>
+                                            {doctor.name} • {doctor.specialization}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <Input label="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Department overview" />
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                                 <select
@@ -172,8 +201,10 @@ export default function HospitalDepartmentsPage() {
                                         {dept.status || 'Active'}
                                     </span>
                                 </span>
-                                {dept.doctorCount != null && <span className="flex items-center gap-1"><Users className="h-3 w-3" />{dept.doctorCount} doctors</span>}
+                                <span className="flex items-center gap-1"><Users className="h-3 w-3" />{dept.doctors ?? dept.doctorCount ?? 0} doctors</span>
+                                <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{dept.appointments ?? 0} appointments</span>
                             </div>
+                            {dept.description && <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{dept.description}</p>}
                         </Card>
                     ))}
                 </div>

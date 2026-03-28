@@ -352,7 +352,9 @@ class AppointmentRepository @Inject constructor(
                 Log.d(TAG, "Joined consultation: $consultationId")
             } else {
                 // Join failed — don't silently fall back, surface the error
-                val errorMsg = joinResponse.body()?.message ?: "Consultation hasn't started yet. Please wait for the doctor."
+                val errorMsg = joinResponse.body()?.message
+                    ?: parseApiErrorMessage(joinResponse.errorBody())
+                    ?: "Consultation hasn't started yet. Please wait for the doctor."
                 Log.w(TAG, "Backend join failed: $errorMsg")
                 return Result.Error(errorMsg)
             }

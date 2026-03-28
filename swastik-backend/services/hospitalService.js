@@ -227,7 +227,7 @@ const searchHospitals = async (query, latitude, longitude) => {
   let results = await enrichMissingPhonesFromOwners(data || []);
 
   // Add distance if coordinates provided
-  if (latitude && longitude) {
+  if (latitude !== null && longitude !== null) {
     results = results
       .map((h) => ({
         ...h,
@@ -257,12 +257,16 @@ const getHospitalById = async (id) => {
 
   if (Array.isArray(data.doctors)) {
     data.doctors = data.doctors
-      .filter((entry) => entry?.doctor?.is_approved === true)
+      .filter((entry) => entry?.is_active !== false && entry?.doctor?.is_approved === true)
       .map((entry) => {
         if (!entry?.doctor) return entry;
         const { is_approved: _ignored, ...doctor } = entry.doctor;
         return { ...entry, doctor };
       });
+  }
+
+  if (Array.isArray(data.departments)) {
+    data.departments = data.departments.filter((department) => department?.is_active !== false);
   }
 
   return data;

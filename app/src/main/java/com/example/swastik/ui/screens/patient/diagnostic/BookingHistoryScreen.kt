@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.diagnostic
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -175,6 +179,7 @@ private fun BookingHistoryCard(
     booking: DiagnosticBookingDto,
     onCancel: () -> Unit
 ) {
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     val statusColor = when (booking.status) {
         "booked" -> Color(0xFF1976D2)
@@ -221,6 +226,16 @@ private fun BookingHistoryCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    booking.bookingNumber?.let { bookingNumber ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            bookingNumber,
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -301,7 +316,20 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Assignment, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Result: ${rs.replaceFirstChar { it.uppercase() }}", fontSize = 13.sp, color = Color.Gray)
+                            Text(
+                                "Result: ${rs.replace("_", " ").replaceFirstChar { it.uppercase() }}",
+                                fontSize = 13.sp,
+                                color = Color.Gray
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+
+                    booking.resultUploadedAt?.let { uploadedAt ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Verified, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Uploaded: ${formatBookingDate(uploadedAt)}", fontSize = 13.sp, color = Color.Gray)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -316,6 +344,15 @@ private fun BookingHistoryCard(
                         Spacer(Modifier.height(4.dp))
                     }
 
+                    booking.resultNotes?.takeIf { it.isNotBlank() }?.let { resultNotes ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Default.Description, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(resultNotes, fontSize = 13.sp, color = Color.Gray)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+
                     // Center phone
                     booking.center?.phone?.let { phone ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -324,6 +361,26 @@ private fun BookingHistoryCard(
                             Text(phone, fontSize = 13.sp, color = Color.Gray)
                         }
                         Spacer(Modifier.height(4.dp))
+                    }
+
+                    booking.resultUrl?.takeIf { it.isNotBlank() }?.let { resultUrl ->
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resultUrl)))
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "Unable to open this report", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("View Report")
+                        }
                     }
 
                     // Cancel button (only for booked status)

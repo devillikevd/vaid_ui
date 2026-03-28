@@ -60,6 +60,16 @@ class EmergencyViewModel @Inject constructor(
     /** Cancellable job that streams patient GPS to the backend during active emergency */
     private var locationStreamJob: Job? = null
 
+    private fun idleStatePreservingLocation(error: String? = null): EmergencyUiState {
+        val current = _uiState.value
+        return EmergencyUiState(
+            error = error,
+            locationAvailable = current.locationAvailable,
+            latitude = current.latitude,
+            longitude = current.longitude
+        )
+    }
+
     init {
         checkActiveEmergency()
         collectAmbulanceUpdates()
@@ -96,10 +106,14 @@ class EmergencyViewModel @Inject constructor(
                         )
                         // Start tracking ambulance for the active request
                         startTrackingAmbulance(result.data.resolvedRequestId())
+                    } else {
+                        _uiState.value = _uiState.value.copy(error = null)
                     }
                 }
                 is Result.Error -> {
-                    // No active emergency — that's fine
+                    _uiState.value = _uiState.value.copy(
+                        error = "Unable to verify your current SOS status. Please check your connection and try again."
+                    )
                 }
                 is Result.Loading -> {}
             }
@@ -139,13 +153,17 @@ class EmergencyViewModel @Inject constructor(
                     if (statusUpdate.status in listOf("completed", "cancelled", "timeout", "no_ambulance")) {
                         socketManager.untrackAmbulance(activeId)
                         stopPatientLocationStream()
-                        _uiState.value = _uiState.value.copy(
-                            isTrackingAmbulance = false,
-                            activeEmergency = null,
-                            requestSent = false,
-                            driverName = null,
-                            driverPhone = null,
-                            vehicleNumber = null
+                        val terminalMessage = statusUpdate.message.ifBlank {
+                            when (statusUpdate.status) {
+                                "timeout" -> "Ambulance search timed out. Please try again or call 108."
+                                "no_ambulance" -> "No ambulance is currently available nearby. Please call 108 immediately."
+                                "cancelled" -> "Your SOS request has been cancelled."
+                                "completed" -> ""
+                                else -> ""
+                            }
+                        }
+                        _uiState.value = idleStatePreservingLocation(
+                            error = terminalMessage.ifBlank { null }
                         )
                     }
                 }
@@ -246,7 +264,8 @@ class EmergencyViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             requestSent = true,
-                            activeEmergency = activeEmergency
+                            activeEmergency = activeEmergency,
+                            ambulanceStatus = activeEmergency.resolvedStatus()
                         )
                         // Start tracking the ambulance in real-time
                         startTrackingAmbulance(activeEmergency.resolvedRequestId())
@@ -278,16 +297,14 @@ class EmergencyViewModel @Inject constructor(
         val emergencyId = _uiState.value.activeEmergency?.resolvedRequestId()
         if (emergencyId.isNullOrEmpty()) return
 
-        // Unsubscribe from tracking room before cancelling
-        socketManager.untrackAmbulance(emergencyId)
-        stopPatientLocationStream()
-
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             when (val result = emergencyRepository.cancelEmergency(emergencyId, "Cancelled by user")) {
                 is Result.Success -> {
-                    _uiState.value = EmergencyUiState() // Reset state
+                    socketManager.untrackAmbulance(emergencyId)
+                    stopPatientLocationStream()
+                    _uiState.value = idleStatePreservingLocation("SOS request cancelled.")
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(

@@ -1,5 +1,6 @@
 package com.example.swastik.ambulance.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.ambulance.data.remote.SocketManager
@@ -25,6 +26,8 @@ data class DashboardUiState(
     val stats: DashboardStats? = null,
     val activeEmergencies: List<EmergencyDto> = emptyList(),
     val vehicles: List<VehicleDto> = emptyList(),
+    val actionRequestId: String? = null,
+    val actionStatus: String? = null,
     val error: String? = null
 )
 
@@ -144,16 +147,21 @@ class DashboardViewModel @Inject constructor(
     fun loadDashboard() {
         viewModelScope.launch {
             _dashboardState.value = _dashboardState.value.copy(isLoading = true, error = null)
+            Log.d(TAG, "Loading dashboard")
             val result = ambulanceRepository.getDashboard()
             result.fold(
                 onSuccess = { dashboard ->
+                    syncActiveRequestTracking(dashboard.activeEmergencies.orEmpty())
                     _dashboardState.value = DashboardUiState(
                         stats = dashboard.stats,
                         activeEmergencies = dashboard.activeEmergencies ?: emptyList(),
-                        vehicles = dashboard.vehicles ?: emptyList()
+                        vehicles = dashboard.vehicles ?: emptyList(),
+                        actionRequestId = _dashboardState.value.actionRequestId,
+                        actionStatus = _dashboardState.value.actionStatus
                     )
                 },
                 onFailure = { e ->
+                    Log.w(TAG, "Dashboard load failed: ${e.message}")
                     _dashboardState.value = _dashboardState.value.copy(
                         isLoading = false,
                         error = e.message
@@ -196,14 +204,19 @@ class DashboardViewModel @Inject constructor(
 
     fun acceptEmergency(requestId: String) {
         emergencyAlertManager.stopAlert()
+        if (!beginRequestAction(requestId, "accept")) return
         viewModelScope.launch {
+            Log.d(TAG, "Accepting emergency request=$requestId")
             val result = ambulanceRepository.acceptRequest(requestId)
             result.fold(
                 onSuccess = {
+                    finishRequestAction(requestId, "accept")
                     _userMessage.tryEmit("✅ Emergency accepted — en route!")
                     loadDashboard()
                 },
                 onFailure = { e ->
+                    finishRequestAction(requestId, "accept")
+                    Log.w(TAG, "Accept failed request=$requestId message=${e.message}")
                     _userMessage.tryEmit("❌ Failed to accept: ${e.message}")
                 }
             )
@@ -212,14 +225,19 @@ class DashboardViewModel @Inject constructor(
 
     fun rejectEmergency(requestId: String) {
         emergencyAlertManager.stopAlert()
+        if (!beginRequestAction(requestId, "reject")) return
         viewModelScope.launch {
+            Log.d(TAG, "Rejecting emergency request=$requestId")
             val result = ambulanceRepository.rejectRequest(requestId)
             result.fold(
                 onSuccess = {
+                    finishRequestAction(requestId, "reject")
                     _userMessage.tryEmit("Request declined")
                     loadDashboard()
                 },
                 onFailure = { e ->
+                    finishRequestAction(requestId, "reject")
+                    Log.w(TAG, "Reject failed request=$requestId message=${e.message}")
                     _userMessage.tryEmit("❌ Failed to decline: ${e.message}")
                 }
             )
@@ -232,10 +250,13 @@ class DashboardViewModel @Inject constructor(
             acceptEmergency(requestId)
             return
         }
+        if (!beginRequestAction(requestId, status)) return
         viewModelScope.launch {
+            Log.d(TAG, "Updating emergency request=$requestId to status=$status")
             val result = ambulanceRepository.updateRequestStatus(requestId, status)
             result.fold(
                 onSuccess = {
+                    finishRequestAction(requestId, status)
                     _userMessage.tryEmit("Status updated to ${status.replace("_", " ")}")
                     loadDashboard()
                     // Also refresh detail if loaded
@@ -244,6 +265,8 @@ class DashboardViewModel @Inject constructor(
                     }
                 },
                 onFailure = { e ->
+                    finishRequestAction(requestId, status)
+                    Log.w(TAG, "Status update failed request=$requestId status=$status message=${e.message}")
                     _userMessage.tryEmit("❌ Failed to update status: ${e.message}")
                 }
             )
@@ -265,5 +288,63 @@ class DashboardViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    private fun beginRequestAction(requestId: String, status: String): Boolean {
+        val currentState = _dashboardState.value
+        if (currentState.actionRequestId == requestId) {
+            Log.d(TAG, "Ignoring duplicate action request=$requestId status=$status current=${currentState.actionStatus}")
+            _userMessage.tryEmit("Action already in progress for this emergency")
+            return false
+        }
+        _dashboardState.value = currentState.copy(actionRequestId = requestId, actionStatus = status)
+        return true
+    }
+
+    private fun finishRequestAction(requestId: String, status: String) {
+        val currentState = _dashboardState.value
+        if (currentState.actionRequestId == requestId && currentState.actionStatus == status) {
+            _dashboardState.value = currentState.copy(actionRequestId = null, actionStatus = null)
+        }
+    }
+
+    private fun syncActiveRequestTracking(emergencies: List<EmergencyDto>) {
+        val currentActiveRequestId = socketManager.activeRequestId
+        val trackableStatuses = TRACKABLE_REQUEST_STATUSES
+
+        val preservedActiveRequest = emergencies.firstOrNull {
+            it.id == currentActiveRequestId && it.status.lowercase() in trackableStatuses
+        }
+        val candidate = preservedActiveRequest ?: emergencies.firstOrNull {
+            it.status.lowercase() in trackableStatuses
+        }
+
+        when {
+            candidate != null && currentActiveRequestId != candidate.id -> {
+                Log.d(
+                    TAG,
+                    "Restoring active request tracking request=${candidate.id} status=${candidate.status}"
+                )
+                socketManager.setActiveRequest(candidate.id)
+            }
+            candidate == null && currentActiveRequestId != null -> {
+                Log.d(TAG, "Clearing stale active request tracking request=$currentActiveRequestId")
+                socketManager.clearActiveRequest()
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "AmbulanceDashboardVM"
+        private val TRACKABLE_REQUEST_STATUSES = setOf(
+            "assigned",
+            "dispatched",
+            "accepted",
+            "en_route",
+            "arrived",
+            "picked_up",
+            "en_route_hospital",
+            "arrived_hospital"
+        )
     }
 }

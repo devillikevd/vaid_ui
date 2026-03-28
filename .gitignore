@@ -14,6 +14,9 @@ local.properties
 app/build/
 app/local.properties
 ambulance-app/build/
+google-services.json
+app/google-services.json
+ambulance-app/google-services.json
 
 # Generated / duplicated folders
 app/generated 2/

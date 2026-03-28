@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.CartItem
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.utils.NavigationHelper
 
 /**
  * Medicine Cart & Order Screen — review cart, enter address, place order.
@@ -31,12 +33,18 @@ import com.example.swastik.ui.theme.SwastikPurple
 fun MedicineCartScreen(
     onBackClick: () -> Unit,
     onOrderComplete: () -> Unit = {},
+    onNavigateToOrderHistory: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val cartState by viewModel.cartState.collectAsState()
+    val context = LocalContext.current
 
     // Order success dialog
     if (cartState.orderSuccess) {
+        val orderResult = cartState.orderResult
+        val pharmacyName = orderResult?.pharmacy?.name ?: cartState.selectedPharmacyName ?: "Chosen pharmacy"
+        val pharmacyPhone = orderResult?.pharmacy?.phone
+
         AlertDialog(
             onDismissRequest = {
                 viewModel.resetOrderSuccess()
@@ -44,7 +52,60 @@ fun MedicineCartScreen(
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(48.dp)) },
             title = { Text("Order Placed!", fontWeight = FontWeight.Bold) },
-            text = { Text("Your medicine order has been placed successfully. The pharmacy will prepare your order shortly.") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Your medicine order has been placed successfully. The pharmacy will prepare your order shortly.")
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = SwastikPurple.copy(alpha = 0.08f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "Selected Pharmacy",
+                                fontSize = 12.sp,
+                                color = SwastikPurple
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = pharmacyName,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black
+                            )
+                            pharmacyPhone
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { phone ->
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = phone,
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                        }
+                    }
+
+                    orderResult?.id?.takeIf { it.isNotBlank() }?.let { orderId ->
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFFF5F5F5)
+                        ) {
+                            Text(
+                                text = "Order ID: ${orderId.take(8)}",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                fontSize = 13.sp,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -53,6 +114,30 @@ fun MedicineCartScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                 ) { Text("Done") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            pharmacyPhone
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { phone ->
+                                    NavigationHelper.openDialer(context, phone)
+                                }
+                        },
+                        enabled = !pharmacyPhone.isNullOrBlank()
+                    ) {
+                        Text("Call Pharmacy")
+                    }
+                    TextButton(
+                        onClick = {
+                            viewModel.resetOrderSuccess()
+                            onNavigateToOrderHistory()
+                        }
+                    ) {
+                        Text("View My Orders")
+                    }
+                }
             }
         )
     }
@@ -146,10 +231,11 @@ fun MedicineCartScreen(
                     }
 
                     items(cartState.items) { item ->
+                        val itemKey = item.medicine.inventoryItemId ?: item.medicine.id
                         CartItemCard(
                             item = item,
-                            onQuantityChange = { viewModel.updateCartQuantity(item.medicine.id, it) },
-                            onRemove = { viewModel.removeFromCart(item.medicine.id) }
+                            onQuantityChange = { viewModel.updateCartQuantity(itemKey, it) },
+                            onRemove = { viewModel.removeFromCart(itemKey) }
                         )
                     }
 

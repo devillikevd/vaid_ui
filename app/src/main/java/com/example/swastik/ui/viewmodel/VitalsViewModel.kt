@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 data class VitalsUiState(
@@ -20,7 +24,10 @@ data class VitalsUiState(
     val error: String? = null,
     val vitalRecordSuccess: Boolean = false,
     val reminderCreated: Boolean = false,
-    val reminderDeleted: Boolean = false
+    val reminderDeleted: Boolean = false,
+    val activeReminderActionId: String? = null,
+    val reminderActionMessage: String? = null,
+    val reminderActionError: String? = null
 )
 
 @HiltViewModel
@@ -137,8 +144,83 @@ class VitalsViewModel @Inject constructor(
         }
     }
 
+    fun takeReminder(reminder: ReminderDto) {
+        actOnReminder(reminder, action = "taken")
+    }
+
+    fun skipReminder(reminder: ReminderDto) {
+        actOnReminder(reminder, action = "skip")
+    }
+
+    fun snoozeReminder(reminder: ReminderDto, snoozeMinutes: Int) {
+        actOnReminder(reminder, action = "snooze", snoozeMinutes = snoozeMinutes)
+    }
+
+    private fun actOnReminder(
+        reminder: ReminderDto,
+        action: String,
+        snoozeMinutes: Int? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                activeReminderActionId = reminder.id,
+                reminderActionError = null,
+                reminderActionMessage = null
+            )
+
+            when (
+                val result = repository.actOnReminder(
+                    id = reminder.id,
+                    action = action,
+                    scheduledAt = scheduledIsoFor(reminder.time),
+                    snoozeMinutes = snoozeMinutes
+                )
+            ) {
+                is Result.Success -> {
+                    val actionMessage = when (action) {
+                        "taken" -> "${reminder.title} marked as taken."
+                        "skip" -> "${reminder.title} marked as skipped."
+                        "snooze" -> "${reminder.title} snoozed for ${snoozeMinutes ?: 0} minutes."
+                        else -> "Reminder updated."
+                    }
+
+                    val updatedReminders = when (action) {
+                        "taken", "skip" -> _uiState.value.reminders.map { existing ->
+                            if (existing.id == reminder.id) existing.copy(isCompleted = true) else existing
+                        }
+                        else -> _uiState.value.reminders
+                    }
+
+                    _uiState.value = _uiState.value.copy(
+                        reminders = updatedReminders,
+                        activeReminderActionId = null,
+                        reminderActionMessage = actionMessage
+                    )
+
+                    if (action == "snooze") {
+                        loadReminders()
+                    }
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        activeReminderActionId = null,
+                        reminderActionError = result.message
+                    )
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun clearReminderFeedback() {
+        _uiState.value = _uiState.value.copy(
+            reminderActionMessage = null,
+            reminderActionError = null
+        )
     }
 
     fun resetFlags() {
@@ -147,5 +229,16 @@ class VitalsViewModel @Inject constructor(
             reminderCreated = false,
             reminderDeleted = false
         )
+    }
+
+    private fun scheduledIsoFor(time: String): String {
+        val parsedTime = runCatching { LocalTime.parse(time) }.getOrNull()
+            ?: return LocalDateTime.now().atZone(ZoneId.systemDefault()).toOffsetDateTime().toString()
+
+        return LocalDate.now()
+            .atTime(parsedTime)
+            .atZone(ZoneId.systemDefault())
+            .toOffsetDateTime()
+            .toString()
     }
 }

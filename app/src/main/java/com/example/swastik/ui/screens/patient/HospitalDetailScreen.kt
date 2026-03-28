@@ -34,7 +34,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun HospitalDetailScreen(
-    hospitalId: String,
+    facilityId: String,
+    facilityType: FacilityType = FacilityType.HOSPITAL,
     onBackClick: () -> Unit,
     onDoctorBookClick: (HospitalDoctor, MedicalFacility) -> Unit = { _, _ -> },
     isLoggedIn: Boolean = true,
@@ -43,8 +44,8 @@ fun HospitalDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(hospitalId) {
-        viewModel.loadHospitalDetails(hospitalId)
+    LaunchedEffect(facilityId, facilityType) {
+        viewModel.loadFacilityDetails(facilityId, facilityType)
     }
 
     Scaffold(
@@ -52,7 +53,12 @@ fun HospitalDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        uiState.facility?.name ?: "Hospital Details",
+                        uiState.facility?.name ?: when (facilityType) {
+                            FacilityType.CLINIC -> "Clinic Details"
+                            FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic Center Details"
+                            FacilityType.MEDICAL_STORE -> "Medical Store Details"
+                            else -> "Hospital Details"
+                        },
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 18.sp,
                         maxLines = 1,
@@ -97,7 +103,7 @@ fun HospitalDetailScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(uiState.error!!, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { viewModel.loadHospitalDetails(hospitalId) }) {
+                    Button(onClick = { viewModel.loadFacilityDetails(facilityId, facilityType) }) {
                         Text("Retry")
                     }
                 }
@@ -149,7 +155,7 @@ fun HospitalDetailScreen(
                                         )
                                         if (facility.hospitalSubType != null) {
                                             Text(
-                                                text = facility.hospitalSubType!!,
+                                                text = facility.hospitalSubType,
                                                 fontSize = 14.sp,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -283,6 +289,24 @@ fun HospitalDetailScreen(
                                         }
                                     }
                                 }
+
+                                if (facility.departments.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text("Departments", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        facility.departments.forEach { department ->
+                                            AssistChip(
+                                                onClick = {},
+                                                label = { Text(department, fontSize = 12.sp) },
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -328,15 +352,16 @@ fun HospitalDetailScreen(
                         }
                     }
 
-                    // Review Section
-                    item {
-                        HospitalReviewSection(
-                            hospitalId = facility.id,
-                            rating = facility.rating,
-                            reviewCount = facility.reviewCount,
-                            viewModel = viewModel,
-                            isLoggedIn = isLoggedIn
-                        )
+                    if (facility.type == FacilityType.HOSPITAL) {
+                        item {
+                            HospitalReviewSection(
+                                hospitalId = facility.id,
+                                rating = facility.rating,
+                                reviewCount = facility.reviewCount,
+                                viewModel = viewModel,
+                                isLoggedIn = isLoggedIn
+                            )
+                        }
                     }
 
                     // Doctors
@@ -353,6 +378,26 @@ fun HospitalDetailScreen(
                                 doctor = doctor,
                                 onBook = { onDoctorBookClick(doctor, facility) }
                             )
+                        }
+                    } else {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                )
+                            ) {
+                                Text(
+                                    text = when (facility.type) {
+                                        FacilityType.CLINIC -> "This clinic has not listed bookable doctors yet. You can still contact the clinic directly from this screen."
+                                        else -> "This hospital has not listed bookable doctors yet. You can still contact the hospital directly from this screen."
+                                    },
+                                    modifier = Modifier.padding(16.dp),
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

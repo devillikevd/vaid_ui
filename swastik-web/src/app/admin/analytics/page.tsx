@@ -61,7 +61,7 @@ export default function AnalyticsPage() {
           change: stats?.userGrowth != null ? `${stats.userGrowth > 0 ? '+' : ''}${stats.userGrowth.toFixed(1)}%` : '',
           trend: (stats?.userGrowth ?? 0) >= 0 ? 'up' as const : 'down' as const,
           icon: Users, color: 'bg-blue-100 text-blue-600' },
-        { label: 'Active Doctors', value: stats?.totalDoctors?.toLocaleString() ?? '—',
+        { label: 'Approved Doctors', value: stats?.totalDoctors?.toLocaleString() ?? '—',
           change: stats?.doctorGrowth != null ? `${stats.doctorGrowth > 0 ? '+' : ''}${stats.doctorGrowth.toFixed(1)}%` : '',
           trend: (stats?.doctorGrowth ?? 0) >= 0 ? 'up' as const : 'down' as const,
           icon: Stethoscope, color: 'bg-emerald-100 text-emerald-600' },
@@ -157,7 +157,7 @@ export default function AnalyticsPage() {
                 </Card>
 
                 <Card>
-                    <CardHeader><CardTitle>Top Specialties</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Top Doctor Specialties</CardTitle></CardHeader>
                     <CardContent>
                         {analytics?.topSpecialties && analytics.topSpecialties.length > 0 ? (
                             <div className="space-y-4">
@@ -165,7 +165,7 @@ export default function AnalyticsPage() {
                                     <div key={specialty.name}>
                                         <div className="flex items-center justify-between text-sm mb-1">
                                             <span className="text-gray-700 dark:text-gray-300">{specialty.name}</span>
-                                            <span className="text-gray-500 dark:text-gray-400">{specialty.count.toLocaleString()} consultations</span>
+                                            <span className="text-gray-500 dark:text-gray-400">{specialty.count.toLocaleString()} providers</span>
                                         </div>
                                         <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                             <div className="h-full bg-blue-500 rounded-full" style={{ width: `${specialty.percentage}%` }} />

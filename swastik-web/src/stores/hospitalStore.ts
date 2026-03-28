@@ -20,24 +20,62 @@ export interface Department {
     doctors: number;
     appointments: number;
     head?: string;
+    headDoctorId?: string | null;
+    description?: string;
+    status?: 'active' | 'inactive';
+    doctorCount?: number;
 }
 
 export interface HospitalDoctor {
     id: string;
+    associationId?: string;
     name: string;
     specialization: string;
     department: string;
     status: 'active' | 'on-leave' | 'inactive';
     appointmentsToday: number;
+    email?: string;
+    phone?: string;
+    profileImageUrl?: string;
+    rating?: number;
 }
 
-function normalizeHospitalAppointment(raw: Record<string, any>): Record<string, unknown> {
+export interface HospitalAppointment {
+    id: string;
+    patientId?: string | null;
+    patientName: string;
+    patientPhone?: string;
+    doctorId?: string | null;
+    doctorName: string;
+    doctorSpecialization?: string;
+    doctorProfileImageUrl?: string;
+    date?: string | null;
+    time?: string | null;
+    status: string;
+    type?: string;
+    fee?: number | null;
+    reason?: string;
+    createdAt?: string | null;
+}
+
+function normalizeHospitalAppointment(raw: Record<string, any>): HospitalAppointment {
     return {
         ...raw,
+        id: raw.id || '',
+        patientId: raw.patientId || raw.patient_id || raw.patient?.id || null,
         patientName: raw.patientName || raw.patient?.name || 'Patient',
+        patientPhone: raw.patientPhone || raw.patient?.user?.phone || '',
+        doctorId: raw.doctorId || raw.doctor_id || raw.doctor?.id || null,
         doctorName: raw.doctorName || raw.doctor?.name || 'Doctor',
+        doctorSpecialization: raw.doctorSpecialization || raw.doctor?.specialization || '',
+        doctorProfileImageUrl: raw.doctorProfileImageUrl || raw.doctor?.profile_image_url || '',
         date: raw.date || raw.appointment_date || null,
         time: raw.time || raw.time_slot || null,
+        status: raw.status || 'scheduled',
+        type: raw.type || 'hospital',
+        fee: raw.fee ?? null,
+        reason: raw.reason || '',
+        createdAt: raw.createdAt || raw.created_at || null,
     };
 }
 
@@ -45,18 +83,26 @@ interface HospitalState {
     stats: HospitalDashboardStats | null;
     departments: Department[];
     doctors: HospitalDoctor[];
-    appointments: Record<string, unknown>[];
+    appointments: HospitalAppointment[];
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingDepartments: boolean;
     loadingDoctors: boolean;
     loadingAppointments: boolean;
     error: string | null;
+    doctorsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
+    appointmentsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
 
     fetchDashboardData: () => Promise<void>;
     fetchDepartments: () => Promise<void>;
-    fetchDoctors: () => Promise<void>;
-    fetchAppointments: () => Promise<void>;
+    fetchDoctors: (page?: number, search?: string, limit?: number) => Promise<void>;
+    fetchAppointments: (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        date?: string;
+    }) => Promise<void>;
     inviteDoctor: (data: Record<string, unknown>) => Promise<boolean>;
     removeDoctor: (doctorId: string) => Promise<boolean>;
     addDepartment: (data: Record<string, unknown>) => Promise<boolean>;
@@ -72,14 +118,52 @@ const hospitalInitialState = {
     stats: null as HospitalDashboardStats | null,
     departments: [] as Department[],
     doctors: [] as HospitalDoctor[],
-    appointments: [] as Record<string, unknown>[],
+    appointments: [] as HospitalAppointment[],
     isLoading: false,
     loadingDashboard: false,
     loadingDepartments: false,
     loadingDoctors: false,
     loadingAppointments: false,
     error: null as string | null,
+    doctorsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
+    appointmentsPagination: { page: 1, totalPages: 1, total: 0, hasMore: false },
 };
+
+const defaultPagination = { page: 1, totalPages: 1, total: 0, hasMore: false };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDepartment(raw: any): Department {
+    return {
+        ...raw,
+        id: raw.id,
+        name: raw.name || 'Department',
+        head: raw.head || raw.headDoctor?.name || '',
+        headDoctorId: raw.headDoctorId || raw.head_doctor_id || null,
+        description: raw.description || '',
+        status: raw.status || (raw.is_active === false ? 'inactive' : 'active'),
+        doctors: Number(raw.doctors || raw.doctorCount || 0),
+        doctorCount: Number(raw.doctorCount || raw.doctors || 0),
+        appointments: Number(raw.appointments || 0),
+    };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapHospitalDoctor(raw: any): HospitalDoctor {
+    return {
+        ...raw,
+        id: raw.id || raw.doctor?.id || raw.doctor_id || '',
+        associationId: raw.associationId || raw.id,
+        name: raw.name || raw.doctor?.name || 'Doctor',
+        specialization: raw.specialization || raw.doctor?.specialization || 'General Medicine',
+        department: raw.department || 'Unassigned',
+        status: raw.status || (raw.is_active === false ? 'inactive' : raw.doctor?.is_available === false ? 'on-leave' : 'active'),
+        appointmentsToday: Number(raw.appointmentsToday || 0),
+        email: raw.email || raw.doctor?.user?.email || '',
+        phone: raw.phone || raw.doctor?.user?.phone || '',
+        profileImageUrl: raw.profileImageUrl || raw.doctor?.profile_image_url || '',
+        rating: Number(raw.rating || raw.doctor?.rating || 0),
+    };
+}
 
 export const useHospitalStore = create<HospitalState>((set, get) => ({
     ...hospitalInitialState,
@@ -104,7 +188,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
             const data = response.data as Record<string, unknown>;
             // Also check if stats/departments came as siblings on response itself
             const resp = response as Record<string, unknown>;
-            const departments = ((data.departments || resp.departments || []) as Department[]);
+            const departments = (((data.departments || resp.departments || []) as Department[]) || []).map(mapDepartment);
             const rawStats = ((data.stats || resp.stats || {}) as Record<string, unknown>);
 
             const normalizedStats: HospitalDashboardStats = {
@@ -141,9 +225,10 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         try {
             const response = await hospitalApi.getDepartments();
             if (response.success) {
-                const data = response.data as Record<string, unknown>;
+                const rawData = response.data;
+                const departments = (Array.isArray(rawData) ? rawData : (rawData as any)?.departments || (rawData as any)?.data || []) as Department[];
                 set({
-                    departments: (data.departments as Department[]) || [],
+                    departments: departments.map(mapDepartment),
                     loadingDepartments: false,
                 });
             } else {
@@ -153,7 +238,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                     const dData = dashResponse.data as Record<string, unknown>;
                     const dResp = dashResponse as Record<string, unknown>;
                     set({
-                        departments: ((dData.departments || dResp.departments || []) as Department[]),
+                        departments: ((dData.departments || dResp.departments || []) as Department[]).map(mapDepartment),
                         loadingDepartments: false,
                     });
                 } else {
@@ -219,18 +304,25 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         }
     },
 
-    fetchDoctors: async () => {
+    fetchDoctors: async (page: number = 1, search: string = '', limit: number = 20) => {
         set({ loadingDoctors: true, error: null });
         try {
-            const response = await hospitalApi.getDoctors();
+            const response = await hospitalApi.getDoctors(page, search, limit);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load doctors', loadingDoctors: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
+            const doctors = (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || []) as HospitalDoctor[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
-                doctors: (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || []) as HospitalDoctor[],
+                doctors: doctors.map(mapHospitalDoctor),
+                doctorsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || doctors.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: doctors.length },
                 loadingDoctors: false,
             });
         } catch (error) {
@@ -239,24 +331,38 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
         }
     },
 
-    fetchAppointments: async () => {
+    fetchAppointments: async (params = {}) => {
         set({ loadingAppointments: true, error: null });
         try {
-            const response = await hospitalApi.getAppointments();
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await hospitalApi.getAppointments({
+                page,
+                limit,
+                search: params.search,
+                status: params.status,
+                date: params.date,
+            });
             if (!response.success) {
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
             const appointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, any>[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 appointments: appointments.map(normalizeHospitalAppointment),
+                appointmentsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || appointments.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: appointments.length },
                 loadingAppointments: false,
             });
         } catch (error) {
             console.error('Error fetching appointments:', error);
-            set({ error: 'Failed to load appointments.', loadingAppointments: false });
+            set({ error: 'Failed to load appointments.', loadingAppointments: false, appointmentsPagination: { ...defaultPagination } });
         }
     },
 
@@ -265,6 +371,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
             const response = await hospitalApi.inviteDoctor(data);
             if (response.success) {
                 get().fetchDoctors();
+                get().fetchDashboardData();
                 return true;
             }
             set({ error: response.error || 'Failed to invite doctor' });
@@ -281,6 +388,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
             const response = await hospitalApi.removeDoctor(doctorId);
             if (response.success) {
                 get().fetchDoctors();
+                get().fetchDashboardData();
                 return true;
             }
             set({ error: response.error || 'Failed to remove doctor' });

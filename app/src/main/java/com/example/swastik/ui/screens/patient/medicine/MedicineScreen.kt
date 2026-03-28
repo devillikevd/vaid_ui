@@ -46,7 +46,7 @@ fun MedicineScreen(
     userName: String = "User",
     onBackClick: () -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
-    onPharmacyClick: (String) -> Unit = {},
+    onPharmacyClick: (String?, String?) -> Unit = { _, _ -> },
     onNavigateToHome: () -> Unit = {},
     onNavigateToRecords: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
@@ -217,7 +217,10 @@ fun MedicineScreen(
                                         items(state.nearbyMedicines) { nearbyMed ->
                                             NearbyMedicineCard(
                                                 nearbyMed = nearbyMed,
-                                                onClick = { onMedicineClick(nearbyMed.medicineId ?: "") }
+                                                onClick = { onMedicineClick(nearbyMed.medicineId ?: "") },
+                                                onPharmacyClick = {
+                                                    onPharmacyClick(nearbyMed.pharmacyId, nearbyMed.pharmacyName)
+                                                }
                                             )
                                         }
                                     }
@@ -239,7 +242,9 @@ fun MedicineScreen(
                                 MedicineListItem(
                                     medicine = med,
                                     onClick = { onMedicineClick(med.id) },
-                                    onPharmacyClick = { onPharmacyClick(med.nearbyPharmacy ?: "") }
+                                    onPharmacyClick = {
+                                        onPharmacyClick(med.nearbyPharmacyId, med.nearbyPharmacy)
+                                    }
                                 )
                             }
 
@@ -563,7 +568,8 @@ private fun MedicineListItem(
 @Composable
 private fun NearbyMedicineCard(
     nearbyMed: NearbyMedicineDto,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPharmacyClick: () -> Unit
 ) {
     val cardColor = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White
     Card(
@@ -597,7 +603,10 @@ private fun NearbyMedicineCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onPharmacyClick() }
+            ) {
                 Icon(Icons.Outlined.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(

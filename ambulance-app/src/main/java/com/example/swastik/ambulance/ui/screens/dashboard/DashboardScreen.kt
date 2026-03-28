@@ -378,9 +378,10 @@ fun DashboardScreen(
                     items(dashboardState.activeEmergencies) { emergency ->
                         EmergencyCard(
                             emergency = emergency,
+                            isActionInProgress = dashboardState.actionRequestId == emergency.id,
                             onTap = { onNavigateToEmergencyDetail(emergency.id) },
                             onAccept = { dashboardViewModel.acceptEmergency(emergency.id) },
-                            onReject = if (emergency.status in listOf("pending", "broadcasting", "assigned")) {
+                            onReject = if (emergency.status in listOf("pending", "broadcasting", "requested")) {
                                 { dashboardViewModel.rejectEmergency(emergency.id) }
                             } else null,
                             onUpdateStatus = { status ->
@@ -487,6 +488,7 @@ private fun ActionCard(
 @Composable
 private fun EmergencyCard(
     emergency: EmergencyDto,
+    isActionInProgress: Boolean,
     onTap: () -> Unit,
     onAccept: () -> Unit,
     onReject: (() -> Unit)? = null,
@@ -500,8 +502,7 @@ private fun EmergencyCard(
 
     val statusLabel = when (emergency.status) {
         "broadcasting" -> "📡 SOS BROADCAST"
-        "assigned" -> "📋 ASSIGNED"
-        "accepted" -> "✅ ACCEPTED"
+        "assigned", "accepted", "dispatched" -> "✅ CONFIRMED"
         "en_route" -> "🚑 EN ROUTE"
         "arrived" -> "📍 ARRIVED"
         "picked_up" -> "🏥 TRANSPORTING"
@@ -601,70 +602,78 @@ private fun EmergencyCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (emergency.status) {
-                    "pending", "requested", "broadcasting", "assigned" -> {
+                    "pending", "requested", "broadcasting" -> {
                         // Accept button
                         Button(
                             onClick = onAccept,
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Accept") }
+                        ) { Text(if (isActionInProgress) "Working..." else "Accept") }
                         // Reject button (for broadcasts)
                         if (onReject != null) {
                             OutlinedButton(
                                 onClick = onReject,
+                                enabled = !isActionInProgress,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp)
                             ) { Text("Decline", color = Color(0xFFD32F2F)) }
                         }
                     }
-                    "accepted" -> {
+                    "assigned", "accepted", "dispatched" -> {
                         Button(
                             onClick = { onUpdateStatus("en_route") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Start Route") }
+                        ) { Text(if (isActionInProgress) "Working..." else "Start Route") }
                     }
                     "en_route" -> {
                         Button(
                             onClick = { onUpdateStatus("arrived") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Arrived") }
+                        ) { Text(if (isActionInProgress) "Working..." else "Arrived") }
                     }
                     "arrived" -> {
                         Button(
                             onClick = { onUpdateStatus("picked_up") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Picked Up") }
+                        ) { Text(if (isActionInProgress) "Working..." else "Picked Up") }
                     }
                     "picked_up" -> {
                         Button(
                             onClick = { onUpdateStatus("en_route_hospital") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00897B)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("To Hospital") }
+                        ) { Text(if (isActionInProgress) "Working..." else "To Hospital") }
                     }
                     "en_route_hospital" -> {
                         Button(
                             onClick = { onUpdateStatus("arrived_hospital") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("At Hospital") }
+                        ) { Text(if (isActionInProgress) "Working..." else "At Hospital") }
                     }
                     "arrived_hospital" -> {
                         Button(
                             onClick = { onUpdateStatus("completed") },
+                            enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Complete") }
+                        ) { Text(if (isActionInProgress) "Working..." else "Complete") }
                     }
                 }
             }

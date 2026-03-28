@@ -3,6 +3,7 @@ package com.example.swastik.ambulance.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.ambulance.data.local.TokenManager
+import com.example.swastik.ambulance.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ambulance.data.repository.AmbulanceRepository
 import com.example.swastik.ambulance.ui.screens.profile.ProfileUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.MultipartBody
 import javax.inject.Inject
 
 @HiltViewModel
@@ -38,7 +40,11 @@ class ProfileViewModel @Inject constructor(
             val result = repository.getProfile()
             result.fold(
                 onSuccess = { user ->
-                    _state.value = _state.value.copy(isLoading = false, user = user)
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        user = user,
+                        error = null
+                    )
                 },
                 onFailure = { e ->
                     _state.value = _state.value.copy(isLoading = false, error = e.message)
@@ -96,5 +102,66 @@ class ProfileViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    fun updateProfile(request: UpdateProfileRequest) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                isSavingProfile = true,
+                profileSaveError = null,
+                profileSaveSuccess = false
+            )
+            val result = repository.updateProfile(request)
+            result.fold(
+                onSuccess = {
+                    _state.value = _state.value.copy(
+                        isSavingProfile = false,
+                        profileSaveSuccess = true
+                    )
+                    _userMessage.tryEmit("Profile updated")
+                    loadProfile()
+                },
+                onFailure = { e ->
+                    _state.value = _state.value.copy(
+                        isSavingProfile = false,
+                        profileSaveError = e.message
+                    )
+                }
+            )
+        }
+    }
+
+    fun uploadLicenseDocument(filePart: MultipartBody.Part) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                isUploadingDocument = true,
+                documentUploadError = null
+            )
+            val result = repository.uploadLicenseDocument(filePart)
+            result.fold(
+                onSuccess = { documentUrl ->
+                    val currentUser = _state.value.user
+                    _state.value = _state.value.copy(
+                        isUploadingDocument = false,
+                        user = currentUser?.copy(licenseDocumentUrl = documentUrl)
+                    )
+                    _userMessage.tryEmit("License document uploaded")
+                },
+                onFailure = { e ->
+                    _state.value = _state.value.copy(
+                        isUploadingDocument = false,
+                        documentUploadError = e.message
+                    )
+                }
+            )
+        }
+    }
+
+    fun clearTransientMessages() {
+        _state.value = _state.value.copy(
+            profileSaveSuccess = false,
+            profileSaveError = null,
+            documentUploadError = null
+        )
     }
 }

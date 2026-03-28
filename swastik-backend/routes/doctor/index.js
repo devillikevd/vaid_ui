@@ -56,6 +56,12 @@ router.put('/me/profile',
     body('specialization').optional().notEmpty(),
     body('experience').optional().isInt({ min: 0 }),
     body('consultationFee').optional().isInt({ min: 0 }),
+    body('consultation_fee').optional().isInt({ min: 0 }),
+    body('registration_number').optional().isString().trim(),
+    body('license_number').optional().isString().trim(),
+    body('license_document_url').optional().isString().trim(),
+    body('degree_certificate_url').optional().isString().trim(),
+    body('profile_image_url').optional().isString().trim(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -135,8 +141,13 @@ router.get('/me/patients',
   authenticate,
   authorize('doctor'),
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20 } = req.query;
-    const result = await doctorService.getPatients(req.user.id, parseInt(page), parseInt(limit));
+    const { page = 1, limit = 20, search = '' } = req.query;
+    const result = await doctorService.getPatients(
+      req.user.id,
+      parseInt(page),
+      parseInt(limit),
+      typeof search === 'string' ? search : ''
+    );
     res.json({ success: true, ...result });
   })
 );

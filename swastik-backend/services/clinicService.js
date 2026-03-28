@@ -41,6 +41,99 @@ const enrichMissingPhonesFromOwners = async (rows = []) => {
   });
 };
 
+const buildUserContactMap = async (userIds = []) => {
+  const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+  if (uniqueUserIds.length === 0) return new Map();
+
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, email, phone')
+    .in('id', uniqueUserIds);
+
+  if (error || !data) return new Map();
+
+  return new Map(
+    data
+      .filter((user) => user?.id)
+      .map((user) => [user.id, user])
+  );
+};
+
+const mapClinicDoctorAssociation = (association, userContactMap = new Map()) => {
+  const doctor = association?.doctor || {};
+  const user = doctor?.user_id ? userContactMap.get(doctor.user_id) : null;
+
+  return {
+    id: doctor.id || association?.doctor_id || association?.id || '',
+    doctorId: doctor.id || association?.doctor_id || '',
+    associationId: association?.id || null,
+    name: doctor.name || 'Doctor',
+    specialization: doctor.specialization || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    status: association?.is_active === false ? 'inactive' : doctor?.is_available === false ? 'on-leave' : 'active',
+    is_active: association?.is_active !== false,
+  };
+};
+
+const mapClinicAppointment = (appointment, patientContactMap = new Map()) => {
+  const patient = appointment?.patient || {};
+  const doctor = appointment?.doctor || {};
+  const patientUser = patient?.user_id ? patientContactMap.get(patient.user_id) : null;
+
+  return {
+    id: appointment.id,
+    patientName: patient.name || 'Patient',
+    patientId: patient.id || appointment.patient_id || '',
+    patientPhone: patientUser?.phone || '',
+    date: appointment.appointment_date || null,
+    time: appointment.time_slot || '',
+    type: appointment.type || 'clinic',
+    status: appointment.status || 'scheduled',
+    doctorName: doctor.name || 'Doctor',
+    doctorSpecialization: doctor.specialization || '',
+    reason: appointment.reason || null,
+    fee: appointment.fee ?? null,
+    created_at: appointment.created_at || null,
+  };
+};
+
+const mapClinicConsultation = (consultation, patientContactMap = new Map()) => {
+  const patient = consultation?.patient || {};
+  const doctor = consultation?.doctor || {};
+  const patientUser = patient?.user_id ? patientContactMap.get(patient.user_id) : null;
+
+  return {
+    id: consultation.id,
+    status: consultation.status || 'pending',
+    type: consultation.type || consultation?.appointment?.type || 'video',
+    created_at: consultation.created_at || null,
+    started_at: consultation.started_at || null,
+    ended_at: consultation.ended_at || null,
+    diagnosis: consultation.diagnosis || null,
+    notes: consultation.notes || null,
+    doctor: {
+      id: doctor.id || '',
+      name: doctor.name || 'Doctor',
+      specialization: doctor.specialization || '',
+      profile_image_url: doctor.profile_image_url || null,
+    },
+    patient: {
+      id: patient.id || '',
+      name: patient.name || 'Patient',
+      phone: patientUser?.phone || '',
+    },
+    appointment: consultation?.appointment
+      ? {
+          id: consultation.appointment.id || '',
+          appointment_date: consultation.appointment.appointment_date || null,
+          time_slot: consultation.appointment.time_slot || '',
+          type: consultation.appointment.type || consultation.type || 'video',
+        }
+      : null,
+  };
+};
+
 // Search clinics
 const searchClinics = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -182,12 +275,12 @@ const getDashboard = async (clinicId, userId) => {
     { data: todayAppointmentRows },
     { data: recentAppointments },
   ] = await Promise.all([
-    supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId),
+    supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('is_active', true),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).eq('type', 'clinic').not('status', 'in', '(cancelled)'),
     supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)'),
-    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
-    supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
+    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
   ]);
 
   const patientIds = (patientRows || []).map((r) => r.patient_id).filter(Boolean);
@@ -233,7 +326,8 @@ const updateClinic = async (clinicId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'specializations', 'description', 'opening_hours',
-    'profile_image_url', 'image_url', 'profile_image', 'is_24_hours', 'facilities'];
+    'profile_image_url', 'image_url', 'profile_image', 'is_24_hours', 'facilities',
+    'registration_number', 'license_number', 'license_document_url'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
@@ -298,18 +392,37 @@ const updateSchedule = async (clinicId, userId, schedule) => {
 };
 
 // Get doctors in clinic
-const getDoctors = async (clinicId, userId, page = 1, limit = 20) => {
+const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') => {
   const offset = (page - 1) * limit;
-  const { data, error, count } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('clinic_doctors')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee)', { count: 'exact' })
+    .select('id, doctor_id, is_active, doctor:doctors(id, user_id, name, specialization, profile_image_url, consultation_fee, is_available)')
     .eq('clinic_id', clinicId)
-    .range(offset, offset + limit - 1);
+    .eq('is_active', true);
 
   if (error) throw error;
+
+  const userContactMap = await buildUserContactMap(
+    (data || []).map((association) => association?.doctor?.user_id)
+  );
+
+  let doctors = (data || []).map((association) => mapClinicDoctorAssociation(association, userContactMap));
+
+  if (search) {
+    const normalizedSearch = search.toLowerCase();
+    doctors = doctors.filter((doctor) =>
+      [doctor.name, doctor.specialization, doctor.email, doctor.phone, doctor.status]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+    );
+  }
+
+  const total = doctors.length;
+  const paginated = doctors.slice(offset, offset + limit);
+
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
   };
 };
 
@@ -341,25 +454,74 @@ const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit =
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('appointments')
-    .select('*, patient:patients(name), doctor:doctors(name, specialization)', { count: 'exact' })
+    .select(`
+      id,
+      patient_id,
+      doctor_id,
+      appointment_date,
+      time_slot,
+      status,
+      type,
+      reason,
+      fee,
+      created_at,
+      patient:patients(
+        id,
+        name,
+        user_id
+      ),
+      doctor:doctors(
+        id,
+        name,
+        specialization
+      )
+    `)
     .eq('clinic_id', clinicId);
 
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.date) query = query.eq('appointment_date', filters.date);
 
-  const { data, error, count } = await query
+  const { data, error } = await query
     .order('appointment_date', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('time_slot', { ascending: false });
 
   if (error) throw error;
+
+  const patientContactMap = await buildUserContactMap(
+    (data || []).map((appointment) => appointment?.patient?.user_id)
+  );
+
+  let appointments = (data || []).map((appointment) => mapClinicAppointment(appointment, patientContactMap));
+
+  if (filters.search) {
+    const normalizedSearch = filters.search.toLowerCase();
+    appointments = appointments.filter((appointment) =>
+      [
+        appointment.patientName,
+        appointment.patientPhone,
+        appointment.doctorName,
+        appointment.doctorSpecialization,
+        appointment.date,
+        appointment.time,
+        appointment.status,
+        appointment.type,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+    );
+  }
+
+  const total = appointments.length;
+  const paginated = appointments.slice(offset, offset + limit);
+
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
   };
 };
 
 // Get consultations for all doctors affiliated with this clinic
-const getConsultations = async (userId, page = 1, limit = 20, status) => {
+const getConsultations = async (userId, page = 1, limit = 20, status, search = '') => {
   const clinic = await getClinicByOwner(userId);
   if (!clinic) throw new ApiError(404, 'Clinic not found');
 
@@ -371,24 +533,66 @@ const getConsultations = async (userId, page = 1, limit = 20, status) => {
     .eq('is_active', true);
 
   const doctorIds = (clinicDoctors || []).map(d => d.doctor_id);
-  if (doctorIds.length === 0) return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+  if (doctorIds.length === 0) return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
 
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
-    .in('doctor_id', doctorIds);
+    .select(`
+      id,
+      doctor_id,
+      patient_id,
+      appointment_id,
+      status,
+      type,
+      created_at,
+      started_at,
+      ended_at,
+      diagnosis,
+      notes,
+      doctor:doctors(id, name, specialization, profile_image_url),
+      patient:patients(id, name, user_id),
+      appointment:appointments!inner(id, appointment_date, time_slot, type, clinic_id)
+    `)
+    .in('doctor_id', doctorIds)
+    .eq('appointment.clinic_id', clinic.id);
 
   if (status) query = query.eq('status', status);
 
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const { data, error } = await query
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
+
+  const patientContactMap = await buildUserContactMap(
+    (data || []).map((consultation) => consultation?.patient?.user_id)
+  );
+
+  let consultations = (data || []).map((consultation) => mapClinicConsultation(consultation, patientContactMap));
+
+  if (search) {
+    const normalizedSearch = search.toLowerCase();
+    consultations = consultations.filter((consultation) =>
+      [
+        consultation.patient?.name,
+        consultation.patient?.phone,
+        consultation.doctor?.name,
+        consultation.doctor?.specialization,
+        consultation.status,
+        consultation.type,
+        consultation.appointment?.appointment_date,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+    );
+  }
+
+  const total = consultations.length;
+  const paginated = consultations.slice(offset, offset + limit);
+
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
   };
 };
 

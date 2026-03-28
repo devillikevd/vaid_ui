@@ -47,9 +47,10 @@ fun VideoConsultationFlow(
 
     // Connection status message
     val statusMessage = when {
-        uiState.isConnecting -> "Connecting..."
-        uiState.isConnected && uiState.hasRemoteVideo -> "Connected"
-        uiState.isConnected || uiState.session != null -> "Waiting for doctor to join"
+        uiState.isWaitingForDoctor -> "Waiting for doctor to start consultation"
+        uiState.isConnecting -> "Preparing secure connection"
+        uiState.isConnected && uiState.hasRemoteVideo -> "Consultation live"
+        uiState.isConnected || uiState.session != null -> "Doctor will join shortly"
         uiState.error != null -> uiState.error ?: "Error"
         else -> "Ready"
     }
@@ -68,6 +69,7 @@ fun VideoConsultationFlow(
             hasRemoteVideo = uiState.hasRemoteVideo,
             connectionMode = uiState.connectionMode,
             modeBanner = uiState.modeBanner,
+            callDurationSeconds = uiState.callDuration,
             chatMessages = uiState.chatMessages,
             onBackClick = {
                 viewModel.endCall()
@@ -87,7 +89,7 @@ fun VideoConsultationFlow(
         ConsultationPrepareScreen(
             userName = patientName,
             doctorName = doctorName,
-            isConnecting = uiState.isConnecting,
+            isConnecting = uiState.isConnecting || uiState.isWaitingForDoctor,
             statusMessage = statusMessage,
             onBackClick = onBackClick,
             onStartConsultation = {

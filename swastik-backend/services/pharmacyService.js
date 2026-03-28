@@ -42,6 +42,203 @@ const enrichMissingPhonesFromOwners = async (rows = []) => {
   });
 };
 
+const ACTIVE_ORDER_STATUSES = ['confirmed', 'processing', 'ready', 'dispatched'];
+const COMPLETED_ORDER_STATUSES = ['delivered', 'cancelled'];
+
+const buildPagination = (page, limit, total) => ({
+  page,
+  limit,
+  total,
+  totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
+});
+
+const normalizePharmacyUpdates = (updates = {}) => {
+  const normalized = { ...updates };
+
+  if (normalized.license_number === undefined && updates.licenseNumber !== undefined) {
+    normalized.license_number = updates.licenseNumber;
+  }
+  if (normalized.drug_license_number === undefined && updates.drugLicenseNumber !== undefined) {
+    normalized.drug_license_number = updates.drugLicenseNumber;
+  }
+  if (normalized.license_document_url === undefined && updates.licenseDocumentUrl !== undefined) {
+    normalized.license_document_url = updates.licenseDocumentUrl;
+  }
+  if (normalized.profile_image_url === undefined) {
+    normalized.profile_image_url =
+      updates.profile_image_url ??
+      updates.profile_image ??
+      updates.profileImage ??
+      updates.image_url;
+  }
+  if (normalized.delivery_available === undefined) {
+    normalized.delivery_available = updates.delivery_available ?? updates.deliveryAvailable ?? updates.offers_delivery;
+  }
+  if (normalized.is_24_hours === undefined && updates.is24Hours !== undefined) {
+    normalized.is_24_hours = updates.is24Hours;
+  }
+
+  return normalized;
+};
+
+const normalizeInventoryUpdates = (updates = {}) => {
+  const normalized = { ...updates };
+
+  if (normalized.generic_name === undefined) {
+    normalized.generic_name = updates.generic_name ?? updates.genericName ?? updates.medicineName ?? updates.medicine_name;
+  }
+  if (normalized.batch_number === undefined && updates.batchNumber !== undefined) {
+    normalized.batch_number = updates.batchNumber;
+  }
+  if (normalized.expiry_date === undefined && updates.expiryDate !== undefined) {
+    normalized.expiry_date = updates.expiryDate;
+  }
+  if (normalized.requires_prescription === undefined && updates.requiresPrescription !== undefined) {
+    normalized.requires_prescription = updates.requiresPrescription;
+  }
+  if (normalized.reorder_level === undefined && updates.minQuantity !== undefined) {
+    normalized.reorder_level = updates.minQuantity;
+  }
+
+  return normalized;
+};
+
+const normalizeSearchToken = (value) =>
+  sanitizeSearch(String(value || ''))
+    .trim()
+    .toLowerCase();
+
+const collectDistinctSearchTokens = (...values) => [
+  ...new Set(values.map(normalizeSearchToken).filter(Boolean)),
+];
+
+const rankCatalogMedicineMatch = (medicine, searchTokens = []) => {
+  const name = normalizeSearchToken(medicine?.name);
+  const genericName = normalizeSearchToken(medicine?.generic_name);
+
+  return searchTokens.reduce((score, token) => {
+    if (token === name) return score + 6;
+    if (token === genericName) return score + 5;
+    if (name.includes(token)) return score + 3;
+    if (genericName.includes(token)) return score + 2;
+    return score;
+  }, 0);
+};
+
+const resolveCatalogMedicine = async ({ medicineId, name, genericName } = {}) => {
+  const explicitMedicineId = String(medicineId || '').trim();
+  if (explicitMedicineId) {
+    const { data: exactMatch, error } = await supabaseAdmin
+      .from('medicines')
+      .select('id, name, generic_name, requires_prescription')
+      .eq('id', explicitMedicineId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (exactMatch) return exactMatch;
+  }
+
+  const searchTokens = collectDistinctSearchTokens(genericName, name);
+  if (searchTokens.length === 0) return null;
+
+  const orConditions = searchTokens.flatMap((token) => [
+    `name.ilike.%${token}%`,
+    `generic_name.ilike.%${token}%`,
+  ]);
+
+  const { data: matches, error } = await supabaseAdmin
+    .from('medicines')
+    .select('id, name, generic_name, requires_prescription')
+    .eq('is_active', true)
+    .or(orConditions.join(','))
+    .limit(10);
+
+  if (error) throw error;
+  if (!matches || matches.length === 0) return null;
+
+  return matches
+    .slice()
+    .sort((left, right) => rankCatalogMedicineMatch(right, searchTokens) - rankCatalogMedicineMatch(left, searchTokens))[0];
+};
+
+const resolveInventoryRowForOrderItem = async (pharmacyId, item = {}, inventoryMap = {}) => {
+  const directMatchKey = item.inventoryItemId || item.medicineId;
+  if (directMatchKey && inventoryMap[directMatchKey]) {
+    return inventoryMap[directMatchKey];
+  }
+
+  const searchTokens = collectDistinctSearchTokens(item.genericName, item.name);
+  if (searchTokens.length === 0) return null;
+
+  const orConditions = searchTokens.flatMap((token) => [
+    `name.ilike.%${token}%`,
+    `generic_name.ilike.%${token}%`,
+  ]);
+
+  const { data: inventoryRows, error } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('id, price, name, generic_name, medicine_id, quantity')
+    .eq('pharmacy_id', pharmacyId)
+    .gt('quantity', 0)
+    .or(orConditions.join(','))
+    .order('quantity', { ascending: false })
+    .limit(5);
+
+  if (error) throw error;
+  if (!inventoryRows || inventoryRows.length === 0) return null;
+
+  const rankedRows = inventoryRows
+    .map((row) => ({
+      row,
+      score: Math.max(
+        rankCatalogMedicineMatch({ name: row.name, generic_name: row.generic_name }, searchTokens),
+        rankCatalogMedicineMatch({ name: row.generic_name, generic_name: row.name }, searchTokens)
+      ),
+    }))
+    .sort((left, right) => right.score - left.score || (right.row.quantity || 0) - (left.row.quantity || 0));
+
+  return rankedRows[0]?.row || null;
+};
+
+const matchesOrderSearch = (order, term) => {
+  if (!term) return true;
+
+  const haystack = [
+    order?.id,
+    order?.patient?.name,
+    order?.delivery_address,
+    ...(Array.isArray(order?.items) ? order.items.map((item) => item?.name || item?.medicineName || item?.medicine_id) : []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(term);
+};
+
+const filterOrdersByGroup = (orders = [], filters = {}) => {
+  if (filters.status) {
+    return orders.filter((order) => order.status === filters.status);
+  }
+  if (filters.group === 'active') {
+    return orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status));
+  }
+  if (filters.group === 'completed') {
+    return orders.filter((order) => COMPLETED_ORDER_STATUSES.includes(order.status));
+  }
+
+  return orders;
+};
+
+const summarizeOrders = (orders = []) => ({
+  total: orders.length,
+  pending: orders.filter((order) => order.status === 'pending').length,
+  active: orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)).length,
+  completed: orders.filter((order) => COMPLETED_ORDER_STATUSES.includes(order.status)).length,
+  delivered: orders.filter((order) => order.status === 'delivered').length,
+});
+
 // Search pharmacies globally (not limited to nearby)
 const searchPharmacies = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -68,7 +265,7 @@ const searchPharmacies = async (filters = {}, page = 1, limit = 20) => {
 
   return {
     data: recordsWithPhone,
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    pagination: buildPagination(page, limit, count || 0),
   };
 };
 
@@ -108,7 +305,7 @@ const findNearbyWithMedicine = async (latitude, longitude, medicineId, radius = 
       .select('pharmacy_id')
       .eq('medicine_id', medicineId)
       .in('pharmacy_id', pharmacyIds)
-      .gt('stock', 0);
+      .gt('quantity', 0);
 
     if (inventory && inventory.length > 0) {
       const pharmaciesWithMedicine = new Set(inventory.map(i => i.pharmacy_id));
@@ -177,13 +374,15 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
     throw existingPharmacyError || new ApiError(404, 'Pharmacy not found');
   }
 
+  const normalizedUpdates = normalizePharmacyUpdates(updates);
+
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
-    'latitude', 'longitude', 'is_24_hours', 'delivery_available', 'description',
-    'opening_hours', 'profile_image_url'];
+    'latitude', 'longitude', 'license_number', 'drug_license_number', 'license_document_url',
+    'is_24_hours', 'delivery_available', 'description', 'opening_hours', 'profile_image_url'];
   const safeUpdates = {};
   for (const key of allowedFields) {
-    if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+    if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];
   }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingPharmacy, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
@@ -223,7 +422,7 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
 
   if (filters.search) {
     const s = sanitizeSearch(filters.search);
-    if (s) query = query.or(`name.ilike.%${s}%,medicine_name.ilike.%${s}%`);
+    if (s) query = query.or(`name.ilike.%${s}%,generic_name.ilike.%${s}%`);
   }
   // Low-stock filter is applied in JS because PostgREST does not support
   // reliable cross-column comparisons like quantity < reorder_level.
@@ -257,18 +456,25 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
   return {
     data: data || [],
     items: data || [], // Alias for route compatibility
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    pagination: buildPagination(page, limit, count || 0),
   };
 };
 
 // Add inventory item
 const addInventoryItem = async (pharmacyId, userId, itemData) => {
+  const catalogMedicine = await resolveCatalogMedicine({
+    medicineId: itemData.medicine_id,
+    name: itemData.name,
+    genericName: itemData.generic_name || itemData.genericName,
+  });
+
   const { data, error } = await supabaseAdmin
     .from('pharmacy_inventory')
     .insert({
       pharmacy_id: pharmacyId,
-      name: itemData.name || itemData.medicine_name,
-      medicine_name: itemData.medicine_name || itemData.name,
+      medicine_id: catalogMedicine?.id || itemData.medicine_id || null,
+      name: itemData.name || catalogMedicine?.name || itemData.generic_name || itemData.genericName,
+      generic_name: itemData.generic_name || itemData.genericName || catalogMedicine?.generic_name || null,
       category: itemData.category,
       quantity: itemData.quantity || 0,
       price: itemData.price,
@@ -276,9 +482,8 @@ const addInventoryItem = async (pharmacyId, userId, itemData) => {
       batch_number: itemData.batchNumber || itemData.batch_number,
       expiry_date: itemData.expiryDate || itemData.expiry_date,
       manufacturer: itemData.manufacturer,
-      requires_prescription: itemData.requiresPrescription || false,
+      requires_prescription: itemData.requiresPrescription ?? catalogMedicine?.requires_prescription ?? false,
       reorder_level: itemData.reorder_level || itemData.minQuantity || 10,
-      unit: itemData.unit || 'units',
     })
     .select('*')
     .single();
@@ -289,13 +494,50 @@ const addInventoryItem = async (pharmacyId, userId, itemData) => {
 
 // Update inventory item
 const updateInventoryItem = async (itemId, pharmacyId, userId, updates) => {
+  const normalizedUpdates = normalizeInventoryUpdates(updates);
+
+  const { data: existingItem, error: existingItemError } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('id, pharmacy_id, medicine_id, name, generic_name')
+    .eq('id', itemId)
+    .eq('pharmacy_id', pharmacyId)
+    .maybeSingle();
+
+  if (existingItemError) throw existingItemError;
+  if (!existingItem) throw new ApiError(404, 'Inventory item not found');
+
+  const searchFieldsChanged =
+    normalizedUpdates.name !== undefined ||
+    normalizedUpdates.generic_name !== undefined ||
+    normalizedUpdates.medicine_id !== undefined;
+
+  const catalogMedicine = searchFieldsChanged
+    ? await resolveCatalogMedicine({
+        medicineId: normalizedUpdates.medicine_id,
+        name: normalizedUpdates.name ?? existingItem.name,
+        genericName: normalizedUpdates.generic_name ?? existingItem.generic_name,
+      })
+    : null;
+
   // Whitelist allowed fields
-  const allowedFields = ['name', 'medicine_name', 'category', 'quantity', 'price', 'mrp',
+  const allowedFields = ['name', 'generic_name', 'medicine_id', 'category', 'quantity', 'price', 'mrp',
     'batch_number', 'expiry_date', 'manufacturer', 'requires_prescription',
-    'reorder_level', 'unit', 'description'];
+    'reorder_level', 'description'];
   const safeUpdates = {};
   for (const key of allowedFields) {
-    if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+    if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];
+  }
+  if (searchFieldsChanged) {
+    safeUpdates.medicine_id =
+      normalizedUpdates.medicine_id !== undefined
+        ? (catalogMedicine?.id || normalizedUpdates.medicine_id || null)
+        : (catalogMedicine?.id || null);
+    if (safeUpdates.generic_name === undefined && (catalogMedicine?.generic_name || existingItem.generic_name)) {
+      safeUpdates.generic_name = catalogMedicine?.generic_name || existingItem.generic_name || null;
+    }
+    if (safeUpdates.name === undefined && catalogMedicine?.name) {
+      safeUpdates.name = catalogMedicine.name;
+    }
   }
   safeUpdates.updated_at = new Date().toISOString();
 
@@ -324,24 +566,81 @@ const deleteInventoryItem = async (itemId, pharmacyId, userId) => {
 
 // Get orders
 const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
-  let query = supabaseAdmin
-    .from('pharmacy_orders')
-    .select('*, patient:patients(id, name)', { count: 'exact' })
-    .eq('pharmacy_id', pharmacyId);
+  const safePage = Number(page) > 0 ? Number(page) : 1;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const offset = (safePage - 1) * safeLimit;
+  const search = sanitizeSearch(filters.search || '').toLowerCase();
+  const selectClause = '*, patient:patients(id, name)';
 
-  if (filters.status) query = query.eq('status', filters.status);
+  let orders = [];
+  let count = 0;
+  let summary = { total: 0, pending: 0, active: 0, completed: 0, delivered: 0 };
 
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  if (search) {
+    const { data: allOrders, error } = await supabaseAdmin
+      .from('pharmacy_orders')
+      .select(selectClause)
+      .eq('pharmacy_id', pharmacyId)
+      .order('created_at', { ascending: false });
 
-  if (error) throw error;
+    if (error) throw error;
+
+    const searchMatchedOrders = (allOrders || []).filter((order) => matchesOrderSearch(order, search));
+    const filteredOrders = filterOrdersByGroup(searchMatchedOrders, filters);
+    orders = filteredOrders.slice(offset, offset + safeLimit);
+    count = filteredOrders.length;
+    summary = summarizeOrders(searchMatchedOrders);
+  } else {
+    let query = supabaseAdmin
+      .from('pharmacy_orders')
+      .select(selectClause, { count: 'exact' })
+      .eq('pharmacy_id', pharmacyId);
+
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    } else if (filters.group === 'active') {
+      query = query.in('status', ACTIVE_ORDER_STATUSES);
+    } else if (filters.group === 'completed') {
+      query = query.in('status', COMPLETED_ORDER_STATUSES);
+    }
+
+    const { data, error, count: totalCount } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + safeLimit - 1);
+
+    if (error) throw error;
+
+    orders = data || [];
+    count = totalCount || 0;
+
+    const [
+      { count: totalOrders },
+      { count: pendingOrders },
+      { count: activeOrders },
+      { count: completedOrders },
+      { count: deliveredOrders },
+    ] = await Promise.all([
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId),
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'pending'),
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).in('status', ACTIVE_ORDER_STATUSES),
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).in('status', COMPLETED_ORDER_STATUSES),
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'delivered'),
+    ]);
+
+    summary = {
+      total: totalOrders || 0,
+      pending: pendingOrders || 0,
+      active: activeOrders || 0,
+      completed: completedOrders || 0,
+      delivered: deliveredOrders || 0,
+    };
+  }
 
   return {
-    data: data || [],
-    orders: data || [], // Alias
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: orders,
+    orders,
+    summary,
+    pagination: buildPagination(safePage, safeLimit, count),
   };
 };
 
@@ -451,13 +750,26 @@ const createOrder = async (patientUserId, orderData) => {
     throw new ApiError(404, 'Patient profile not found');
   }
 
+  const { data: pharmacy, error: pharmacyError } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, owner_id, name')
+    .eq('id', orderData.pharmacyId)
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .maybeSingle();
+
+  if (pharmacyError) throw pharmacyError;
+  if (!pharmacy) {
+    throw new ApiError(404, 'Pharmacy not found');
+  }
+
   // Batch-fetch all inventory items in one query
   const itemIds = (orderData.items || []).map(i => i.inventoryItemId || i.medicineId).filter(Boolean);
   let inventoryMap = {};
   if (itemIds.length > 0) {
     const { data: invItems } = await supabaseAdmin
       .from('pharmacy_inventory')
-      .select('id, price, name, medicine_name, medicine_id')
+      .select('id, price, name, generic_name, medicine_id')
       .eq('pharmacy_id', orderData.pharmacyId)
       .or(`id.in.(${itemIds.join(',')}),medicine_id.in.(${itemIds.join(',')})`);
       
@@ -470,23 +782,31 @@ const createOrder = async (patientUserId, orderData) => {
 
   let totalAmount = 0;
   const enrichedItems = [];
+  const allowUnmatchedItems = Boolean(orderData.prescriptionId);
   for (const item of (orderData.items || [])) {
-    const reqItemId = item.inventoryItemId || item.medicineId;
-    const invItem = inventoryMap[reqItemId];
-    
-    if (!invItem) {
-      throw new ApiError(400, `Item ${reqItemId} not available at this pharmacy`);
+    const reqItemId = item.inventoryItemId || item.medicineId || item.name || item.genericName;
+    const invItem = await resolveInventoryRowForOrderItem(orderData.pharmacyId, item, inventoryMap);
+    const catalogMedicine = await resolveCatalogMedicine({
+      medicineId: item.medicineId,
+      name: item.name,
+      genericName: item.genericName,
+    });
+
+    if (!invItem && !allowUnmatchedItems) {
+      throw new ApiError(400, `Item ${reqItemId || 'requested'} not available at this pharmacy`);
     }
 
-    const itemPrice = invItem.price || 0;
+    const itemPrice = invItem?.price || 0;
     totalAmount += itemPrice * (item.quantity || 1);
-    
+
     enrichedItems.push({
-      inventory_id: invItem.id, // always save the actual inventory ID
-      medicine_id: invItem.medicine_id,
+      inventory_id: invItem?.id || null,
+      medicine_id: invItem?.medicine_id || catalogMedicine?.id || item.medicineId || null,
       quantity: item.quantity || 1,
       price: itemPrice,
-      name: invItem.name || invItem.medicine_name
+      name: invItem?.name || invItem?.generic_name || item.name || item.genericName || catalogMedicine?.name || 'Medicine',
+      generic_name: invItem?.generic_name || item.genericName || catalogMedicine?.generic_name || null,
+      requires_manual_review: !invItem,
     });
   }
 
@@ -514,12 +834,6 @@ const createOrder = async (patientUserId, orderData) => {
   if (error) throw error;
 
   // Notify pharmacy owner of new order
-  const { data: pharmacy } = await supabaseAdmin
-    .from('pharmacies')
-    .select('owner_id, name')
-    .eq('id', orderData.pharmacyId)
-    .single();
-
   if (pharmacy) {
     eventEmitter.emitNewOrder({
       ...order,

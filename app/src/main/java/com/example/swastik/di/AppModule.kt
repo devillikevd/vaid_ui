@@ -20,6 +20,7 @@ import com.example.swastik.data.repository.DiagnosticRepository
 import com.example.swastik.data.repository.VitalsRepository
 import com.example.swastik.data.local.db.SwastikDatabase
 import com.example.swastik.data.local.db.*
+import com.example.swastik.notifications.PushNotificationCoordinator
 import com.example.swastik.data.sync.SyncManager
 import com.example.swastik.utils.NetworkObserver
 import dagger.Module
@@ -90,9 +91,17 @@ object AppModule {
         tokenManager: TokenManager,
         socketManager: SocketManager,
         database: SwastikDatabase,
-        chatbotRepository: ChatbotRepository
+        chatbotRepository: ChatbotRepository,
+        pushNotificationCoordinator: PushNotificationCoordinator
     ): AuthRepository {
-        return AuthRepository(apiService, tokenManager, socketManager, database, chatbotRepository)
+        return AuthRepository(
+            apiService,
+            tokenManager,
+            socketManager,
+            database,
+            chatbotRepository,
+            pushNotificationCoordinator
+        )
     }
 
     @Provides

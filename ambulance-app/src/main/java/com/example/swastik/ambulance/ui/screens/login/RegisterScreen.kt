@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.LocalShipping
@@ -69,8 +70,15 @@ fun RegisterScreen(
 
     var name by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
+    var registrationNumber by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var city by remember { mutableStateOf("") }
+    var state by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var alternatePhone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var licenseExpiry by remember { mutableStateOf("") }
+    var licenseDocumentUrl by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -80,8 +88,15 @@ fun RegisterScreen(
         if (uiState.registrationSuccessMessage != null) {
             name = ""
             companyName = ""
+            registrationNumber = ""
+            address = ""
+            city = ""
+            state = ""
             phone = ""
+            alternatePhone = ""
             email = ""
+            licenseExpiry = ""
+            licenseDocumentUrl = ""
             password = ""
             confirmPassword = ""
         }
@@ -212,12 +227,88 @@ fun RegisterScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             OutlinedTextField(
+                                value = registrationNumber,
+                                onValueChange = {
+                                    registrationNumber = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("Registration / permit number") },
+                                leadingIcon = { Icon(Icons.Default.Badge, null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = address,
+                                onValueChange = {
+                                    address = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("Base address") },
+                                leadingIcon = { Icon(Icons.Default.Business, null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = city,
+                                    onValueChange = {
+                                        city = it
+                                        if (uiState.error != null) viewModel.clearError()
+                                    },
+                                    label = { Text("City") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = state,
+                                    onValueChange = {
+                                        state = it
+                                        if (uiState.error != null) viewModel.clearError()
+                                    },
+                                    label = { Text("State") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
                                 value = phone,
                                 onValueChange = {
                                     phone = it
                                     if (uiState.error != null) viewModel.clearError()
                                 },
                                 label = { Text("Phone") },
+                                leadingIcon = { Icon(Icons.Default.Phone, null) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = alternatePhone,
+                                onValueChange = {
+                                    alternatePhone = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("Alternate phone") },
                                 leadingIcon = { Icon(Icons.Default.Phone, null) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 modifier = Modifier.fillMaxWidth(),
@@ -238,6 +329,35 @@ fun RegisterScreen(
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = licenseExpiry,
+                                onValueChange = {
+                                    licenseExpiry = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("License expiry (YYYY-MM-DD)") },
+                                leadingIcon = { Icon(Icons.Default.Badge, null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = licenseDocumentUrl,
+                                onValueChange = {
+                                    licenseDocumentUrl = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("License document URL (optional)") },
+                                leadingIcon = { Icon(Icons.Default.Business, null) },
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             )
 
@@ -302,7 +422,14 @@ fun RegisterScreen(
                                         phone = phone,
                                         password = password,
                                         confirmPassword = confirmPassword,
-                                        companyName = companyName
+                                        companyName = companyName,
+                                        registrationNumber = registrationNumber,
+                                        address = address,
+                                        city = city,
+                                        state = state,
+                                        alternatePhone = alternatePhone,
+                                        licenseDocumentUrl = licenseDocumentUrl,
+                                        licenseExpiry = licenseExpiry
                                     )
                                 },
                                 modifier = Modifier

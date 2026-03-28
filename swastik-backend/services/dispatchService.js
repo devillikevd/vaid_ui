@@ -21,6 +21,25 @@ const { calculateDistance, formatDistance, calculateETA, getBoundingBox } = requ
 const { v4: uuidv4 } = require('uuid');
 const notificationService = require('./notificationService');
 const eventEmitter = require('./eventEmitter');
+const hospitalManagerService = require('./hospitalManagerService');
+
+const HOSPITAL_VISIBLE_EMERGENCY_STATUSES = [
+  'pending',
+  'broadcasting',
+  'assigned',
+  'dispatched',
+  'accepted',
+  'en_route',
+  'en_route_pickup',
+  'arrived',
+  'arrived_pickup',
+  'picked_up',
+  'patient_onboard',
+  'en_route_hospital',
+  'arrived_hospital',
+];
+
+const ACTIVE_PATIENT_EMERGENCY_STATUSES = [...HOSPITAL_VISIBLE_EMERGENCY_STATUSES];
 
 // ── Status State Machine ────────────────────────────────────────
 const STATUS_TRANSITIONS = {
@@ -198,6 +217,40 @@ class DispatchService {
       throw new ApiError(403, 'Patient profile not found. Please complete patient registration before SOS requests.');
     }
 
+    // Prevent duplicate active SOS requests for the same patient.
+    const { data: existingRequest, error: existingRequestError } = await supabaseAdmin
+      .from('emergency_requests')
+      .select(`
+        *,
+        vehicle:ambulances(
+          vehicle_number,
+          driver_name,
+          driver_phone,
+          vehicle_type,
+          current_latitude,
+          current_longitude
+        )
+      `)
+      .eq('patient_id', patient.id)
+      .in('status', ACTIVE_PATIENT_EMERGENCY_STATUSES)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingRequestError) {
+      throw new ApiError(500, 'Failed to verify existing emergency status');
+    }
+
+    if (existingRequest) {
+      return {
+        ...existingRequest,
+        requestId: existingRequest.id,
+        status: existingRequest.status,
+        message: 'You already have an active SOS request',
+        alreadyActive: true,
+      };
+    }
+
     const requestId = uuidv4();
     const priority = derivePriority(emergencyType || 'medical');
 
@@ -209,7 +262,7 @@ class DispatchService {
         patient_id: patient?.id,
         requester_name: patientName || patient?.name || null,
         requester_phone: patientPhone || '',
-        pickup_address: `${latitude}, ${longitude}`,
+        pickup_address: requestData.address || `${latitude}, ${longitude}`,
         pickup_latitude: latitude,
         pickup_longitude: longitude,
         emergency_type: emergencyType || 'medical',
@@ -453,6 +506,17 @@ class DispatchService {
       throw new ApiError(400, 'Location is required');
     }
 
+    const hospital = await hospitalManagerService.getHospitalByOwner(userId);
+    const resolvedHospitalId = hospital?.id;
+
+    if (!resolvedHospitalId) {
+      throw new ApiError(404, 'Hospital not found for this user');
+    }
+
+    if (hospitalId && hospitalId !== resolvedHospitalId) {
+      throw new ApiError(403, 'You can only create ambulance requests for your own hospital');
+    }
+
     const requestId = uuidv4();
     const priority = derivePriority(emergencyType || 'medical');
 
@@ -470,7 +534,7 @@ class DispatchService {
         priority,
         status: 'pending',
         dispatch_mode: DISPATCH_MODES.HOSPITAL_CONTROLLED,
-        hospital_id: hospitalId,
+        hospital_id: resolvedHospitalId,
         notes,
         status_history: JSON.stringify([{
           status: 'pending',
@@ -506,6 +570,12 @@ class DispatchService {
   }
 
   async hospitalAssignAmbulance(assignedByUserId, requestId, ambulanceId) {
+    console.info('[dispatch] hospital assign start', {
+      requestId,
+      ambulanceId,
+      assignedByUserId,
+    });
+
     // Use the atomic PostgreSQL function for concurrency safety
     const { data, error } = await supabaseAdmin.rpc('hospital_assign_ambulance', {
       p_request_id: requestId,
@@ -519,6 +589,12 @@ class DispatchService {
     }
 
     if (!data?.success) {
+      console.warn('[dispatch] hospital assign rejected', {
+        requestId,
+        ambulanceId,
+        reason: data?.reason,
+        currentStatus: data?.current_status,
+      });
       const reasons = {
         request_not_found: 'Emergency request not found',
         invalid_status: `Request is already ${data?.current_status || 'processed'}`,
@@ -527,6 +603,12 @@ class DispatchService {
       };
       throw new ApiError(409, reasons[data?.reason] || 'Assignment failed');
     }
+
+    console.info('[dispatch] hospital assign committed', {
+      requestId,
+      ambulanceId,
+      status: 'assigned',
+    });
 
     // Get the full ambulance details to notify the driver
     const { data: ambulance } = await supabaseAdmin
@@ -612,19 +694,127 @@ class DispatchService {
   // ══════════════════════════════════════════════════════════════
 
   async acceptRequest(driverUserId, requestId) {
+    console.info('[dispatch] accept start', { requestId, driverUserId });
+
     // Find an ambulance for this user (driver or operator login)
-    const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: true });
+    const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: false });
 
     if (!ambulance) {
-      throw new ApiError(404, 'No available ambulance found for your account');
+      throw new ApiError(404, 'No ambulance found for your account');
     }
 
-    // Atomic accept via PostgreSQL function (row-level locking)
-    let { data, error } = await supabaseAdmin.rpc('accept_emergency_request', {
-      p_request_id: requestId,
-      p_ambulance_id: ambulance.id,
-      p_driver_user_id: driverUserId,
+    const { data: preflightRequest } = await supabaseAdmin
+      .from('emergency_requests')
+      .select('id, status, vehicle_id, dispatch_mode, assigned_at')
+      .eq('id', requestId)
+      .single();
+
+    if (!preflightRequest) {
+      throw new ApiError(404, 'Emergency request not found');
+    }
+
+    console.info('[dispatch] accept preflight', {
+      requestId,
+      driverUserId,
+      ambulanceId: ambulance.id,
+      ambulanceStatus: ambulance.status,
+      requestStatus: preflightRequest.status,
+      requestVehicleId: preflightRequest.vehicle_id,
+      dispatchMode: preflightRequest.dispatch_mode,
     });
+
+    // Hospital-controlled requests are already reserved to the assigned ambulance.
+    // If the ambulance app still sends "accept", treat it as an acknowledgement
+    // instead of failing because the vehicle is already in dispatched state.
+    const isAssignedToThisAmbulance =
+      preflightRequest.vehicle_id === ambulance.id && preflightRequest.status === 'assigned';
+    const isAlreadyAcceptedByThisAmbulance =
+      preflightRequest.vehicle_id === ambulance.id && preflightRequest.status === 'accepted';
+
+    // Atomic accept via PostgreSQL function (row-level locking)
+    let data;
+    let error = null;
+
+    if (isAlreadyAcceptedByThisAmbulance) {
+      console.info('[dispatch] accept idempotent already accepted', {
+        requestId,
+        ambulanceId: ambulance.id,
+      });
+      data = { success: true, status: 'accepted', reason: 'already_accepted_by_same_ambulance' };
+    } else if (isAssignedToThisAmbulance && ambulance.status !== 'available') {
+      console.info('[dispatch] accept acknowledging existing assignment', {
+        requestId,
+        ambulanceId: ambulance.id,
+        ambulanceStatus: ambulance.status,
+      });
+
+      const acknowledgementPayload = {
+        status: 'accepted',
+        accepted_by: driverUserId,
+        assigned_at: preflightRequest.assigned_at || new Date().toISOString(),
+      };
+
+      let acceptedStatusForResponse = 'accepted';
+      let { error: acknowledgeError } = await supabaseAdmin
+        .from('emergency_requests')
+        .update(acknowledgementPayload)
+        .eq('id', requestId);
+
+      if (
+        acknowledgeError &&
+        String(acknowledgeError.code) === '23514' &&
+        String(acknowledgeError.message || '').includes('emergency_requests_status_check')
+      ) {
+        console.warn('[dispatch] accept acknowledge fallback to assigned', {
+          requestId,
+          ambulanceId: ambulance.id,
+          code: acknowledgeError.code,
+          message: acknowledgeError.message,
+        });
+
+        acceptedStatusForResponse = 'assigned';
+        ({ error: acknowledgeError } = await supabaseAdmin
+          .from('emergency_requests')
+          .update({
+            status: 'assigned',
+            accepted_by: driverUserId,
+            assigned_at: acknowledgementPayload.assigned_at,
+          })
+          .eq('id', requestId));
+      }
+
+      if (acknowledgeError) {
+        console.error('[dispatch] accept acknowledge failed', {
+          requestId,
+          ambulanceId: ambulance.id,
+          code: acknowledgeError.code,
+          message: acknowledgeError.message,
+        });
+        throw new ApiError(500, 'Failed to acknowledge assigned request');
+      }
+
+      await this._appendStatusHistory(requestId, 'accepted', {
+        by: driverUserId,
+        mode: preflightRequest.dispatch_mode || null,
+        reason: 'driver_acknowledged_existing_assignment',
+      });
+
+      data = {
+        success: true,
+        status: acceptedStatusForResponse,
+        reason: 'driver_acknowledged_existing_assignment',
+      };
+    } else {
+      if (ambulance.status !== 'available') {
+        throw new ApiError(409, 'Your ambulance is not available');
+      }
+
+      ({ data, error } = await supabaseAdmin.rpc('accept_emergency_request', {
+        p_request_id: requestId,
+        p_ambulance_id: ambulance.id,
+        p_driver_user_id: driverUserId,
+      }));
+    }
 
     if (error) {
       console.error('Accept RPC error:', error);
@@ -679,6 +869,11 @@ class DispatchService {
     }
 
     if (!data?.success) {
+      console.warn('[dispatch] accept rejected', {
+        requestId,
+        ambulanceId: ambulance.id,
+        reason: data?.reason,
+      });
       const reasons = {
         request_not_found: 'Emergency request not found',
         already_accepted: 'This request has already been accepted by another ambulance',
@@ -688,6 +883,13 @@ class DispatchService {
       };
       throw new ApiError(409, reasons[data?.reason] || 'Could not accept request');
     }
+
+    console.info('[dispatch] accept committed', {
+      requestId,
+      ambulanceId: ambulance.id,
+      status: data?.status || 'accepted',
+      reason: data?.reason || null,
+    });
 
     // Clear broadcast timeout since request is accepted
     if (this.pendingTimeouts.has(requestId)) {
@@ -756,7 +958,7 @@ class DispatchService {
     // Emit to dashboards
     eventEmitter.notifyRoom('ambulance:dispatch', 'emergency:updated', {
       requestId,
-      status: 'accepted',
+      status: data?.status || 'accepted',
       ambulanceId: ambulance.id,
       vehicleNumber: ambulance.vehicle_number,
       driverName: ambulance.driver_name,
@@ -766,6 +968,7 @@ class DispatchService {
       success: true,
       message: 'Emergency request accepted. Navigate to patient now.',
       requestId,
+      status: data?.status || 'accepted',
       ambulance: {
         id: ambulance.id,
         vehicleNumber: ambulance.vehicle_number,
@@ -816,6 +1019,12 @@ class DispatchService {
   // ══════════════════════════════════════════════════════════════
 
   async updateStatus(driverUserId, requestId, newStatus, data = {}) {
+    console.info('[dispatch] status update start', {
+      requestId,
+      driverUserId,
+      newStatus,
+    });
+
     const ambulance = await this._resolveAmbulanceForUser(driverUserId, { requireAvailable: false });
 
     if (!ambulance) {
@@ -834,6 +1043,15 @@ class DispatchService {
 
     if (request.vehicle_id && request.vehicle_id !== ambulance.id) {
       throw new ApiError(403, 'This emergency is assigned to a different ambulance');
+    }
+
+    if (request.status === newStatus) {
+      console.info('[dispatch] status update idempotent', {
+        requestId,
+        ambulanceId: ambulance.id,
+        status: newStatus,
+      });
+      return { success: true, status: newStatus, alreadyApplied: true };
     }
 
     // Validate state transition
@@ -894,6 +1112,13 @@ class DispatchService {
       .eq('id', requestId);
 
     await this._appendStatusHistory(requestId, newStatus, { by: driverUserId });
+
+    console.info('[dispatch] status update committed', {
+      requestId,
+      ambulanceId: ambulance.id,
+      fromStatus: request.status,
+      toStatus: newStatus,
+    });
 
     // Notify patient
     const statusMessages = {
@@ -1000,7 +1225,15 @@ class DispatchService {
       status: 'cancelled',
     });
 
-    return { success: true, message: 'Request cancelled successfully' };
+    return {
+      success: true,
+      message: 'Request cancelled successfully',
+      data: {
+        requestId,
+        status: 'cancelled',
+        message: 'Request cancelled successfully',
+      },
+    };
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -1043,22 +1276,23 @@ class DispatchService {
   }
 
   async getActiveEmergenciesForHospital(hospitalUserId) {
-    // Get the hospital owned by this user
-    const { data: hospital } = await supabaseAdmin
-      .from('hospitals')
-      .select('id')
-      .eq('owner_id', hospitalUserId)
-      .single();
+    const hospital = await hospitalManagerService.getHospitalByOwner(hospitalUserId);
 
-    // Get all active emergencies (hospital can see all in their area)
+    // Hospital dashboards should only see emergencies routed to or created by their hospital
     const { data: emergencies } = await supabaseAdmin
       .from('emergency_requests')
       .select(`
         *,
         vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude),
-        patient:patients(id, name, user_id)
+        patient:patients(
+          id,
+          name,
+          user_id,
+          user:users(phone)
+        )
       `)
-      .in('status', ['pending', 'broadcasting', 'assigned', 'accepted', 'en_route', 'arrived', 'picked_up', 'en_route_hospital'])
+      .or(`hospital_id.eq.${hospital.id},destination_hospital_id.eq.${hospital.id}`)
+      .in('status', HOSPITAL_VISIBLE_EMERGENCY_STATUSES)
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -1066,7 +1300,7 @@ class DispatchService {
       id: e.id,
       requestNumber: e.request_number,
       patientName: e.requester_name || e.patient?.name || null,
-      patientPhone: e.requester_phone || e.patient?.phone || '',
+      patientPhone: e.requester_phone || e.patient?.user?.phone || '',
       location: e.pickup_address,
       latitude: e.pickup_latitude,
       longitude: e.pickup_longitude,

@@ -86,6 +86,36 @@ class VitalsRepository @Inject constructor(
     }
 
     /**
+     * Persist a reminder adherence action.
+     */
+    suspend fun actOnReminder(
+        id: String,
+        action: String,
+        scheduledAt: String,
+        snoozeMinutes: Int? = null
+    ): Result<ReminderActionResultDto> {
+        return try {
+            val response = apiService.actOnReminder(
+                id = id,
+                request = ReminderActionRequest(
+                    action = action,
+                    snoozeMinutes = snoozeMinutes,
+                    scheduledAt = scheduledAt
+                )
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let {
+                    Result.Success(it)
+                } ?: Result.Error("Failed to save reminder action")
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to save reminder action")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
      * Update an existing reminder.
      */
     suspend fun updateReminder(id: String, request: UpdateReminderRequest): Result<ReminderDto> {

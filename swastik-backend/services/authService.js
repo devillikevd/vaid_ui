@@ -218,7 +218,15 @@ const createRoleProfile = async (userId, role, data) => {
           user_id: userId,
           name: data.name || data.companyName || 'Unnamed Operator',
           company_name: data.companyName || data.name,
+          registration_number: data.registrationNumber || data.registration_number || null,
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || '',
           phone: data.phone,
+          alternate_phone: data.alternatePhone || data.alternate_phone || null,
+          email: data.email || null,
+          license_document_url: data.licenseDocumentUrl || data.license_document_url || null,
+          license_expiry: data.licenseExpiry || data.license_expiry || null,
           is_active: false,
           is_approved: false,
           approval_status: 'pending',
@@ -674,8 +682,41 @@ const resetPassword = async (token, newPassword) => {
 
 // Update current user profile (name, phone)
 const updateProfile = async (userId, role, updates) => {
-  const { name, phone } = updates;
-  if (!name && !phone) {
+  const {
+    name,
+    phone,
+    companyName,
+    company_name,
+    registrationNumber,
+    registration_number,
+    address,
+    city,
+    state,
+    alternatePhone,
+    alternate_phone,
+    licenseDocumentUrl,
+    license_document_url,
+    licenseExpiry,
+    license_expiry,
+  } = updates;
+
+  const hasAmbulanceOperatorFields = role === 'ambulance_operator' && [
+    companyName,
+    company_name,
+    registrationNumber,
+    registration_number,
+    address,
+    city,
+    state,
+    alternatePhone,
+    alternate_phone,
+    licenseDocumentUrl,
+    license_document_url,
+    licenseExpiry,
+    license_expiry,
+  ].some((value) => value !== undefined);
+
+  if (!name && !phone && !hasAmbulanceOperatorFields) {
     throw new ApiError(400, 'No valid fields to update');
   }
 
@@ -712,6 +753,45 @@ const updateProfile = async (userId, role, updates) => {
     const mapping = roleTableMap[role];
     if (mapping) {
       await supabaseAdmin.from(mapping.table).update({ name }).eq(mapping.col, userId);
+    }
+  }
+
+  if (role === 'ambulance_operator') {
+    const operatorUpdates = {};
+
+    if (companyName !== undefined || company_name !== undefined) {
+      operatorUpdates.company_name = companyName ?? company_name ?? null;
+    }
+    if (registrationNumber !== undefined || registration_number !== undefined) {
+      operatorUpdates.registration_number = registrationNumber ?? registration_number ?? null;
+    }
+    if (address !== undefined) operatorUpdates.address = address || null;
+    if (city !== undefined) operatorUpdates.city = city || null;
+    if (state !== undefined) operatorUpdates.state = state || null;
+
+    const alternatePhoneValue = alternatePhone ?? alternate_phone;
+    if (alternatePhoneValue !== undefined) {
+      const alternatePhoneStr = String(alternatePhoneValue).trim();
+      if (alternatePhoneStr && !/^\+?[1-9]\d{6,14}$/.test(alternatePhoneStr)) {
+        throw new ApiError(400, 'Invalid alternate phone number format. Use E.164 format (e.g., +919876543210)');
+      }
+      operatorUpdates.alternate_phone = alternatePhoneStr || null;
+    }
+
+    if (licenseDocumentUrl !== undefined || license_document_url !== undefined) {
+      operatorUpdates.license_document_url = licenseDocumentUrl ?? license_document_url ?? null;
+    }
+
+    const licenseExpiryValue = licenseExpiry ?? license_expiry;
+    if (licenseExpiryValue !== undefined) {
+      operatorUpdates.license_expiry = licenseExpiryValue || null;
+    }
+
+    if (Object.keys(operatorUpdates).length > 0) {
+      await supabaseAdmin
+        .from('ambulance_operators')
+        .update(operatorUpdates)
+        .eq('user_id', userId);
     }
   }
 

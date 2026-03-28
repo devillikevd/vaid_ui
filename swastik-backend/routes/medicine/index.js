@@ -152,7 +152,12 @@ router.post('/orders',
   [
     body('pharmacyId').notEmpty().withMessage('Pharmacy ID is required'),
     body('items').isArray({ min: 1 }).withMessage('Items array is required'),
-    body('items.*.medicineId').notEmpty().withMessage('Medicine ID is required'),
+    body('items.*').custom((item) => {
+      if (!item || (!item.medicineId && !item.inventoryItemId)) {
+        throw new Error('Each order item must include a medicineId or inventoryItemId');
+      }
+      return true;
+    }),
     body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     body('deliveryAddress').notEmpty().withMessage('Delivery address is required'),
   ],

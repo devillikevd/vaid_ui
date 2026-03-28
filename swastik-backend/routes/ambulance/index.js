@@ -94,8 +94,8 @@ router.post('/cancel/:requestId', authenticate,
 );
 
 router.get('/history', authenticate, asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const result = await ambulanceService.getRequestHistory(req.user.id, +page, +limit);
+  const { page = 1, limit = 10, status = null } = req.query;
+  const result = await ambulanceService.getRequestHistory(req.user, +page, +limit, status);
   res.json({ success: true, ...result });
 }));
 
@@ -207,7 +207,21 @@ router.get('/dashboard', authenticate,
     if (vehicleIds.length > 0) {
       const { data } = await supabaseAdmin.from('emergency_requests').select('*')
         .in('vehicle_id', vehicleIds)
-        .in('status', ['pending','assigned','accepted','broadcasting','dispatched','en_route','arrived','picked_up','en_route_hospital'])
+        .in('status', [
+          'pending',
+          'assigned',
+          'accepted',
+          'broadcasting',
+          'dispatched',
+          'en_route',
+          'en_route_pickup',
+          'arrived',
+          'arrived_pickup',
+          'picked_up',
+          'patient_onboard',
+          'en_route_hospital',
+          'arrived_hospital',
+        ])
         .order('created_at', { ascending: false }).limit(20);
       activeRequests = data || [];
     }

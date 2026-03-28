@@ -10,6 +10,7 @@ const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { body, param, query: queryValidator } = require('express-validator');
 const { validate } = require('../middleware/validate');
+const { sanitizeSearch } = require('../utils/sanitize');
 
 // Public routes
 router.get('/search', asyncHandler(async (req, res) => {
@@ -114,18 +115,18 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
         stats,
         pendingPrescriptions: pendingOrders.map(o => ({
             id: o.id,
-            patientName: o.patient_name || 'Patient',
+            patientName: o.patient?.name || o.patient_name || 'Patient',
             patientId: o.patient_id,
-            doctorName: o.doctor_name || 'Doctor',
-            items: o.items?.length || 0,
+            doctorName: o.doctor_name || 'Pending order',
+            items: Array.isArray(o.items) ? o.items.length : 0,
             time: o.created_at,
             status: o.status,
         })),
         lowStockItems: lowStockItems.map(item => ({
             id: item.id,
             name: item.name || item.medicine_name,
-            quantity: item.quantity || item.stock,
-            minQuantity: item.min_quantity || item.reorder_level || 10,
+            quantity: item.quantity ?? item.stock ?? 0,
+            minQuantity: item.min_quantity ?? item.reorder_level ?? 10,
             unit: item.unit || 'units',
             expiryDate: item.expiry_date,
             isLowStock: true,
@@ -146,9 +147,10 @@ router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, async
     const allowed = [
         'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
         'latitude', 'longitude', 'license_number', 'licenseNumber',
+        'drug_license_number', 'drugLicenseNumber', 'license_document_url', 'licenseDocumentUrl',
         'opening_time', 'closing_time', 'opening_hours', 'is_24_hours',
-        'is_open', 'delivery_available', 'offers_delivery', 'delivery_radius_km',
-        'image_url', 'profile_image'
+        'is_open', 'delivery_available', 'deliveryAvailable', 'offers_delivery', 'delivery_radius_km',
+        'image_url', 'profile_image', 'profile_image_url', 'profileImage', 'is24Hours'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -214,11 +216,11 @@ router.delete('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHand
 // Orders routes
 router.get('/orders', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, group, search, page = 1, limit = 20 } = req.query;
 
     const result = await pharmacyService.getOrders(
         pharmacy.id,
-        { status },
+        { status, group, search },
         parseInt(page),
         parseInt(limit)
     );
@@ -243,8 +245,12 @@ router.patch('/orders/:orderId/status', requireRole(ROLES.PHARMACY_OWNER), async
 
 // Prescriptions routes
 router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, search, page = 1, limit = 20 } = req.query;
     const { supabaseAdmin } = require('../config/supabase');
+    const normalizedPage = parseInt(page) > 0 ? parseInt(page) : 1;
+    const normalizedLimit = parseInt(limit) > 0 ? parseInt(limit) : 20;
+    const offset = (normalizedPage - 1) * normalizedLimit;
+    const searchTerm = sanitizeSearch(search || '').toLowerCase();
 
     // Get this owner's pharmacy to scope the query
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
@@ -265,7 +271,7 @@ router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(asy
         return res.json({
             success: true,
             data: [],
-            pagination: { page: parseInt(page), limit: parseInt(limit), total: 0, totalPages: 0 }
+            pagination: { page: normalizedPage, limit: normalizedLimit, total: 0, totalPages: 1 }
         });
     }
 
@@ -281,11 +287,49 @@ router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(asy
         .order('created_at', { ascending: false });
 
     if (status) {
-        query = query.eq('status', status);
+        if (status === 'pending') {
+            query = query.in('status', ['pending', 'ready']);
+        } else if (status === 'dispensed') {
+            query = query.in('status', ['dispensed', 'fulfilled']);
+        } else {
+            query = query.eq('status', status);
+        }
     }
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    const { data, error, count } = await query.range(offset, offset + parseInt(limit) - 1);
+    if (searchTerm) {
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        const filtered = (data || []).filter((prescription) => {
+            const terms = [
+                prescription.id,
+                prescription.patients?.name,
+                prescription.doctors?.name,
+                ...(Array.isArray(prescription.prescription_medicines)
+                    ? prescription.prescription_medicines.map((medicine) => medicine.medicine_name || medicine.name)
+                    : []),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+
+            return terms.includes(searchTerm);
+        });
+
+        return res.json({
+            success: true,
+            data: filtered.slice(offset, offset + normalizedLimit),
+            pagination: {
+                page: normalizedPage,
+                limit: normalizedLimit,
+                total: filtered.length,
+                totalPages: Math.max(1, Math.ceil(filtered.length / normalizedLimit)),
+            },
+        });
+    }
+
+    const { data, error, count } = await query.range(offset, offset + normalizedLimit - 1);
 
     if (error) throw error;
 
@@ -293,10 +337,10 @@ router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(asy
         success: true,
         data: data || [],
         pagination: {
-            page: parseInt(page),
-            limit: parseInt(limit),
+            page: normalizedPage,
+            limit: normalizedLimit,
             total: count || 0,
-            totalPages: Math.ceil((count || 0) / parseInt(limit)),
+            totalPages: Math.max(1, Math.ceil((count || 0) / normalizedLimit)),
         },
     });
 }));

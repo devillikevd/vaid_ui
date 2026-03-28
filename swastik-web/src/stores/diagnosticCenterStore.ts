@@ -44,14 +44,40 @@ export interface DiagnosticBooking {
     created_at: string;
 }
 
+export interface DiagnosticPagination {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+export interface DiagnosticBookingSummary {
+    total: number;
+    status: Record<string, number>;
+    resultStatus: Record<string, number>;
+}
+
 function normalizeDiagnosticBooking(raw: Record<string, any>): DiagnosticBooking {
     return {
         ...raw,
         patient_name: raw.patient_name || raw.patient?.name,
         patient_email: raw.patient_email || raw.patient?.email,
         test_name: raw.test_name || raw.test?.name,
-        amount: raw.amount || raw.test?.price || null,
+        amount: raw.amount ?? raw.test?.price ?? null,
     } as DiagnosticBooking;
+}
+
+function normalizePagination(
+    pagination: Record<string, any> | undefined,
+    fallbackPage: number,
+    fallbackLimit: number
+): DiagnosticPagination {
+    return {
+        page: Number(pagination?.page || fallbackPage),
+        limit: Number(pagination?.limit || fallbackLimit),
+        total: Number(pagination?.total || 0),
+        totalPages: Math.max(1, Number(pagination?.totalPages || 1)),
+    };
 }
 
 interface DiagnosticCenterState {
@@ -59,6 +85,11 @@ interface DiagnosticCenterState {
     tests: DiagnosticTest[];
     bookings: DiagnosticBooking[];
     results: DiagnosticBooking[];
+    testsPagination: DiagnosticPagination;
+    bookingsPagination: DiagnosticPagination;
+    resultsPagination: DiagnosticPagination;
+    bookingsSummary: DiagnosticBookingSummary;
+    resultsSummary: DiagnosticBookingSummary;
     todaysBookings: DiagnosticBooking[];
     selectedBooking: DiagnosticBooking | null;
     isLoading: boolean;
@@ -70,12 +101,12 @@ interface DiagnosticCenterState {
     error: string | null;
 
     fetchDashboardData: () => Promise<void>;
-    fetchTests: (category?: string) => Promise<void>;
+    fetchTests: (params?: { page?: number; limit?: number; search?: string; category?: string }) => Promise<void>;
     addTest: (data: Record<string, unknown>) => Promise<boolean>;
     updateTest: (testId: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteTest: (testId: string) => Promise<boolean>;
-    fetchBookings: (status?: string) => Promise<void>;
-    fetchResults: (resultStatus?: string) => Promise<void>;
+    fetchBookings: (params?: { page?: number; limit?: number; status?: string; date?: string; search?: string }) => Promise<void>;
+    fetchResults: (params?: { page?: number; limit?: number; resultStatus?: string; search?: string }) => Promise<void>;
     fetchBookingById: (bookingId: string) => Promise<void>;
     updateBookingStatus: (bookingId: string, status: string) => Promise<boolean>;
     uploadResult: (bookingId: string, data: { result_url: string; result_notes?: string }) => Promise<boolean>;
@@ -90,6 +121,11 @@ const diagnosticInitialState = {
     tests: [] as DiagnosticTest[],
     bookings: [] as DiagnosticBooking[],
     results: [] as DiagnosticBooking[],
+    testsPagination: { page: 1, limit: 20, total: 0, totalPages: 1 } as DiagnosticPagination,
+    bookingsPagination: { page: 1, limit: 20, total: 0, totalPages: 1 } as DiagnosticPagination,
+    resultsPagination: { page: 1, limit: 20, total: 0, totalPages: 1 } as DiagnosticPagination,
+    bookingsSummary: { total: 0, status: {}, resultStatus: {} } as DiagnosticBookingSummary,
+    resultsSummary: { total: 0, status: {}, resultStatus: {} } as DiagnosticBookingSummary,
     todaysBookings: [] as DiagnosticBooking[],
     selectedBooking: null as DiagnosticBooking | null,
     isLoading: false,
@@ -144,18 +180,25 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         }
     },
 
-    fetchTests: async (category?: string) => {
+    fetchTests: async (params = {}) => {
         set({ loadingTests: true, error: null });
         try {
-            const response = await diagnosticCenterApi.getTests(1, category);
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await diagnosticCenterApi.getTests({
+                page,
+                limit,
+                search: params.search,
+                category: params.category,
+            });
             if (!response.success) {
                 set({ error: response.error || 'Failed to load tests', loadingTests: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
             set({
                 tests: (Array.isArray(rawData) ? rawData : (rawData as any)?.tests || (rawData as any)?.data || []) as DiagnosticTest[],
+                testsPagination: normalizePagination(response.pagination as Record<string, any> | undefined, page, limit),
                 loadingTests: false,
             });
         } catch (error) {
@@ -168,7 +211,7 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         try {
             const response = await diagnosticCenterApi.addTest(data);
             if (response.success) {
-                get().fetchTests();
+                get().fetchTests({ page: 1 });
                 return true;
             }
             set({ error: response.error || 'Failed to add test' });
@@ -184,7 +227,7 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         try {
             const response = await diagnosticCenterApi.updateTest(testId, data);
             if (response.success) {
-                get().fetchTests();
+                get().fetchTests({ page: get().testsPagination.page });
                 return true;
             }
             set({ error: response.error || 'Failed to update test' });
@@ -200,7 +243,8 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         try {
             const response = await diagnosticCenterApi.deleteTest(testId);
             if (response.success) {
-                get().fetchTests();
+                const nextPage = Math.max(1, get().testsPagination.page);
+                get().fetchTests({ page: nextPage });
                 return true;
             }
             set({ error: response.error || 'Failed to delete test' });
@@ -212,18 +256,24 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         }
     },
 
-    fetchBookings: async (status?: string) => {
-        set({ loadingBookings: true, error: null });
+    fetchBookings: async (params = {}) => {
+        set({ loadingBookings: true, isLoading: true, error: null });
         try {
-            const response = await diagnosticCenterApi.getBookings(status);
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await diagnosticCenterApi.getBookings({
+                page,
+                limit,
+                status: params.status,
+                date: params.date,
+                search: params.search,
+            });
             if (!response.success) {
-                set({ error: response.error || 'Failed to load bookings', loadingBookings: false });
+                set({ error: response.error || 'Failed to load bookings', loadingBookings: false, isLoading: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
             const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
-            // I16: Deduplicate by booking ID
             const seen = new Set<string>();
             const deduped = raw
                 .map(booking => normalizeDiagnosticBooking(booking as Record<string, any>))
@@ -234,26 +284,34 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 });
             set({
                 bookings: deduped,
+                bookingsPagination: normalizePagination(response.pagination as Record<string, any> | undefined, page, limit),
+                bookingsSummary: (response.summary as DiagnosticBookingSummary | undefined) || { total: deduped.length, status: {}, resultStatus: {} },
                 loadingBookings: false,
+                isLoading: false,
             });
         } catch (error) {
             console.error('Error fetching bookings:', error);
-            set({ error: 'Failed to load bookings.', loadingBookings: false });
+            set({ error: 'Failed to load bookings.', loadingBookings: false, isLoading: false });
         }
     },
 
-    fetchResults: async (resultStatus?: string) => {
-        set({ loadingResults: true, error: null });
+    fetchResults: async (params = {}) => {
+        set({ loadingResults: true, isLoading: true, error: null });
         try {
-            const response = await diagnosticCenterApi.getResults(resultStatus);
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await diagnosticCenterApi.getResults({
+                page,
+                limit,
+                resultStatus: params.resultStatus,
+                search: params.search,
+            });
             if (!response.success) {
-                set({ error: response.error || 'Failed to load results', loadingResults: false });
+                set({ error: response.error || 'Failed to load results', loadingResults: false, isLoading: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
             const rawData = response.data;
             const raw = (Array.isArray(rawData) ? rawData : (rawData as any)?.bookings || (rawData as any)?.data || []) as DiagnosticBooking[];
-            // I16: Deduplicate by booking ID — API may return duplicates
             const seen = new Set<string>();
             const deduped = raw
                 .map(result => normalizeDiagnosticBooking(result as Record<string, any>))
@@ -264,11 +322,14 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
                 });
             set({
                 results: deduped,
+                resultsPagination: normalizePagination(response.pagination as Record<string, any> | undefined, page, limit),
+                resultsSummary: (response.summary as DiagnosticBookingSummary | undefined) || { total: deduped.length, status: {}, resultStatus: {} },
                 loadingResults: false,
+                isLoading: false,
             });
         } catch (error) {
             console.error('Error fetching results:', error);
-            set({ error: 'Failed to load results.', loadingResults: false });
+            set({ error: 'Failed to load results.', loadingResults: false, isLoading: false });
         }
     },
 
@@ -295,7 +356,8 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         try {
             const response = await diagnosticCenterApi.updateBookingStatus(bookingId, status);
             if (response.success) {
-                get().fetchBookings();
+                get().fetchBookings({ page: get().bookingsPagination.page });
+                get().fetchResults({ page: get().resultsPagination.page });
                 return true;
             }
             set({ error: response.error || 'Failed to update booking status' });
@@ -311,7 +373,8 @@ export const useDiagnosticCenterStore = create<DiagnosticCenterState>((set, get)
         try {
             const response = await diagnosticCenterApi.uploadResult(bookingId, data);
             if (response.success) {
-                get().fetchBookings();
+                get().fetchBookings({ page: get().bookingsPagination.page });
+                get().fetchResults({ page: get().resultsPagination.page });
                 return true;
             }
             set({ error: response.error || 'Failed to upload result' });

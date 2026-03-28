@@ -39,6 +39,10 @@ data class HospitalFinderUiState(
     // Clinic detail
     val clinicDoctors: List<ClinicDoctorDto> = emptyList(),
     val isClinicDoctorsLoading: Boolean = false,
+    // Hospital detail
+    val selectedHospitalDetails: MedicalFacility? = null,
+    val isHospitalDetailsLoading: Boolean = false,
+    val hospitalDetailsError: String? = null,
     // Pharmacy inventory
     val pharmacyInventory: List<PharmacyInventoryItemDto> = emptyList(),
     val isPharmacyInventoryLoading: Boolean = false,
@@ -343,6 +347,38 @@ class HospitalFinderViewModel @Inject constructor(
 
     fun clearReviewState() {
         _uiState.value = _uiState.value.copy(reviewSubmitting = false, reviewSuccess = false, reviewError = null)
+    }
+
+    // ==================== Hospital Detail ====================
+
+    fun loadHospitalDetails(hospitalId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isHospitalDetailsLoading = true,
+                hospitalDetailsError = null
+            )
+            try {
+                val facility = hospitalRepository.getHospitalDetails(hospitalId)
+                _uiState.value = _uiState.value.copy(
+                    selectedHospitalDetails = facility,
+                    isHospitalDetailsLoading = false,
+                    hospitalDetailsError = if (facility == null) "Hospital details are unavailable right now" else null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isHospitalDetailsLoading = false,
+                    hospitalDetailsError = e.message ?: "Failed to load hospital details"
+                )
+            }
+        }
+    }
+
+    fun clearSelectedHospitalDetails() {
+        _uiState.value = _uiState.value.copy(
+            selectedHospitalDetails = null,
+            isHospitalDetailsLoading = false,
+            hospitalDetailsError = null
+        )
     }
 
     // ==================== Clinic Detail ====================

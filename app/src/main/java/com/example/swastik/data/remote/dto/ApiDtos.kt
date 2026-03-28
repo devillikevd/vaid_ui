@@ -1,6 +1,7 @@
 package com.example.swastik.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
+import com.google.gson.JsonObject
 
 // ==================== AUTH DTOs ====================
 
@@ -290,7 +291,8 @@ data class RecommendedDoctorDto(
         averageRating = rating,
         totalReviews = null,
         isAvailable = isAvailable ?: true,
-        hospitalValues = emptyList()
+        hospitalValues = emptyList(),
+        recommendationReason = recommendationReason
     )
 }
 
@@ -346,11 +348,25 @@ data class CreateAppointmentRequest(
     val clinicId: String? = null
 )
 
+data class AppointmentFacilityDto(
+    val id: String,
+    val name: String,
+    val address: String? = null,
+    val city: String? = null,
+    val type: String? = null
+)
+
 data class AppointmentDto(
     val id: String,
     @SerializedName("doctor_id")
     val doctorId: String,
+    @SerializedName("hospital_id")
+    val hospitalId: String? = null,
+    @SerializedName("clinic_id")
+    val clinicId: String? = null,
     val doctor: DoctorDto?,
+    val hospital: AppointmentFacilityDto? = null,
+    val clinic: AppointmentFacilityDto? = null,
     @SerializedName("appointment_date")
     val date: String,
     @SerializedName("time_slot")
@@ -458,6 +474,11 @@ data class PrescriptionItemDto(
     val quantity: Int? = null
 )
 
+data class ForwardPrescriptionRequest(
+    val pharmacyId: String,
+    val deliveryAddress: String? = null
+)
+
 data class EndConsultationRequest(
     val diagnosis: String? = null,
     val notes: String? = null,
@@ -528,6 +549,8 @@ data class ReportDto(
     @SerializedName("consultation_id")
     val consultationId: String?,
     val parameters: List<ReportParameterDto>?,
+    @SerializedName("booking_id")
+    val bookingId: String? = null,
     @SerializedName("created_at")
     val createdAt: String?
 ) {
@@ -561,6 +584,7 @@ data class NotificationDto(
     val title: String,
     val message: String,
     val type: String,
+    val data: JsonObject? = null,
     @SerializedName("is_read")
     val isRead: Boolean,
     @SerializedName("created_at")
@@ -791,7 +815,10 @@ data class ClinicDto(
     @SerializedName("total_reviews")
     val totalReviews: Int?,
     @SerializedName("is_24_hours")
-    val is24Hours: Boolean?
+    val is24Hours: Boolean?,
+    val city: String? = null,
+    val state: String? = null,
+    val email: String? = null
 )
 
 data class DiagnosticCenterDto(
@@ -837,7 +864,8 @@ data class MedicineOrderRequest(
 )
 
 data class OrderItemRequest(
-    val medicineId: String,
+    val medicineId: String? = null,
+    @SerializedName("inventoryItemId") val inventoryItemId: String? = null,
     val quantity: Int
 )
 
@@ -882,6 +910,8 @@ data class DiagnosticTestDto(
     val price: Float?,
     @SerializedName("preparation_instructions") val preparationInstructions: String?,
     @SerializedName("report_time") val reportTime: String?,
+    @SerializedName("turnaround_hours") val turnaroundHours: Int?,
+    @SerializedName("sample_type") val sampleType: String?,
     @SerializedName("is_active") val isActive: Boolean?
 )
 
@@ -897,6 +927,7 @@ data class DiagnosticBookingRequest(
 
 data class DiagnosticBookingDto(
     val id: String,
+    @SerializedName("booking_number") val bookingNumber: String?,
     @SerializedName("patient_id") val patientId: String?,
     @SerializedName("center_id") val centerId: String?,
     @SerializedName("test_id") val testId: String?,
@@ -906,6 +937,9 @@ data class DiagnosticBookingDto(
     @SerializedName("collection_address") val collectionAddress: String?,
     val status: String?,
     @SerializedName("result_status") val resultStatus: String?,
+    @SerializedName("result_url") val resultUrl: String?,
+    @SerializedName("result_notes") val resultNotes: String?,
+    @SerializedName("result_uploaded_at") val resultUploadedAt: String?,
     val notes: String?,
     @SerializedName("created_at") val createdAt: String?,
     val test: DiagnosticTestDto?,
@@ -955,6 +989,20 @@ data class UpdateReminderRequest(
     val type: String? = null,
     val time: String? = null,
     @SerializedName("is_active") val isActive: Boolean? = null
+)
+
+data class ReminderActionRequest(
+    val action: String,
+    @SerializedName("snoozeMinutes") val snoozeMinutes: Int? = null,
+    @SerializedName("scheduledAt") val scheduledAt: String? = null
+)
+
+data class ReminderActionResultDto(
+    @SerializedName("reminderId") val reminderId: String,
+    val action: String,
+    @SerializedName("scheduledAt") val scheduledAt: String,
+    @SerializedName("actedAt") val actedAt: String,
+    @SerializedName("snoozeUntil") val snoozeUntil: String? = null
 )
 
 // ==================== CLINIC DOCTOR DTOs (public discovery) ====================

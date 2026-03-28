@@ -91,7 +91,7 @@ fun AmbulanceNavGraph() {
             }
 
             authState.user.requiresApprovalGate() -> {
-                if (currentRoute != Screen.Approval.route) {
+                if (currentRoute !in setOf(Screen.Approval.route, Screen.Profile.route)) {
                     navController.navigate(Screen.Approval.route) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -134,6 +134,7 @@ fun AmbulanceNavGraph() {
                 user = authState.user,
                 isRefreshing = authState.isLoading,
                 errorMessage = authState.error,
+                onOpenProfile = { navController.navigate(Screen.Profile.route) },
                 onRefresh = { authViewModel.refreshApprovalStatus() },
                 onLogout = { authViewModel.logout() }
             )
@@ -196,7 +197,17 @@ fun AmbulanceNavGraph() {
                 onChangePassword = { current, newPwd ->
                     profileViewModel.changePassword(current, newPwd)
                 },
-                onRefresh = { profileViewModel.loadProfile() }
+                onSaveProfile = { request ->
+                    profileViewModel.updateProfile(request)
+                },
+                onUploadLicenseDocument = { part ->
+                    profileViewModel.uploadLicenseDocument(part)
+                },
+                onRefresh = {
+                    profileViewModel.loadProfile()
+                    profileViewModel.loadVehicles()
+                },
+                onDismissFeedback = { profileViewModel.clearTransientMessages() }
             )
         }
 
@@ -210,6 +221,7 @@ fun AmbulanceNavGraph() {
             }
             val viewModel: DashboardViewModel = hiltViewModel(dashboardEntry)
             val detailState by viewModel.emergencyDetailState.collectAsState()
+            val dashboardState by viewModel.dashboardState.collectAsState()
 
             LaunchedEffect(Unit) {
                 viewModel.sessionExpired.collect {
@@ -224,6 +236,7 @@ fun AmbulanceNavGraph() {
             EmergencyDetailScreen(
                 emergency = detailState.emergency,
                 isLoading = detailState.isLoading,
+                isActionInProgress = dashboardState.actionRequestId == requestId,
                 onBack = { navController.popBackStack() },
                 onUpdateStatus = { status ->
                     viewModel.updateEmergencyStatus(requestId, status)

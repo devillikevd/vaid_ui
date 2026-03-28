@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagnosticCenterStore';
-import { Pagination, usePagination } from '@/components/ui/Pagination';
-import { useToast } from '@/components/ui/Toast';
+import { Pagination } from '@/components/ui/Pagination';
 
 const RESULT_STATUS_FILTERS = [
     { label: 'All', value: '', icon: FileCheck },
@@ -19,17 +18,41 @@ const RESULT_STATUS_FILTERS = [
 ];
 
 export default function ResultsPage() {
-    const { results, isLoading, error, fetchResults, uploadResult, clearError } = useDiagnosticCenterStore();
+    const {
+        results,
+        resultsPagination,
+        resultsSummary,
+        loadingResults,
+        error,
+        fetchResults,
+        uploadResult,
+        clearError,
+    } = useDiagnosticCenterStore();
     const [page, setPage] = useState(1);
-    const toast = useToast();
     const [resultStatusFilter, setResultStatusFilter] = useState('');
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [resultForm, setResultForm] = useState({ result_url: '', result_notes: '' });
+    const pageSize = 10;
 
     useEffect(() => {
-        fetchResults(resultStatusFilter || undefined);
-    }, [fetchResults, resultStatusFilter]);
+        const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+        return () => window.clearTimeout(timeout);
+    }, [search]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, resultStatusFilter]);
+
+    useEffect(() => {
+        fetchResults({
+            page,
+            limit: pageSize,
+            resultStatus: resultStatusFilter || undefined,
+            search: debouncedSearch || undefined,
+        });
+    }, [debouncedSearch, fetchResults, page, resultStatusFilter]);
 
     const handleUploadResult = async (bookingId: string) => {
         if (!resultForm.result_url) return;
@@ -41,27 +64,20 @@ export default function ResultsPage() {
         if (success) {
             setUploadingId(null);
             setResultForm({ result_url: '', result_notes: '' });
-            fetchResults(resultStatusFilter || undefined);
+            fetchResults({
+                page,
+                limit: pageSize,
+                resultStatus: resultStatusFilter || undefined,
+                search: debouncedSearch || undefined,
+            });
         }
     };
 
-    const filtered = results.filter(b => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            (b.patient_name || '').toLowerCase().includes(q) ||
-            (b.test_name || '').toLowerCase().includes(q) ||
-            b.id.toLowerCase().includes(q)
-        );
-    });
-    const { totalPages, totalItems, itemsPerPage, paginate } = usePagination(filtered, 10);
-    const paginatedItems = paginate(page);
-
     // Stats summary
-    const totalPending = results.filter(r => r.result_status === 'pending').length;
-    const totalProcessing = results.filter(r => r.result_status === 'processing').length;
-    const totalCompleted = results.filter(r => r.result_status === 'completed').length;
-    const totalDelivered = results.filter(r => r.result_status === 'delivered').length;
+    const totalPending = resultsSummary.resultStatus.pending || 0;
+    const totalProcessing = resultsSummary.resultStatus.processing || 0;
+    const totalCompleted = resultsSummary.resultStatus.completed || 0;
+    const totalDelivered = resultsSummary.resultStatus.delivered || 0;
 
     return (
         <div className="space-y-6">
@@ -117,13 +133,13 @@ export default function ResultsPage() {
             </div>
 
             {/* Results List */}
-            {isLoading ? (
+            {loadingResults ? (
                 <div className="flex items-center justify-center h-48">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                 </div>
-            ) : filtered.length > 0 ? (
+            ) : results.length > 0 ? (
                 <div className="space-y-4">
-                    {paginatedItems.map((booking: DiagnosticBooking) => (
+                    {results.map((booking: DiagnosticBooking) => (
                         <Card key={booking.id}>
                             <div className="space-y-4">
                                 {/* Booking Header */}
@@ -264,10 +280,10 @@ export default function ResultsPage() {
             )}
             <Pagination
                 currentPage={page}
-                totalPages={totalPages}
+                totalPages={resultsPagination.totalPages}
                 onPageChange={setPage}
-                totalItems={totalItems}
-                itemsPerPage={itemsPerPage}
+                totalItems={resultsPagination.total}
+                itemsPerPage={resultsPagination.limit}
             />
         </div>
     );

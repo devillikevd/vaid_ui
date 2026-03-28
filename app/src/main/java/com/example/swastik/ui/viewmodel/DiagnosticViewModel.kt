@@ -52,6 +52,7 @@ class DiagnosticViewModel @Inject constructor(
 
     init {
         collectProviderCatalogUpdates()
+        observeDiagnosticUpdates()
         observeSocketReconnects()
     }
 
@@ -108,6 +109,32 @@ class DiagnosticViewModel @Inject constructor(
         loadTests(center.id)
     }
 
+    fun openCenter(centerId: String) {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            when (val centerResult = repository.getCenterById(centerId)) {
+                is Result.Success -> {
+                    val center = centerResult.data
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        centers = listOf(center),
+                        selectedCenter = center,
+                        selectedTest = null,
+                        tests = emptyList()
+                    )
+                    loadTests(center.id)
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = centerResult.message
+                    )
+                }
+                is Result.Loading -> { }
+            }
+        }
+    }
+
     fun loadTests(centerId: String, search: String? = null) {
         _uiState.value = _uiState.value.copy(isLoading = true)
         viewModelScope.launch {
@@ -146,6 +173,21 @@ class DiagnosticViewModel @Inject constructor(
                 }
                 if (connected) {
                     refreshDiscovery()
+                }
+            }
+        }
+    }
+
+    private fun observeDiagnosticUpdates() {
+        viewModelScope.launch {
+            socketManager.diagnosticUpdates.collect { update ->
+                val currentFilter = _bookingHistoryState.value.filterStatus
+                val currentBookings = _bookingHistoryState.value.bookings
+                val shouldRefreshHistory = currentBookings.isNotEmpty() ||
+                    currentFilter != null ||
+                    update.id == _uiState.value.bookingResult?.id
+                if (shouldRefreshHistory) {
+                    loadBookingHistory(currentFilter)
                 }
             }
         }

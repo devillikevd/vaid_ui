@@ -111,15 +111,34 @@ class AuthViewModel @Inject constructor(
         phone: String,
         password: String,
         confirmPassword: String,
-        companyName: String
+        companyName: String,
+        registrationNumber: String,
+        address: String,
+        city: String,
+        state: String,
+        alternatePhone: String,
+        licenseDocumentUrl: String,
+        licenseExpiry: String
     ) {
         val trimmedName = name.trim()
         val trimmedEmail = email.trim()
         val trimmedPhone = phone.trim()
+        val trimmedCompanyName = companyName.trim()
+        val trimmedRegistrationNumber = registrationNumber.trim()
+        val trimmedAlternatePhone = alternatePhone.trim()
+        val trimmedLicenseExpiry = licenseExpiry.trim()
 
         when {
             trimmedName.isBlank() -> {
                 _uiState.value = _uiState.value.copy(error = "Name is required")
+                return
+            }
+            trimmedCompanyName.isBlank() -> {
+                _uiState.value = _uiState.value.copy(error = "Company or fleet name is required")
+                return
+            }
+            trimmedRegistrationNumber.isBlank() -> {
+                _uiState.value = _uiState.value.copy(error = "Registration number is required for approval")
                 return
             }
             !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
@@ -128,6 +147,14 @@ class AuthViewModel @Inject constructor(
             }
             trimmedPhone.length < 10 -> {
                 _uiState.value = _uiState.value.copy(error = "Please enter a valid phone number")
+                return
+            }
+            trimmedAlternatePhone.isNotBlank() && trimmedAlternatePhone.length < 10 -> {
+                _uiState.value = _uiState.value.copy(error = "Please enter a valid alternate phone number")
+                return
+            }
+            trimmedLicenseExpiry.isNotBlank() && !Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(trimmedLicenseExpiry) -> {
+                _uiState.value = _uiState.value.copy(error = "License expiry must use YYYY-MM-DD format")
                 return
             }
             password.length < 8 -> {
@@ -150,7 +177,14 @@ class AuthViewModel @Inject constructor(
                         email = trimmedEmail,
                         phone = trimmedPhone,
                         password = password,
-                        companyName = companyName
+                        companyName = trimmedCompanyName,
+                        registrationNumber = trimmedRegistrationNumber,
+                        address = address,
+                        city = city,
+                        state = state,
+                        alternatePhone = trimmedAlternatePhone.ifBlank { null },
+                        licenseDocumentUrl = licenseDocumentUrl,
+                        licenseExpiry = trimmedLicenseExpiry.ifBlank { null }
                     )
                     result.fold(
                         onSuccess = { message ->

@@ -40,9 +40,160 @@ const getHospitalByOwner = async (userId) => {
   return hospital;
 };
 
+const assertDoctorBelongsToHospital = async (hospitalId, doctorId) => {
+  if (!doctorId) return null;
+
+  const { data: association, error } = await supabaseAdmin
+    .from('hospital_doctors')
+    .select('doctor_id')
+    .eq('hospital_id', hospitalId)
+    .eq('doctor_id', doctorId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!association) {
+    throw new ApiError(400, 'Selected head doctor must belong to this hospital');
+  }
+
+  return association.doctor_id;
+};
+
+const buildDepartmentSummaries = async (hospitalId) => {
+  const [
+    { data: departments, error: departmentsError },
+    { data: doctorAssociations, error: doctorsError },
+    { data: appointments, error: appointmentsError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('hospital_departments')
+      .select(`
+        id,
+        name,
+        description,
+        is_active,
+        head_doctor_id,
+        headDoctor:doctors!fk_dept_head_doctor(id, name)
+      `)
+      .eq('hospital_id', hospitalId)
+      .order('created_at', { ascending: true }),
+    supabaseAdmin
+      .from('hospital_doctors')
+      .select('doctor_id, department, is_active')
+      .eq('hospital_id', hospitalId),
+    supabaseAdmin
+      .from('appointments')
+      .select('doctor_id')
+      .eq('hospital_id', hospitalId)
+      .not('status', 'eq', 'cancelled'),
+  ]);
+
+  if (departmentsError) throw departmentsError;
+  if (doctorsError) throw doctorsError;
+  if (appointmentsError) throw appointmentsError;
+
+  const doctorCountsByDepartment = new Map();
+  const doctorDepartmentById = new Map();
+
+  (doctorAssociations || []).forEach((association) => {
+    const departmentName = association.department?.trim();
+    if (!departmentName || association.is_active === false) return;
+
+    doctorDepartmentById.set(association.doctor_id, departmentName);
+    doctorCountsByDepartment.set(
+      departmentName,
+      (doctorCountsByDepartment.get(departmentName) || 0) + 1
+    );
+  });
+
+  const appointmentCountsByDepartment = new Map();
+  (appointments || []).forEach((appointment) => {
+    const departmentName = doctorDepartmentById.get(appointment.doctor_id);
+    if (!departmentName) return;
+
+    appointmentCountsByDepartment.set(
+      departmentName,
+      (appointmentCountsByDepartment.get(departmentName) || 0) + 1
+    );
+  });
+
+  return (departments || []).map((department) => ({
+    id: department.id,
+    name: department.name,
+    description: department.description || '',
+    head: department.headDoctor?.name || '',
+    headDoctorId: department.head_doctor_id || null,
+    status: department.is_active === false ? 'inactive' : 'active',
+    doctors: doctorCountsByDepartment.get(department.name) || 0,
+    doctorCount: doctorCountsByDepartment.get(department.name) || 0,
+    appointments: appointmentCountsByDepartment.get(department.name) || 0,
+  }));
+};
+
+const mapHospitalDoctorAssociation = (association, appointmentsTodayByDoctorId) => ({
+  id: association.doctor?.id || association.doctor_id || association.id,
+  associationId: association.id,
+  name: association.doctor?.name || 'Doctor',
+  specialization: association.doctor?.specialization || 'General Medicine',
+  department: association.department || 'Unassigned',
+  status: association.is_active === false ? 'inactive' : association.doctor?.is_available === false ? 'on-leave' : 'active',
+  appointmentsToday: appointmentsTodayByDoctorId.get(association.doctor?.id || association.doctor_id) || 0,
+  email: association.doctor?.user?.email || '',
+  phone: association.doctor?.user?.phone || '',
+  profileImageUrl: association.doctor?.profile_image_url || '',
+  rating: association.doctor?.rating || 0,
+});
+
+const mapHospitalAppointment = (appointment) => ({
+  id: appointment.id,
+  patientId: appointment.patient?.id || appointment.patient_id || null,
+  patientName: appointment.patient?.name || 'Patient',
+  patientPhone: appointment.patient?.user?.phone || '',
+  doctorId: appointment.doctor?.id || appointment.doctor_id || null,
+  doctorName: appointment.doctor?.name || 'Doctor',
+  doctorSpecialization: appointment.doctor?.specialization || '',
+  doctorProfileImageUrl: appointment.doctor?.profile_image_url || '',
+  date: appointment.appointment_date || null,
+  time: appointment.time_slot || null,
+  status: appointment.status || 'scheduled',
+  type: appointment.type || 'hospital',
+  reason: appointment.reason || '',
+  fee: appointment.fee ?? null,
+  createdAt: appointment.created_at || null,
+});
+
+const mapHospitalConsultation = (consultation) => ({
+  id: consultation.id,
+  status: consultation.status || 'scheduled',
+  type: consultation.type || consultation.appointment?.type || 'video',
+  created_at: consultation.created_at || null,
+  started_at: consultation.started_at || null,
+  ended_at: consultation.ended_at || null,
+  diagnosis: consultation.diagnosis || null,
+  notes: consultation.notes || null,
+  doctor: {
+    id: consultation.doctor?.id || consultation.doctor_id || null,
+    name: consultation.doctor?.name || 'Doctor',
+    specialization: consultation.doctor?.specialization || '',
+    profile_image_url: consultation.doctor?.profile_image_url || null,
+  },
+  patient: {
+    id: consultation.patient?.id || consultation.patient_id || null,
+    name: consultation.patient?.name || 'Patient',
+    phone: consultation.patient?.user?.phone || '',
+  },
+  appointment: consultation.appointment ? {
+    id: consultation.appointment.id,
+    appointment_date: consultation.appointment.appointment_date || null,
+    time_slot: consultation.appointment.time_slot || null,
+    type: consultation.appointment.type || consultation.type || 'video',
+  } : null,
+});
+
 // Dashboard
 const getDashboard = async (hospitalId, userId) => {
   const today = new Date().toISOString().split('T')[0];
+  const departmentSummariesPromise = buildDepartmentSummaries(hospitalId);
 
   const [
     { data: hospitalMeta },
@@ -51,11 +202,11 @@ const getDashboard = async (hospitalId, userId) => {
     { count: totalAppointments },
     { data: patientRows },
     { data: recentAppointments },
-    { data: departments },
+    departments,
   ] = await Promise.all([
     supabaseAdmin
       .from('hospitals')
-      .select('bed_capacity, bed_count')
+      .select('bed_capacity, bed_count, total_beds')
       .eq('id', hospitalId)
       .maybeSingle(),
     supabaseAdmin.from('hospital_doctors').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId),
@@ -63,13 +214,13 @@ const getDashboard = async (hospitalId, userId) => {
     supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('hospital_id', hospitalId),
     supabaseAdmin.from('appointments').select('patient_id').eq('hospital_id', hospitalId),
     supabaseAdmin.from('appointments').select('*, patient:patients(name), doctor:doctors(name, specialization)').eq('hospital_id', hospitalId).order('appointment_date', { ascending: false }).limit(10),
-    supabaseAdmin.from('hospital_departments').select('*').eq('hospital_id', hospitalId),
+    departmentSummariesPromise,
   ]);
 
   const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
 
   const departmentList = departments || [];
-  const beds = hospitalMeta?.bed_capacity ?? hospitalMeta?.bed_count ?? null;
+  const beds = hospitalMeta?.bed_capacity ?? hospitalMeta?.bed_count ?? hospitalMeta?.total_beds ?? null;
 
   return {
     stats: {
@@ -103,10 +254,14 @@ const updateHospital = async (hospitalId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'description', 'opening_hours', 'facilities',
-    'profile_image_url', 'emergency_available', 'bed_count', 'bed_capacity', 'specializations'];
+    'profile_image_url', 'emergency_available', 'bed_count', 'bed_capacity', 'total_beds', 'specializations',
+    'license_number', 'license_document_url', 'accreditations'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+  if (safeUpdates.bed_capacity !== undefined && safeUpdates.total_beds === undefined) {
+    safeUpdates.total_beds = safeUpdates.bed_capacity;
   }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingHospital, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
@@ -125,45 +280,80 @@ const updateHospital = async (hospitalId, userId, updates) => {
 // Get doctors
 const getDoctors = async (hospitalId, userId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
-  const hasPostFilters = !!(filters.specialization || filters.search);
+  const today = new Date().toISOString().split('T')[0];
 
-  let query = supabaseAdmin
-    .from('hospital_doctors')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_available, rating)', { count: 'exact' })
-    .eq('hospital_id', hospitalId);
+  const [
+    { data: associations, error: doctorsError },
+    { data: todayAppointments, error: appointmentsError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('hospital_doctors')
+      .select(`
+        id,
+        doctor_id,
+        department,
+        designation,
+        is_active,
+        joined_at,
+        doctor:doctors(
+          id,
+          name,
+          specialization,
+          profile_image_url,
+          consultation_fee,
+          is_available,
+          rating,
+          user:users!doctors_user_id_fkey(email, phone)
+        )
+      `)
+      .eq('hospital_id', hospitalId),
+    supabaseAdmin
+      .from('appointments')
+      .select('doctor_id')
+      .eq('hospital_id', hospitalId)
+      .eq('appointment_date', today)
+      .not('status', 'eq', 'cancelled'),
+  ]);
 
-  if (hasPostFilters) {
-    // Fetch ALL rows (no pagination) so post-filters see the full dataset
-    const { data, error } = await query;
-    if (error) throw error;
+  if (doctorsError) throw doctorsError;
+  if (appointmentsError) throw appointmentsError;
 
-    let result = data || [];
-    if (filters.specialization) {
-      result = result.filter(d => d.doctor?.specialization === filters.specialization);
-    }
-    if (filters.search) {
-      const s = filters.search.toLowerCase();
-      result = result.filter(d => d.doctor?.name?.toLowerCase().includes(s));
-    }
+  const appointmentsTodayByDoctorId = new Map();
+  (todayAppointments || []).forEach((appointment) => {
+    if (!appointment.doctor_id) return;
+    appointmentsTodayByDoctorId.set(
+      appointment.doctor_id,
+      (appointmentsTodayByDoctorId.get(appointment.doctor_id) || 0) + 1
+    );
+  });
 
-    const total = result.length;
-    const paginated = result.slice(offset, offset + limit);
+  let result = (associations || []).map((association) =>
+    mapHospitalDoctorAssociation(association, appointmentsTodayByDoctorId)
+  );
 
-    return {
-      data: paginated,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
+  if (filters.specialization) {
+    result = result.filter((doctor) => doctor.specialization === filters.specialization);
   }
 
-  // No post-filters — paginate at DB level for efficiency
-  const { data, error, count } = await query
-    .range(offset, offset + limit - 1);
+  if (filters.isAvailable !== undefined) {
+    result = result.filter((doctor) => (doctor.status === 'active') === filters.isAvailable);
+  }
 
-  if (error) throw error;
+  if (filters.search) {
+    const search = filters.search.toLowerCase();
+    result = result.filter((doctor) =>
+      [doctor.name, doctor.specialization, doctor.department, doctor.email, doctor.phone]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(search))
+    );
+  }
+
+  const total = result.length;
+  const paginated = result.slice(offset, offset + limit);
 
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: { page, limit, total, totalPages: total > 0 ? Math.ceil(total / limit) : 1 },
   };
 };
 
@@ -246,12 +436,101 @@ const removeDoctor = async (hospitalId, userId, doctorId) => {
   if (error) throw error;
 };
 
+const getDepartments = async (hospitalId, userId) => {
+  const departments = await buildDepartmentSummaries(hospitalId);
+  return {
+    data: departments,
+  };
+};
+
+const addDepartment = async (hospitalId, userId, departmentData) => {
+  const headDoctorId = await assertDoctorBelongsToHospital(hospitalId, departmentData.headDoctorId || departmentData.head_doctor_id);
+
+  const { error } = await supabaseAdmin
+    .from('hospital_departments')
+    .insert({
+      hospital_id: hospitalId,
+      name: departmentData.name?.trim(),
+      description: departmentData.description || null,
+      head_doctor_id: headDoctorId,
+      is_active: departmentData.status !== 'inactive',
+    });
+
+  if (error) throw error;
+
+  const departments = await buildDepartmentSummaries(hospitalId);
+  return {
+    data: departments,
+    message: 'Department added successfully',
+  };
+};
+
+const updateDepartment = async (hospitalId, userId, departmentId, departmentData) => {
+  const headDoctorId = await assertDoctorBelongsToHospital(hospitalId, departmentData.headDoctorId || departmentData.head_doctor_id);
+
+  const { error } = await supabaseAdmin
+    .from('hospital_departments')
+    .update({
+      name: departmentData.name?.trim(),
+      description: departmentData.description || null,
+      head_doctor_id: headDoctorId,
+      is_active: departmentData.status !== 'inactive',
+    })
+    .eq('id', departmentId)
+    .eq('hospital_id', hospitalId);
+
+  if (error) throw error;
+
+  const departments = await buildDepartmentSummaries(hospitalId);
+  return {
+    data: departments,
+    message: 'Department updated successfully',
+  };
+};
+
+const deleteDepartment = async (hospitalId, userId, departmentId) => {
+  const { error } = await supabaseAdmin
+    .from('hospital_departments')
+    .delete()
+    .eq('id', departmentId)
+    .eq('hospital_id', hospitalId);
+
+  if (error) throw error;
+
+  return {
+    success: true,
+    message: 'Department deleted successfully',
+  };
+};
+
 // Get appointments
 const getAppointments = async (hospitalId, userId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('appointments')
-    .select('*, patient:patients(name), doctor:doctors(name, specialization)', { count: 'exact' })
+    .select(`
+      id,
+      patient_id,
+      doctor_id,
+      appointment_date,
+      time_slot,
+      status,
+      type,
+      reason,
+      fee,
+      created_at,
+      patient:patients(
+        id,
+        name,
+        user:users(phone)
+      ),
+      doctor:doctors(
+        id,
+        name,
+        specialization,
+        profile_image_url
+      )
+    `)
     .eq('hospital_id', hospitalId);
 
   if (filters.status) query = query.eq('status', filters.status);
@@ -260,14 +539,42 @@ const getAppointments = async (hospitalId, userId, filters = {}, page = 1, limit
   if (filters.fromDate) query = query.gte('appointment_date', filters.fromDate);
   if (filters.toDate) query = query.lte('appointment_date', filters.toDate);
 
-  const { data, error, count } = await query
+  const { data, error } = await query
     .order('appointment_date', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('time_slot', { ascending: false });
 
   if (error) throw error;
+
+  let result = (data || []).map(mapHospitalAppointment);
+
+  if (filters.search) {
+    const search = filters.search.toLowerCase();
+    result = result.filter((appointment) =>
+      [
+        appointment.patientName,
+        appointment.patientPhone,
+        appointment.doctorName,
+        appointment.doctorSpecialization,
+        appointment.date,
+        appointment.time,
+        appointment.status,
+        appointment.type,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(search))
+    );
+  }
+
+  const total = result.length;
+  const paginated = result.slice(offset, offset + limit);
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+    },
   };
 };
 
@@ -384,7 +691,7 @@ const addManager = async (hospitalId, userId, managerData) => {
 };
 
 // Get consultations for all doctors affiliated with this hospital
-const getConsultations = async (userId, page = 1, limit = 20, status) => {
+const getConsultations = async (userId, page = 1, limit = 20, status, search = '') => {
   const hospital = await getHospitalByOwner(userId);
   if (!hospital) throw new ApiError(404, 'Hospital not found');
 
@@ -396,24 +703,69 @@ const getConsultations = async (userId, page = 1, limit = 20, status) => {
     .eq('is_active', true);
 
   const doctorIds = (hospitalDoctors || []).map(d => d.doctor_id);
-  if (doctorIds.length === 0) return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+  if (doctorIds.length === 0) return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
 
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('consultations')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name), appointment:appointments(id, appointment_date, time_slot, type)', { count: 'exact' })
+    .select(`
+      id,
+      doctor_id,
+      patient_id,
+      appointment_id,
+      status,
+      type,
+      created_at,
+      started_at,
+      ended_at,
+      diagnosis,
+      notes,
+      doctor:doctors(id, name, specialization, profile_image_url),
+      patient:patients(
+        id,
+        name,
+        user:users(phone)
+      ),
+      appointment:appointments(id, appointment_date, time_slot, type)
+    `)
     .in('doctor_id', doctorIds);
 
   if (status) query = query.eq('status', status);
 
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const { data, error } = await query
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
+
+  let result = (data || []).map(mapHospitalConsultation);
+
+  if (search) {
+    const normalizedSearch = search.toLowerCase();
+    result = result.filter((consultation) =>
+      [
+        consultation.patient?.name,
+        consultation.patient?.phone,
+        consultation.doctor?.name,
+        consultation.doctor?.specialization,
+        consultation.status,
+        consultation.type,
+        consultation.appointment?.appointment_date,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch))
+    );
+  }
+
+  const total = result.length;
+  const paginated = result.slice(offset, offset + limit);
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginated,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+    },
   };
 };
 
@@ -424,6 +776,10 @@ module.exports = {
   getDoctors,
   inviteDoctor,
   removeDoctor,
+  getDepartments,
+  addDepartment,
+  updateDepartment,
+  deleteDepartment,
   getAppointments,
   getAnalytics,
   getManagers,

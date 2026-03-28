@@ -22,20 +22,26 @@ export default function HospitalReportsPage() {
     const { stats, isLoading: dashLoading, fetchDashboardData } = useHospitalStore();
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
+    const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+    const [period, setPeriod] = useState('30d');
 
     const fetchAnalytics = useCallback(async () => {
         setAnalyticsLoading(true);
+        setAnalyticsError(null);
         try {
-            const response = await hospitalApi.getAnalytics();
+            const response = await hospitalApi.getAnalytics(period);
             if (response.success) {
                 setAnalytics(response.data as unknown as AnalyticsData);
+            } else {
+                setAnalyticsError(response.error || 'Failed to load analytics');
             }
         } catch (err) {
             console.error('Failed to fetch analytics:', err);
+            setAnalyticsError('Failed to fetch analytics');
         } finally {
             setAnalyticsLoading(false);
         }
-    }, []);
+    }, [period]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -67,16 +73,34 @@ export default function HospitalReportsPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports & Analytics</h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">Hospital performance overview</p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { fetchDashboardData(); fetchAnalytics(); }}
-                    disabled={isLoading}
-                >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={period}
+                        onChange={(e) => setPeriod(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-teal-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    >
+                        <option value="7d">Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="90d">Last 90 days</option>
+                        <option value="365d">Last 12 months</option>
+                    </select>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { fetchDashboardData(); fetchAnalytics(); }}
+                        disabled={isLoading}
+                    >
+                        <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                </div>
             </div>
+
+            {analyticsError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+                    {analyticsError}
+                </div>
+            ) : null}
 
             {/* Hospital Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

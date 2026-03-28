@@ -88,7 +88,7 @@ fun AppointmentHistoryScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(uiState.error ?: "Something went wrong", fontSize = 16.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text(uiState.error.orEmpty().ifBlank { "Something went wrong" }, fontSize = 16.sp, color = Color.Gray, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = { viewModel.loadAppointments() }, colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) { Text("Retry") }
                     }
@@ -186,6 +186,17 @@ private fun AppointmentCard(
     val doctorName = appointment.doctor?.name ?: "Doctor"
     val doctorSpecialty = appointment.doctor?.specialization ?: ""
     val isVideo = appointment.type.lowercase().contains("video")
+    val facilityName = appointment.clinic?.name ?: appointment.hospital?.name
+    val facilityLabel = when {
+        appointment.clinic != null -> "Clinic"
+        appointment.hospital != null -> "Hospital"
+        isVideo -> "Consultation"
+        else -> "Visit"
+    }
+    val inPersonVisitLabel = when {
+        facilityName != null -> "$facilityLabel visit at $facilityName"
+        else -> "In-person visit scheduled"
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
@@ -219,6 +230,24 @@ private fun AppointmentCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = doctorName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                     if (doctorSpecialty.isNotEmpty()) Text(text = doctorSpecialty, fontSize = 13.sp, color = Color.Gray)
+                    if (!facilityName.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (appointment.clinic != null) Icons.Default.MedicalServices else Icons.Default.LocalHospital,
+                                contentDescription = null,
+                                tint = SwastikPurple,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "$facilityLabel • $facilityName",
+                                fontSize = 12.sp,
+                                color = SwastikPurple,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -238,10 +267,32 @@ private fun AppointmentCard(
             }
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
-                    Icon(if (isVideo) Icons.Default.VideoCall else Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = if (isVideo) "Start Video Consultation" else "Start Consultation", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                if (isVideo) {
+                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
+                        Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Start Video Consultation", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFF3E8FF),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.EventAvailable, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = inPersonVisitLabel,
+                                fontSize = 13.sp,
+                                color = Color(0xFF4A2D7A),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(

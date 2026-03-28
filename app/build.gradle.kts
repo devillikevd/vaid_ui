@@ -15,6 +15,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 
@@ -124,6 +125,7 @@ dependencies {
     // Coroutines
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // ViewModel
     implementation(libs.lifecycle.viewmodel.compose)
@@ -155,6 +157,9 @@ dependencies {
 
     // Coil for async image loading in Compose
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Firebase Cloud Messaging (gracefully no-ops when project config is absent)
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
 
     // ZXing for QR code generation
     implementation("com.google.zxing:core:3.5.3")

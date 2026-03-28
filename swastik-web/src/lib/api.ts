@@ -293,6 +293,17 @@ export const adminApi = {
     getPendingApprovals: (type: string = 'all', page: number = 1) =>
         fetchWithAuth(`/admin/approvals/pending?type=${type}&page=${page}`),
 
+    getProviders: (filters?: Record<string, unknown>, page: number = 1, limit: number = 20) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (filters?.type) params.set('type', String(filters.type));
+        if (filters?.status) params.set('status', String(filters.status));
+        if (filters?.search) params.set('search', String(filters.search));
+        return fetchWithAuth(`/admin/providers?${params}`);
+    },
+
     getProviderDetails: (type: string, id: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}`),
 
@@ -336,18 +347,62 @@ export const adminApi = {
             body: JSON.stringify({ isActive, reason }),
         }),
 
+    getSettings: () => fetchWithAuth('/admin/settings'),
+
+    updateSettings: (settings: Record<string, unknown>) =>
+        fetchWithAuth('/admin/settings', {
+            method: 'PUT',
+            body: JSON.stringify(settings),
+        }),
+
     getAnalytics: (period: string = '30d') =>
         fetchWithAuth(`/admin/analytics?period=${period}`),
 
-    getAuditLogs: (page: number = 1) =>
-        fetchWithAuth(`/admin/audit-logs?page=${page}`),
+    getAuditLogs: (filters?: Record<string, unknown>, page: number = 1, limit: number = 50) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (filters?.search) params.set('search', String(filters.search));
+        if (filters?.action) params.set('action', String(filters.action));
+        if (filters?.resourceType) params.set('resourceType', String(filters.resourceType));
+        if (filters?.userId) params.set('userId', String(filters.userId));
+        if (filters?.fromDate) params.set('fromDate', String(filters.fromDate));
+        if (filters?.toDate) params.set('toDate', String(filters.toDate));
+        return fetchWithAuth(`/admin/audit-logs?${params}`);
+    },
 
     getSystemHealth: () => fetchWithAuth('/admin/system/health'),
 
-    getEmergencies: () => fetchWithAuth('/admin/emergencies'),
+    getEmergencies: (page: number = 1, limit: number = 20, status: string = 'active') =>
+        fetchWithAuth(`/admin/emergencies?page=${page}&limit=${limit}&status=${encodeURIComponent(status)}`),
 
-    getComplianceDocuments: (days: number = 30) =>
-        fetchWithAuth(`/admin/compliance/expiring-documents?days=${days}`),
+    updateEmergencyStatus: (emergencyId: string, status: string) =>
+        fetchWithAuth(`/admin/emergencies/${emergencyId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status }),
+        }),
+
+    getComplianceDocuments: (
+        filters: {
+            days?: number;
+            type?: string;
+            status?: string;
+            search?: string;
+            page?: number;
+            limit?: number;
+        } = {}
+    ) => {
+        const params = new URLSearchParams({
+            days: String(filters.days ?? 30),
+            type: String(filters.type ?? 'all'),
+            status: String(filters.status ?? 'all'),
+            page: String(filters.page ?? 1),
+            limit: String(filters.limit ?? 20),
+        });
+        if (filters.search?.trim()) params.set('search', filters.search.trim());
+        return fetchWithAuth(`/admin/compliance/documents?${params}`);
+    },
 };
 
 // ==================== DOCTOR API ====================
@@ -380,8 +435,14 @@ export const doctorApi = {
         return fetchWithAuth(`/appointments?${params}`);
     },
 
-    getPatients: (page: number = 1) =>
-        fetchWithAuth(`/doctors/me/patients?page=${page}`),
+    getPatients: (page: number = 1, search: string = '', limit: number = 20) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (search.trim()) params.set('search', search.trim());
+        return fetchWithAuth(`/doctors/me/patients?${params}`);
+    },
 
     getPatientHistory: (patientId: string) =>
         fetchWithAuth(`/doctors/me/patients/${patientId}`),
@@ -430,8 +491,14 @@ export const hospitalApi = {
             body: JSON.stringify(data),
         }),
 
-    getDoctors: (page: number = 1) =>
-        fetchWithAuth(`/hospital-manager/doctors?page=${page}`),
+    getDoctors: (page: number = 1, search: string = '', limit: number = 20) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
+        if (search.trim()) params.set('search', search.trim());
+        return fetchWithAuth(`/hospital-manager/doctors?${params}`);
+    },
 
     inviteDoctor: (data: Record<string, unknown>) =>
         fetchWithAuth('/hospital-manager/doctors/invite', {
@@ -442,9 +509,30 @@ export const hospitalApi = {
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/hospital-manager/doctors/${doctorId}`, { method: 'DELETE' }),
 
-    getAppointments: () => fetchWithAuth('/hospital-manager/appointments'),
+    getAppointments: (params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        date?: string;
+        doctorId?: string;
+        fromDate?: string;
+        toDate?: string;
+    } = {}) => {
+        const query = new URLSearchParams();
+        if (params.page) query.set('page', params.page.toString());
+        if (params.limit) query.set('limit', params.limit.toString());
+        if (params.search?.trim()) query.set('search', params.search.trim());
+        if (params.status) query.set('status', params.status);
+        if (params.date) query.set('date', params.date);
+        if (params.doctorId) query.set('doctorId', params.doctorId);
+        if (params.fromDate) query.set('fromDate', params.fromDate);
+        if (params.toDate) query.set('toDate', params.toDate);
+        const suffix = query.toString() ? `?${query.toString()}` : '';
+        return fetchWithAuth(`/hospital-manager/appointments${suffix}`);
+    },
 
-    getAnalytics: () => fetchWithAuth('/hospital-manager/analytics'),
+    getAnalytics: (period: string = '30d') => fetchWithAuth(`/hospital-manager/analytics?period=${encodeURIComponent(period)}`),
 
     getManagers: () => fetchWithAuth('/hospital-manager/managers'),
 
@@ -456,9 +544,13 @@ export const hospitalApi = {
 
     getEmergencies: () => fetchWithAuth('/hospital-manager/emergencies'),
 
-    getConsultations: (page: number = 1, status?: string) => {
-        const params = new URLSearchParams({ page: page.toString() });
+    getConsultations: (page: number = 1, status?: string, search: string = '', limit: number = 20) => {
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+        });
         if (status) params.set('status', status);
+        if (search.trim()) params.set('search', search.trim());
         return fetchWithAuth(`/hospital-manager/consultations?${params}`);
     },
 
@@ -507,10 +599,15 @@ export const pharmacyApi = {
             body: JSON.stringify(data),
         }),
 
-    getInventory: (page: number = 1, search?: string) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (search) params.set('search', search);
-        return fetchWithAuth(`/pharmacy/inventory?${params}`);
+    getInventory: (params: { page?: number; limit?: number; search?: string; lowStock?: boolean; category?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 10),
+        });
+        if (params.search) query.set('search', params.search);
+        if (params.lowStock) query.set('lowStock', 'true');
+        if (params.category) query.set('category', params.category);
+        return fetchWithAuth(`/pharmacy/inventory?${query}`);
     },
 
     addInventoryItem: (data: Record<string, unknown>) =>
@@ -528,10 +625,15 @@ export const pharmacyApi = {
     deleteInventoryItem: (id: string) =>
         fetchWithAuth(`/pharmacy/inventory/${id}`, { method: 'DELETE' }),
 
-    getOrders: (status?: string, page: number = 1) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (status) params.set('status', status);
-        return fetchWithAuth(`/pharmacy/orders?${params}`);
+    getOrders: (params: { page?: number; limit?: number; search?: string; status?: string; group?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 10),
+        });
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+        if (params.group) query.set('group', params.group);
+        return fetchWithAuth(`/pharmacy/orders?${query}`);
     },
 
     updateOrderStatus: (orderId: string, status: string) =>
@@ -540,12 +642,16 @@ export const pharmacyApi = {
             body: JSON.stringify({ status }),
         }),
 
-    getAnalytics: () => fetchWithAuth('/pharmacy/analytics'),
+    getAnalytics: (period: string = '30d') => fetchWithAuth(`/pharmacy/analytics?period=${encodeURIComponent(period)}`),
 
-    getPrescriptions: (status?: string) => {
-        const params = new URLSearchParams();
-        if (status) params.set('status', status);
-        return fetchWithAuth(`/pharmacy/prescriptions?${params}`);
+    getPrescriptions: (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 10),
+        });
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/pharmacy/prescriptions?${query}`);
     },
 
     dispensePrescription: (prescriptionId: string) =>
@@ -569,7 +675,14 @@ export const clinicApi = {
             body: JSON.stringify(data),
         }),
 
-    getDoctors: () => fetchWithAuth('/clinics/owner/doctors'),
+    getDoctors: (params: { page?: number; limit?: number; search?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.search) query.set('search', params.search);
+        return fetchWithAuth(`/clinics/owner/doctors?${query}`);
+    },
 
     addDoctor: (data: Record<string, unknown>) =>
         fetchWithAuth('/clinics/owner/doctors', {
@@ -580,15 +693,25 @@ export const clinicApi = {
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/clinics/owner/doctors/${doctorId}`, { method: 'DELETE' }),
 
-    getAppointments: (date?: string) => {
-        const params = date ? `?date=${date}` : '';
-        return fetchWithAuth(`/clinics/owner/appointments${params}`);
+    getAppointments: (params: { page?: number; limit?: number; search?: string; status?: string; date?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.search) query.set('search', params.search);
+        if (params.status) query.set('status', params.status);
+        if (params.date) query.set('date', params.date);
+        return fetchWithAuth(`/clinics/owner/appointments?${query}`);
     },
 
-    getConsultations: (page: number = 1, status?: string) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (status) params.set('status', status);
-        return fetchWithAuth(`/clinics/owner/consultations?${params}`);
+    getConsultations: (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        if (params.search) query.set('search', params.search);
+        return fetchWithAuth(`/clinics/owner/consultations?${query}`);
     },
 
     getSchedule: () => fetchWithAuth('/clinics/owner/schedule'),
@@ -614,10 +737,14 @@ export const diagnosticCenterApi = {
             body: JSON.stringify(data),
         }),
 
-    getTests: (page: number = 1, category?: string) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (category) params.set('category', category);
-        return fetchWithAuth(`/diagnostic-centers/owner/tests?${params}`);
+    getTests: (params: { page?: number; limit?: number; search?: string; category?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.search) query.set('search', params.search);
+        if (params.category) query.set('category', params.category);
+        return fetchWithAuth(`/diagnostic-centers/owner/tests?${query}`);
     },
 
     addTest: (data: Record<string, unknown>) =>
@@ -635,10 +762,16 @@ export const diagnosticCenterApi = {
     deleteTest: (testId: string) =>
         fetchWithAuth(`/diagnostic-centers/owner/tests/${testId}`, { method: 'DELETE' }),
 
-    getBookings: (status?: string, page: number = 1) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        if (status) params.set('status', status);
-        return fetchWithAuth(`/diagnostic-centers/owner/bookings?${params}`);
+    getBookings: (params: { page?: number; limit?: number; status?: string; resultStatus?: string; date?: string; search?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.status) query.set('status', params.status);
+        if (params.resultStatus) query.set('resultStatus', params.resultStatus);
+        if (params.date) query.set('date', params.date);
+        if (params.search) query.set('search', params.search);
+        return fetchWithAuth(`/diagnostic-centers/owner/bookings?${query}`);
     },
 
     getBookingById: (bookingId: string) =>
@@ -658,13 +791,14 @@ export const diagnosticCenterApi = {
 
     getAnalytics: () => fetchWithAuth('/diagnostic-centers/owner/analytics'),
 
-    // M8: Results use the same bookings endpoint but filter by result_status.
-    // The backend distinguishes via the 'resultStatus' query parameter.
-    getResults: (resultStatus?: string, page: number = 1) => {
-        const params = new URLSearchParams({ page: page.toString() });
-        // Default to only bookings that have results (non-pending)
-        params.set('resultStatus', resultStatus || 'all');
-        return fetchWithAuth(`/diagnostic-centers/owner/bookings?${params}`);
+    getResults: (params: { page?: number; limit?: number; resultStatus?: string; search?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 20),
+        });
+        if (params.resultStatus) query.set('resultStatus', params.resultStatus);
+        if (params.search) query.set('search', params.search);
+        return fetchWithAuth(`/diagnostic-centers/owner/bookings?${query}`);
     },
 };
 
@@ -768,11 +902,14 @@ async function compressIfImage(file: File): Promise<File> {
 }
 
 export const uploadApi = {
-    uploadFile: async (file: File, type: string = 'document') => {
+    uploadFile: async (file: File, type: string = 'document', fields?: Record<string, string>) => {
         // Compress images client-side before uploading
         const processedFile = await compressIfImage(file);
         const formData = new FormData();
         formData.append('file', processedFile);
+        Object.entries(fields || {}).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
 
         return fetchWithAuth(`/uploads/${type}`, {
             method: 'POST',

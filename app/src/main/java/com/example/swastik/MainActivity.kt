@@ -207,7 +207,7 @@ fun SwastikApp(tokenManager: TokenManager) {
                 },
                 onNavigateToEmergency = { navController.navigate(Screen.Emergency.route) },
                 onNavigateToProfile = { navController.navigate(Screen.PatientDashboard.createRoute(3)) },
-                onNavigateToDiagnostic = { navController.navigate(Screen.DiagnosticBooking.route) },
+                onNavigateToDiagnostic = { navController.navigate(Screen.DiagnosticBooking.createRoute()) },
                 onNavigateToVitals = { navController.navigate(Screen.VitalsReminders.route) },
                 onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) },
                 onNavigateToBookingHistory = { navController.navigate(Screen.BookingHistory.route) },
@@ -215,7 +215,8 @@ fun SwastikApp(tokenManager: TokenManager) {
                     navController.navigate(Screen.MedicineDetail.createRoute(medicineId))
                 },
                 onNavigateToMedicineCart = { navController.navigate(Screen.MedicineCart.route) },
-                onSearchClick = { navController.navigate(Screen.AppointmentBooking.route) }
+                onSearchClick = { navController.navigate(Screen.AppointmentBooking.route) },
+                onNotificationActionRoute = { route -> navController.navigate(route) }
             )
             }
         }
@@ -284,14 +285,30 @@ fun SwastikApp(tokenManager: TokenManager) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("focusFacilityId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("focusFacilityName") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
             val initialFacilityType = backStackEntry.arguments
                 ?.getString("type")
                 ?.let { value -> runCatching { FacilityType.valueOf(value) }.getOrNull() }
+            val focusedFacilityId = backStackEntry.arguments?.getString("focusFacilityId")
+            val focusedFacilityName = backStackEntry.arguments
+                ?.getString("focusFacilityName")
+                ?.let { value -> java.net.URLDecoder.decode(value, "UTF-8") }
             HospitalFinderScreen(
                 initialFacilityType = initialFacilityType,
+                focusedFacilityId = focusedFacilityId,
+                focusedFacilityName = focusedFacilityName,
                 onBackClick = { navController.popBackStack() },
                 onDoctorBookClick = { doctor, facility ->
                     navController.navigate(
@@ -305,6 +322,9 @@ fun SwastikApp(tokenManager: TokenManager) {
                 onHospitalClick = { hospitalId ->
                     navController.navigate(Screen.HospitalDetail.createRoute(hospitalId))
                 },
+                onClinicClick = { clinicId ->
+                    navController.navigate(Screen.ClinicDetail.createRoute(clinicId))
+                },
                 onMedicineClick = { medicineId ->
                     navController.navigate(Screen.MedicineDetail.createRoute(medicineId))
                 },
@@ -314,8 +334,8 @@ fun SwastikApp(tokenManager: TokenManager) {
                 onNavigateToOrders = {
                     navController.navigate(Screen.OrderHistory.route)
                 },
-                onNavigateToDiagnosticBooking = {
-                    navController.navigate(Screen.DiagnosticBooking.route)
+                onNavigateToDiagnosticBooking = { centerId ->
+                    navController.navigate(Screen.DiagnosticBooking.createRoute(centerId))
                 }
             )
         }
@@ -330,7 +350,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         ) { backStackEntry ->
             val hospitalId = backStackEntry.arguments?.getString("hospitalId") ?: return@composable
             HospitalDetailScreen(
-                hospitalId = hospitalId,
+                facilityId = hospitalId,
+                facilityType = FacilityType.HOSPITAL,
                 onBackClick = { navController.popBackStack() },
                 isLoggedIn = tokenManager.isAuthenticated(),
                 onDoctorBookClick = { doctor, facility ->
@@ -344,13 +365,46 @@ fun SwastikApp(tokenManager: TokenManager) {
             )
         }
 
+        composable(
+            Screen.ClinicDetail.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("clinicId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val clinicId = backStackEntry.arguments?.getString("clinicId") ?: return@composable
+            HospitalDetailScreen(
+                facilityId = clinicId,
+                facilityType = FacilityType.CLINIC,
+                onBackClick = { navController.popBackStack() },
+                isLoggedIn = tokenManager.isAuthenticated(),
+                onDoctorBookClick = { doctor, facility ->
+                    navController.navigate(
+                        Screen.AppointmentBooking.createRoute(
+                            doctorId = doctor.id.ifBlank { null },
+                            clinicId = facility.id.ifBlank { null }
+                        )
+                    )
+                }
+            )
+        }
+
         composable(Screen.MedicineFinder.route) {
             MedicineScreen(
                 onBackClick = { navController.popBackStack() },
                 onMedicineClick = { medicineId ->
                     navController.navigate(Screen.MedicineDetail.createRoute(medicineId))
                 },
-                onPharmacyClick = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) },
+                onPharmacyClick = { pharmacyId, pharmacyName ->
+                    navController.navigate(
+                        Screen.HospitalFinder.createRoute(
+                            type = FacilityType.MEDICAL_STORE,
+                            focusFacilityId = pharmacyId,
+                            focusFacilityName = pharmacyName
+                        )
+                    )
+                },
                 onNavigateToHome = { navController.popBackStack() },
                 onNavigateToRecords = { navController.navigate(Screen.Reports.route) },
                 onNavigateToProfile = { navController.navigate(Screen.PatientDashboard.createRoute(3)) },
@@ -397,7 +451,13 @@ fun SwastikApp(tokenManager: TokenManager) {
             )
         }
 
-        composable(Screen.Reports.route) {
+        composable(
+            route = Screen.Reports.route,
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "swastik://reports" },
+                navDeepLink { uriPattern = "https://swastik.health/reports" }
+            )
+        ) {
             AuthGuard(navController, tokenManager) {
             ReportsScreen(
                 onBackClick = { navController.popBackStack() }
@@ -414,7 +474,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         ) {
             AuthGuard(navController, tokenManager) {
             PrescriptionsScreen(
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) }
             )
             }
         }
@@ -449,13 +510,31 @@ fun SwastikApp(tokenManager: TokenManager) {
         }
 
         // ── New Feature Screens ───────────────────────────
-        composable(Screen.DiagnosticBooking.route) {
+        composable(
+            route = Screen.DiagnosticBooking.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("centerId") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val centerId = backStackEntry.arguments?.getString("centerId")?.takeIf { it.isNotBlank() }
             DiagnosticBookingScreen(
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                initialCenterId = centerId,
+                onNavigateToBookingHistory = { navController.navigate(Screen.BookingHistory.route) }
             )
         }
 
-        composable(Screen.VitalsReminders.route) {
+        composable(
+            route = Screen.VitalsReminders.route,
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "swastik://vitals" },
+                navDeepLink { uriPattern = "https://swastik.health/vitals" }
+            )
+        ) {
             VitalsRemindersScreen(
                 onBackClick = { navController.popBackStack() }
             )
@@ -464,17 +543,30 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(Screen.MedicineCart.route) {
             MedicineCartScreen(
                 onBackClick = { navController.popBackStack() },
-                onOrderComplete = { navController.popBackStack() }
+                onOrderComplete = { navController.popBackStack() },
+                onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) }
             )
         }
 
-        composable(Screen.OrderHistory.route) {
+        composable(
+            route = Screen.OrderHistory.route,
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "swastik://orders" },
+                navDeepLink { uriPattern = "https://swastik.health/orders" }
+            )
+        ) {
             OrderHistoryScreen(
                 onBackClick = { navController.popBackStack() }
             )
         }
 
-        composable(Screen.BookingHistory.route) {
+        composable(
+            route = Screen.BookingHistory.route,
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "swastik://tests" },
+                navDeepLink { uriPattern = "https://swastik.health/tests" }
+            )
+        ) {
             BookingHistoryScreen(
                 onBackClick = { navController.popBackStack() }
             )

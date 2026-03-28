@@ -105,25 +105,25 @@ class SocketManager @Inject constructor() {
 
             // Listen for new emergency assignments
             socket?.on("ambulance:assigned") { args ->
-                Log.d(TAG, "New emergency request received")
+                Log.d(TAG, "New emergency assignment received: ${summarizePayload(args.firstOrNull())}")
                 _newRequestFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
             // Listen for SOS broadcast — nearby patient needs help
             socket?.on("ambulance:broadcast") { args ->
-                Log.d(TAG, "SOS broadcast received — patient nearby needs help!")
+                Log.d(TAG, "SOS broadcast received: ${summarizePayload(args.firstOrNull())}")
                 _broadcastRequestFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
             // Listen for request-taken — another driver accepted the broadcast
             socket?.on("ambulance:request-taken") { args ->
-                Log.d(TAG, "Broadcast request taken by another driver")
+                Log.d(TAG, "Broadcast request taken: ${summarizePayload(args.firstOrNull())}")
                 _requestTakenFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
             // Listen for request status changes
             socket?.on("ambulance:status-update") { args ->
-                Log.d(TAG, "Request updated")
+                Log.d(TAG, "Request status update received: ${summarizePayload(args.firstOrNull())}")
                 _requestUpdatedFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
@@ -226,6 +226,7 @@ class SocketManager @Inject constructor() {
      */
     fun setActiveRequest(requestId: String) {
         activeRequestId = requestId
+        Log.d(TAG, "Active request set: $requestId")
         joinTrackingRoom(requestId)
     }
 
@@ -248,7 +249,14 @@ class SocketManager @Inject constructor() {
      * Clear the active request ID when emergency is completed/cancelled.
      */
     fun clearActiveRequest() {
+        Log.d(TAG, "Active request cleared: $activeRequestId")
         activeRequestId = null
+    }
+
+    private fun summarizePayload(payload: Any?): String {
+        if (payload == null) return "null"
+        val raw = payload.toString().replace('\n', ' ').trim()
+        return if (raw.length <= 180) raw else raw.take(177) + "..."
     }
 
     companion object {

@@ -9,6 +9,13 @@ const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 
+const buildPagination = (page, limit, total) => ({
+  page,
+  limit,
+  total,
+  totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
+});
+
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
 
@@ -71,7 +78,7 @@ const searchDiagnosticCenters = async (filters = {}, page = 1, limit = 20) => {
 
   return {
     data: recordsWithPhone,
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    pagination: buildPagination(page, limit, count || 0),
   };
 };
 
@@ -257,7 +264,7 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
     'address', 'city', 'state', 'pincode', 'latitude', 'longitude',
     'opening_hours', 'test_categories', 'accreditations', 'image_url',
     'sample_collection_available', 'home_collection_available', 'home_collection_fee', 'is_24_hours',
-    'license_number', 'nabl_accreditation',
+    'registration_number', 'license_number', 'license_document_url', 'nabl_accreditation',
   ];
   const safeUpdates = {};
   for (const key of ALLOWED_FIELDS) {
@@ -328,7 +335,7 @@ const getTests = async (centerId, filters = {}, page = 1, limit = 50) => {
   if (error) throw error;
   return {
     data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    pagination: buildPagination(page, limit, count || 0),
   };
 };
 
@@ -401,7 +408,6 @@ const deleteTest = async (centerId, testId) => {
 
 // Get bookings for this center
 const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
-  const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('diagnostic_bookings')
     .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type)', {
@@ -410,17 +416,33 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
     .eq('center_id', centerId);
 
   if (filters.status) query = query.eq('status', filters.status);
-  if (filters.resultStatus) query = query.eq('result_status', filters.resultStatus);
+  if (filters.resultStatus && filters.resultStatus !== 'all') query = query.eq('result_status', filters.resultStatus);
   if (filters.date) query = query.eq('booking_date', filters.date);
 
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) throw error;
+  const searchTerm = sanitizeSearch(filters.search || '').toLowerCase();
+  const filteredData = (data || []).filter((booking) => {
+    if (!searchTerm) return true;
+    const patientName = String(booking?.patient?.name || booking?.patient_name || '').toLowerCase();
+    const testName = String(booking?.test?.name || booking?.test_name || '').toLowerCase();
+    const bookingId = String(booking?.id || '').toLowerCase();
+    return patientName.includes(searchTerm) || testName.includes(searchTerm) || bookingId.includes(searchTerm);
+  });
+
+  const offset = (page - 1) * limit;
+  const paginatedData = filteredData.slice(offset, offset + limit);
+  const summary = filteredData.reduce((acc, booking) => {
+    acc.total += 1;
+    acc.status[booking.status] = (acc.status[booking.status] || 0) + 1;
+    acc.resultStatus[booking.result_status] = (acc.resultStatus[booking.result_status] || 0) + 1;
+    return acc;
+  }, { total: 0, status: {}, resultStatus: {} });
   return {
-    data: data || [],
-    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    data: paginatedData,
+    pagination: buildPagination(page, limit, filteredData.length),
+    summary,
   };
 };
 

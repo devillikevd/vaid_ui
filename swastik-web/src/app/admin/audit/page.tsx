@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
     History, Search, Filter, User, Shield, Settings, FileText,
-    CheckCircle, XCircle, Eye, Download, Calendar, Loader2, RefreshCw
+    CheckCircle, XCircle, Eye, Download, Calendar, Loader2, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,7 @@ interface AuditLog {
     action: string;
     description: string;
     user: string;
+    userEmail?: string | null;
     userRole: string;
     target?: string;
     timestamp: string;
@@ -32,12 +33,41 @@ const ACTION_CONFIG: Record<string, { icon: React.ElementType; color: string; la
     update: { icon: FileText, color: 'bg-blue-100 text-blue-600', label: 'Update' },
     login: { icon: User, color: 'bg-purple-100 text-purple-600', label: 'Login' },
     settings: { icon: Settings, color: 'bg-orange-100 text-orange-600', label: 'Settings' },
+    suspended: { icon: AlertTriangle, color: 'bg-amber-100 text-amber-700', label: 'Suspended' },
+    reactivate: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-600', label: 'Reactivated' },
+    activate: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-600', label: 'Activated' },
+    deactivate: { icon: XCircle, color: 'bg-red-100 text-red-600', label: 'Deactivated' },
+    logout: { icon: User, color: 'bg-slate-100 text-slate-600', label: 'Logout' },
+    status: { icon: Shield, color: 'bg-cyan-100 text-cyan-700', label: 'Status Update' },
     view: { icon: Eye, color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', label: 'View' },
     create: { icon: FileText, color: 'bg-blue-100 text-blue-600', label: 'Create' },
     delete: { icon: XCircle, color: 'bg-red-100 text-red-600', label: 'Delete' },
 };
 
 const DEFAULT_ACTION = { icon: FileText, color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400', label: 'Action' };
+
+const normalizeActionKey = (actionRaw: string) => {
+    const action = String(actionRaw || 'update').toLowerCase();
+    if (action.includes('approved')) return 'approve';
+    if (action.includes('rejected')) return 'reject';
+    if (action.includes('suspended')) return 'suspended';
+    if (action.includes('reactivated')) return 'reactivate';
+    if (action.includes('deactivate')) return 'deactivate';
+    if (action.includes('activate')) return 'activate';
+    if (action.includes('settings')) return 'settings';
+    if (action.includes('login')) return 'login';
+    if (action.includes('logout')) return 'logout';
+    if (action.includes('status')) return 'status';
+    if (action.includes('create')) return 'create';
+    if (action.includes('delete')) return 'delete';
+    if (action.includes('view')) return 'view';
+    return 'update';
+};
+
+const humanizeAction = (actionRaw: string) =>
+    String(actionRaw || 'action')
+        .replace(/[._]/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export default function AuditPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -46,55 +76,59 @@ export default function AuditPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [sourceStatus, setSourceStatus] = useState<'available' | 'unavailable'>('available');
+    const [sourceMessage, setSourceMessage] = useState<string | null>(null);
 
     const fetchAuditLogs = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const result = await adminApi.getAuditLogs(page);
+            const result = await adminApi.getAuditLogs(
+                searchQuery.trim() ? { search: searchQuery.trim() } : undefined,
+                page,
+                25
+            );
             if (!result.success) throw new Error('Failed to fetch audit logs');
 
             const rows = Array.isArray(result.data) ? result.data : [];
             const normalized: AuditLog[] = rows.map((row: any) => {
                 const actionRaw = String(row.action || row.eventType || 'update');
-                const action = actionRaw.toLowerCase();
-                const user = row.user?.name || row.userName || row.actorName || row.user || 'System';
+                const action = normalizeActionKey(actionRaw);
+                const user = row.user?.name || row.userName || row.actorName || row.user || row.userEmail || (row.userId ? `User ${String(row.userId).slice(0, 8)}` : 'System');
                 const userRole = row.userRole || row.actorRole || row.role || 'unknown';
                 const description = row.description
                     || row.message
                     || row.details?.message
-                    || `${actionRaw} action performed`;
+                    || `${humanizeAction(actionRaw)} performed`;
 
                 return {
                     id: row._id || row.id || `${actionRaw}-${row.createdAt || row.timestamp || Math.random()}`,
                     action,
                     description,
                     user,
+                    userEmail: row.user?.email || row.userEmail || null,
                     userRole,
                     target: row.entityId || row.resourceId || row.target,
                     timestamp: row.createdAt || row.timestamp || new Date().toISOString(),
                     ip: row.ipAddress || row.ip,
-                    resourceType: row.resourceType || row.entityType,
+                    resourceType: row.resourceType || row.entityType || undefined,
                 };
             });
 
             setLogs(normalized);
             setTotalPages(result.pagination?.totalPages || 1);
+            setSourceStatus((result as { sourceStatus?: 'available' | 'unavailable' }).sourceStatus || 'available');
+            setSourceMessage((result as { message?: string }).message || null);
         } catch (err) {
             console.error('Error fetching audit logs:', err);
             setError('Failed to load audit logs');
         } finally {
             setIsLoading(false);
         }
-    }, [page]);
+    }, [page, searchQuery]);
 
     useEffect(() => { fetchAuditLogs(); }, [fetchAuditLogs]);
-
-    const filteredLogs = logs.filter(log =>
-        (log.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (log.user || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (log.action || '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    useEffect(() => { setPage(1); }, [searchQuery]);
 
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -122,6 +156,13 @@ export default function AuditPage() {
                 </div>
             </Card>
 
+            {sourceStatus === 'unavailable' && sourceMessage && (
+                <div className="px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    {sourceMessage}
+                </div>
+            )}
+
             <Card padding="none">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -139,11 +180,13 @@ export default function AuditPage() {
                         <p className="text-red-600">{error}</p>
                         <Button className="mt-4" onClick={fetchAuditLogs} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
                     </div>
-                ) : filteredLogs.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">No audit logs found</div>
+                ) : logs.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        {sourceStatus === 'unavailable' ? 'Audit log storage is currently unavailable' : 'No audit logs found'}
+                    </div>
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filteredLogs.map((log) => {
+                        {logs.map((log) => {
                             const actionConfig = ACTION_CONFIG[log.action] || DEFAULT_ACTION;
                             const ActionIcon = actionConfig.icon;
                             return (
@@ -155,8 +198,13 @@ export default function AuditPage() {
                                             <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                                 <span className="flex items-center gap-1"><User className="h-3 w-3" />{log.user}</span>
                                                 <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">{log.userRole}</span>
+                                                {log.resourceType && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{log.resourceType}</span>}
+                                                {log.target && <span>Target: {log.target}</span>}
                                                 {log.ip && <span>IP: {log.ip}</span>}
                                             </div>
+                                            {log.userEmail && (
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{log.userEmail}</p>
+                                            )}
                                         </div>
                                         <div className="text-right">
                                             <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${actionConfig.color}`}>

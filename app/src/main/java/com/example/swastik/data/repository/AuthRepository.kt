@@ -6,6 +6,7 @@ import com.example.swastik.data.local.db.SwastikDatabase
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.*
+import com.example.swastik.notifications.PushNotificationCoordinator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
@@ -21,7 +22,8 @@ class AuthRepository @Inject constructor(
     private val tokenManager: TokenManager,
     private val socketManager: SocketManager,
     private val database: SwastikDatabase,
-    private val chatbotRepository: ChatbotRepository
+    private val chatbotRepository: ChatbotRepository,
+    private val pushNotificationCoordinator: PushNotificationCoordinator
 ) {
     companion object {
         private const val TAG = "AuthRepository"
@@ -56,6 +58,7 @@ class AuthRepository @Inject constructor(
                     }
                     // Connect socket after login
                     socketManager.connect()
+                    pushNotificationCoordinator.registerCurrentDeviceIfPossible()
                     emit(Result.Success(true))
                 } else {
                     emit(Result.Error(body?.message ?: "Login failed"))
@@ -130,6 +133,11 @@ class AuthRepository @Inject constructor(
         } catch (_: Exception) {
             // Best effort
         } finally {
+            try {
+                pushNotificationCoordinator.unregisterCurrentDeviceIfPossible()
+            } catch (_: Exception) {
+                // Best effort
+            }
             tokenManager.clearAll()
             socketManager.disconnect()
             chatbotRepository.clearSession()

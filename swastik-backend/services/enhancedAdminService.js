@@ -31,8 +31,306 @@ const PROVIDER_USER_FIELDS = {
   ambulance: 'user_id',
 };
 
+const PROVIDER_LABELS = {
+  doctor: 'Doctor',
+  hospital: 'Hospital',
+  pharmacy: 'Pharmacy',
+  clinic: 'Clinic',
+  diagnostic_center: 'Diagnostic Center',
+  ambulance: 'Ambulance Operator',
+};
+
+const PROVIDER_COMPLIANCE_DOCS = {
+  doctor: [
+    {
+      key: 'license_document_url',
+      label: 'Medical License',
+      requiredFields: [
+        { key: 'registration_number', label: 'Registration number' },
+        { key: 'license_number', label: 'License number' },
+      ],
+    },
+    {
+      key: 'degree_certificate_url',
+      label: 'Degree Certificate',
+      requiredFields: [],
+    },
+  ],
+  hospital: [
+    {
+      key: 'license_document_url',
+      label: 'Hospital License',
+      requiredFields: [
+        { key: 'license_number', label: 'License number' },
+      ],
+    },
+  ],
+  clinic: [
+    {
+      key: 'license_document_url',
+      label: 'Clinic License',
+      requiredFields: [
+        { key: 'registration_number', label: 'Registration number' },
+        { key: 'license_number', label: 'License number' },
+      ],
+    },
+  ],
+  pharmacy: [
+    {
+      key: 'license_document_url',
+      label: 'Pharmacy License',
+      requiredFields: [
+        { key: 'license_number', label: 'License number' },
+        { key: 'drug_license_number', label: 'Drug license number' },
+      ],
+    },
+  ],
+  diagnostic_center: [
+    {
+      key: 'license_document_url',
+      label: 'Diagnostic License',
+      requiredFields: [
+        { key: 'registration_number', label: 'Registration number' },
+        { key: 'license_number', label: 'License number' },
+      ],
+    },
+  ],
+  ambulance: [
+    {
+      key: 'license_document_url',
+      label: 'Operator License',
+      requiredFields: [
+        { key: 'registration_number', label: 'Registration number' },
+      ],
+      expiryField: 'license_expiry',
+    },
+  ],
+};
+
 const getProviderUserId = (provider) => provider?.user_id || provider?.owner_id || null;
 const LOCATION_PROVIDER_TYPES = new Set(['hospital', 'pharmacy', 'clinic', 'diagnostic_center']);
+const PROVIDER_UI_TYPES = {
+  doctor: 'doctors',
+  hospital: 'hospitals',
+  pharmacy: 'pharmacies',
+  clinic: 'clinics',
+  diagnostic_center: 'diagnostic_centers',
+  ambulance: 'ambulances',
+};
+const ADMIN_SETTINGS_CACHE_KEY = 'admin:settings';
+const ADMIN_SETTINGS_CACHE_TTL = 60 * 60 * 24 * 365;
+const ADMIN_SETTINGS_DEFAULTS = {
+  emailNotifications: true,
+  smsNotifications: false,
+  pushNotifications: true,
+  twoFactorAuth: false,
+  sessionTimeout: '30',
+  maintenanceMode: false,
+  platformName: 'Swastik Healthcare',
+  supportEmail: 'support@swastik.health',
+};
+
+const normalizeAdminProviderType = (rawType = 'all') => {
+  const normalized = String(rawType || 'all').trim().toLowerCase();
+  const map = {
+    all: 'all',
+    doctor: 'doctor',
+    doctors: 'doctor',
+    hospital: 'hospital',
+    hospitals: 'hospital',
+    clinic: 'clinic',
+    clinics: 'clinic',
+    pharmacy: 'pharmacy',
+    pharmacies: 'pharmacy',
+    diagnostic_center: 'diagnostic_center',
+    diagnostic_centers: 'diagnostic_center',
+    diagnosticcenter: 'diagnostic_center',
+    diagnosticcenters: 'diagnostic_center',
+    ambulance: 'ambulance',
+    ambulances: 'ambulance',
+  };
+
+  return map[normalized] || normalized;
+};
+
+const normalizeProviderLifecycleStatus = (provider) => {
+  if (provider?.approval_status) return provider.approval_status;
+  if (provider?.is_active === false) return 'suspended';
+  if (provider?.is_approved === true) return 'approved';
+  return 'pending';
+};
+
+const isPresentValue = (value) => {
+  if (Array.isArray(value)) return value.some((item) => isPresentValue(item));
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return true;
+};
+
+const formatDocumentStatus = (providerStatus, hasMissingRequiredItems, expiryDate, daysWindow) => {
+  const now = Date.now();
+  const expiryTs = expiryDate ? new Date(expiryDate).getTime() : Number.NaN;
+  const daysUntilExpiry = Number.isFinite(expiryTs)
+    ? Math.ceil((expiryTs - now) / (1000 * 60 * 60 * 24))
+    : null;
+
+  if (hasMissingRequiredItems) {
+    return { status: 'missing', daysUntilExpiry };
+  }
+  if (daysUntilExpiry !== null && daysUntilExpiry <= 0) {
+    return { status: 'expired', daysUntilExpiry };
+  }
+  if (daysUntilExpiry !== null && daysUntilExpiry <= daysWindow) {
+    return { status: 'expiring_soon', daysUntilExpiry };
+  }
+  if (providerStatus === 'approved') {
+    return { status: 'approved', daysUntilExpiry };
+  }
+  if (providerStatus === 'rejected') {
+    return { status: 'rejected', daysUntilExpiry };
+  }
+  if (providerStatus === 'suspended') {
+    return { status: 'suspended', daysUntilExpiry };
+  }
+  if (providerStatus === 'under_review') {
+    return { status: 'under_review', daysUntilExpiry };
+  }
+  return { status: 'submitted', daysUntilExpiry };
+};
+
+const buildProviderComplianceDocuments = (type, provider, options = {}) => {
+  const providerStatus = normalizeProviderLifecycleStatus(provider);
+  const daysWindow = Number.isFinite(options.daysWindow) ? options.daysWindow : 30;
+  const definitions = PROVIDER_COMPLIANCE_DOCS[type] || [];
+
+  return definitions.map((definition) => {
+    const url = provider?.[definition.key] || null;
+    const identifiers = (definition.requiredFields || [])
+      .map((field) => ({
+        key: field.key,
+        label: field.label,
+        value: provider?.[field.key],
+      }));
+
+    const missingItems = [];
+    if (!isPresentValue(url)) {
+      missingItems.push('Document file');
+    }
+
+    identifiers.forEach((field) => {
+      if (!isPresentValue(field.value)) {
+        missingItems.push(field.label);
+      }
+    });
+
+    const expiryDate = definition.expiryField ? provider?.[definition.expiryField] || null : null;
+    const { status, daysUntilExpiry } = formatDocumentStatus(
+      providerStatus,
+      missingItems.length > 0,
+      expiryDate,
+      daysWindow
+    );
+
+    return {
+      id: `${type}:${provider.id}:${definition.key}`,
+      provider_id: provider.id,
+      provider_name: provider.name || 'Unknown',
+      provider_type: type,
+      provider_type_label: PROVIDER_LABELS[type] || type,
+      provider_status: providerStatus,
+      created_at: provider.created_at,
+      updated_at: provider.updated_at,
+      document_key: definition.key,
+      document_type: definition.label,
+      document_url: url,
+      identifiers: identifiers.filter((field) => isPresentValue(field.value)),
+      missing_items: missingItems,
+      expiry_date: expiryDate,
+      days_until_expiry: daysUntilExpiry,
+      status,
+    };
+  });
+};
+
+const summarizeComplianceDocuments = (documents = []) => ({
+  total: documents.length,
+  missing: documents.filter((doc) => doc.status === 'missing').length,
+  submitted: documents.filter((doc) => doc.status === 'submitted' || doc.status === 'under_review').length,
+  approved: documents.filter((doc) => doc.status === 'approved').length,
+  rejected: documents.filter((doc) => doc.status === 'rejected').length,
+  suspended: documents.filter((doc) => doc.status === 'suspended').length,
+  expired: documents.filter((doc) => doc.status === 'expired').length,
+  expiringSoon: documents.filter((doc) => doc.status === 'expiring_soon').length,
+});
+
+const hasMappableCoordinates = (provider) =>
+  typeof provider?.latitude === 'number' &&
+  !Number.isNaN(provider.latitude) &&
+  typeof provider?.longitude === 'number' &&
+  !Number.isNaN(provider.longitude);
+
+const hasGeocodableAddress = (provider) =>
+  [provider?.address, provider?.city, provider?.state, provider?.pincode]
+    .some((value) => typeof value === 'string' && value.trim().length > 0);
+
+const resolveApprovalBlockReason = (type, provider, resolvedPhone) => {
+  if (!resolvedPhone) {
+    return 'Provider phone is required before approval.';
+  }
+
+  if (LOCATION_PROVIDER_TYPES.has(type) && !hasMappableCoordinates(provider) && !hasGeocodableAddress(provider)) {
+    return 'Address or map coordinates are required before approval so patients can discover this provider.';
+  }
+
+  return null;
+};
+
+const getProviderUserProfile = async (provider) => {
+  const userId = getProviderUserId(provider);
+  if (!userId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, name, email, phone, role, is_active, is_verified')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(`[Admin] Failed to fetch provider user profile ${userId}: ${error.message}`);
+    return null;
+  }
+
+  return data;
+};
+
+const enrichProviderForAdmin = async (type, provider, options = {}) => {
+  const user = await getProviderUserProfile(provider);
+  const phone = provider?.phone || user?.phone || null;
+  const email = provider?.email || user?.email || null;
+  const approvalBlockReason = resolveApprovalBlockReason(type, provider, phone);
+  const complianceDocuments = buildProviderComplianceDocuments(type, provider, {
+    daysWindow: options.complianceDays,
+  });
+
+  return {
+    ...provider,
+    provider_type: PROVIDER_UI_TYPES[type] || type,
+    provider_type_key: type,
+    email,
+    phone,
+    contact_name: user?.name || null,
+    user_role: user?.role || null,
+    user_id: provider?.user_id || provider?.owner_id || null,
+    status: normalizeProviderLifecycleStatus(provider),
+    approval_block_reason: approvalBlockReason,
+    can_approve: !approvalBlockReason,
+    compliance_documents: complianceDocuments,
+    missing_compliance_documents: complianceDocuments
+      .filter((document) => document.status === 'missing')
+      .map((document) => document.document_type),
+    compliance_summary: summarizeComplianceDocuments(complianceDocuments),
+  };
+};
 
 const resolveProviderPhone = async (provider) => {
   if (provider?.phone) return provider.phone;
@@ -238,7 +536,6 @@ const getDashboard = async () => {
   const dayStartIso = dayStart.toISOString();
 
   const ACTIVE_EMERGENCY_STATUSES = [
-    'active',
     'pending',
     'broadcasting',
     'assigned',
@@ -293,17 +590,8 @@ const getDashboard = async () => {
   const pendingTotal = (pendingDoctors || 0) + (pendingHospitals || 0) + (pendingPharmacies || 0)
     + (pendingClinics || 0) + (pendingDiagnosticCenters || 0) + (pendingAmbulances || 0);
 
-  // Use canonical approved counts (and active where applicable) to avoid inflating
-  // dashboard numbers with rejected/suspended/inactive test records.
-  const providersVisibleDoctors = (approvedDoctors || 0) + (pendingDoctors || 0);
-  const providersVisibleHospitals = (approvedHospitals || 0) + (pendingHospitals || 0);
-  const providersVisiblePharmacies = (approvedPharmacies || 0) + (pendingPharmacies || 0);
-  const providersVisibleClinics = (approvedClinics || 0) + (pendingClinics || 0);
-  const providersVisibleDiagnosticCenters = (approvedDiagnosticCenters || 0) + (pendingDiagnosticCenters || 0);
-  const providersVisibleAmbulances = (approvedAmbulances || 0) + (pendingAmbulances || 0);
-
-  const totalProvidersVisible = providersVisibleDoctors + providersVisibleHospitals + providersVisiblePharmacies
-    + providersVisibleClinics + providersVisibleDiagnosticCenters + providersVisibleAmbulances;
+  const totalProviders = (totalDoctors || 0) + (totalHospitals || 0) + (totalPharmacies || 0)
+    + (totalClinics || 0) + (totalDiagnosticCenters || 0) + (totalAmbulances || 0);
 
   const dashboard = {
     // Flat stats for backward-compat
@@ -320,7 +608,7 @@ const getDashboard = async () => {
     // Web dashboard reads these
     stats: {
       totalUsers: totalUsers || 0,
-      totalProviders: totalProvidersVisible,
+      totalProviders,
       totalPatients: totalPatients || 0,
       activeToday: activeTodayUsers || 0,
       pendingApprovals: pendingTotal,
@@ -328,12 +616,12 @@ const getDashboard = async () => {
       activeEmergencies: activeEmergencies || 0,
     },
     providerCounts: {
-      doctors:    { total: providersVisibleDoctors, pending: pendingDoctors || 0 },
-      hospitals:  { total: providersVisibleHospitals, pending: pendingHospitals || 0 },
-      clinics:    { total: providersVisibleClinics, pending: pendingClinics || 0 },
-      pharmacies: { total: providersVisiblePharmacies, pending: pendingPharmacies || 0 },
-      diagnosticCenters: { total: providersVisibleDiagnosticCenters, pending: pendingDiagnosticCenters || 0 },
-      ambulances: { total: providersVisibleAmbulances, pending: pendingAmbulances || 0 },
+      doctors:    { total: totalDoctors || 0, pending: pendingDoctors || 0 },
+      hospitals:  { total: totalHospitals || 0, pending: pendingHospitals || 0 },
+      clinics:    { total: totalClinics || 0, pending: pendingClinics || 0 },
+      pharmacies: { total: totalPharmacies || 0, pending: pendingPharmacies || 0 },
+      diagnosticCenters: { total: totalDiagnosticCenters || 0, pending: pendingDiagnosticCenters || 0 },
+      ambulances: { total: totalAmbulances || 0, pending: pendingAmbulances || 0 },
     },
     providerCategories: [
       { name: 'Doctors',    type: 'doctors',    pending: pendingDoctors || 0,    approved: approvedDoctors || 0 },
@@ -362,35 +650,40 @@ const getDashboard = async () => {
 const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   const results = {};
+  const normalizedType = normalizeAdminProviderType(type);
 
   // Use approval_status = 'pending' as the canonical field across all provider tables
-  const fetchPending = async (table) => {
-    const { data, count } = await supabaseAdmin
+  const fetchPending = async (providerType) => {
+    const table = PROVIDER_TABLES[providerType];
+    const { data, count, error } = await supabaseAdmin
       .from(table)
       .select('*', { count: 'exact' })
       .eq('approval_status', 'pending')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
-    return { data: data || [], total: count || 0 };
+    if (error) throw error;
+
+    const enriched = await Promise.all((data || []).map((provider) => enrichProviderForAdmin(providerType, provider)));
+    return { data: enriched, total: count || 0 };
   };
 
-  if (type === 'all' || type === 'doctor') {
-    results.doctors = await fetchPending('doctors');
+  if (normalizedType === 'all' || normalizedType === 'doctor') {
+    results[PROVIDER_UI_TYPES.doctor] = await fetchPending('doctor');
   }
-  if (type === 'all' || type === 'hospital') {
-    results.hospitals = await fetchPending('hospitals');
+  if (normalizedType === 'all' || normalizedType === 'hospital') {
+    results[PROVIDER_UI_TYPES.hospital] = await fetchPending('hospital');
   }
-  if (type === 'all' || type === 'pharmacy') {
-    results.pharmacies = await fetchPending('pharmacies');
+  if (normalizedType === 'all' || normalizedType === 'pharmacy') {
+    results[PROVIDER_UI_TYPES.pharmacy] = await fetchPending('pharmacy');
   }
-  if (type === 'all' || type === 'clinic') {
-    results.clinics = await fetchPending('clinics');
+  if (normalizedType === 'all' || normalizedType === 'clinic') {
+    results[PROVIDER_UI_TYPES.clinic] = await fetchPending('clinic');
   }
-  if (type === 'all' || type === 'diagnostic_center') {
-    results.diagnosticCenters = await fetchPending('diagnostic_centers');
+  if (normalizedType === 'all' || normalizedType === 'diagnostic_center') {
+    results[PROVIDER_UI_TYPES.diagnostic_center] = await fetchPending('diagnostic_center');
   }
-  if (type === 'all' || type === 'ambulance') {
-    results.ambulances = await fetchPending('ambulance_operators');
+  if (normalizedType === 'all' || normalizedType === 'ambulance') {
+    results[PROVIDER_UI_TYPES.ambulance] = await fetchPending('ambulance');
   }
 
   return { data: results, pagination: { page, limit } };
@@ -398,7 +691,8 @@ const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
 
 // Get provider details
 const getProviderDetails = async (type, id) => {
-  const table = PROVIDER_TABLES[type];
+  const normalizedType = normalizeAdminProviderType(type);
+  const table = PROVIDER_TABLES[normalizedType];
   if (!table) {
     throw new ApiError(400, 'Invalid provider type');
   }
@@ -413,7 +707,70 @@ const getProviderDetails = async (type, id) => {
     throw new ApiError(404, 'Provider not found');
   }
 
-  return data;
+  return enrichProviderForAdmin(normalizedType, data);
+};
+
+const getProviders = async (filters = {}, page = 1, limit = 20) => {
+  const offset = (page - 1) * limit;
+  const normalizedType = normalizeAdminProviderType(filters.type || 'all');
+  const providerTypes = normalizedType === 'all'
+    ? Object.keys(PROVIDER_TABLES)
+    : [normalizedType];
+
+  const providerGroups = await Promise.all(providerTypes.map(async (providerType) => {
+    const table = PROVIDER_TABLES[providerType];
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return Promise.all((data || []).map((provider) => enrichProviderForAdmin(providerType, provider)));
+  }));
+
+  const searchTerm = sanitizeSearch(filters.search || '').toLowerCase();
+  let providers = providerGroups.flat();
+
+  if (filters.status) {
+    const expectedStatus = String(filters.status).trim().toLowerCase();
+    providers = providers.filter((provider) => normalizeProviderLifecycleStatus(provider) === expectedStatus);
+  }
+
+  if (searchTerm) {
+    providers = providers.filter((provider) => (
+      [
+        provider.name,
+        provider.email,
+        provider.phone,
+        provider.address,
+        provider.registration_number,
+        provider.license_number,
+        provider.company_name,
+        provider.contact_name,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(searchTerm))
+    ));
+  }
+
+  providers.sort((left, right) => {
+    const leftCreatedAt = left.created_at || '';
+    const rightCreatedAt = right.created_at || '';
+    return rightCreatedAt.localeCompare(leftCreatedAt);
+  });
+
+  const total = providers.length;
+
+  return {
+    data: providers.slice(offset, offset + limit),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
+    },
+  };
 };
 
 // Approve provider
@@ -657,6 +1014,38 @@ const addAdminNote = async (type, id, adminId, note, isInternal = true) => {
   return { note: newNote, provider: data };
 };
 
+const getSettings = async () => {
+  const stored = await cacheGet(ADMIN_SETTINGS_CACHE_KEY);
+  return {
+    ...ADMIN_SETTINGS_DEFAULTS,
+    ...(stored || {}),
+  };
+};
+
+const updateSettings = async (adminId, updates = {}) => {
+  const current = await getSettings();
+  const nextSettings = {
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+    updatedBy: adminId,
+  };
+
+  await cacheSet(ADMIN_SETTINGS_CACHE_KEY, nextSettings, ADMIN_SETTINGS_CACHE_TTL);
+
+  await logAudit({
+    userId: adminId,
+    userRole: 'admin',
+    action: 'admin.settings.update',
+    entityType: 'admin_settings',
+    entityId: ADMIN_SETTINGS_CACHE_KEY,
+    oldData: current,
+    newData: nextSettings,
+  });
+
+  return nextSettings;
+};
+
 // Get users
 const getUsers = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
@@ -713,7 +1102,7 @@ const updateUserStatus = async (adminUserId, userId, isActive, reason) => {
 };
 
 // Get active emergencies
-const getActiveEmergencies = async (page = 1, limit = 20) => {
+const getActiveEmergencies = async (page = 1, limit = 20, filters = {}) => {
   const ACTIVE_EMERGENCY_STATUSES = [
     'active',
     'pending',
@@ -726,18 +1115,78 @@ const getActiveEmergencies = async (page = 1, limit = 20) => {
     'arrived',
     'picked_up',
     'en_route_hospital',
+    'arrived_hospital',
   ];
-
+  const RESOLVED_EMERGENCY_STATUSES = ['completed', 'resolved'];
+  const CANCELLED_EMERGENCY_STATUSES = ['cancelled', 'timeout', 'no_ambulance'];
+  const statusFilter = String(filters.status || 'active').trim().toLowerCase();
   const offset = (page - 1) * limit;
-  const { data, error, count } = await supabaseAdmin
+
+  let query = supabaseAdmin
     .from('emergency_requests')
-    .select('*, patient:patients(id, name)', { count: 'exact' })
-    .in('status', ACTIVE_EMERGENCY_STATUSES)
-    .order('created_at', { ascending: false })
+    .select(`
+      *,
+      patient:patients(
+        id,
+        name,
+        user_id,
+        user:users(phone)
+      ),
+      vehicle:ambulances(
+        id,
+        vehicle_number,
+        driver_name,
+        driver_phone,
+        vehicle_type,
+        current_latitude,
+        current_longitude
+      )
+    `, { count: 'exact' })
+    .order('requested_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  if (statusFilter === 'active') {
+    query = query.in('status', ACTIVE_EMERGENCY_STATUSES);
+  } else if (statusFilter === 'resolved') {
+    query = query.in('status', RESOLVED_EMERGENCY_STATUSES);
+  } else if (statusFilter === 'cancelled') {
+    query = query.in('status', CANCELLED_EMERGENCY_STATUSES);
+  } else if (statusFilter !== 'all') {
+    query = query.eq('status', statusFilter);
+  }
+
+  const [
+    { data, error, count },
+    { count: pendingCount },
+    { count: activeCount },
+    { count: resolvedCount },
+    { count: cancelledCount },
+  ] = await Promise.all([
+    query,
+    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ['pending', 'broadcasting']),
+    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ACTIVE_EMERGENCY_STATUSES.filter((status) => !['pending', 'broadcasting'].includes(status))),
+    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', RESOLVED_EMERGENCY_STATUSES),
+    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', CANCELLED_EMERGENCY_STATUSES),
+  ]);
+
   if (error) throw error;
-  return { data: data || [], pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) } };
+  return {
+    data: data || [],
+    pagination: {
+      page,
+      limit,
+      total: count || 0,
+      totalPages: Math.max(1, Math.ceil((count || 0) / limit)),
+    },
+    summary: {
+      pending: pendingCount || 0,
+      active: activeCount || 0,
+      resolved: resolvedCount || 0,
+      cancelled: cancelledCount || 0,
+      total: (pendingCount || 0) + (activeCount || 0) + (resolvedCount || 0) + (cancelledCount || 0),
+    },
+    activeStatuses: ACTIVE_EMERGENCY_STATUSES,
+  };
 };
 
 // Reassign emergency
@@ -758,38 +1207,103 @@ const reassignEmergency = async (emergencyId, operatorId, adminId, reason) => {
   return { data, message: 'Emergency reassigned' };
 };
 
-// Get expiring documents (check ambulance operator licenses)
-const getExpiringDocuments = async (days = 30) => {
-  const now = new Date();
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + days);
+const getComplianceDocuments = async (filters = {}, page = 1, limit = 20) => {
+  const offset = (page - 1) * limit;
+  const days = Number.isFinite(filters.days) ? filters.days : 30;
+  const normalizedType = normalizeAdminProviderType(filters.type || 'all');
+  const providerTypes = normalizedType === 'all'
+    ? Object.keys(PROVIDER_TABLES)
+    : [normalizedType];
 
-  const { data: operators } = await supabaseAdmin
-    .from('ambulance_operators')
-    .select('id, name, license_expiry, user_id')
-    .lte('license_expiry', futureDate.toISOString())
-    .gte('license_expiry', new Date().toISOString());
+  const providerGroups = await Promise.all(providerTypes.map(async (providerType) => {
+    const table = PROVIDER_TABLES[providerType];
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const documents = (operators || []).map((op) => {
-    const expiryDate = op.license_expiry;
-    const expiryTs = expiryDate ? new Date(expiryDate).getTime() : Number.NaN;
-    const daysUntilExpiry = Number.isFinite(expiryTs)
-      ? Math.ceil((expiryTs - now.getTime()) / (1000 * 60 * 60 * 24))
-      : 0;
+    if (error) throw error;
 
-    return {
-      id: op.id,
-      providerName: op.name || 'Unknown',
-      providerType: 'ambulance_operator',
-      documentType: 'Operator License',
-      expiryDate: expiryDate || now.toISOString(),
-      status: daysUntilExpiry <= 0 ? 'expired' : (daysUntilExpiry <= 7 ? 'expiring_soon' : 'valid'),
-      daysUntilExpiry,
-    };
+    return Promise.all((data || []).map((provider) => enrichProviderForAdmin(
+      providerType,
+      provider,
+      { complianceDays: days }
+    )));
+  }));
+
+  const searchTerm = sanitizeSearch(filters.search || '').toLowerCase();
+  let documents = providerGroups.flat().flatMap((provider) => (
+    (provider.compliance_documents || []).map((document) => ({
+      ...document,
+      email: provider.email,
+      phone: provider.phone,
+      contact_name: provider.contact_name,
+      approval_notes: provider.approval_notes || null,
+      can_approve_provider: provider.can_approve,
+      provider_approval_block_reason: provider.approval_block_reason || null,
+      provider_missing_compliance_documents: provider.missing_compliance_documents || [],
+    }))
+  ));
+
+  if (filters.status && filters.status !== 'all') {
+    const expectedStatus = String(filters.status).trim().toLowerCase();
+    documents = documents.filter((document) => document.status === expectedStatus);
+  }
+
+  if (searchTerm) {
+    documents = documents.filter((document) => (
+      [
+        document.provider_name,
+        document.provider_type_label,
+        document.document_type,
+        document.email,
+        document.phone,
+        ...(document.identifiers || []).map((identifier) => identifier.value),
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(searchTerm))
+    ));
+  }
+
+  const statusOrder = {
+    missing: 0,
+    expired: 1,
+    expiring_soon: 2,
+    submitted: 3,
+    under_review: 4,
+    rejected: 5,
+    suspended: 6,
+    approved: 7,
+  };
+
+  documents.sort((left, right) => {
+    const leftOrder = statusOrder[left.status] ?? 99;
+    const rightOrder = statusOrder[right.status] ?? 99;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return String(right.created_at || '').localeCompare(String(left.created_at || ''));
   });
 
-  return { operators: operators || [], documents };
+  const total = documents.length;
+  const paginatedDocuments = documents.slice(offset, offset + limit);
+
+  return {
+    data: paginatedDocuments,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
+    },
+    summary: summarizeComplianceDocuments(documents),
+    coverage: {
+      trackedProviderTypes: providerTypes,
+      note: 'Compliance tracking now covers provider document presence across doctors, hospitals, clinics, pharmacies, diagnostic centers, and ambulance operators. Expiry monitoring is currently available for ambulance operator licenses.',
+    },
+  };
 };
+
+// Backward-compatible wrapper for the legacy compliance endpoint name.
+const getExpiringDocuments = async (days = 30) => getComplianceDocuments({ days }, 1, 500);
 
 // Analytics
 const getAnalytics = async (period = '30d') => {
@@ -868,32 +1382,39 @@ const getAnalytics = async (period = '30d') => {
     supabaseAdmin.from('consultations').select('created_at,started_at').not('started_at', 'is', null).gte('created_at', sinceStr),
   ]);
 
-  // Monthly/period series aggregation (bucket by month label)
-  const monthKey = (iso) => {
+  const dailyGranularity = days <= 31;
+  const periodKey = (iso) => {
     const d = new Date(iso);
+    if (dailyGranularity) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
-  const monthLabel = (key) => {
-    const [y, m] = key.split('-').map(Number);
-    const d = new Date(y, m - 1, 1);
-    return d.toLocaleString('en-IN', { month: 'short' });
+  const periodLabel = (key) => {
+    const parts = key.split('-').map(Number);
+    if (dailyGranularity) {
+      const [y, m, d] = parts;
+      return new Date(y, m - 1, d).toLocaleString('en-IN', { day: '2-digit', month: 'short' });
+    }
+    const [y, m] = parts;
+    return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'short' });
   };
 
   const usersBuckets = new Map();
   for (const row of usersSeriesRes.data || []) {
-    const key = monthKey(row.created_at);
+    const key = periodKey(row.created_at);
     usersBuckets.set(key, (usersBuckets.get(key) || 0) + 1);
   }
 
   const apptBuckets = new Map();
   for (const row of apptSeriesRes.data || []) {
-    const key = monthKey(row.created_at);
+    const key = periodKey(row.created_at);
     apptBuckets.set(key, (apptBuckets.get(key) || 0) + 1);
   }
 
   const allKeys = Array.from(new Set([...usersBuckets.keys(), ...apptBuckets.keys()])).sort();
   const monthlyData = allKeys.map((k) => ({
-    month: monthLabel(k),
+    month: periodLabel(k),
     users: usersBuckets.get(k) || 0,
     appointments: apptBuckets.get(k) || 0,
   }));
@@ -973,22 +1494,72 @@ const getAuditLogs = async (filters = {}, page = 1, limit = 50) => {
     const mongoFilters = {};
     if (filters.userId) mongoFilters.userId = filters.userId;
     if (filters.action) mongoFilters.action = filters.action;
-    if (filters.resourceType) mongoFilters.resourceType = filters.resourceType;
+    if (filters.resourceType) mongoFilters.entityType = filters.resourceType;
     if (filters.fromDate || filters.toDate) {
       mongoFilters.createdAt = {};
       if (filters.fromDate) mongoFilters.createdAt.$gte = new Date(filters.fromDate);
       if (filters.toDate) mongoFilters.createdAt.$lte = new Date(filters.toDate);
     }
+    if (filters.search) {
+      const pattern = sanitizeSearch(filters.search);
+      if (pattern) {
+        const regex = new RegExp(pattern, 'i');
+        mongoFilters.$or = [
+          { action: regex },
+          { entityType: regex },
+          { entityId: regex },
+          { userId: regex },
+        ];
+      }
+    }
 
     const total = await AuditLog.countDocuments(mongoFilters);
-    const data = await AuditLog.find(mongoFilters)
+    const rawLogs = await AuditLog.find(mongoFilters)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    const userIds = [...new Set((rawLogs || []).map((log) => log.userId).filter(Boolean))];
+    let usersById = new Map();
+
+    if (userIds.length > 0) {
+      const { data: users } = await supabaseAdmin
+        .from('users')
+        .select('id, name, email, role')
+        .in('id', userIds);
+
+      usersById = new Map((users || []).map((user) => [user.id, user]));
+    }
+
+    const data = (rawLogs || []).map((log) => {
+      const plainLog = typeof log.toObject === 'function' ? log.toObject() : log;
+      const user = usersById.get(plainLog.userId);
+      return {
+        ...plainLog,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        } : null,
+        userName: user?.name || null,
+        userEmail: user?.email || null,
+        userRole: user?.role || plainLog.userRole || 'unknown',
+      };
+    });
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil((total || 0) / limit)) },
+      sourceStatus: 'available',
+    };
   } catch (err) {
-    return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    return {
+      data: [],
+      pagination: { page, limit, total: 0, totalPages: 1 },
+      sourceStatus: 'unavailable',
+      message: 'Audit log storage is currently unavailable.',
+    };
   }
 };
 
@@ -1041,11 +1612,19 @@ const getSystemHealth = async () => {
 
 // Valid emergency status transitions
 const EMERGENCY_STATUS_TRANSITIONS = {
-  pending: ['assigned', 'dispatched', 'cancelled'],
+  pending: ['broadcasting', 'assigned', 'dispatched', 'cancelled', 'no_ambulance'],
+  broadcasting: ['assigned', 'dispatched', 'timeout', 'cancelled', 'no_ambulance'],
   assigned: ['dispatched', 'en_route', 'cancelled'],
+  accepted: ['en_route', 'cancelled'],
   dispatched: ['en_route', 'cancelled'],
-  en_route: ['arrived', 'cancelled'],
-  arrived: ['completed', 'cancelled'],
+  en_route_pickup: ['arrived', 'picked_up', 'cancelled'],
+  en_route: ['arrived', 'picked_up', 'cancelled'],
+  arrived: ['picked_up', 'completed', 'cancelled'],
+  picked_up: ['en_route_hospital', 'completed', 'cancelled'],
+  en_route_hospital: ['arrived_hospital', 'completed', 'cancelled'],
+  arrived_hospital: ['completed'],
+  timeout: ['broadcasting', 'cancelled'],
+  no_ambulance: ['broadcasting', 'cancelled'],
   completed: [],
   cancelled: [],
 };
@@ -1095,13 +1674,17 @@ module.exports = {
   suspendProvider,
   reactivateProvider,
   addAdminNote,
+  getProviders,
+  getSettings,
   getUsers,
   updateUserStatus,
   getActiveEmergencies,
   reassignEmergency,
   updateEmergencyStatus,
+  getComplianceDocuments,
   getExpiringDocuments,
   getAnalytics,
   getAuditLogs,
   getSystemHealth,
+  updateSettings,
 };

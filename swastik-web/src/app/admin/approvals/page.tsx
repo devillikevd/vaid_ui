@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
     Search, Filter, Stethoscope, Building2, Building, Pill, Siren, Microscope,
     CheckCircle, XCircle, FileText, Download, ChevronRight, Loader2, RefreshCw,
@@ -33,16 +34,29 @@ const PROVIDER_COLORS: Record<string, string> = {
 
 export default function ApprovalsPage() {
     const [activeFilter, setActiveFilter] = useState<ProviderType>('all');
+    const searchParams = useSearchParams();
     const toast = useToast();
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
-    const { pendingProviders, isLoading, fetchPendingApprovals, fetchDashboardData, stats, providerCounts } = useAdminStore();
+    const { pendingProviders, loadingApprovals, fetchPendingApprovals, fetchDashboardData, stats, providerCounts } = useAdminStore();
+
+    useEffect(() => {
+        const requestedType = searchParams.get('type');
+        if (!requestedType) return;
+
+        const normalized = requestedType.trim().toLowerCase() as ProviderType;
+        const validTypes: ProviderType[] = ['all', 'doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers', 'ambulances'];
+        if (validTypes.includes(normalized)) {
+            setActiveFilter(normalized);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
     useEffect(() => {
+        setPage(1);
         fetchPendingApprovals(activeFilter);
     }, [activeFilter, fetchPendingApprovals]);
 
@@ -109,7 +123,7 @@ export default function ApprovalsPage() {
             </Card>
 
             <Card padding="none">
-                {isLoading ? (
+                {loadingApprovals ? (
                     <div className="flex items-center justify-center p-12">
                         <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                         <span className="ml-2 text-gray-500 dark:text-gray-400">Loading approvals...</span>
@@ -126,13 +140,8 @@ export default function ApprovalsPage() {
                                 const Icon = PROVIDER_ICONS[provType] || Stethoscope;
                                 const colorClass = PROVIDER_COLORS[provType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
                                 const isFacility = ['hospitals', 'clinics', 'pharmacies', 'diagnostic_centers'].includes(provType);
-                                const isLocationBasedProvider = isFacility;
-                                const missingPhone = isLocationBasedProvider && !(approval.phone || '').trim();
-                                const missingLocation = isLocationBasedProvider && (approval.latitude == null || approval.longitude == null);
-                                const approvalBlockReason = missingPhone
-                                    ? 'Phone is required before approval.'
-                                    : (missingLocation ? 'Location coordinates are required before approval.' : null);
-                                const canApprove = !approvalBlockReason;
+                                const approvalBlockReason = approval.approval_block_reason || null;
+                                const canApprove = approval.can_approve ?? !approvalBlockReason;
                                 const isExpanded = expandedId === approval.id;
                                 return (
                                     <div key={approval.id}>
@@ -331,6 +340,45 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <FileText className="h-4 w-4 text-gray-400" />
                             Reg: {approval.registration_number}
+                        </div>
+                    )}
+                    {approval.compliance_documents && approval.compliance_documents.length > 0 && (
+                        <div className="space-y-2 pt-2">
+                            <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Compliance Documents
+                            </h5>
+                            {approval.compliance_documents.map((document) => (
+                                <div key={document.id} className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-medium text-gray-800 dark:text-gray-100">{document.document_type}</span>
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                            document.status === 'missing'
+                                                ? 'bg-red-100 text-red-700'
+                                                : document.status === 'approved'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {document.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </div>
+                                    {document.missing_items && document.missing_items.length > 0 && (
+                                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                            Missing: {document.missing_items.join(', ')}
+                                        </p>
+                                    )}
+                                    {document.document_url && (
+                                        <a
+                                            href={document.document_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            Open document
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     )}
                     {!hasLocation && (

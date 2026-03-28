@@ -42,6 +42,8 @@ fun VitalsRemindersScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var showRecordVitalDialog by remember { mutableStateOf(false) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
+    var reminderToSnooze by remember { mutableStateOf<ReminderDto?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
         topBar = {
@@ -54,6 +56,9 @@ fun VitalsRemindersScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = Color.White, navigationIconContentColor = Color.White)
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -109,6 +114,10 @@ fun VitalsRemindersScreen(
                     0 -> VitalsTab(vitals = uiState.vitals)
                     1 -> RemindersTab(
                         reminders = uiState.reminders,
+                        activeReminderActionId = uiState.activeReminderActionId,
+                        onTake = { viewModel.takeReminder(it) },
+                        onSkip = { viewModel.skipReminder(it) },
+                        onSnooze = { reminderToSnooze = it },
                         onDelete = { viewModel.deleteReminder(it) }
                     )
                 }
@@ -144,6 +153,29 @@ fun VitalsRemindersScreen(
     }
     LaunchedEffect(uiState.reminderCreated) {
         if (uiState.reminderCreated) viewModel.resetFlags()
+    }
+    LaunchedEffect(uiState.reminderActionMessage) {
+        uiState.reminderActionMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearReminderFeedback()
+        }
+    }
+    LaunchedEffect(uiState.reminderActionError) {
+        uiState.reminderActionError?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearReminderFeedback()
+        }
+    }
+
+    if (reminderToSnooze != null) {
+        SnoozeReminderDialog(
+            reminderTitle = reminderToSnooze?.title.orEmpty(),
+            onDismiss = { reminderToSnooze = null },
+            onSelectMinutes = { minutes ->
+                reminderToSnooze?.let { viewModel.snoozeReminder(it, minutes) }
+                reminderToSnooze = null
+            }
+        )
     }
 }
 
@@ -220,6 +252,10 @@ private fun VitalCard(vital: VitalDto) {
 @Composable
 private fun RemindersTab(
     reminders: List<ReminderDto>,
+    activeReminderActionId: String?,
+    onTake: (ReminderDto) -> Unit,
+    onSkip: (ReminderDto) -> Unit,
+    onSnooze: (ReminderDto) -> Unit,
     onDelete: (String) -> Unit
 ) {
     if (reminders.isEmpty()) {
@@ -237,14 +273,28 @@ private fun RemindersTab(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(reminders) { reminder ->
-                ReminderCard(reminder = reminder, onDelete = { onDelete(reminder.id) })
+                ReminderCard(
+                    reminder = reminder,
+                    actionInProgress = activeReminderActionId == reminder.id,
+                    onTake = { onTake(reminder) },
+                    onSkip = { onSkip(reminder) },
+                    onSnooze = { onSnooze(reminder) },
+                    onDelete = { onDelete(reminder.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ReminderCard(reminder: ReminderDto, onDelete: () -> Unit) {
+private fun ReminderCard(
+    reminder: ReminderDto,
+    actionInProgress: Boolean,
+    onTake: () -> Unit,
+    onSkip: () -> Unit,
+    onSnooze: () -> Unit,
+    onDelete: () -> Unit
+) {
     val typeIcon = when (reminder.type.lowercase()) {
         "medicine" -> Icons.Default.Medication
         "appointment" -> Icons.Default.EventAvailable
@@ -261,39 +311,154 @@ private fun ReminderCard(reminder: ReminderDto, onDelete: () -> Unit) {
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(typeColor.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(typeIcon, null, tint = typeColor, modifier = Modifier.size(22.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(reminder.title, fontWeight = FontWeight.SemiBold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
-                    Spacer(Modifier.width(4.dp))
-                    Text(reminder.time, color = Color.Gray, fontSize = 12.sp)
-                    Spacer(Modifier.width(8.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(reminder.type, fontSize = 10.sp) },
-                        modifier = Modifier.height(24.dp)
-                    )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(typeColor.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(typeIcon, null, tint = typeColor, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(reminder.title, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                        Spacer(Modifier.width(4.dp))
+                        Text(reminder.time, color = Color.Gray, fontSize = 12.sp)
+                        Spacer(Modifier.width(8.dp))
+                        AssistChip(
+                            onClick = {},
+                            label = { Text(reminder.type, fontSize = 10.sp) },
+                            modifier = Modifier.height(24.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFE53935))
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFE53935))
+
+            if (reminder.isCompleted) {
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            "Marked for today",
+                            color = Color(0xFF2E7D32),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilledTonalButton(
+                        onClick = onTake,
+                        enabled = !actionInProgress,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFE8F5E9),
+                            contentColor = Color(0xFF2E7D32)
+                        )
+                    ) {
+                        Text("Taken")
+                    }
+                    FilledTonalButton(
+                        onClick = onSnooze,
+                        enabled = !actionInProgress,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFEFF3FF),
+                            contentColor = SwastikPurple
+                        )
+                    ) {
+                        Text("Snooze")
+                    }
+                    OutlinedButton(
+                        onClick = onSkip,
+                        enabled = !actionInProgress,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Skip")
+                    }
+                }
+            }
+
+            if (actionInProgress) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = SwastikPurple,
+                    trackColor = SwastikPurple.copy(alpha = 0.16f)
+                )
             }
         }
     }
+}
+
+@Composable
+private fun SnoozeReminderDialog(
+    reminderTitle: String,
+    onDismiss: () -> Unit,
+    onSelectMinutes: (Int) -> Unit
+) {
+    val options = listOf(10, 15, 30, 60)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Snooze Reminder", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Choose how long to snooze $reminderTitle.",
+                    fontSize = 14.sp,
+                    color = Color(0xFF374151)
+                )
+                options.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { minutes ->
+                            FilledTonalButton(
+                                onClick = { onSelectMinutes(minutes) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("$minutes min")
+                            }
+                        }
+                        if (row.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

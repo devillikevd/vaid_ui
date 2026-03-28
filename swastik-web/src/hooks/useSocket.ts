@@ -675,8 +675,7 @@ export function useConsultationChat(consultationId: string | null) {
     useEffect(() => {
         if (!consultationId) return;
 
-        // Join chat
-        emit('chat:join', consultationId);
+        const joinChat = () => emit('chat:join', consultationId);
 
         const handleMessage = (message: ChatMessage) => {
             setMessages((prev) => [...prev, message]);
@@ -691,9 +690,12 @@ export function useConsultationChat(consultationId: string | null) {
         };
 
         const unsubs = [
+            on('connect', joinChat),
             on('chat:message', handleMessage),
             on('chat:typing', handleTyping),
         ];
+
+        joinChat();
 
         return () => {
             unsubs.forEach((unsub) => unsub());

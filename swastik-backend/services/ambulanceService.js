@@ -141,10 +141,7 @@ class AmbulanceService {
 
     const { data: ambulances, error } = await supabaseAdmin
       .from('ambulances')
-      .select(`
-        *,
-        hospital:hospitals(id, name, phone)
-      `)
+      .select('*')
       .eq('is_active', true)
       .eq('status', 'available')
       .gte('current_latitude', bounds.minLat)
@@ -153,7 +150,7 @@ class AmbulanceService {
       .lte('current_longitude', bounds.maxLng);
 
     if (error) {
-      throw new ApiError(400, 'Failed to fetch ambulances');
+      throw new ApiError(400, `Failed to fetch ambulances: ${error.message}`);
     }
 
     const operatorIds = [...new Set((ambulances || []).map((amb) => amb.operator_id).filter(Boolean))];
@@ -527,18 +524,49 @@ class AmbulanceService {
   }
 
   // Get request history
-  async getRequestHistory(userId, page = 1, limit = 10) {
+  async getRequestHistory(user, page = 1, limit = 10, status = null) {
     const offset = (page - 1) * limit;
+    const userId = typeof user === 'string' ? user : user?.id;
+    const role = typeof user === 'string' ? null : user?.role;
 
-    // Try to resolve the user as a patient first
-    const { data: patient } = await supabaseAdmin
-      .from('patients').select('id').eq('user_id', userId).single();
+    if (!userId) {
+      throw new ApiError(401, 'Unauthorized');
+    }
 
-    // Also try to resolve the user as an ambulance driver
-    const { data: ambulance } = await supabaseAdmin
-      .from('ambulances').select('id').eq('driver_user_id', userId).single();
+    let patientId = null;
+    if (!role || role === 'patient') {
+      const { data: patient } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      patientId = patient?.id || null;
+    }
 
-    // Build the query — filter by patient_id OR ambulance_id depending on who's calling
+    let vehicleIds = [];
+    if (!role || ['ambulance_operator', 'ambulance_driver', 'admin', 'super_admin'].includes(role)) {
+      const { data: operator } = await supabaseAdmin
+        .from('ambulance_operators')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      let vehicleQuery = supabaseAdmin
+        .from('ambulances')
+        .select('id')
+        .eq('driver_user_id', userId);
+
+      if (operator?.id) {
+        vehicleQuery = supabaseAdmin
+          .from('ambulances')
+          .select('id')
+          .or(`driver_user_id.eq.${userId},operator_id.eq.${operator.id}`);
+      }
+
+      const { data: vehicles } = await vehicleQuery;
+      vehicleIds = [...new Set((vehicles || []).map((vehicle) => vehicle.id).filter(Boolean))];
+    }
+
     let query = supabaseAdmin
       .from('emergency_requests')
       .select(`
@@ -547,16 +575,39 @@ class AmbulanceService {
         hospital:hospitals(name, address)
       `, { count: 'exact' });
 
-    if (patient?.id && ambulance?.id) {
-      // User is both — unlikely but handle it: return requests for either
-      query = query.or(`patient_id.eq.${patient.id},ambulance_id.eq.${ambulance.id}`);
-    } else if (patient?.id) {
-      query = query.eq('patient_id', patient.id);
-    } else if (ambulance?.id) {
-      query = query.eq('ambulance_id', ambulance.id);
+    if (patientId && role === 'patient') {
+      query = query.eq('patient_id', patientId);
+    } else if (vehicleIds.length > 0) {
+      query = query.in('vehicle_id', vehicleIds);
+    } else if (patientId) {
+      query = query.eq('patient_id', patientId);
     } else {
-      // User is neither patient nor driver — return empty
-      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
+    }
+
+    if (status) {
+      const normalizedStatus = String(status).toLowerCase();
+      if (normalizedStatus === 'active') {
+        query = query.in('status', [
+          'pending',
+          'broadcasting',
+          'assigned',
+          'dispatched',
+          'accepted',
+          'en_route',
+          'en_route_pickup',
+          'arrived',
+          'arrived_pickup',
+          'picked_up',
+          'patient_onboard',
+          'en_route_hospital',
+          'arrived_hospital',
+        ]);
+      } else if (normalizedStatus === 'completed') {
+        query = query.in('status', ['completed', 'cancelled', 'timeout', 'no_ambulance']);
+      } else if (normalizedStatus !== 'all') {
+        query = query.eq('status', normalizedStatus);
+      }
     }
 
     const { data: requests, count, error } = await query
@@ -573,7 +624,7 @@ class AmbulanceService {
         page,
         limit,
         total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
+        totalPages: Math.max(1, Math.ceil((count || 0) / limit)),
       },
     };
   }

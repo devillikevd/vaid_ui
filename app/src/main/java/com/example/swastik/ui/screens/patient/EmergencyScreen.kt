@@ -708,9 +708,7 @@ private fun ActiveEmergencyView(
     val statusText = when (resolvedStatus) {
         "pending" -> "Finding Ambulance..."
         "broadcasting" -> "Searching Nearby Ambulances..."
-        "assigned" -> "Ambulance Assigned — Waiting for Driver"
-        "accepted" -> "Driver Accepted — Preparing"
-        "dispatched" -> "Ambulance Dispatched"
+        "assigned", "accepted", "dispatched" -> "Ambulance Confirmed"
         "en_route" -> "Ambulance On The Way"
         "arrived" -> "Ambulance Arrived!"
         "picked_up" -> "You've Been Picked Up"
@@ -724,8 +722,7 @@ private fun ActiveEmergencyView(
 
     val statusSubtext = when (resolvedStatus) {
         "pending", "broadcasting" -> "We're notifying nearby ambulance drivers"
-        "assigned" -> "Driver has been assigned to your request"
-        "accepted" -> "Driver accepted — will start soon"
+        "assigned", "accepted", "dispatched" -> "Your ambulance team has confirmed this emergency request"
         "en_route" -> "Help is coming to your location"
         "arrived" -> "The ambulance is at your pickup point"
         "picked_up" -> "Heading to the nearest hospital"
@@ -1144,8 +1141,7 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
     val stages = listOf(
         "pending" to "Request created",
         "broadcasting" to "Nearby ambulances alerted",
-        "assigned" to "Ambulance assigned",
-        "accepted" to "Driver accepted",
+        "assigned" to "Ambulance confirmed",
         "en_route" to "Ambulance en route",
         "arrived" to "Ambulance arrived",
         "picked_up" to "Patient onboard",
@@ -1154,7 +1150,12 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
         "completed" to "Completed"
     )
 
-    val currentIndex = stages.indexOfFirst { it.first == currentStatus.lowercase() }.coerceAtLeast(0)
+    val normalizedStatus = when (currentStatus.lowercase()) {
+        "accepted", "dispatched" -> "assigned"
+        else -> currentStatus.lowercase()
+    }
+
+    val currentIndex = stages.indexOfFirst { it.first == normalizedStatus }.coerceAtLeast(0)
 
     Card(
         modifier = Modifier.fillMaxWidth(),

@@ -3,7 +3,7 @@
  *
  * Allows patients to generate a secure, time-limited token that encodes
  * a URL. When a doctor (registered or external) scans the QR / opens the URL,
- * they see the patient's complete medical profile without needing to log in.
+ * they see the patient's portable clinical summary without needing to log in.
  *
  * Security model:
  *   - Token stored in Redis with 24h TTL
@@ -106,7 +106,7 @@ class HealthCardService {
   }
 
   /**
-   * PUBLIC: Fetch complete health record by token.
+   * PUBLIC: Fetch portable clinical summary by token.
    * No authentication required — the token IS the authorization.
    * @param {string} token
    * @param {object} accessInfo - IP address, user-agent for audit logging
@@ -147,19 +147,16 @@ class HealthCardService {
       reportsResult,
       vitalsResult,
       consultationsResult,
-      emergencyContactsResult,
-      familyMembersResult,
     ] = await Promise.all([
       // 1. Patient profile
       supabaseAdmin
         .from('patients')
         .select(`
           id, name, date_of_birth, gender, blood_group,
-          weight, height, address, city, state, abha_number,
+          weight, height, abha_number,
           medical_conditions, allergies, chronic_conditions,
           current_medications, medical_history,
-          insurance_provider, insurance_id,
-          user:users(email, phone)
+          insurance_provider, insurance_id
         `)
         .eq('id', patientId)
         .single(),
@@ -214,17 +211,6 @@ class HealthCardService {
         .order('started_at', { ascending: false })
         .limit(15),
 
-      // 6. Emergency contacts
-      supabaseAdmin
-        .from('emergency_contacts')
-        .select('id, name, phone, relationship')
-        .eq('patient_id', patientId),
-
-      // 7. Family members
-      supabaseAdmin
-        .from('family_members')
-        .select('id, name, relationship, date_of_birth, gender, blood_group')
-        .eq('patient_id', patientId),
     ]);
 
     const patient = patientResult.data;
@@ -245,10 +231,7 @@ class HealthCardService {
         bloodGroup: patient.blood_group,
         weight: patient.weight,
         height: patient.height,
-        address: [patient.address, patient.city, patient.state].filter(Boolean).join(', ') || null,
         abhaNumber: patient.abha_number,
-        phone: patient.user?.phone,
-        email: patient.user?.email,
         // Critical medical info
         allergies: patient.allergies || [],
         medicalConditions: patient.medical_conditions || [],
@@ -306,8 +289,6 @@ class HealthCardService {
         date: c.started_at,
         doctor: c.doctor ? { name: c.doctor.name, specialization: c.doctor.specialization } : null,
       })),
-      emergencyContacts: emergencyContactsResult.data || [],
-      familyMembers: familyMembersResult.data || [],
       generatedAt: tokenData.generatedAt,
     };
   }

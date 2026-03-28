@@ -106,6 +106,7 @@ export default function VideoConsultation() {
     const [consultationData, setConsultationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
+    const [isPeerReady, setIsPeerReady] = useState(false);
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
@@ -239,11 +240,10 @@ export default function VideoConsultation() {
             hasInitiatedOfferRef.current = false;
             return;
         }
-        if (isDoctor && participants.length > 0 && !isConnected && !hasInitiatedOfferRef.current) {
-            hasInitiatedOfferRef.current = true;
+        if (isDoctor && isPeerReady && participants.length > 0 && !isConnected && !hasInitiatedOfferRef.current) {
             initiateCall();
         }
-    }, [isConnected, isDoctor, participants]);
+    }, [isConnected, isDoctor, isPeerReady, participants]);
 
     useEffect(() => {
         if (participants.length > 0) {
@@ -407,6 +407,7 @@ export default function VideoConsultation() {
     const setupPeerConnection = () => {
         const pc = new RTCPeerConnection(ICE_SERVERS);
         peerConnectionRef.current = pc;
+        setIsPeerReady(true);
 
         // Add local tracks
         if (localStreamRef.current) {
@@ -456,6 +457,7 @@ export default function VideoConsultation() {
             const pc = peerConnectionRef.current;
             if (!pc) return;
 
+            hasInitiatedOfferRef.current = true;
             const offerDescription = await pc.createOffer({
                 offerToReceiveVideo: true,
                 offerToReceiveAudio: true,
@@ -465,6 +467,7 @@ export default function VideoConsultation() {
             sendOffer(offerDescription);
         } catch (err) {
             console.error('Failed to create offer:', err);
+            hasInitiatedOfferRef.current = false;
             setError('Failed to initiate call');
         }
     };
@@ -585,6 +588,7 @@ export default function VideoConsultation() {
         hasRemoteDescriptionRef.current = false;
         pendingIceCandidatesRef.current = [];
         hasInitiatedOfferRef.current = false;
+        setIsPeerReady(false);
     };
 
     const handleSendMessage = () => {
@@ -602,11 +606,17 @@ export default function VideoConsultation() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const counterpartName = user?.role === 'doctor'
+        ? (consultationData?.patient?.name || 'Patient')
+        : (consultationData?.doctor?.name ? `Dr. ${consultationData.doctor.name}` : 'Doctor');
+
     return (
-        <div className="h-screen bg-gray-900 flex flex-col">
+        <div className="relative flex h-screen flex-col overflow-hidden bg-[linear-gradient(180deg,#07101f_0%,#0d1730_44%,#13233f_100%)]">
+            <div className="pointer-events-none absolute -right-20 top-0 h-56 w-56 rounded-full bg-blue-500/15 blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 bottom-8 h-44 w-44 rounded-full bg-teal-400/10 blur-3xl" />
             {/* ── Remote call-ended overlay ──────────────────────────── */}
             {callEndedByRemote && (
-                <div className="absolute inset-0 z-50 bg-gray-900/90 flex flex-col items-center justify-center gap-4">
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-950/90">
                     <Phone className="h-16 w-16 text-red-400 rotate-[135deg]" />
                     <h2 className="text-2xl font-bold text-white">Call Ended</h2>
                     <p className="text-gray-400">The other participant has ended the consultation.</p>
@@ -621,21 +631,22 @@ export default function VideoConsultation() {
             )}
 
             {/* Header */}
-            <header className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+            <header className="border-b border-white/10 bg-slate-950/65 px-4 py-3 backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                        <span className="text-white font-medium">
+                    <div className="flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5">
+                        <div className={`h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                        <span className="text-sm font-medium text-white">
                             {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Waiting'}
                         </span>
                     </div>
                     {isConnected && (
                         <>
-                            <span className="text-gray-400 text-sm bg-gray-700/50 px-3 py-1 rounded-full">
+                            <span className="rounded-full bg-white/6 px-3 py-1 text-sm text-slate-200">
                                 {formatDuration(callDuration)}
                             </span>
-                            <span className={`text-xs px-2 py-1 rounded-full ${connectionMode === 'video' ? 'bg-green-500/20 text-green-400' : connectionMode === 'audio' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                                {connectionMode === 'video' ? 'Video' : connectionMode === 'audio' ? '🎤 Audio Only' : '💬 Chat Only'}
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${connectionMode === 'video' ? 'bg-emerald-500/15 text-emerald-300' : connectionMode === 'audio' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-blue-300'}`}>
+                                {connectionMode === 'video' ? 'Video' : connectionMode === 'audio' ? 'Voice' : 'Chat'}
                             </span>
                             <span className={`text-xs ${networkStats.quality === 'excellent' || networkStats.quality === 'good' ? 'text-green-400' : networkStats.quality === 'poor' ? 'text-yellow-400' : 'text-red-400'}`}>
                                 {networkStats.quality === 'critical' ? <WifiOff className="w-4 h-4 inline" /> : <Wifi className="w-4 h-4 inline" />}
@@ -646,18 +657,19 @@ export default function VideoConsultation() {
 
                 <div className="flex items-center gap-2">
                     {consultationData && (
-                        <span className="text-gray-400 text-sm">
+                        <span className="text-sm text-slate-300">
                             {user?.role === 'doctor'
                                 ? `Patient: ${consultationData.patient?.name}`
                                 : `Dr. ${consultationData.doctor?.name}`}
                         </span>
                     )}
                 </div>
+                </div>
             </header>
 
             {/* Main Video Area */}
             {modeBanner && (
-                <div className="bg-yellow-500/90 text-black text-center py-2 text-sm font-medium animate-pulse">
+                <div className="bg-amber-400/95 py-2 text-center text-sm font-medium text-slate-950">
                     {modeBanner}
                 </div>
             )}
@@ -713,13 +725,13 @@ export default function VideoConsultation() {
                     <>
                         {/* Remote Video / Audio-only placeholder */}
                         {connectionMode === 'audio' ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center">
-                                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                    <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 animate-pulse">
                                         <PhoneCall className="w-14 h-14 text-white" />
                                     </div>
                                     <h2 className="text-xl font-semibold text-white mb-1">Audio Consultation</h2>
-                                    <p className="text-gray-400 text-sm">Low bandwidth — video disabled</p>
+                                    <p className="text-slate-300 text-sm">Low bandwidth, video paused to keep the call stable.</p>
                                     {isConnected && <p className="text-emerald-400 text-sm mt-2">{formatDuration(callDuration)}</p>}
                                 </div>
                             </div>
@@ -735,15 +747,22 @@ export default function VideoConsultation() {
 
                         {/* Placeholder when no remote video */}
                         {!isConnected && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center">
-                                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4">
+                                    <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400">
                                         <Users className="w-12 h-12 text-white" />
                                     </div>
+                                    <div className="mb-3 inline-flex rounded-full bg-white/8 px-3 py-1 text-xs font-medium text-slate-200">
+                                        Secure teleconsultation
+                                    </div>
                                     <h2 className="text-xl font-semibold text-white mb-2">
-                                        {isConnecting ? 'Setting up...' : 'Waiting for participant'}
+                                        {isConnecting ? 'Preparing secure call' : `Waiting for ${counterpartName}`}
                                     </h2>
-                                    <p className="text-gray-400">The consultation will begin shortly</p>
+                                    <p className="text-slate-300">The room is ready and we will connect as soon as both sides finish joining.</p>
+                                    <div className="mt-4 flex items-center justify-center gap-2">
+                                        <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-slate-200">{consultationData?.type || 'Video consultation'}</span>
+                                        <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-slate-200">Chat fallback ready</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -751,7 +770,7 @@ export default function VideoConsultation() {
                         )}
 
                         {/* Local Video (Small/PIP) */}
-                        <div className="absolute bottom-24 right-4 w-48 h-36 rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl">
+                        <div className="absolute bottom-24 right-4 h-36 w-48 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/60 shadow-2xl backdrop-blur">
                             <video
                                 ref={localVideoRef}
                                 autoPlay
@@ -760,18 +779,21 @@ export default function VideoConsultation() {
                                 className={`w-full h-full object-cover ${!isVideoOn && 'hidden'}`}
                             />
                             {!isVideoOn && (
-                                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                <div className="flex h-full w-full items-center justify-center bg-slate-900/90">
                                     {connectionMode === 'audio' ? <Mic className="w-8 h-8 text-emerald-500" /> : <VideoOff className="w-8 h-8 text-gray-500" />}
                                 </div>
                             )}
+                            <div className="absolute bottom-2 left-2 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white">
+                                You
+                            </div>
                         </div>
                     </>
                 )}
 
                 {/* Chat Panel (side panel — only in video/audio mode) */}
                 {showChat && connectionMode !== 'chat' && (
-                    <div className="absolute right-0 top-0 bottom-20 w-80 bg-gray-800/95 backdrop-blur-lg border-l border-gray-700 flex flex-col">
-                        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+                    <div className="absolute right-0 top-0 bottom-20 flex w-80 flex-col border-l border-white/10 bg-slate-950/78 backdrop-blur-xl">
+                        <div className="flex items-center justify-between border-b border-white/10 p-4">
                             <h3 className="font-semibold text-white">Chat</h3>
                             <button onClick={() => setShowChat(false)} className="text-gray-400 hover:text-white">
                                 <X className="w-5 h-5" />
@@ -800,22 +822,22 @@ export default function VideoConsultation() {
                                 </div>
                             </div>
                         )}
-                        <div className="p-4 border-t border-gray-700">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={chatInput}
-                                    onChange={(e) => handleChatInputChange(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                    placeholder="Type a message..."
-                                    className="flex-1 bg-gray-700 border border-gray-600 rounded-xl px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                                />
-                                <button
-                                    onClick={handleSendMessage}
-                                    className="p-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600"
-                                >
-                                    <Send className="w-5 h-5" />
-                                </button>
+                            <div className="border-t border-white/10 p-4">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => handleChatInputChange(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                        placeholder="Type a message..."
+                                        className="flex-1 rounded-xl border border-white/10 bg-white/6 px-4 py-2 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none"
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        className="rounded-xl bg-blue-500 p-2 text-white hover:bg-blue-600"
+                                    >
+                                        <Send className="w-5 h-5" />
+                                    </button>
                             </div>
                         </div>
                     </div>
@@ -831,12 +853,12 @@ export default function VideoConsultation() {
 
             {/* Controls Bar */}
             {connectionMode !== 'chat' ? (
-            <div className="bg-gray-800/80 backdrop-blur-lg border-t border-gray-700 px-4 py-4">
-                <div className="flex items-center justify-center gap-4">
+            <div className="border-t border-white/10 bg-slate-950/70 px-4 py-4 backdrop-blur-xl">
+                <div className="mx-auto flex max-w-3xl items-center justify-center gap-4 rounded-[28px] border border-white/10 bg-white/6 px-4 py-3">
                     {/* Mute Button */}
                     <button
                         onClick={toggleMute}
-                        className={`p-4 rounded-full transition-colors ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-700 hover:bg-gray-600'
+                        className={`rounded-full p-4 transition-colors ${isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-white/10 hover:bg-white/15'
                             }`}
                     >
                         {isMuted ? (
@@ -849,7 +871,7 @@ export default function VideoConsultation() {
                     {/* Video Toggle */}
                     <button
                         onClick={toggleVideo}
-                        className={`p-4 rounded-full transition-colors ${!isVideoOn ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-700 hover:bg-gray-600'
+                        className={`rounded-full p-4 transition-colors ${!isVideoOn ? 'bg-red-500 hover:bg-red-600' : 'bg-white/10 hover:bg-white/15'
                             }`}
                     >
                         {!isVideoOn ? (
@@ -870,7 +892,7 @@ export default function VideoConsultation() {
                     {/* Chat Toggle */}
                     <button
                         onClick={() => setShowChat(!showChat)}
-                        className={`p-4 rounded-full transition-colors ${showChat ? 'bg-blue-500' : 'bg-gray-700 hover:bg-gray-600'
+                        className={`rounded-full p-4 transition-colors ${showChat ? 'bg-blue-500' : 'bg-white/10 hover:bg-white/15'
                             }`}
                     >
                         <MessageCircle className="w-6 h-6 text-white" />
@@ -879,7 +901,7 @@ export default function VideoConsultation() {
                     {/* Fullscreen */}
                     <button
                         onClick={toggleFullscreen}
-                        className="p-4 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                        className="rounded-full bg-white/10 p-4 transition-colors hover:bg-white/15"
                     >
                         {isFullscreen ? (
                             <Minimize className="w-6 h-6 text-white" />
@@ -892,7 +914,7 @@ export default function VideoConsultation() {
                     {user?.role === 'doctor' && (
                         <button
                             onClick={() => router.push(`/doctor/prescriptions/new?consultation=${consultationId}`)}
-                            className="p-4 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                            className="rounded-full bg-white/10 p-4 transition-colors hover:bg-white/15"
                             title="Create Prescription"
                         >
                             <FileText className="w-6 h-6 text-white" />
@@ -903,7 +925,7 @@ export default function VideoConsultation() {
                     {user?.role === 'doctor' && (
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
-                            className={`p-4 rounded-full transition-colors ${showAIPanel ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-700 hover:bg-gray-600'}`}
+                            className={`rounded-full p-4 transition-colors ${showAIPanel ? 'bg-blue-600 hover:bg-blue-700' : 'bg-white/10 hover:bg-white/15'}`}
                             title="Vitals and AI Assistant"
                         >
                             <Bot className="w-6 h-6 text-white" />
@@ -913,7 +935,7 @@ export default function VideoConsultation() {
             </div>
             ) : (
                 /* Chat-mode end call bar */
-                <div className="bg-gray-800/80 backdrop-blur-lg border-t border-gray-700 px-4 py-3 flex items-center justify-center gap-4">
+                <div className="flex items-center justify-center gap-4 border-t border-white/10 bg-slate-950/70 px-4 py-3 backdrop-blur-xl">
                     <button onClick={endCall} className="flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 rounded-full text-white font-medium">
                         <Phone className="w-5 h-5 rotate-[135deg]" /> End Consultation
                     </button>
@@ -923,7 +945,7 @@ export default function VideoConsultation() {
                         </button>
                     )}
                     {user?.role === 'doctor' && (
-                        <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium ${showAIPanel ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
+                        <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium ${showAIPanel ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-white/10 hover:bg-white/15 text-white'}`}>
                             <Bot className="w-5 h-5" /> Vitals & AI
                         </button>
                     )}

@@ -7,7 +7,7 @@
  *   POST /api/health-card/revoke     — Revoke active token
  *
  * Public route (no auth — the token IS the authorization):
- *   GET  /api/health-card/:token     — View complete health record
+ *   GET  /api/health-card/:token     — View portable clinical summary
  */
 const express = require('express');
 const rateLimit = require('express-rate-limit');
@@ -54,7 +54,7 @@ router.post('/revoke', authenticate,
   })
 );
 
-// ─── Public: Anyone with the token can view the health record ────────
+// ─── Public: Anyone with the token can view the clinical summary ─────
 
 router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
   // Validate token format before hitting Redis

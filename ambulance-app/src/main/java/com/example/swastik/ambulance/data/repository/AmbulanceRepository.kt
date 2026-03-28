@@ -6,6 +6,9 @@ import com.example.swastik.ambulance.data.remote.ApiErrorParser
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
 import com.example.swastik.ambulance.data.remote.dto.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -52,8 +55,10 @@ class AmbulanceRepository @Inject constructor(
 
     suspend fun getDashboard(): Result<DashboardResponse> {
         return try {
+            Log.d(TAG, "Fetching ambulance dashboard")
             val response = apiService.getDashboard()
             if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "Dashboard loaded with ${response.body()?.activeEmergencies?.size ?: 0} active emergencies")
                 response.body()?.let { Result.success(it) }
                     ?: Result.failure(Exception("Dashboard data was null"))
             } else {
@@ -114,12 +119,12 @@ class AmbulanceRepository @Inject constructor(
 
     suspend fun acceptRequest(requestId: String): Result<Unit> {
         return try {
+            Log.d(TAG, "Accept request api call request=$requestId")
             val response = apiService.acceptRequest(requestId)
             if (response.isSuccessful) {
                 // Set active request so location updates include the requestId
                 socketManager.setActiveRequest(requestId)
-                // Notify via socket for real-time update to patient & dashboards
-                socketManager.emitStatusUpdate(requestId, "accepted")
+                Log.d(TAG, "Accept request succeeded request=$requestId")
                 Result.success(Unit)
             } else {
                 val errorMsg = ApiErrorParser.from(response, "Failed to accept request")
@@ -151,6 +156,7 @@ class AmbulanceRepository @Inject constructor(
         vehicleId: String? = null
     ): Result<Unit> {
         return try {
+            Log.d(TAG, "Update request status api call request=$requestId status=$status")
             val response = apiService.updateRequestStatus(
                 requestId,
                 StatusUpdateRequest(status, vehicleId)
@@ -168,6 +174,7 @@ class AmbulanceRepository @Inject constructor(
                 } else {
                     offlineQueue.enqueueStatusUpdate(requestId, status)
                 }
+                Log.d(TAG, "Update request status succeeded request=$requestId status=$status")
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to update status")))
@@ -219,6 +226,40 @@ class AmbulanceRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "getProfile error", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfile(request: UpdateProfileRequest): Result<Unit> {
+        return try {
+            val response = apiService.updateProfile(request)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to update profile")))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "updateProfile error", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadLicenseDocument(filePart: MultipartBody.Part): Result<String> {
+        return try {
+            val providerType = "ambulance".toRequestBody("text/plain".toMediaTypeOrNull())
+            val response = apiService.uploadLicenseDocument(filePart, providerType)
+            if (response.isSuccessful && response.body()?.data != null) {
+                val url = response.body()?.data?.resolvedUrl()
+                if (!url.isNullOrBlank()) {
+                    Result.success(url)
+                } else {
+                    Result.failure(Exception("Upload succeeded but no document URL was returned"))
+                }
+            } else {
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to upload document")))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "uploadLicenseDocument error", e)
             Result.failure(e)
         }
     }

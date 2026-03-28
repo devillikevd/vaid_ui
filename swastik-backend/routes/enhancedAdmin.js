@@ -43,6 +43,25 @@ router.get('/approvals/pending', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * @route GET /api/admin/providers
+ * @desc Get normalized provider entities across all provider tables
+ */
+router.get('/providers', asyncHandler(async (req, res) => {
+    const { type = 'all', status, search, page = 1, limit = 20 } = req.query;
+    const filters = {};
+    if (type) filters.type = type;
+    if (status) filters.status = status;
+    if (search) filters.search = search;
+
+    const result = await enhancedAdminService.getProviders(
+        filters,
+        parseInt(page, 10),
+        parseInt(limit, 10)
+    );
+    res.json({ success: true, ...result });
+}));
+
+/**
  * @route GET /api/admin/providers/:type/:id
  * @desc Get provider details for review
  */
@@ -172,6 +191,36 @@ router.put('/users/:id/status', [
     res.json({ success: true, ...result });
 }));
 
+// ==================== SETTINGS ====================
+
+/**
+ * @route GET /api/admin/settings
+ * @desc Get persisted admin portal settings
+ */
+router.get('/settings', asyncHandler(async (_req, res) => {
+    const settings = await enhancedAdminService.getSettings();
+    res.json({ success: true, data: settings });
+}));
+
+/**
+ * @route PUT /api/admin/settings
+ * @desc Update persisted admin portal settings
+ */
+router.put('/settings', [
+    body('emailNotifications').optional().isBoolean(),
+    body('smsNotifications').optional().isBoolean(),
+    body('pushNotifications').optional().isBoolean(),
+    body('twoFactorAuth').optional().isBoolean(),
+    body('maintenanceMode').optional().isBoolean(),
+    body('sessionTimeout').optional().isString().trim(),
+    body('platformName').optional().isString().trim(),
+    body('supportEmail').optional().isEmail(),
+    validate,
+], asyncHandler(async (req, res) => {
+    const settings = await enhancedAdminService.updateSettings(req.user.id, req.body);
+    res.json({ success: true, data: settings });
+}));
+
 // ==================== EMERGENCY MANAGEMENT ====================
 
 /**
@@ -179,8 +228,12 @@ router.put('/users/:id/status', [
  * @desc Get active emergency requests
  */
 router.get('/emergencies', asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20 } = req.query;
-    const result = await enhancedAdminService.getActiveEmergencies(parseInt(page), parseInt(limit));
+    const { page = 1, limit = 20, status = 'active' } = req.query;
+    const result = await enhancedAdminService.getActiveEmergencies(
+        parseInt(page, 10),
+        parseInt(limit, 10),
+        { status }
+    );
     res.json({ success: true, ...result });
 }));
 
@@ -207,7 +260,21 @@ router.post('/emergencies/:id/reassign', [
 router.patch('/emergencies/:id/status', [
     param('id').isUUID().withMessage('Invalid emergency ID'),
     body('status').notEmpty().withMessage('Status is required').isString().trim()
-        .isIn(['pending', 'assigned', 'dispatched', 'en_route', 'arrived', 'completed', 'cancelled'])
+        .isIn([
+            'pending',
+            'broadcasting',
+            'assigned',
+            'dispatched',
+            'en_route',
+            'arrived',
+            'picked_up',
+            'en_route_hospital',
+            'arrived_hospital',
+            'completed',
+            'cancelled',
+            'timeout',
+            'no_ambulance',
+        ])
         .withMessage('Invalid status value'),
     validate,
 ], asyncHandler(async (req, res) => {
@@ -220,13 +287,59 @@ router.patch('/emergencies/:id/status', [
 // ==================== COMPLIANCE ====================
 
 /**
+ * @route GET /api/admin/compliance/documents
+ * @desc Get normalized provider compliance documents
+ */
+router.get('/compliance/documents', asyncHandler(async (req, res) => {
+    const {
+        days = 30,
+        type = 'all',
+        status = 'all',
+        search,
+        page = 1,
+        limit = 20,
+    } = req.query;
+
+    const result = await enhancedAdminService.getComplianceDocuments(
+        {
+            days: parseInt(days, 10),
+            type,
+            status,
+            search,
+        },
+        parseInt(page, 10),
+        parseInt(limit, 10)
+    );
+
+    res.json({ success: true, data: result.data, pagination: result.pagination, summary: result.summary, coverage: result.coverage });
+}));
+
+/**
  * @route GET /api/admin/compliance/expiring-documents
- * @desc Get documents expiring soon
+ * @desc Backward-compatible compliance feed alias
  */
 router.get('/compliance/expiring-documents', asyncHandler(async (req, res) => {
-    const { days = 30 } = req.query;
-    const result = await enhancedAdminService.getExpiringDocuments(parseInt(days));
-    res.json({ success: true, data: result });
+    const {
+        days = 30,
+        type = 'all',
+        status = 'all',
+        search,
+        page = 1,
+        limit = 20,
+    } = req.query;
+
+    const result = await enhancedAdminService.getComplianceDocuments(
+        {
+            days: parseInt(days, 10),
+            type,
+            status,
+            search,
+        },
+        parseInt(page, 10),
+        parseInt(limit, 10)
+    );
+
+    res.json({ success: true, data: result.data, pagination: result.pagination, summary: result.summary, coverage: result.coverage });
 }));
 
 // ==================== ANALYTICS ====================
@@ -248,12 +361,13 @@ router.get('/analytics', asyncHandler(async (req, res) => {
  * @desc Get audit logs with filters
  */
 router.get('/audit-logs', asyncHandler(async (req, res) => {
-    const { userId, action, resourceType, fromDate, toDate, page = 1, limit = 50 } = req.query;
+    const { userId, action, resourceType, search, fromDate, toDate, page = 1, limit = 50 } = req.query;
 
     const filters = {};
     if (userId) filters.userId = userId;
     if (action) filters.action = action;
     if (resourceType) filters.resourceType = resourceType;
+    if (search) filters.search = search;
     if (fromDate) filters.fromDate = fromDate;
     if (toDate) filters.toDate = toDate;
 

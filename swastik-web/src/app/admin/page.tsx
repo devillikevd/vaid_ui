@@ -14,7 +14,8 @@ import {
     AlertTriangle,
     TrendingUp,
     Activity,
-    FileWarning
+    FileWarning,
+    Microscope
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -28,6 +29,7 @@ const CATEGORY_ICONS: Record<string, typeof Stethoscope> = {
     hospitals: Building2,
     clinics: Building,
     pharmacies: Pill,
+    diagnostic_centers: Microscope,
     ambulances: Siren,
 };
 
@@ -36,6 +38,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     hospitals: 'bg-teal-600',
     clinics: 'bg-pink-600',
     pharmacies: 'bg-orange-600',
+    diagnostic_centers: 'bg-purple-600',
     ambulances: 'bg-red-600',
 };
 
@@ -165,7 +168,7 @@ export default function AdminDashboard() {
                     <CardTitle>Provider Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
                         {providerCategories.map((category: ProviderCategory) => {
                             const Icon = CATEGORY_ICONS[category.type] || Users;
                             const color = CATEGORY_COLORS[category.type] || 'bg-gray-600';

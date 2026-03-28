@@ -1,6 +1,8 @@
 package com.example.swastik.ambulance.data.remote
 
 import com.example.swastik.ambulance.data.remote.dto.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -19,6 +21,12 @@ interface ApiService {
 
     @POST("auth/logout")
     suspend fun logout(@Body request: LogoutRequest): Response<ApiResponse<Any>>
+
+    @POST("notifications/register-device")
+    suspend fun registerDeviceForPush(@Body request: PushDeviceRequest): Response<ApiResponse<Any>>
+
+    @HTTP(method = "DELETE", path = "notifications/unregister-device", hasBody = true)
+    suspend fun unregisterDeviceForPush(@Body request: PushDeviceRequest): Response<ApiResponse<Any>>
 
     // ==================== Ambulance Dashboard ====================
 
@@ -72,8 +80,20 @@ interface ApiService {
     @GET("auth/me")
     suspend fun getProfile(): Response<ApiResponse<UserDto>>
 
+    @PUT("auth/me")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest
+    ): Response<ApiResponse<Any>>
+
     @POST("auth/change-password")
     suspend fun changePassword(
         @Body request: ChangePasswordRequest
     ): Response<ApiResponse<Any>>
+
+    @Multipart
+    @POST("uploads/license")
+    suspend fun uploadLicenseDocument(
+        @Part file: MultipartBody.Part,
+        @Part("providerType") providerType: RequestBody
+    ): Response<ApiResponse<UploadedFileDto>>
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Clock, Calendar, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Clock, Calendar, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { clinicApi } from '@/lib/api';
@@ -15,6 +15,72 @@ interface ClinicSlot {
     isOpen: boolean;
 }
 
+const createDefaultSchedule = (): ClinicSlot[] => (
+    DAYS.map((day) => ({
+        day,
+        openTime: '09:00',
+        closeTime: '18:00',
+        isOpen: !['Saturday', 'Sunday'].includes(day),
+    }))
+);
+
+const normalizeDayName = (value?: string | null) => {
+    if (!value) return null;
+    const match = DAYS.find((day) => day.toLowerCase() === value.toLowerCase());
+    return match || null;
+};
+
+const normalizeSlot = (slot: Record<string, unknown>, fallbackDay?: string): ClinicSlot | null => {
+    const day = normalizeDayName(
+        (slot.day as string | undefined)
+        || (slot.day_of_week as string | undefined)
+        || (slot.name as string | undefined)
+        || fallbackDay
+    );
+
+    if (!day) return null;
+
+    const isClosed = slot.closed === true;
+    const isOpenValue = slot.isOpen ?? slot.is_open;
+    const isOpen = typeof isOpenValue === 'boolean' ? isOpenValue : !isClosed;
+
+    return {
+        day,
+        openTime: (slot.openTime as string | undefined) || (slot.open_time as string | undefined) || (slot.startTime as string | undefined) || (slot.start_time as string | undefined) || '09:00',
+        closeTime: (slot.closeTime as string | undefined) || (slot.close_time as string | undefined) || (slot.endTime as string | undefined) || (slot.end_time as string | undefined) || '18:00',
+        isOpen,
+    };
+};
+
+const normalizeSchedule = (raw: unknown): ClinicSlot[] => {
+    const defaults = createDefaultSchedule();
+
+    const fromArray = Array.isArray(raw)
+        ? raw
+            .map((slot) => (slot && typeof slot === 'object' ? normalizeSlot(slot as Record<string, unknown>) : null))
+            .filter(Boolean) as ClinicSlot[]
+        : [];
+
+    const fromObject = !Array.isArray(raw) && raw && typeof raw === 'object'
+        ? DAYS.map((day) => {
+            const entry = (raw as Record<string, unknown>)[day] || (raw as Record<string, unknown>)[day.toLowerCase()];
+            if (!entry || typeof entry !== 'object') return null;
+            return normalizeSlot(entry as Record<string, unknown>, day);
+        }).filter(Boolean) as ClinicSlot[]
+        : [];
+
+    const normalized = [...fromArray, ...fromObject];
+    if (normalized.length === 0) return defaults;
+
+    const byDay = new Map(normalized.map((slot) => [slot.day, slot]));
+    return DAYS.map((day) => byDay.get(day) || defaults.find((slot) => slot.day === day) || {
+        day,
+        openTime: '09:00',
+        closeTime: '18:00',
+        isOpen: false,
+    });
+};
+
 export default function ClinicSchedulePage() {
     const [schedule, setSchedule] = useState<ClinicSlot[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -22,31 +88,23 @@ export default function ClinicSchedulePage() {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const fetchSchedule = async () => {
+    const fetchSchedule = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
             const res = await clinicApi.getSchedule();
             if (res.success) {
-                const data = res.data as any;
-                const sched = data?.schedule || data?.opening_hours || data?.operatingHours || [];
-                if (Array.isArray(sched) && sched.length > 0) {
-                    setSchedule(sched);
-                } else {
-                    // Default schedule
-                    setSchedule(DAYS.map(day => ({
-                        day, openTime: '09:00', closeTime: '18:00',
-                        isOpen: !['Saturday', 'Sunday'].includes(day),
-                    })));
-                }
+                const data = res.data as Record<string, unknown> | undefined;
+                const sched = data?.schedule || data?.opening_hours || data?.operatingHours || data || [];
+                setSchedule(normalizeSchedule(sched));
             } else {
                 setError(res.error || 'Failed to load schedule');
             }
         } catch { setError('Failed to connect to server.'); }
         setIsLoading(false);
-    };
+    }, []);
 
-    useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
+    useEffect(() => { void fetchSchedule(); }, [fetchSchedule]);
 
     const handleToggleDay = (day: string) => {
         setSchedule(prev => prev.map(s => s.day === day ? { ...s, isOpen: !s.isOpen } : s));
@@ -58,9 +116,13 @@ export default function ClinicSchedulePage() {
 
     const handleSave = async () => {
         setSaving(true);
+        setError(null);
         try {
             const res = await clinicApi.updateSchedule({ schedule });
             if (res.success) {
+                const data = res.data as Record<string, unknown> | undefined;
+                const nextSchedule = data?.schedule || data?.opening_hours || schedule;
+                setSchedule(normalizeSchedule(nextSchedule));
                 setEditing(false);
             } else {
                 setError(res.error || 'Failed to save schedule');
@@ -86,9 +148,10 @@ export default function ClinicSchedulePage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Clinic operating hours</p></div>
                 <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => void fetchSchedule()} disabled={isLoading || saving} leftIcon={<RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />}>Refresh</Button>
                     {editing ? (
                         <>
-                            <Button variant="outline" onClick={() => { setEditing(false); fetchSchedule(); }}>Cancel</Button>
+                            <Button variant="outline" onClick={() => { setEditing(false); void fetchSchedule(); }}>Cancel</Button>
                             <Button onClick={handleSave} isLoading={saving}>Save Schedule</Button>
                         </>
                     ) : (

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { diagnosticCenterApi, authApi } from '@/lib/api';
 
@@ -18,7 +19,7 @@ export default function DiagnosticCenterSettingsPage() {
 
     const [form, setForm] = useState({
         name: '', phone: '', email: '', address: '', city: '', state: '', pincode: '',
-        license_number: '', nabl_accreditation: '',
+        registration_number: '', license_number: '', license_document_url: '', nabl_accreditation: '', accreditations: '',
         sample_collection_available: true, home_collection_available: false,
         home_collection_fee: '', is_24_hours: false,
         profileImage: '' as string | null,
@@ -42,8 +43,11 @@ export default function DiagnosticCenterSettingsPage() {
                     city: d.city || '',
                     state: d.state || '',
                     pincode: d.pincode || '',
+                    registration_number: d.registration_number || '',
                     license_number: d.license_number || '',
+                    license_document_url: d.license_document_url || '',
                     nabl_accreditation: d.nabl_accreditation || '',
+                    accreditations: Array.isArray(d.accreditations) ? d.accreditations.join(', ') : '',
                     sample_collection_available: d.sample_collection_available ?? true,
                     home_collection_available: d.home_collection_available ?? false,
                     home_collection_fee: d.home_collection_fee?.toString() || '',
@@ -80,7 +84,14 @@ export default function DiagnosticCenterSettingsPage() {
             const res = await diagnosticCenterApi.updateProfile({
                 name: form.name, phone: form.phone, address: form.address,
                 city: form.city, state: form.state, pincode: form.pincode,
-                license_number: form.license_number, nabl_accreditation: form.nabl_accreditation,
+                registration_number: form.registration_number.trim() || undefined,
+                license_number: form.license_number.trim() || undefined,
+                license_document_url: form.license_document_url.trim() || undefined,
+                nabl_accreditation: form.nabl_accreditation.trim() || undefined,
+                accreditations: form.accreditations
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
                 sample_collection_available: form.sample_collection_available,
                 home_collection_available: form.home_collection_available,
                 home_collection_fee: form.home_collection_fee ? parseFloat(form.home_collection_fee) : 0,
@@ -173,8 +184,19 @@ export default function DiagnosticCenterSettingsPage() {
                 <CardHeader><CardTitle>Licensing & Accreditation</CardTitle></CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input label="Registration Number" value={form.registration_number} onChange={e => setForm(f => ({ ...f, registration_number: e.target.value }))} placeholder="Registration number" />
                         <Input label="License Number" value={form.license_number} onChange={e => setForm(f => ({ ...f, license_number: e.target.value }))} placeholder="License number" />
                         <Input label="NABL Accreditation" value={form.nabl_accreditation} onChange={e => setForm(f => ({ ...f, nabl_accreditation: e.target.value }))} placeholder="NABL-TC-XXXX (optional)" />
+                        <Input label="Other Accreditations" value={form.accreditations} onChange={e => setForm(f => ({ ...f, accreditations: e.target.value }))} placeholder="ISO 15189, CAP" />
+                        <div className="md:col-span-2">
+                            <ComplianceDocumentUpload
+                                label="Diagnostic License Document"
+                                providerType="diagnostic_center"
+                                value={form.license_document_url}
+                                onChange={(url) => setForm((prev) => ({ ...prev, license_document_url: url }))}
+                                description="Upload the center license or paste a hosted document URL for admin review."
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>

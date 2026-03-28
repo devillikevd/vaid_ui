@@ -2,12 +2,14 @@ package com.example.swastik.data.repository
 
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.ApiService
+import com.example.swastik.data.remote.AppNotification
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.remote.dto.*
 import com.example.swastik.data.local.db.NotificationDao
 import com.example.swastik.data.local.db.PrescriptionDao
 import com.example.swastik.data.local.db.CachedNotification
 import com.example.swastik.data.local.db.CachedPrescription
+import com.example.swastik.notifications.resolvePatientNotificationDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -134,15 +136,7 @@ class PatientRepository @Inject constructor(
                 val apiNotifications = notifData?.notifications
                 if (apiNotifications != null) {
                     val uiNotifications = apiNotifications.map { notification ->
-                        NotificationItem(
-                            id = notification.id,
-                            title = notification.title,
-                            message = notification.message,
-                            time = formatRelativeTime(notification.createdAt),
-                            type = mapNotificationType(notification.type),
-                            isRead = notification.isRead,
-                            actionLabel = null
-                        )
+                        notification.toDomainNotification()
                     }
                     _notifications.value = uiNotifications
                     unreadNotifications = apiNotifications.count { !it.isRead }
@@ -225,15 +219,7 @@ class PatientRepository @Inject constructor(
                 val apiNotifications = response.body()?.data
                 if (apiNotifications != null) {
                     val uiNotifications = apiNotifications.notifications.map { notification ->
-                        NotificationItem(
-                            id = notification.id,
-                            title = notification.title,
-                            message = notification.message,
-                            time = formatRelativeTime(notification.createdAt),
-                            type = mapNotificationType(notification.type),
-                            isRead = notification.isRead,
-                            actionLabel = null
-                        )
+                        notification.toDomainNotification()
                     }
                     _notifications.value = uiNotifications
                     // Update cache
@@ -255,6 +241,24 @@ class PatientRepository @Inject constructor(
                 } catch (_: Exception) {}
             }
         }
+    }
+
+    fun applyRealtimeNotification(notification: AppNotification) {
+        val destination = resolvePatientNotificationDestination(
+            type = notification.type,
+            data = notification.data
+        )
+        val realtimeItem = NotificationItem(
+            id = notification.id,
+            title = notification.title,
+            message = notification.message,
+            time = "Just now",
+            type = mapNotificationType(notification.type),
+            isRead = false,
+            actionLabel = destination.actionLabel,
+            actionRoute = destination.route
+        )
+        _notifications.value = listOf(realtimeItem) + _notifications.value.filterNot { it.id == realtimeItem.id }
     }
 
     /**
@@ -815,6 +819,8 @@ class PatientRepository @Inject constructor(
             appointmentNumber = null,
             patientId = "", // Not needed for UI display typically if patient context is known
             doctorId = doctorId,
+            hospitalId = hospitalId,
+            clinicId = clinicId,
             date = date,
             timeSlot = timeSlot,
             type = type,
@@ -824,7 +830,19 @@ class PatientRepository @Inject constructor(
             consultationFee = null,
             cancellationReason = null,
             doctor = doctor?.toDoctor(),
-            patient = null
+            patient = null,
+            hospital = hospital?.toAppointmentFacility(),
+            clinic = clinic?.toAppointmentFacility()
+        )
+    }
+
+    private fun AppointmentFacilityDto.toAppointmentFacility(): AppointmentFacility {
+        return AppointmentFacility(
+            id = id,
+            name = name,
+            address = address,
+            city = city,
+            type = type
         )
     }
     
@@ -862,8 +880,24 @@ class PatientRepository @Inject constructor(
         message = message,
         type = type,
         isRead = isRead,
-        createdAt = createdAt
+        createdAt = createdAt,
+        actionLabel = resolvePatientNotificationDestination(type, data).actionLabel,
+        actionRoute = resolvePatientNotificationDestination(type, data).route
     )
+
+    private fun NotificationDto.toDomainNotification(): NotificationItem {
+        val destination = resolvePatientNotificationDestination(type, data)
+        return NotificationItem(
+            id = id,
+            title = title,
+            message = message,
+            time = formatRelativeTime(createdAt),
+            type = mapNotificationType(type),
+            isRead = isRead,
+            actionLabel = destination.actionLabel,
+            actionRoute = destination.route
+        )
+    }
 
     private fun CachedNotification.toDomainNotification() = NotificationItem(
         id = id,
@@ -872,7 +906,8 @@ class PatientRepository @Inject constructor(
         time = formatRelativeTime(createdAt),
         type = mapNotificationType(type),
         isRead = isRead,
-        actionLabel = null
+        actionLabel = actionLabel,
+        actionRoute = actionRoute
     )
 
     private fun Prescription.toCachedPrescription() = CachedPrescription(

@@ -342,7 +342,11 @@ fun ProfileTabContent(
     LaunchedEffect(updateState?.value) {
         when (updateState?.value) {
             is ProfileUpdateState.Success -> {
-                Toast.makeText(context, "Profile updated successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    (updateState.value as ProfileUpdateState.Success).message,
+                    Toast.LENGTH_SHORT
+                ).show()
                 viewModel?.resetProfileUpdateState()
             }
             is ProfileUpdateState.Error -> {
@@ -357,7 +361,11 @@ fun ProfileTabContent(
     LaunchedEffect(imageUploadState?.value) {
         when (imageUploadState?.value) {
             is ProfileUpdateState.Success -> {
-                Toast.makeText(context, "Profile photo updated!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    (imageUploadState.value as ProfileUpdateState.Success).message,
+                    Toast.LENGTH_SHORT
+                ).show()
                 viewModel?.resetImageUploadState()
             }
             is ProfileUpdateState.Error -> {
@@ -372,7 +380,11 @@ fun ProfileTabContent(
     LaunchedEffect(changePwdState?.value) {
         when (changePwdState?.value) {
             is ProfileUpdateState.Success -> {
-                Toast.makeText(context, "Password changed successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    (changePwdState.value as ProfileUpdateState.Success).message,
+                    Toast.LENGTH_SHORT
+                ).show()
                 viewModel?.resetChangePasswordState()
             }
             is ProfileUpdateState.Error -> {

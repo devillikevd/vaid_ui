@@ -36,14 +36,21 @@ router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
     body('longitude').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
     body('bed_capacity').optional().isInt({ min: 0 }).withMessage('Bed capacity must be a positive number'),
     body('profile_image').optional().isString(),
+    body('profile_image_url').optional().isString(),
+    body('license_number').optional().isString().trim(),
+    body('license_document_url').optional().isString().trim(),
+    body('accreditations').optional().isArray(),
     validate,
 ], asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     // Whitelist allowed fields
-    const allowed = ['name', 'phone', 'email', 'address', 'latitude', 'longitude', 'bed_capacity', 'profile_image'];
+    const allowed = ['name', 'phone', 'email', 'address', 'latitude', 'longitude', 'bed_capacity', 'profile_image', 'profile_image_url', 'license_number', 'license_document_url', 'accreditations'];
     const safeUpdates = {};
     for (const key of allowed) {
         if (req.body[key] !== undefined) safeUpdates[key] = req.body[key];
+    }
+    if (safeUpdates.profile_image && safeUpdates.profile_image_url === undefined) {
+        safeUpdates.profile_image_url = safeUpdates.profile_image;
     }
     const updated = await hospitalManagerService.updateHospital(hospital.id, req.user.id, safeUpdates);
     res.json({ success: true, hospital: updated });
@@ -86,18 +93,59 @@ router.delete('/doctors/:doctorId', requireRole(ROLES.HOSPITAL_OWNER), [
     res.json({ success: true });
 }));
 
+// Departments
+router.get('/departments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.getDepartments(hospital.id, req.user.id);
+    res.json({ success: true, ...result });
+}));
+
+router.post('/departments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('name').notEmpty().isString().trim().isLength({ min: 2, max: 100 }).withMessage('Department name is required'),
+    body('description').optional().isString().trim(),
+    body('headDoctorId').optional({ nullable: true, checkFalsy: true }).isUUID().withMessage('Invalid head doctor'),
+    body('status').optional().isIn(['active', 'inactive']).withMessage('Invalid department status'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.addDepartment(hospital.id, req.user.id, req.body);
+    res.json({ success: true, ...result });
+}));
+
+router.put('/departments/:departmentId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    body('name').optional().isString().trim().isLength({ min: 2, max: 100 }).withMessage('Department name must be 2-100 chars'),
+    body('description').optional().isString().trim(),
+    body('headDoctorId').optional({ nullable: true, checkFalsy: true }).isUUID().withMessage('Invalid head doctor'),
+    body('status').optional().isIn(['active', 'inactive']).withMessage('Invalid department status'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.updateDepartment(hospital.id, req.user.id, req.params.departmentId, req.body);
+    res.json({ success: true, ...result });
+}));
+
+router.delete('/departments/:departmentId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('departmentId').isUUID().withMessage('Invalid department ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.deleteDepartment(hospital.id, req.user.id, req.params.departmentId);
+    res.json({ success: true, ...result });
+}));
+
 // Appointments
 router.get('/appointments', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
-    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
-    const { status, doctorId, date, fromDate, toDate, page = 1, limit = 20 } = req.query;
+  const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+  const { status, doctorId, date, fromDate, toDate, search, page = 1, limit = 20 } = req.query;
 
-    const result = await hospitalManagerService.getAppointments(
-        hospital.id,
-        req.user.id,
-        { status, doctorId, date, fromDate, toDate },
-        parseInt(page),
-        parseInt(limit)
-    );
+  const result = await hospitalManagerService.getAppointments(
+    hospital.id,
+    req.user.id,
+    { status, doctorId, date, fromDate, toDate, search },
+    parseInt(page),
+    parseInt(limit)
+  );
 
     res.json({ success: true, ...result });
 }));
@@ -152,8 +200,8 @@ router.get('/emergencies', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANA
 
 // Consultations — view all consultations by hospital-affiliated doctors
 router.get('/consultations', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
-    const { status, page = 1, limit = 20 } = req.query;
-    const result = await hospitalManagerService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status);
+    const { status, search, page = 1, limit = 20 } = req.query;
+    const result = await hospitalManagerService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status, search);
     res.json({ success: true, ...result });
 }));
 

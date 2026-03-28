@@ -16,7 +16,14 @@ data class RegisterRequest(
     val password: String,
     val name: String,
     val role: String = "ambulance_operator",
-    val companyName: String? = null
+    val companyName: String? = null,
+    val registrationNumber: String? = null,
+    val address: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    val alternatePhone: String? = null,
+    val licenseDocumentUrl: String? = null,
+    val licenseExpiry: String? = null
 )
 
 data class RefreshTokenRequest(
@@ -25,6 +32,12 @@ data class RefreshTokenRequest(
 
 data class LogoutRequest(
     val refreshToken: String
+)
+
+data class PushDeviceRequest(
+    val fcmToken: String,
+    val deviceType: String = "android",
+    val deviceId: String? = null
 )
 
 data class AuthData(
@@ -65,8 +78,37 @@ data class UserDto(
     @SerializedName("approval_status") val approvalStatus: String?,
     @SerializedName("approval_notes") val approvalNotes: String? = null,
     @SerializedName("company_name") val companyName: String? = null,
+    @SerializedName("registration_number") val registrationNumber: String? = null,
+    val address: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    @SerializedName("alternate_phone") val alternatePhone: String? = null,
+    @SerializedName("provider_email") val providerEmail: String? = null,
+    @SerializedName("license_document_url") val licenseDocumentUrl: String? = null,
+    @SerializedName("license_expiry") val licenseExpiry: String? = null,
     @SerializedName("created_at") val createdAt: String?
 )
+
+data class UpdateProfileRequest(
+    val name: String? = null,
+    val phone: String? = null,
+    val companyName: String? = null,
+    val registrationNumber: String? = null,
+    val address: String? = null,
+    val city: String? = null,
+    val state: String? = null,
+    val alternatePhone: String? = null,
+    val licenseDocumentUrl: String? = null,
+    val licenseExpiry: String? = null
+)
+
+data class UploadedFileDto(
+    val url: String? = null,
+    @SerializedName("fileUrl") val fileUrl: String? = null,
+    @SerializedName("objectName") val objectName: String? = null
+) {
+    fun resolvedUrl(): String? = url ?: fileUrl
+}
 
 // ==================== Ambulance DTOs ====================
 

@@ -3,6 +3,7 @@ package com.example.swastik
 import android.app.Application
 import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.sync.SyncManager
+import com.example.swastik.notifications.PushNotificationCoordinator
 import dagger.hilt.android.HiltAndroidApp
 import org.osmdroid.config.Configuration
 import javax.inject.Inject
@@ -15,6 +16,9 @@ class SwastikApplication : Application() {
 
     @Inject
     lateinit var syncManager: SyncManager
+
+    @Inject
+    lateinit var pushNotificationCoordinator: PushNotificationCoordinator
     
     override fun onCreate() {
         super.onCreate()
@@ -28,5 +32,6 @@ class SwastikApplication : Application() {
 
         // Start SyncManager to drain offline queue when network restores
         syncManager.startObserving()
+        pushNotificationCoordinator.ensureNotificationChannel()
     }
 }

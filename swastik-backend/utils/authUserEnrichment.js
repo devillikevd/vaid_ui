@@ -7,7 +7,7 @@ const PROVIDER_ROLE_CONFIG = {
   ambulance_operator: {
     table: 'ambulance_operators',
     column: 'user_id',
-    select: 'id, approval_status, approval_notes, company_name',
+    select: 'id, approval_status, approval_notes, company_name, registration_number, address, city, state, alternate_phone, email, license_document_url, license_expiry',
   },
 };
 
@@ -54,6 +54,14 @@ const enrichAuthUser = async (user, supabaseAdmin) => {
       approval_status: provider.approval_status ?? user.approval_status ?? null,
       approval_notes: provider.approval_notes ?? user.approval_notes ?? null,
       company_name: provider.company_name ?? user.company_name ?? null,
+      registration_number: provider.registration_number ?? user.registration_number ?? null,
+      address: provider.address ?? user.address ?? null,
+      city: provider.city ?? user.city ?? null,
+      state: provider.state ?? user.state ?? null,
+      alternate_phone: provider.alternate_phone ?? user.alternate_phone ?? null,
+      provider_email: provider.email ?? user.provider_email ?? null,
+      license_document_url: provider.license_document_url ?? user.license_document_url ?? null,
+      license_expiry: provider.license_expiry ?? user.license_expiry ?? null,
     };
   } catch (err) {
     console.warn(`Failed to enrich auth user ${user.id} [${user.role}]:`, err.message);

@@ -59,6 +59,7 @@ fun ApprovalStatusScreen(
     user: UserDto?,
     isRefreshing: Boolean,
     errorMessage: String?,
+    onOpenProfile: () -> Unit,
     onRefresh: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -268,6 +269,24 @@ fun ApprovalStatusScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
+
+                    OutlinedButton(
+                        onClick = onOpenProfile,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null)
+                            Text("Update operator details")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Button(
                         onClick = onRefresh,

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { pharmacyApi, authApi } from '@/lib/api';
 
@@ -16,7 +17,18 @@ export default function PharmacySettingsPage() {
     const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    const [form, setForm] = useState({ name: '', phone: '', address: '', email: '', licenseNumber: '', profileImage: '' as string | null, latitude: null as number | null, longitude: null as number | null });
+    const [form, setForm] = useState({
+        name: '',
+        phone: '',
+        address: '',
+        email: '',
+        licenseNumber: '',
+        drugLicenseNumber: '',
+        licenseDocumentUrl: '',
+        profileImage: '' as string | null,
+        latitude: null as number | null,
+        longitude: null as number | null,
+    });
     const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [pwSaving, setPwSaving] = useState(false);
 
@@ -27,7 +39,18 @@ export default function PharmacySettingsPage() {
             if (res.success && res.data) {
                 const raw = res.data as any;
                 const d = raw.data || raw;
-                setForm({ name: d.name || user?.name || '', phone: d.phone || '', address: d.address || '', email: d.email || user?.email || '', licenseNumber: d.licenseNumber || d.license_number || '', profileImage: d.profile_image || d.profileImage || d.avatar_url || null, latitude: d.latitude ?? null, longitude: d.longitude ?? null });
+                setForm({
+                    name: d.name || user?.name || '',
+                    phone: d.phone || '',
+                    address: d.address || '',
+                    email: d.email || user?.email || '',
+                    licenseNumber: d.licenseNumber || d.license_number || '',
+                    drugLicenseNumber: d.drug_license_number || '',
+                    licenseDocumentUrl: d.license_document_url || '',
+                    profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.avatar_url || null,
+                    latitude: d.latitude ?? null,
+                    longitude: d.longitude ?? null,
+                });
             } else {
                 setForm(f => ({ ...f, name: user?.name || '', email: user?.email || '' }));
             }
@@ -53,7 +76,16 @@ export default function PharmacySettingsPage() {
             return;
         }
         try {
-            const res = await pharmacyApi.updateProfile({ name: form.name, phone: form.phone, address: form.address, licenseNumber: form.licenseNumber, ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}) });
+            const res = await pharmacyApi.updateProfile({
+                name: form.name,
+                phone: form.phone,
+                address: form.address,
+                license_number: form.licenseNumber,
+                drug_license_number: form.drugLicenseNumber.trim() || undefined,
+                license_document_url: form.licenseDocumentUrl.trim() || undefined,
+                profile_image_url: form.profileImage,
+                ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}),
+            });
             if (res.success) setStatus({ type: 'success', message: 'Settings saved successfully.' });
             else setStatus({ type: 'error', message: res.error || 'Failed to save.' });
         } catch { setStatus({ type: 'error', message: 'Network error.' }); }
@@ -106,6 +138,7 @@ export default function PharmacySettingsPage() {
                         <Input label="Email" value={form.email} readOnly className="bg-gray-50 dark:bg-gray-800" />
                         <Input label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 XXXXX XXXXX" />
                         <Input label="License Number" value={form.licenseNumber} onChange={e => setForm(f => ({ ...f, licenseNumber: e.target.value }))} placeholder="DL-XXXX-XXXX" />
+                        <Input label="Drug License Number" value={form.drugLicenseNumber} onChange={e => setForm(f => ({ ...f, drugLicenseNumber: e.target.value }))} placeholder="Drug license / permit number" />
                         <div className="md:col-span-2"><Input label="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Pharmacy address" /></div>
                         <div className="md:col-span-2">
                             <LocationPicker
@@ -122,6 +155,15 @@ export default function PharmacySettingsPage() {
                                 accentColor="orange"
                                 label="Pharmacy Location"
                                 height="250px"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <ComplianceDocumentUpload
+                                label="Pharmacy License Document"
+                                providerType="pharmacy"
+                                value={form.licenseDocumentUrl}
+                                onChange={(url) => setForm((prev) => ({ ...prev, licenseDocumentUrl: url }))}
+                                description="Upload the pharmacy license document or paste a hosted URL for compliance review."
                             />
                         </div>
                     </div>

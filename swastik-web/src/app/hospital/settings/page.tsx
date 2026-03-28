@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { hospitalApi, authApi } from '@/lib/api';
 
@@ -15,7 +16,19 @@ export default function HospitalSettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [profile, setProfile] = useState({ name: '', phone: '', address: '', bedCapacity: '', profileImage: '' as string | null, latitude: null as number | null, longitude: null as number | null });
+    const [profile, setProfile] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        bedCapacity: '',
+        licenseNumber: '',
+        licenseDocumentUrl: '',
+        accreditations: '',
+        profileImage: '' as string | null,
+        latitude: null as number | null,
+        longitude: null as number | null,
+    });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
 
     useEffect(() => {
@@ -23,13 +36,17 @@ export default function HospitalSettingsPage() {
             try {
                 const res = await hospitalApi.getProfile();
                 if (res.success) {
-                    const p = (res.data as any)?.profile || (res.data as any) || {};
+                    const p = (res.data as any)?.hospital || (res.data as any)?.profile || (res.data as any) || {};
                     setProfile({
                         name: p.name || user?.name || '',
+                        email: p.email || user?.email || '',
                         phone: p.phone || '',
                         address: p.address || '',
-                        bedCapacity: p.bed_capacity?.toString() || '',
-                        profileImage: p.profile_image || p.profileImage || p.avatar_url || null,
+                        bedCapacity: p.bed_capacity?.toString() || p.total_beds?.toString() || '',
+                        licenseNumber: p.license_number || '',
+                        licenseDocumentUrl: p.license_document_url || '',
+                        accreditations: Array.isArray(p.accreditations) ? p.accreditations.join(', ') : '',
+                        profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.image_url || p.avatar_url || null,
                         latitude: p.latitude ?? null,
                         longitude: p.longitude ?? null,
                     });
@@ -54,9 +71,15 @@ export default function HospitalSettingsPage() {
         }
         try {
             const res = await hospitalApi.updateProfile({
-                name: profile.name, phone: profile.phone, address: profile.address,
+                name: profile.name, email: profile.email, phone: profile.phone, address: profile.address,
                 bed_capacity: Number(profile.bedCapacity) || undefined,
-                profile_image: profile.profileImage || undefined,
+                license_number: profile.licenseNumber.trim() || undefined,
+                license_document_url: profile.licenseDocumentUrl.trim() || undefined,
+                accreditations: profile.accreditations
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                profile_image_url: profile.profileImage || undefined,
                 ...(profile.latitude != null && profile.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : {}),
             });
             setSaveStatus(res.success
@@ -101,7 +124,7 @@ export default function HospitalSettingsPage() {
                             accentColor="teal"
                         />
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hospital Name</label><Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><Input value={user?.email || ''} readOnly /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><Input value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="hospital@example.com" /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label><Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91..." /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label><Input value={profile.address} onChange={e => setProfile(p => ({ ...p, address: e.target.value }))} placeholder="Full address" /></div>
                         <LocationPicker
@@ -120,6 +143,15 @@ export default function HospitalSettingsPage() {
                             height="250px"
                         />
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bed Capacity</label><Input type="number" value={profile.bedCapacity} onChange={e => setProfile(p => ({ ...p, bedCapacity: e.target.value }))} /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Hospital license number" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Accreditations</label><Input value={profile.accreditations} onChange={e => setProfile(p => ({ ...p, accreditations: e.target.value }))} placeholder="NABH, ISO 9001, JCI" /></div>
+                        <ComplianceDocumentUpload
+                            label="Hospital License Document"
+                            providerType="hospital"
+                            value={profile.licenseDocumentUrl}
+                            onChange={(url) => setProfile((prev) => ({ ...prev, licenseDocumentUrl: url }))}
+                            description="Upload the hospital license or paste a hosted document URL for admin review."
+                        />
                         <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Profile</Button>
                     </div>
                 </CardContent>

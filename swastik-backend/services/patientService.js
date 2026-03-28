@@ -6,6 +6,45 @@ const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 
 const VALID_GENDERS = ['male', 'female', 'other'];
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const NEGATION_WORDS = ['no', 'not', 'without', 'denies', 'denied', 'never', "don't", "doesn't", "didn't"];
+
+const normalizeRecommendationText = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const isNegatedMention = (normalizedText, matchIndex) => {
+  const prefix = normalizedText.slice(Math.max(0, matchIndex - 30), matchIndex).trim();
+  if (!prefix) return false;
+  const recentWords = prefix.split(/\s+/).slice(-4);
+  return recentWords.some((word) => NEGATION_WORDS.includes(word));
+};
+
+const countKeywordMatches = (sourceText, keywords = []) => {
+  const normalizedText = normalizeRecommendationText(sourceText);
+  if (!normalizedText) return 0;
+
+  let count = 0;
+  for (const keyword of keywords) {
+    const normalizedKeyword = normalizeRecommendationText(keyword);
+    if (!normalizedKeyword) continue;
+    const regex = normalizedKeyword.includes(' ')
+      ? new RegExp(escapeRegex(normalizedKeyword), 'g')
+      : new RegExp(`\\b${escapeRegex(normalizedKeyword)}\\b`, 'g');
+
+    let match;
+    while ((match = regex.exec(normalizedText)) !== null) {
+      if (!isNegatedMention(normalizedText, match.index)) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+};
 
 class PatientService {
   // Get patient profile
@@ -28,12 +67,19 @@ class PatientService {
       { data: emergencyContacts },
       { data: familyMembers },
       { count: appointmentCount },
-      { count: reportCount }
+      { count: reportCount },
+      { count: diagnosticReportCount }
     ] = await Promise.all([
       supabaseAdmin.from('emergency_contacts').select('*').eq('patient_id', patient.id),
       supabaseAdmin.from('family_members').select('*').eq('patient_id', patient.id),
       supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
       supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
+      supabaseAdmin
+        .from('diagnostic_bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('patient_id', patient.id)
+        .eq('result_status', 'completed')
+        .not('result_url', 'is', null),
     ]);
 
     return {
@@ -48,7 +94,7 @@ class PatientService {
       familyMembers: familyMembers || [],
       stats: {
         appointments: appointmentCount || 0,
-        reports: reportCount || 0,
+        reports: (reportCount || 0) + (diagnosticReportCount || 0),
       },
     };
   }
@@ -177,7 +223,12 @@ class PatientService {
     const [appointmentsResult, remindersResult, consultationsResult, notificationsResult, statsResult] = await Promise.allSettled([
       supabaseAdmin
         .from('appointments')
-        .select(`*, doctor:doctors(id, name, specialization, profile_image_url)`)
+        .select(`
+          *,
+          doctor:doctors(id, name, specialization, profile_image_url),
+          hospital:hospitals(id, name, address, city, type),
+          clinic:clinics(id, name, address, city)
+        `)
         .eq('patient_id', patient.id)
         .in('status', ['scheduled', 'confirmed'])
         .gte('appointment_date', new Date().toISOString().split('T')[0])
@@ -208,6 +259,12 @@ class PatientService {
         supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
         supabaseAdmin.from('prescriptions').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
         supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
+        supabaseAdmin
+          .from('diagnostic_bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('patient_id', patient.id)
+          .eq('result_status', 'completed')
+          .not('result_url', 'is', null),
       ]),
     ]);
 
@@ -220,11 +277,11 @@ class PatientService {
     // Resolve stats counts
     let stats = { total_consultations: 0, total_prescriptions: 0, total_reports: 0 };
     if (statsResult.status === 'fulfilled') {
-      const [consultCount, prescCount, reportCount] = statsResult.value;
+      const [consultCount, prescCount, reportCount, diagnosticReportCount] = statsResult.value;
       stats = {
         total_consultations: consultCount.count || 0,
         total_prescriptions: prescCount.count || 0,
-        total_reports: reportCount.count || 0,
+        total_reports: (reportCount.count || 0) + (diagnosticReportCount.count || 0),
       };
     }
 
@@ -232,7 +289,7 @@ class PatientService {
     // Performance hardening: cap recommendation compute time for dashboard requests
     const recommendedDoctors = await Promise.race([
       this.getRecommendedDoctors(patient.id, userId),
-      new Promise((resolve) => setTimeout(() => resolve([]), 700)),
+      new Promise((resolve) => setTimeout(() => resolve([]), 1800)),
     ]).catch(() => []);
 
     const dashboard = {
@@ -291,6 +348,20 @@ class PatientService {
     try {
       const targetSpecializations = new Set();
       const recommendationReasons = {};
+      const recommendationWeights = {};
+      const specializationScores = new Map();
+      const registerSignal = (specialization, weight, reason) => {
+        if (!specialization) return;
+        targetSpecializations.add(specialization);
+        specializationScores.set(
+          specialization,
+          (specializationScores.get(specialization) || 0) + weight
+        );
+        if (!recommendationReasons[specialization] || weight >= (recommendationWeights[specialization] || 0)) {
+          recommendationReasons[specialization] = reason;
+          recommendationWeights[specialization] = weight;
+        }
+      };
 
       // --- Signal 1: Recent chatbot conversations (user messages) ---
       const { data: recentChatSessions } = await supabaseAdmin
@@ -311,11 +382,15 @@ class PatientService {
           .limit(20);
 
         if (userMessages?.length > 0) {
-          const allSymptomText = userMessages.map(m => m.content).join(' ').toLowerCase();
+          const allSymptomText = userMessages.map(m => m.content).join(' ');
           for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
-            if (keywords.some(k => allSymptomText.includes(k))) {
-              targetSpecializations.add(specialist);
-              recommendationReasons[specialist] = 'Based on your recent symptoms';
+            const keywordHits = countKeywordMatches(allSymptomText, keywords);
+            if (keywordHits > 0) {
+              registerSignal(
+                specialist,
+                3 + keywordHits,
+                keywordHits > 1 ? 'Based on your recent symptoms' : 'Matched from your recent symptom search'
+              );
             }
           }
         }
@@ -326,7 +401,7 @@ class PatientService {
         .from('appointments')
         .select('doctor:doctors(specialization)')
         .eq('patient_id', patientId)
-        .in('status', ['completed', 'confirmed', 'scheduled'])
+        .in('status', ['completed', 'in_progress'])
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -334,10 +409,7 @@ class PatientService {
         pastAppointments.forEach(apt => {
           const spec = apt.doctor?.specialization;
           if (spec) {
-            targetSpecializations.add(spec);
-            if (!recommendationReasons[spec]) {
-              recommendationReasons[spec] = 'Based on your consultation history';
-            }
+            registerSignal(spec, 2, 'Based on your consultation history');
           }
         });
       }
@@ -357,11 +429,13 @@ class PatientService {
 
         if (conditions) {
           for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
-            if (keywords.some(k => conditions.includes(k))) {
-              targetSpecializations.add(specialist);
-              if (!recommendationReasons[specialist]) {
-                recommendationReasons[specialist] = 'Based on your health profile';
-              }
+            const keywordHits = countKeywordMatches(conditions, keywords);
+            if (keywordHits > 0) {
+              registerSignal(
+                specialist,
+                1 + keywordHits,
+                'Based on your health profile'
+              );
             }
           }
         }
@@ -378,12 +452,22 @@ class PatientService {
           .eq('is_available', true)
           .in('specialization', [...targetSpecializations])
           .order('rating', { ascending: false })
-          .limit(normalizedLimit);
+          .limit(normalizedLimit * 3);
 
-        recommendedDoctors = (matchedDoctors || []).map(doc => ({
-          ...doc,
-          recommendation_reason: recommendationReasons[doc.specialization] || 'Recommended for you',
-        }));
+        recommendedDoctors = (matchedDoctors || [])
+          .map(doc => ({
+            ...doc,
+            recommendation_reason: recommendationReasons[doc.specialization] || 'Recommended for you',
+            _specializationScore: specializationScores.get(doc.specialization) || 0,
+          }))
+          .sort((left, right) => {
+            if (right._specializationScore !== left._specializationScore) {
+              return right._specializationScore - left._specializationScore;
+            }
+            return (right.rating || 0) - (left.rating || 0);
+          })
+          .slice(0, normalizedLimit)
+          .map(({ _specializationScore, ...doctor }) => doctor);
       }
 
       // --- Fallback: fill remaining slots with top-rated doctors ---
@@ -811,14 +895,20 @@ class PatientService {
       throw new ApiError(404, 'Patient profile not found');
     }
 
-    const { error } = await supabaseAdmin
+    const { data: deletedContact, error } = await supabaseAdmin
       .from('emergency_contacts')
       .delete()
       .eq('id', contactId)
-      .eq('patient_id', patient.id);
+      .eq('patient_id', patient.id)
+      .select('id')
+      .maybeSingle();
 
     if (error) {
       throw new ApiError(400, 'Failed to delete emergency contact');
+    }
+
+    if (!deletedContact) {
+      throw new ApiError(404, 'Emergency contact not found');
     }
 
     await cacheDel(`patient:dashboard:${userId}`);
@@ -844,6 +934,7 @@ class PatientService {
         patient_id: patient.id,
         name: memberData.name,
         relationship: memberData.relation || memberData.relationship,
+        phone: memberData.phone || null,
         date_of_birth: memberData.dateOfBirth || memberData.date_of_birth || null,
         gender: memberData.gender,
         blood_group: memberData.bloodGroup || memberData.blood_group || null,
@@ -872,14 +963,20 @@ class PatientService {
       throw new ApiError(404, 'Patient profile not found');
     }
 
-    const { error } = await supabaseAdmin
+    const { data: deletedMember, error } = await supabaseAdmin
       .from('family_members')
       .delete()
       .eq('id', memberId)
-      .eq('patient_id', patient.id);
+      .eq('patient_id', patient.id)
+      .select('id')
+      .maybeSingle();
 
     if (error) {
       throw new ApiError(400, 'Failed to delete family member');
+    }
+
+    if (!deletedMember) {
+      throw new ApiError(404, 'Family member not found');
     }
 
     await cacheDel(`patient:dashboard:${userId}`);

@@ -302,7 +302,13 @@ class MedicineViewModel @Inject constructor(
 
     // ==================== CART & ORDER ====================
 
-    fun addToCart(medicine: Medicine, pharmacyId: String? = null, pharmacyName: String? = null) {
+    private fun cartItemKey(medicine: Medicine): String = medicine.inventoryItemId ?: medicine.id
+
+    fun addToCart(
+        medicine: Medicine,
+        pharmacyId: String? = null,
+        pharmacyName: String? = null
+    ) {
         val cart = _cartState.value
         if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
             _cartState.value = cart.copy(
@@ -312,7 +318,8 @@ class MedicineViewModel @Inject constructor(
         }
 
         val currentItems = cart.items.toMutableList()
-        val existingIndex = currentItems.indexOfFirst { it.medicine.id == medicine.id }
+        val incomingKey = cartItemKey(medicine)
+        val existingIndex = currentItems.indexOfFirst { cartItemKey(it.medicine) == incomingKey }
         if (existingIndex >= 0) {
             currentItems[existingIndex] = currentItems[existingIndex].copy(
                 quantity = currentItems[existingIndex].quantity + 1
@@ -342,20 +349,20 @@ class MedicineViewModel @Inject constructor(
         }
     }
 
-    fun removeFromCart(medicineId: String) {
+    fun removeFromCart(itemKey: String) {
         _cartState.value = _cartState.value.copy(
-            items = _cartState.value.items.filter { it.medicine.id != medicineId }
+            items = _cartState.value.items.filter { cartItemKey(it.medicine) != itemKey }
         )
     }
 
-    fun updateCartQuantity(medicineId: String, quantity: Int) {
+    fun updateCartQuantity(itemKey: String, quantity: Int) {
         if (quantity <= 0) {
-            removeFromCart(medicineId)
+            removeFromCart(itemKey)
             return
         }
         _cartState.value = _cartState.value.copy(
             items = _cartState.value.items.map {
-                if (it.medicine.id == medicineId) it.copy(quantity = quantity) else it
+                if (cartItemKey(it.medicine) == itemKey) it.copy(quantity = quantity) else it
             }
         )
     }
@@ -382,7 +389,13 @@ class MedicineViewModel @Inject constructor(
         viewModelScope.launch {
             val request = MedicineOrderRequest(
                 pharmacyId = cart.selectedPharmacyId,
-                items = cart.items.map { OrderItemRequest(medicineId = it.medicine.id, quantity = it.quantity) },
+                items = cart.items.map {
+                    OrderItemRequest(
+                        medicineId = it.medicine.id.takeIf { id -> id.isNotBlank() },
+                        inventoryItemId = it.medicine.inventoryItemId,
+                        quantity = it.quantity
+                    )
+                },
                 deliveryAddress = cart.deliveryAddress
             )
             when (val result = medicineRepository.createOrder(request)) {

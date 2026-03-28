@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { clinicApi } from '../lib/api';
 
-// ==================== Types ====================
+export interface PaginationState {
+    page: number;
+    totalPages: number;
+    total: number;
+    hasMore: boolean;
+}
 
 export interface ClinicDashboardStats {
     totalStaff: number;
@@ -14,49 +19,84 @@ export interface ClinicAppointment {
     id: string;
     patientName: string;
     patientId: string;
+    patientPhone: string;
     date?: string | null;
     time: string;
     type: string;
     status: string;
     doctorName: string;
+    doctorSpecialization: string;
+    reason?: string | null;
+    createdAt?: string | null;
 }
 
 export interface ClinicDoctor {
     id: string;
+    doctorId: string;
+    associationId?: string | null;
     name: string;
     specialization: string;
+    email: string;
+    phone: string;
     status: 'active' | 'on-leave' | 'inactive';
 }
 
+const defaultPagination: PaginationState = {
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    hasMore: false,
+};
+
 function normalizeClinicDoctor(raw: Record<string, any>): ClinicDoctor {
     const doctor = (raw.doctor || raw) as Record<string, any>;
+    const rawStatus = raw.status || doctor.status;
+    const status: ClinicDoctor['status'] =
+        raw.is_active === false || rawStatus === 'inactive'
+            ? 'inactive'
+            : rawStatus === 'on-leave' || rawStatus === 'on_leave' || doctor.is_available === false
+                ? 'on-leave'
+                : 'active';
+
     return {
-        id: doctor.id || raw.doctor_id || raw.id || '',
+        id: doctor.id || raw.doctorId || raw.doctor_id || raw.id || '',
+        doctorId: doctor.id || raw.doctorId || raw.doctor_id || raw.id || '',
+        associationId: raw.associationId || raw.association_id || raw.id || null,
         name: doctor.name || raw.name || 'Doctor',
         specialization: doctor.specialization || raw.specialization || '',
-        status: raw.is_active === false ? 'inactive' : (raw.status || 'active'),
-    } as ClinicDoctor;
+        email: doctor.email || raw.email || doctor.user?.email || '',
+        phone: doctor.phone || raw.phone || doctor.user?.phone || '',
+        status,
+    };
 }
 
 function normalizeClinicAppointment(raw: Record<string, any>): ClinicAppointment {
+    const patient = (raw.patient || {}) as Record<string, any>;
+    const doctor = (raw.doctor || {}) as Record<string, any>;
+
     return {
-        ...raw,
-        patientName: raw.patientName || raw.patient?.name || 'Patient',
-        patientId: raw.patientId || raw.patient_id || raw.patient?.id || '',
+        id: raw.id || '',
+        patientName: raw.patientName || patient.name || 'Patient',
+        patientId: raw.patientId || raw.patient_id || patient.id || '',
+        patientPhone: raw.patientPhone || patient.phone || patient.user?.phone || '',
         time: raw.time || raw.time_slot || '',
-        type: raw.type || 'Scheduled',
+        type: raw.type || 'clinic',
         status: raw.status || 'pending',
-        doctorName: raw.doctorName || raw.doctor?.name || 'Doctor',
+        doctorName: raw.doctorName || doctor.name || 'Doctor',
+        doctorSpecialization: raw.doctorSpecialization || doctor.specialization || '',
         date: raw.date || raw.appointment_date || null,
-    } as ClinicAppointment & { date?: string | null };
+        reason: raw.reason || null,
+        createdAt: raw.createdAt || raw.created_at || null,
+    };
 }
 
 interface ClinicState {
     stats: ClinicDashboardStats | null;
     todaysAppointments: ClinicAppointment[];
     appointments: ClinicAppointment[];
+    appointmentsPagination: PaginationState;
     doctors: ClinicDoctor[];
-    /** Alias for doctors — used by clinic/staff/page.tsx */
+    doctorsPagination: PaginationState;
     staff: ClinicDoctor[];
     schedule: Record<string, unknown> | null;
     isLoading: boolean;
@@ -67,8 +107,8 @@ interface ClinicState {
     error: string | null;
 
     fetchDashboardData: () => Promise<void>;
-    fetchAppointments: (date?: string) => Promise<void>;
-    fetchDoctors: () => Promise<void>;
+    fetchAppointments: (params?: { page?: number; limit?: number; search?: string; status?: string; date?: string }) => Promise<void>;
+    fetchDoctors: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
     fetchSchedule: () => Promise<void>;
     updateSchedule: (schedule: Record<string, unknown>) => Promise<boolean>;
     addDoctor: (data: Record<string, string>) => Promise<boolean>;
@@ -77,13 +117,13 @@ interface ClinicState {
     reset: () => void;
 }
 
-// ==================== Store ====================
-
 const clinicInitialState = {
     stats: null as ClinicDashboardStats | null,
     todaysAppointments: [] as ClinicAppointment[],
     appointments: [] as ClinicAppointment[],
+    appointmentsPagination: { ...defaultPagination },
     doctors: [] as ClinicDoctor[],
+    doctorsPagination: { ...defaultPagination },
     staff: [] as ClinicDoctor[],
     schedule: null as Record<string, unknown> | null,
     isLoading: false,
@@ -112,16 +152,16 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
                 });
                 return;
             }
+
             const data = response.data as Record<string, unknown>;
             const rawStats = (data.stats || {}) as Record<string, unknown>;
-            const recentAppointments = ((data.recentAppointments || data.appointments || []) as Record<string, any>[]).map(normalizeClinicAppointment);
+            const recentAppointments = ((data.recentAppointments || data.appointments || []) as Record<string, any>[])
+                .map(normalizeClinicAppointment);
             const todayListRaw = ((data.todayAppointments || data.todaysAppointments || recentAppointments) as Record<string, any>[]);
-            const todaysAppointments = todayListRaw
-                .map(normalizeClinicAppointment)
-                .filter((a) => {
-                    if (!a.date) return false;
-                    return new Date(a.date).toDateString() === new Date().toDateString();
-                });
+            const todaysAppointments = todayListRaw.map(normalizeClinicAppointment).filter((appointment) => {
+                if (!appointment.date) return false;
+                return new Date(appointment.date).toDateString() === new Date().toDateString();
+            });
             const doctorsList = ((data.staff || data.doctors || []) as Record<string, any>[]).map(normalizeClinicDoctor);
 
             const normalizedStats: ClinicDashboardStats = {
@@ -149,47 +189,85 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         }
     },
 
-    fetchAppointments: async (date?: string) => {
+    fetchAppointments: async (params = {}) => {
         set({ loadingAppointments: true, error: null });
         try {
-            const response = await clinicApi.getAppointments(date);
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getAppointments({
+                page,
+                limit,
+                search: params.search,
+                status: params.status,
+                date: params.date,
+            });
             if (!response.success) {
                 set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
+
             const rawData = response.data;
             const appointments = (Array.isArray(rawData) ? rawData : (rawData as any)?.appointments || (rawData as any)?.data || []) as Record<string, any>[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+
             set({
                 appointments: appointments.map(normalizeClinicAppointment),
+                appointmentsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || appointments.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: appointments.length },
                 loadingAppointments: false,
             });
         } catch (error) {
             console.error('Error fetching appointments:', error);
-            set({ error: 'Failed to load appointments.', loadingAppointments: false });
+            set({
+                error: 'Failed to load appointments.',
+                loadingAppointments: false,
+                appointmentsPagination: { ...defaultPagination },
+            });
         }
     },
 
-    fetchDoctors: async () => {
+    fetchDoctors: async (params = {}) => {
         set({ loadingDoctors: true, error: null });
         try {
-            const response = await clinicApi.getDoctors();
+            const page = params.page ?? 1;
+            const limit = params.limit ?? 20;
+            const response = await clinicApi.getDoctors({
+                page,
+                limit,
+                search: params.search,
+            });
             if (!response.success) {
                 set({ error: response.error || 'Failed to load doctors', loadingDoctors: false });
                 return;
             }
-            // After fetchWithAuth unwrap, response.data IS the array
+
             const rawData = response.data;
             const doctorsList = (Array.isArray(rawData) ? rawData : (rawData as any)?.doctors || (rawData as any)?.data || [])
-                .map((d: Record<string, any>) => normalizeClinicDoctor(d)) as ClinicDoctor[];
+                .map((doctor: Record<string, any>) => normalizeClinicDoctor(doctor)) as ClinicDoctor[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+
             set({
                 doctors: doctorsList,
                 staff: doctorsList,
+                doctorsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || doctorsList.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { ...defaultPagination, total: doctorsList.length },
                 loadingDoctors: false,
             });
         } catch (error) {
             console.error('Error fetching doctors:', error);
-            set({ error: 'Failed to load doctors.', loadingDoctors: false });
+            set({
+                error: 'Failed to load doctors.',
+                loadingDoctors: false,
+                doctorsPagination: { ...defaultPagination },
+            });
         }
     },
 
@@ -232,8 +310,10 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
         try {
             const response = await clinicApi.addDoctor(data);
             if (response.success) {
-                get().fetchDoctors();
-                get().fetchDashboardData();
+                await Promise.allSettled([
+                    get().fetchDoctors(),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to add doctor' });
@@ -247,12 +327,13 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
 
     removeDoctor: async (doctorId) => {
         try {
-            // Support both flattened doctor ID and nested association ID payloads
-            const targetDoctorId = get().doctors.find((d) => d.id === doctorId)?.id || doctorId;
+            const targetDoctorId = get().doctors.find((doctor) => doctor.id === doctorId)?.doctorId || doctorId;
             const response = await clinicApi.removeDoctor(targetDoctorId);
             if (response.success) {
-                get().fetchDoctors();
-                get().fetchDashboardData();
+                await Promise.allSettled([
+                    get().fetchDoctors(),
+                    get().fetchDashboardData(),
+                ]);
                 return true;
             }
             set({ error: response.error || 'Failed to remove doctor' });

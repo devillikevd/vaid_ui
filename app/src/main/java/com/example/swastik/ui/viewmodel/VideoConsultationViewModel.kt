@@ -10,6 +10,7 @@ import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.SignalingEvent
 import com.example.swastik.data.remote.ApiConfig
 import com.example.swastik.data.remote.ConsultationEndedEvent
+import com.example.swastik.data.remote.ConsultationStartedEvent
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.repository.AppointmentRepository
@@ -62,6 +63,7 @@ private fun consultationModeFromWire(value: String?): ConsultationMode = when (v
 data class VideoConsultationUiState(
     val isConnecting: Boolean = false,
     val isConnected: Boolean = false,
+    val isWaitingForDoctor: Boolean = false,
     val isMicEnabled: Boolean = true,
     val isCameraEnabled: Boolean = true,
     val isSpeakerOn: Boolean = true,
@@ -119,6 +121,8 @@ class VideoConsultationViewModel @Inject constructor(
     private var remoteRequestedMode = ConsultationMode.VIDEO
     private var userMicPreference = true
     private var lastPublishedModeConstraint = ConsultationMode.VIDEO
+    private var pendingAppointmentId: String? = null
+    private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -166,6 +170,12 @@ class VideoConsultationViewModel @Inject constructor(
         viewModelScope.launch {
             socketManager.consultationEnded.collect { event ->
                 handleConsultationEnded(event)
+            }
+        }
+
+        viewModelScope.launch {
+            socketManager.consultationStarted.collect { event ->
+                handleConsultationStarted(event)
             }
         }
     }
@@ -438,6 +448,8 @@ class VideoConsultationViewModel @Inject constructor(
         val activeConsultationId = session.consultationId.ifEmpty { session.sessionId }
         if (event.consultationId != activeConsultationId) return
 
+        pendingAppointmentId = null
+        pendingJoinRetryJob?.cancel()
         socketManager.leaveVideoRoom(session.sessionId)
         socketManager.leaveChat(session.sessionId)
         releaseWebRTC()
@@ -447,46 +459,128 @@ class VideoConsultationViewModel @Inject constructor(
         )
     }
 
+    private fun handleConsultationStarted(event: ConsultationStartedEvent) {
+        val appointmentId = pendingAppointmentId ?: return
+        if (event.appointmentId != appointmentId) return
+
+        pendingJoinRetryJob?.cancel()
+        pendingJoinRetryJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isConnecting = true,
+                isWaitingForDoctor = false,
+                error = null,
+                modeBanner = "Doctor is ready. Opening your consultation room..."
+            )
+
+            repeat(3) { attempt ->
+                when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
+                    is Result.Success -> {
+                        onConsultationJoinSuccess(result.data)
+                        return@launch
+                    }
+                    is Result.Error -> {
+                        if (shouldWaitForDoctor(result.message) && attempt < 2) {
+                            kotlinx.coroutines.delay(750)
+                        } else if (shouldWaitForDoctor(result.message)) {
+                            beginWaitingForDoctor(appointmentId)
+                            return@launch
+                        } else {
+                            releaseWebRTC()
+                            _uiState.value = _uiState.value.copy(
+                                isConnecting = false,
+                                isWaitingForDoctor = false,
+                                error = result.message,
+                                modeBanner = null
+                            )
+                            return@launch
+                        }
+                    }
+                    is Result.Loading -> Unit
+                }
+            }
+        }
+    }
+
     /**
      * Join a video consultation for the given appointment.
      */
     fun joinConsultation(appointmentId: String) {
         viewModelScope.launch {
             resetModeControllers()
-            _uiState.value = _uiState.value.copy(isConnecting = true, error = null)
-
-            // Initialize WebRTC before joining
-            initializeWebRTC()
+            pendingAppointmentId = appointmentId
+            _uiState.value = _uiState.value.copy(
+                isConnecting = true,
+                isWaitingForDoctor = false,
+                error = null,
+                consultationCompleted = false
+            )
 
             when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
                 is Result.Success -> {
-                    // REST join succeeded. Don't set isConnected=true yet —
-                    // the WebRTC ICE callback will set it when peer-to-peer connects.
-                    val session = result.data
-                    _uiState.value = _uiState.value.copy(
-                        isConnecting = false,
-                        session = session,
-                        consultationCompleted = false
-                    )
-
-                    // Join signaling/chat rooms only after the session is present in state.
-                    // This avoids a race where the doctor sends an offer immediately and
-                    // the patient app cannot answer because its roomId is still null.
-                    appointmentRepository.joinVideoRoom(session.sessionId)
-                    appointmentRepository.joinChat(session.sessionId)
-                    publishModeConstraintIfNeeded(force = true)
-                    applyEffectiveMediaState()
+                    onConsultationJoinSuccess(result.data)
                 }
                 is Result.Error -> {
-                    releaseWebRTC()
-                    _uiState.value = _uiState.value.copy(
-                        isConnecting = false,
-                        error = result.message
-                    )
+                    if (shouldWaitForDoctor(result.message)) {
+                        beginWaitingForDoctor(appointmentId)
+                    } else {
+                        releaseWebRTC()
+                        _uiState.value = _uiState.value.copy(
+                            isConnecting = false,
+                            isWaitingForDoctor = false,
+                            error = result.message,
+                            modeBanner = null
+                        )
+                    }
                 }
                 is Result.Loading -> {}
             }
         }
+    }
+
+    private fun onConsultationJoinSuccess(session: VideoCallSession) {
+        pendingAppointmentId = null
+        pendingJoinRetryJob?.cancel()
+        initializeWebRTC()
+
+        _uiState.value = _uiState.value.copy(
+            isConnecting = false,
+            isWaitingForDoctor = false,
+            session = session,
+            consultationCompleted = false,
+            error = null,
+            modeBanner = null
+        )
+
+        // Join signaling/chat rooms only after the session is present in state.
+        // This avoids a race where the doctor sends an offer immediately and
+        // the patient app cannot answer because its roomId is still null.
+        appointmentRepository.joinVideoRoom(session.sessionId)
+        appointmentRepository.joinChat(session.sessionId)
+        publishModeConstraintIfNeeded(force = true)
+        applyEffectiveMediaState()
+    }
+
+    private fun beginWaitingForDoctor(appointmentId: String) {
+        pendingAppointmentId = appointmentId
+        pendingJoinRetryJob?.cancel()
+        releaseWebRTC()
+        socketManager.connect()
+        _uiState.value = _uiState.value.copy(
+            isConnecting = false,
+            isWaitingForDoctor = true,
+            error = null,
+            session = null,
+            modeBanner = "Waiting for the doctor to start the consultation"
+        )
+    }
+
+    private fun shouldWaitForDoctor(message: String?): Boolean {
+        val normalized = message?.lowercase().orEmpty()
+        return normalized.contains("hasn't started")
+            || normalized.contains("has not started")
+            || normalized.contains("active consultation not found")
+            || normalized.contains("consultation not found")
+            || normalized.contains("please wait for the doctor")
     }
 
     /**
@@ -565,6 +659,8 @@ class VideoConsultationViewModel @Inject constructor(
         val roomId = session.sessionId
         val consultationId = session.consultationId.ifEmpty { roomId }
 
+        pendingAppointmentId = null
+        pendingJoinRetryJob?.cancel()
         // 1. Notify backend that consultation has ended
         viewModelScope.launch {
             appointmentRepository.endConsultation(consultationId)

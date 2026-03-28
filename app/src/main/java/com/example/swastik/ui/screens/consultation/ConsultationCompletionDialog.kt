@@ -1,35 +1,51 @@
 package com.example.swastik.ui.screens.consultation
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.outlined.Message
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.swastik.ui.theme.SwastikPurple
 
 @Composable
 fun ConsultationCompletionDialog(
-    userName: String = "Gurpreet",
+    userName: String = "Patient",
     onDismiss: () -> Unit
 ) {
+    val surfaceColor = Color(0xFF101A30)
+    val accentBlue = Color(0xFF4C8DFF)
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -40,60 +56,73 @@ fun ConsultationCompletionDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                .padding(12.dp),
+            shape = RoundedCornerShape(30.dp),
+            colors = CardDefaults.cardColors(containerColor = surfaceColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(32.dp),
+                    .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Success Icon with decorations
-                SuccessIcon()
+                CompletionStatusIcon()
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Text(
+                    text = "Consultation Complete",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Thanks, $userName. Your session has been closed safely and the consultation context stays linked to your health history.",
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CompletionInfoRow(
+                        icon = Icons.Outlined.Description,
+                        title = "Consultation records stay together",
+                        description = "Notes, prescriptions, and follow-up context can appear here after the doctor finishes them."
+                    )
+                    CompletionInfoRow(
+                        icon = Icons.AutoMirrored.Outlined.Message,
+                        title = "Chat history remains attached",
+                        description = "Messages from this consultation stay tied to the same session record."
+                    )
+                    CompletionInfoRow(
+                        icon = Icons.Outlined.Lock,
+                        title = "Session closed securely",
+                        description = "The room is ended and your media connection is no longer active."
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Thank You Text
-                Text(
-                    text = buildAnnotatedString {
-                        append("Thank You, ")
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append("$userName!")
-                        }
-                    },
-                    fontSize = 22.sp,
-                    color = Color.Black
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Description
-                Text(
-                    text = "You have completed the\nonline consultation.\nWe will send the medicine to you.",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 22.sp
-                )
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                // OK Button
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(26.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                        .height(54.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentBlue)
                 ) {
                     Text(
-                        "Ok",
+                        text = "Done",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                 }
             }
@@ -102,62 +131,85 @@ fun ConsultationCompletionDialog(
 }
 
 @Composable
-private fun SuccessIcon() {
-    val goldColor = Color(0xFFF5C842)
-    val goldLightColor = Color(0xFFFFF3CD)
-
+private fun CompletionStatusIcon() {
     Box(
-        modifier = Modifier.size(100.dp),
+        modifier = Modifier
+            .size(104.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF2DD4BF).copy(alpha = 0.16f)),
         contentAlignment = Alignment.Center
     ) {
-        // Decorative sparkles
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sparkleColor = goldColor
-
-            // Top right sparkle
-            drawCircle(
-                color = sparkleColor,
-                radius = 5.dp.toPx(),
-                center = Offset(size.width * 0.9f, size.height * 0.1f)
-            )
-
-            // Small sparkle
-            drawCircle(
-                color = sparkleColor,
-                radius = 3.dp.toPx(),
-                center = Offset(size.width * 0.78f, size.height * 0.2f)
-            )
-
-            // Top left sparkle
-            drawCircle(
-                color = sparkleColor,
-                radius = 4.dp.toPx(),
-                center = Offset(size.width * 0.1f, size.height * 0.25f)
-            )
-        }
-
-        // Outer ring (light gold)
         Box(
             modifier = Modifier
-                .size(90.dp)
+                .size(76.dp)
                 .clip(CircleShape)
-                .background(goldLightColor),
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color(0xFF2DD4BF),
+                            Color(0xFF4C8DFF)
+                        )
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
-            // Inner circle (gold)
+            Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = "Complete",
+                tint = Color.White,
+                modifier = Modifier.size(34.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompletionInfoRow(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.06f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .size(70.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
-                    .background(goldColor),
+                    .background(Color(0xFF4C8DFF).copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
-                // Check mark
                 Icon(
-                    Icons.Default.Check,
-                    contentDescription = "Success",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    icon,
+                    contentDescription = null,
+                    tint = Color(0xFF9FC0FF),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.size(12.dp))
+
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = Color.White.copy(alpha = 0.62f)
                 )
             }
         }

@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { Clock, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useDoctorStore, TimeSlot } from '@/stores/doctorStore';
+import { useDoctorStore } from '@/stores/doctorStore';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function DoctorSchedulePage() {
-    const { schedule, isLoading, error, fetchSchedule, updateSchedule, clearError } = useDoctorStore();
+    const { schedule, loadingSchedule, error, fetchSchedule, updateSchedule, clearError } = useDoctorStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [newSlot, setNewSlot] = useState({ day: 'Monday', startTime: '09:00', endTime: '17:00' });
     const [saving, setSaving] = useState(false);
@@ -47,7 +47,7 @@ export default function DoctorSchedulePage() {
         setSaving(false);
     };
 
-    if (isLoading && schedule.length === 0) {
+    if (loadingSchedule && schedule.length === 0) {
         return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /><span className="ml-2 text-gray-600 dark:text-gray-400">Loading schedule...</span></div>;
     }
 
@@ -65,16 +65,30 @@ export default function DoctorSchedulePage() {
         day,
         slots: schedule.map((s, i) => ({ ...s, _idx: i })).filter(s => s.day === day),
     }));
+    const activeSlots = schedule.filter((slot) => slot.isAvailable).length;
+    const inactiveSlots = Math.max(schedule.length - activeSlots, 0);
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage your availability slots</p></div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={fetchSchedule} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
-                    <Button onClick={() => setShowAddModal(true)} leftIcon={<Plus className="h-4 w-4" />}>Add Slot</Button>
+                    <Button variant="outline" onClick={fetchSchedule} leftIcon={<RefreshCw className="h-4 w-4" />} disabled={saving || loadingSchedule}>Refresh</Button>
+                    <Button onClick={() => setShowAddModal(true)} leftIcon={<Plus className="h-4 w-4" />} disabled={saving}>Add Slot</Button>
                 </div>
             </div>
+
+            <Card padding="sm">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        {activeSlots} active slots
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700 dark:bg-gray-800 dark:text-gray-300">
+                        {inactiveSlots} paused
+                    </span>
+                    <span>{saving ? 'Saving your changes...' : 'Tap a slot to pause or resume it for bookings.'}</span>
+                </div>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {scheduleByDay.map(({ day, slots }) => (

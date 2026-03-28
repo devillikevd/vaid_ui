@@ -34,6 +34,7 @@ import org.osmdroid.util.GeoPoint
 fun EmergencyDetailScreen(
     emergency: EmergencyDto?,
     isLoading: Boolean,
+    isActionInProgress: Boolean,
     onBack: () -> Unit,
     onUpdateStatus: (String) -> Unit
 ) {
@@ -279,6 +280,7 @@ fun EmergencyDetailScreen(
             // Status Action Buttons
             StatusActionButtons(
                 currentStatus = emergency.status,
+                isActionInProgress = isActionInProgress,
                 onUpdateStatus = onUpdateStatus
             )
 
@@ -392,8 +394,7 @@ private fun OperationalOverviewCard(
 @Composable
 private fun StatusTimelineCard(currentStatus: String) {
     val allStages = listOf(
-        "assigned" to "Assigned",
-        "accepted" to "Accepted",
+        "assigned" to "Confirmed",
         "en_route" to "Drive to patient",
         "arrived" to "At pickup",
         "picked_up" to "Patient onboard",
@@ -404,6 +405,7 @@ private fun StatusTimelineCard(currentStatus: String) {
 
     val normalized = when (currentStatus.lowercase()) {
         "pending", "requested", "broadcasting" -> "assigned"
+        "accepted", "dispatched" -> "assigned"
         else -> currentStatus.lowercase()
     }
     val activeIndex = allStages.indexOfFirst { it.first == normalized }.coerceAtLeast(0)
@@ -448,9 +450,7 @@ private fun StatusBadge(status: String) {
     val (bgColor, textColor, label) = when (status.lowercase()) {
         "pending", "requested" -> Triple(Color(0xFFFFF3E0), Color(0xFFE65100), "⏳ Pending")
         "broadcasting" -> Triple(Color(0xFFFFF8E1), Color(0xFFFF6F00), "📡 Broadcasting")
-        "assigned" -> Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), "📋 Assigned")
-        "accepted" -> Triple(Color(0xFFE8EAF6), Color(0xFF283593), "✅ Accepted")
-        "dispatched" -> Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), "✅ Dispatched")
+        "assigned", "accepted", "dispatched" -> Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), "✅ Confirmed")
         "en_route", "enroute" -> Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "🚑 En Route")
         "arrived" -> Triple(Color(0xFFF3E5F5), Color(0xFF7B1FA2), "📍 Arrived at Pickup")
         "picked_up" -> Triple(Color(0xFFFFEBEE), Color(0xFFC62828), "🏥 Patient Picked Up")
@@ -495,12 +495,13 @@ private fun InfoRow(icon: ImageVector, label: String, value: String) {
 @Composable
 private fun StatusActionButtons(
     currentStatus: String,
+    isActionInProgress: Boolean,
     onUpdateStatus: (String) -> Unit
 ) {
     // Full dispatch lifecycle statuses
     val nextStatuses = when (currentStatus.lowercase()) {
-        "pending", "broadcasting", "assigned", "requested" -> listOf("accept" to "Accept Emergency")
-        "accepted" -> listOf("en_route" to "Start Route to Patient")
+        "pending", "broadcasting", "requested" -> listOf("accept" to "Accept Emergency")
+        "assigned", "accepted", "dispatched" -> listOf("en_route" to "Start Route to Patient")
         "en_route", "enroute" -> listOf("arrived" to "Arrived at Pickup")
         "arrived" -> listOf("picked_up" to "Patient Picked Up")
         "picked_up" -> listOf("en_route_hospital" to "En Route to Hospital")
@@ -522,13 +523,18 @@ private fun StatusActionButtons(
                 nextStatuses.forEach { (status, label) ->
                     Button(
                         onClick = { onUpdateStatus(status) },
+                        enabled = !isActionInProgress,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFD32F2F)
                         ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            if (isActionInProgress) "Updating..." else label,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                     Spacer(Modifier.height(8.dp))
                 }

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
+import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi, authApi } from '@/lib/api';
 
@@ -13,13 +14,16 @@ export default function DoctorSettingsPage() {
     const user = useAuthStore((s) => s.user);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [profile, setProfile] = useState({
         name: '',
         phone: '',
         specialization: '',
         consultationFee: '',
+        registrationNumber: '',
+        licenseNumber: '',
+        licenseDocumentUrl: '',
+        degreeCertificateUrl: '',
         profileImage: '' as string | null,
     });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
@@ -41,10 +45,14 @@ export default function DoctorSettingsPage() {
                     const p = d?.profile || d?.data || d || {};
                     setProfile({
                         name: p.name || user?.name || '',
-                        phone: p.phone || '',
+                        phone: p.phone || p.user?.phone || '',
                         specialization: p.specialization || '',
                         consultationFee: p.consultation_fee?.toString() || p.consultationFee?.toString() || '',
-                        profileImage: p.profile_image || p.profileImage || p.avatar_url || null,
+                        registrationNumber: p.registration_number || '',
+                        licenseNumber: p.license_number || '',
+                        licenseDocumentUrl: p.license_document_url || '',
+                        degreeCertificateUrl: p.degree_certificate_url || '',
+                        profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.avatar_url || null,
                     });
                 }
                 if (notifRes.success) {
@@ -64,11 +72,24 @@ export default function DoctorSettingsPage() {
         setIsSaving(true);
         setSaveStatus(null);
         try {
+            const authRes = await authApi.updateProfile({
+                name: profile.name,
+                phone: profile.phone || undefined,
+            });
+            if (!authRes.success) {
+                setSaveStatus({ type: 'error', message: authRes.error || 'Failed to update account profile' });
+                setIsSaving(false);
+                return;
+            }
+
             const res = await doctorApi.updateProfile({
                 name: profile.name,
-                phone: profile.phone,
                 specialization: profile.specialization,
                 consultation_fee: Number(profile.consultationFee) || undefined,
+                registration_number: profile.registrationNumber.trim() || undefined,
+                license_number: profile.licenseNumber.trim() || undefined,
+                license_document_url: profile.licenseDocumentUrl.trim() || undefined,
+                degree_certificate_url: profile.degreeCertificateUrl.trim() || undefined,
                 profile_image: profile.profileImage || undefined,
             });
             setSaveStatus(res.success
@@ -139,6 +160,22 @@ export default function DoctorSettingsPage() {
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Consultation Fee (₹)</label>
                             <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="Enter fee" />
                         </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registration Number</label><Input value={profile.registrationNumber} onChange={e => setProfile(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="Medical council registration number" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Medical license number" /></div>
+                        <ComplianceDocumentUpload
+                            label="Medical License Document"
+                            providerType="doctor"
+                            value={profile.licenseDocumentUrl}
+                            onChange={(url) => setProfile((prev) => ({ ...prev, licenseDocumentUrl: url }))}
+                            description="Upload or paste the URL for the medical license that admin should review."
+                        />
+                        <ComplianceDocumentUpload
+                            label="Degree Certificate"
+                            providerType="doctor"
+                            value={profile.degreeCertificateUrl}
+                            onChange={(url) => setProfile((prev) => ({ ...prev, degreeCertificateUrl: url }))}
+                            description="Upload or paste the URL for your MBBS/degree certificate."
+                        />
                         <Button onClick={handleSaveProfile} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>Save Profile</Button>
                     </div>
                 </CardContent>

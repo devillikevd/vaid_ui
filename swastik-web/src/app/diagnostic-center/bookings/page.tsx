@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Pagination, usePagination } from '@/components/ui/Pagination';
+import { Pagination } from '@/components/ui/Pagination';
 import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagnosticCenterStore';
 import { useDiagnosticUpdates } from '@/hooks/useSocket';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -34,26 +34,47 @@ const NEXT_STATUS: Record<string, { label: string; value: string; icon: typeof C
 };
 
 export default function BookingsPage() {
-    const { bookings, isLoading, error, fetchBookings, updateBookingStatus, uploadResult, clearError } = useDiagnosticCenterStore();
+    const {
+        bookings,
+        bookingsPagination,
+        bookingsSummary,
+        loadingBookings,
+        error,
+        fetchBookings,
+        updateBookingStatus,
+        uploadResult,
+        clearError,
+    } = useDiagnosticCenterStore();
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [resultForm, setResultForm] = useState({ result_url: '', result_notes: '' });
     const [newBookingAlert, setNewBookingAlert] = useState(false);
     const [page, setPage] = useState(1);
+    const pageSize = 10;
 
     // Real-time Socket.IO — new bookings trigger refresh
     useDiagnosticUpdates(
         useCallback(() => {
             setNewBookingAlert(true);
-            fetchBookings(statusFilter || undefined);
+            fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize });
             setTimeout(() => setNewBookingAlert(false), 5000);
-        }, [fetchBookings, statusFilter]),
-        useCallback(() => { fetchBookings(statusFilter || undefined); }, [fetchBookings, statusFilter]),
-        useCallback(() => { fetchBookings(statusFilter || undefined); }, [fetchBookings, statusFilter])
+        }, [debouncedSearch, fetchBookings, page, statusFilter]),
+        useCallback(() => { fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize }); }, [debouncedSearch, fetchBookings, page, statusFilter]),
+        useCallback(() => { fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize }); }, [debouncedSearch, fetchBookings, page, statusFilter])
     );
 
-    useEffect(() => { fetchBookings(statusFilter || undefined); }, [fetchBookings, statusFilter]);
+    useEffect(() => {
+        const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+        return () => window.clearTimeout(timeout);
+    }, [search]);
+
+    useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+    useEffect(() => {
+        fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize });
+    }, [debouncedSearch, fetchBookings, page, statusFilter]);
 
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
@@ -78,22 +99,6 @@ export default function BookingsPage() {
         }
     };
 
-    const filtered = bookings.filter(b => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            (b.patient_name || '').toLowerCase().includes(q) ||
-            (b.test_name || '').toLowerCase().includes(q) ||
-            b.id.toLowerCase().includes(q)
-        );
-    });
-
-    const { totalPages, totalItems, itemsPerPage, paginate } = usePagination(filtered, 10);
-    const paginatedBookings = paginate(page);
-
-    // Reset page when filters change
-    useEffect(() => { setPage(1); }, [search, statusFilter]);
-
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -102,7 +107,13 @@ export default function BookingsPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Bookings</h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">Manage test bookings and upload results</p>
                 </div>
-                <Button onClick={() => fetchBookings(statusFilter || undefined)} variant="outline" leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
+                <Button
+                    onClick={() => fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize })}
+                    variant="outline"
+                    leftIcon={<RefreshCw className="h-4 w-4" />}
+                >
+                    Refresh
+                </Button>
             </div>
 
             {/* New Booking Alert */}
@@ -115,12 +126,12 @@ export default function BookingsPage() {
             )}
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CalendarCheck className="h-5 w-5 text-purple-600" /></div><div><p className="text-xl font-bold">{bookings.length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookings.filter(b => b.status === 'booked').length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Booked</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><FlaskConical className="h-5 w-5 text-yellow-600" /></div><div><p className="text-xl font-bold">{bookings.filter(b => b.status === 'sample_collected').length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Samples</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Loader2 className="h-5 w-5 text-orange-600" /></div><div><p className="text-xl font-bold">{bookings.filter(b => b.status === 'processing').length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-green-600" /></div><div><p className="text-xl font-bold">{bookings.filter(b => b.status === 'completed').length}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CalendarCheck className="h-5 w-5 text-purple-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.booked || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Booked</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><FlaskConical className="h-5 w-5 text-yellow-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.sample_collected || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Samples</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Loader2 className="h-5 w-5 text-orange-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.processing || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-green-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.completed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
             </div>
 
             {error && (
@@ -155,12 +166,12 @@ export default function BookingsPage() {
             </div>
 
             {/* Booking List */}
-            {isLoading ? (
+            {loadingBookings ? (
                 <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-purple-600" /></div>
-            ) : filtered.length > 0 ? (
+            ) : bookings.length > 0 ? (
                 <>
                 <div className="space-y-4">
-                    {paginatedBookings.map((booking: DiagnosticBooking) => (
+                    {bookings.map((booking: DiagnosticBooking) => (
                         <Card key={booking.id}>
                             <div className="space-y-4">
                                 {/* Booking Header */}
@@ -261,10 +272,10 @@ export default function BookingsPage() {
                 </div>
                 <Pagination
                     currentPage={page}
-                    totalPages={totalPages}
+                    totalPages={bookingsPagination.totalPages}
                     onPageChange={setPage}
-                    totalItems={totalItems}
-                    itemsPerPage={itemsPerPage}
+                    totalItems={bookingsPagination.total}
+                    itemsPerPage={bookingsPagination.limit}
                     className="mt-4"
                 />
                 </>

@@ -41,6 +41,8 @@ export default function SettingsPage() {
     const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
+    const [settingsLoading, setSettingsLoading] = useState(true);
+    const [savingSettings, setSavingSettings] = useState(false);
     const [settings, setSettings] = useState({
         emailNotifications: true,
         smsNotifications: false,
@@ -56,9 +58,36 @@ export default function SettingsPage() {
         setSettings(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const handleSave = () => {
-        setSaveStatus('Settings saved locally. Backend sync is not enabled in this build.');
-        setTimeout(() => setSaveStatus(null), 3000);
+    const fetchSettings = async () => {
+        setSettingsLoading(true);
+        try {
+            const result = await adminApi.getSettings();
+            if (result.success && result.data) {
+                setSettings((prev) => ({ ...prev, ...(result.data as typeof prev) }));
+            }
+        } catch (err) {
+            console.error('Error fetching admin settings:', err);
+            setSaveStatus('Failed to load saved settings. Showing defaults instead.');
+        } finally {
+            setSettingsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setSavingSettings(true);
+        try {
+            const result = await adminApi.updateSettings(settings);
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save settings');
+            }
+            setSaveStatus('Settings saved successfully.');
+        } catch (err) {
+            console.error('Error saving admin settings:', err);
+            setSaveStatus('Failed to save settings. Please retry.');
+        } finally {
+            setSavingSettings(false);
+            setTimeout(() => setSaveStatus(null), 3000);
+        }
     };
 
     const fetchSystemHealth = async () => {
@@ -75,6 +104,10 @@ export default function SettingsPage() {
             setHealthLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
 
     useEffect(() => {
         if (activeSection === 'integrations') {
@@ -113,15 +146,30 @@ export default function SettingsPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Platform Settings</h1>
                     <p className="text-gray-600 dark:text-gray-400 mt-1">Manage system configuration and preferences</p>
                 </div>
-                <Button onClick={handleSave} leftIcon={<Save className="h-4 w-4" />}>Save Changes</Button>
+                <Button onClick={handleSave} leftIcon={<Save className="h-4 w-4" />} isLoading={savingSettings} disabled={settingsLoading}>
+                    Save Changes
+                </Button>
             </div>
 
             {saveStatus && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" /> {saveStatus}
+                <div className={`px-4 py-3 rounded-lg text-sm flex items-center gap-2 ${
+                    saveStatus.startsWith('Failed')
+                        ? 'bg-red-50 border border-red-200 text-red-700'
+                        : 'bg-green-50 border border-green-200 text-green-700'
+                }`}>
+                    {saveStatus.startsWith('Failed') ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                    {saveStatus}
                 </div>
             )}
 
+            {settingsLoading ? (
+                <Card>
+                    <CardContent className="flex items-center justify-center py-16">
+                        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                        <span className="ml-2 text-gray-500 dark:text-gray-400">Loading saved settings...</span>
+                    </CardContent>
+                </Card>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1">
                     <Card padding="sm">
@@ -273,6 +321,7 @@ export default function SettingsPage() {
                     )}
                 </div>
             </div>
+            )}
         </div>
     );
 }

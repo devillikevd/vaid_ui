@@ -2,6 +2,7 @@ package com.example.swastik.ambulance.data.repository
 
 import android.util.Log
 import com.example.swastik.ambulance.data.local.TokenManager
+import com.example.swastik.ambulance.notifications.AmbulancePushNotificationCoordinator
 import com.example.swastik.ambulance.data.remote.ApiErrorParser
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
@@ -13,7 +14,8 @@ import javax.inject.Singleton
 class AuthRepository @Inject constructor(
     private val apiService: ApiService,
     private val tokenManager: TokenManager,
-    private val socketManager: SocketManager
+    private val socketManager: SocketManager,
+    private val pushNotificationCoordinator: AmbulancePushNotificationCoordinator
 ) {
     private fun shouldEnableRealtime(user: UserDto): Boolean {
         return user.role == "ambulance_driver" ||
@@ -37,7 +39,14 @@ class AuthRepository @Inject constructor(
         email: String,
         phone: String,
         password: String,
-        companyName: String?
+        companyName: String?,
+        registrationNumber: String?,
+        address: String?,
+        city: String?,
+        state: String?,
+        alternatePhone: String?,
+        licenseDocumentUrl: String?,
+        licenseExpiry: String?
     ): Result<String> {
         return try {
             val response = apiService.register(
@@ -46,7 +55,14 @@ class AuthRepository @Inject constructor(
                     phone = phone.trim(),
                     password = password,
                     name = name.trim(),
-                    companyName = companyName?.trim()?.takeIf { it.isNotBlank() }
+                    companyName = companyName?.trim()?.takeIf { it.isNotBlank() },
+                    registrationNumber = registrationNumber?.trim()?.takeIf { it.isNotBlank() },
+                    address = address?.trim()?.takeIf { it.isNotBlank() },
+                    city = city?.trim()?.takeIf { it.isNotBlank() },
+                    state = state?.trim()?.takeIf { it.isNotBlank() },
+                    alternatePhone = alternatePhone?.trim()?.takeIf { it.isNotBlank() },
+                    licenseDocumentUrl = licenseDocumentUrl?.trim()?.takeIf { it.isNotBlank() },
+                    licenseExpiry = licenseExpiry?.trim()?.takeIf { it.isNotBlank() }
                 )
             )
 
@@ -91,6 +107,7 @@ class AuthRepository @Inject constructor(
                     tokenManager.saveUserId(hydratedUser.id)
                     tokenManager.saveUserName(hydratedUser.name ?: hydratedUser.email)
                     syncRealtimeConnection(hydratedUser, accessToken)
+                    pushNotificationCoordinator.registerCurrentDeviceIfPossible()
 
                     Result.success(hydratedUser)
                 } else {
@@ -108,6 +125,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun logout() {
         try {
+            pushNotificationCoordinator.unregisterCurrentDeviceIfPossible()
             val refreshToken = tokenManager.getRefreshToken()
             if (refreshToken != null) {
                 apiService.logout(LogoutRequest(refreshToken))
@@ -149,6 +167,7 @@ class AuthRepository @Inject constructor(
             tokenManager.saveUserId(user.id)
             tokenManager.saveUserName(user.name ?: user.email)
             syncRealtimeConnection(user)
+            pushNotificationCoordinator.registerCurrentDeviceIfPossible()
         }
         return result
     }

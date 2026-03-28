@@ -11,6 +11,7 @@ import com.example.swastik.data.remote.dto.AddFamilyMemberRequest
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.EmergencyRepository
+import com.example.swastik.notifications.PushNotificationCoordinator
 import com.example.swastik.utils.NetworkObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,7 @@ class PatientDashboardViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
     private val emergencyRepository: EmergencyRepository,
     private val socketManager: SocketManager,
+    private val pushNotificationCoordinator: PushNotificationCoordinator,
     networkObserver: NetworkObserver
 ) : ViewModel() {
 
@@ -55,6 +57,7 @@ class PatientDashboardViewModel @Inject constructor(
     private var hasObservedSocketConnection = false
 
     init {
+        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
         loadDashboard()
         collectRealtimeNotifications()
         collectProviderCatalogUpdates()
@@ -73,26 +76,7 @@ class PatientDashboardViewModel @Inject constructor(
     private fun collectRealtimeNotifications() {
         viewModelScope.launch {
             patientRepository.realtimeNotifications.collect { socketNotification ->
-                // Convert socket notification to UI model and prepend
-                val newNotification = NotificationItem(
-                    id = socketNotification.id,
-                    title = socketNotification.title,
-                    message = socketNotification.message,
-                    time = "Just now",
-                    type = when (socketNotification.type.lowercase()) {
-                        "appointment", "appointment_booked", "appointment_confirmed", "appointment_reminder", "follow_up_reminder", "appointment_status_changed", "appointment_rescheduled", "appointment_cancelled" -> NotificationType.APPOINTMENT
-                        "medicine", "medicine_reminder", "medicine_missed", "health_task_reminder", "care_plan_reminder" -> NotificationType.MEDICINE_REMINDER
-                        "report", "report_ready", "diagnostic_result", "diagnostic_test_reminder", "report_review_reminder" -> NotificationType.REPORT_READY
-                        "prescription", "prescription_created", "prescription_expiry_reminder" -> NotificationType.PRESCRIPTION
-                        else -> NotificationType.SYSTEM
-                    },
-                    isRead = false,
-                    actionLabel = null
-                )
-                // Merge: add to start of existing list
-                val current = patientRepository.notifications.value.toMutableList()
-                current.add(0, newNotification)
-                // Trigger a re-read to update the private _notifications in repository
+                patientRepository.applyRealtimeNotification(socketNotification)
                 patientRepository.fetchNotifications()
             }
         }
@@ -252,7 +236,7 @@ class PatientDashboardViewModel @Inject constructor(
             _profileUpdateState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.updateProfile(request)) {
                 is Result.Success -> {
-                    _profileUpdateState.value = ProfileUpdateState.Success
+                    _profileUpdateState.value = ProfileUpdateState.Success("Profile updated successfully!")
                     // Refresh the entire dashboard so updated profile data
                     // (name, age, blood group, etc.) reflects everywhere in the app
                     loadDashboard()
@@ -279,7 +263,7 @@ class PatientDashboardViewModel @Inject constructor(
             _imageUploadState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.uploadProfileImage(imagePart)) {
                 is Result.Success -> {
-                    _imageUploadState.value = ProfileUpdateState.Success
+                    _imageUploadState.value = ProfileUpdateState.Success("Profile photo updated!")
                     loadDashboard()
                 }
                 is Result.Error -> {
@@ -304,7 +288,7 @@ class PatientDashboardViewModel @Inject constructor(
             _changePasswordState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.changePassword(currentPassword, newPassword)) {
                 is Result.Success -> {
-                    _changePasswordState.value = ProfileUpdateState.Success
+                    _changePasswordState.value = ProfileUpdateState.Success("Password changed successfully!")
                 }
                 is Result.Error -> {
                     _changePasswordState.value = ProfileUpdateState.Error(result.message)
@@ -327,7 +311,7 @@ class PatientDashboardViewModel @Inject constructor(
                 AddEmergencyContactRequest(name = name, phone = phone, relation = relation)
             )) {
                 is Result.Success -> {
-                    _profileUpdateState.value = ProfileUpdateState.Success
+                    _profileUpdateState.value = ProfileUpdateState.Success("Emergency contact added successfully!")
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -339,7 +323,16 @@ class PatientDashboardViewModel @Inject constructor(
 
     fun deleteEmergencyContact(contactId: String) {
         viewModelScope.launch {
-            patientRepository.deleteEmergencyContact(contactId)
+            _profileUpdateState.value = ProfileUpdateState.Loading
+            when (val result = patientRepository.deleteEmergencyContact(contactId)) {
+                is Result.Success -> {
+                    _profileUpdateState.value = ProfileUpdateState.Success("Emergency contact removed successfully!")
+                }
+                is Result.Error -> {
+                    _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                }
+                is Result.Loading -> {}
+            }
         }
     }
 
@@ -352,7 +345,7 @@ class PatientDashboardViewModel @Inject constructor(
                 AddFamilyMemberRequest(name = name, relation = relation, phone = phone)
             )) {
                 is Result.Success -> {
-                    _profileUpdateState.value = ProfileUpdateState.Success
+                    _profileUpdateState.value = ProfileUpdateState.Success("Family member added successfully!")
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -364,7 +357,16 @@ class PatientDashboardViewModel @Inject constructor(
 
     fun deleteFamilyMember(memberId: String) {
         viewModelScope.launch {
-            patientRepository.deleteFamilyMember(memberId)
+            _profileUpdateState.value = ProfileUpdateState.Loading
+            when (val result = patientRepository.deleteFamilyMember(memberId)) {
+                is Result.Success -> {
+                    _profileUpdateState.value = ProfileUpdateState.Success("Family member removed successfully!")
+                }
+                is Result.Error -> {
+                    _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                }
+                is Result.Loading -> {}
+            }
         }
     }
 
@@ -456,6 +458,6 @@ class PatientDashboardViewModel @Inject constructor(
 sealed class ProfileUpdateState {
     data object Idle : ProfileUpdateState()
     data object Loading : ProfileUpdateState()
-    data object Success : ProfileUpdateState()
+    data class Success(val message: String) : ProfileUpdateState()
     data class Error(val message: String) : ProfileUpdateState()
 }

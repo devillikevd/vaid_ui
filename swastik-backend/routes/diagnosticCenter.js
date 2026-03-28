@@ -149,7 +149,8 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), require
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
         'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
-        'latitude', 'longitude', 'license_number', 'nabl_accreditation',
+        'latitude', 'longitude', 'registration_number', 'license_number', 'license_document_url',
+        'nabl_accreditation', 'accreditations',
         'sample_collection_available', 'home_collection_available',
         'home_collection_fee', 'is_24_hours', 'profile_image',
     ];
@@ -163,7 +164,7 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), require
 
 // ==================== Test Catalog ====================
 
-router.get('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const { search, category, page = 1, limit = 50 } = req.query;
 
@@ -177,19 +178,19 @@ router.get('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHand
     res.json({ success: true, ...result });
 }));
 
-router.post('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.post('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const test = await diagnosticCenterService.addTest(center.id, req.body);
     res.status(201).json({ success: true, data: test });
 }));
 
-router.put('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.put('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const updated = await diagnosticCenterService.updateTest(center.id, req.params.testId, req.body);
     res.json({ success: true, data: updated });
 }));
 
-router.delete('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.delete('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     await diagnosticCenterService.deleteTest(center.id, req.params.testId);
     res.json({ success: true, message: 'Test removed' });
@@ -197,13 +198,13 @@ router.delete('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER)
 
 // ==================== Bookings / Results ====================
 
-router.get('/owner/bookings', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/bookings', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
-    const { status, resultStatus, date, page = 1, limit = 20 } = req.query;
+    const { status, resultStatus, date, search, page = 1, limit = 20 } = req.query;
 
     const result = await diagnosticCenterService.getBookings(
         center.id,
-        { status, resultStatus, date },
+        { status, resultStatus, date, search },
         parseInt(page),
         parseInt(limit)
     );
@@ -212,13 +213,13 @@ router.get('/owner/bookings', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncH
 }));
 
 // M6: Get single booking by ID
-router.get('/owner/bookings/:bookingId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/bookings/:bookingId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const booking = await diagnosticCenterService.getBookingById(center.id, req.params.bookingId);
     res.json({ success: true, data: booking });
 }));
 
-router.patch('/owner/bookings/:bookingId/status', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.patch('/owner/bookings/:bookingId/status', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const updated = await diagnosticCenterService.updateBookingStatus(
         center.id,
@@ -232,7 +233,7 @@ router.patch('/owner/bookings/:bookingId/status', requireRole(ROLES.DIAGNOSTIC_C
     res.json({ success: true, data: updated });
 }));
 
-router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const updated = await diagnosticCenterService.uploadResult(
         center.id,
@@ -259,7 +260,7 @@ router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_C
 }));
 
 // Analytics
-router.get('/owner/analytics', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+router.get('/owner/analytics', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const analytics = await diagnosticCenterService.getAnalytics(center.id);
     res.json({ success: true, data: analytics });

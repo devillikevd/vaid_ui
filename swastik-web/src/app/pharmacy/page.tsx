@@ -26,7 +26,7 @@ export default function PharmacyDashboard() {
 
     // Stats configuration using real data
     const STATS = [
-        { label: 'New Prescriptions', value: stats?.newPrescriptions ?? 0, icon: FileText, color: 'text-orange-600', bg: 'bg-orange-100' },
+        { label: 'Pending Fulfilments', value: stats?.newPrescriptions ?? 0, icon: FileText, color: 'text-orange-600', bg: 'bg-orange-100' },
         { label: 'Pending Orders', value: stats?.pendingOrders ?? 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-100' },
         { label: 'Low Stock Items', value: stats?.lowStockItems ?? 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100' },
         { label: "Today's Revenue", value: `₹${(stats?.todaysRevenue ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-100' },
@@ -92,11 +92,11 @@ export default function PharmacyDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Pending Prescriptions */}
+                {/* Pending Orders */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>New Prescriptions</CardTitle>
-                        <Link href="/pharmacy/prescriptions" className="text-sm text-orange-600 hover:underline">
+                        <CardTitle>Pending Orders</CardTitle>
+                        <Link href="/pharmacy/orders" className="text-sm text-orange-600 hover:underline">
                             View all
                         </Link>
                     </CardHeader>
@@ -106,7 +106,7 @@ export default function PharmacyDashboard() {
                                 <div key={rx.id} className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-xl">
                                     <div>
                                         <p className="font-medium text-gray-900 dark:text-gray-100">{rx.patientName}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{rx.doctorName} • {rx.items} items</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{rx.items} items pending</p>
                                     </div>
                                     <div className="text-right">
                                         <StatusBadge status={rx.status} size="sm" />
@@ -114,6 +114,11 @@ export default function PharmacyDashboard() {
                                     </div>
                                 </div>
                             ))}
+                            {pendingPrescriptions.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    No pending pharmacy orders right now.
+                                </div>
+                            ) : null}
                         </div>
                     </CardContent>
                 </Card>
@@ -137,6 +142,11 @@ export default function PharmacyDashboard() {
                                     <span className="text-sm text-red-600 font-medium">{item.quantity} left</span>
                                 </div>
                             ))}
+                            {lowStockItems.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    Inventory levels look healthy right now.
+                                </div>
+                            ) : null}
                         </div>
                     </CardContent>
                 </Card>

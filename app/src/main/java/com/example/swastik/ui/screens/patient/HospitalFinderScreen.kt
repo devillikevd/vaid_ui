@@ -52,13 +52,16 @@ private const val MAX_DISCOVERY_RADIUS_KM = 25f
 @Composable
 fun HospitalFinderScreen(
     initialFacilityType: FacilityType? = null,
+    focusedFacilityId: String? = null,
+    focusedFacilityName: String? = null,
     onBackClick: () -> Unit,
     onDoctorBookClick: (HospitalDoctor, MedicalFacility) -> Unit = { _, _ -> },
     onHospitalClick: (String) -> Unit = {},
+    onClinicClick: (String) -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
     onNavigateToCart: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
-    onNavigateToDiagnosticBooking: () -> Unit = {},
+    onNavigateToDiagnosticBooking: (String?) -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     isDarkMode: Boolean = false,
     viewModel: HospitalFinderViewModel = hiltViewModel(),
@@ -67,6 +70,8 @@ fun HospitalFinderScreen(
     @Suppress("UNUSED_VARIABLE")
     val _unusedOnMedicineClick = onMedicineClick
     val appContext = LocalContext.current
+    val requestedFocusFacilityId = focusedFacilityId?.takeIf { it.isNotBlank() }
+    val requestedFocusFacilityName = focusedFacilityName?.takeIf { it.isNotBlank() }
     var selectedFacilityTypeOverride by remember { mutableStateOf<FacilityType?>(null) }
     var selectedFacility by remember { mutableStateOf<MedicalFacility?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -74,6 +79,9 @@ fun HospitalFinderScreen(
     var isMapView by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var isEmergencyMode by remember { mutableStateOf(false) }
+    var hasTriggeredFocusedSearch by remember(requestedFocusFacilityId, requestedFocusFacilityName) {
+        mutableStateOf(false)
+    }
 
     // Filter states
     var distanceFilter by remember { mutableFloatStateOf(DEFAULT_DISCOVERY_RADIUS_KM) }
@@ -129,6 +137,39 @@ fun HospitalFinderScreen(
             )
 
         typeMatch && searchMatch && openMatch && ratingMatch && emergencyMatch && distanceMatch && hospitalTypeMatch
+    }
+    val mappableFacilities = filteredFacilities.filter(::hasValidMapCoordinates)
+    val facilitiesMissingMapCoordinates = filteredFacilities.size - mappableFacilities.size
+
+    LaunchedEffect(
+        requestedFocusFacilityId,
+        requestedFocusFacilityName,
+        facilities,
+        hospitalState.isLoading
+    ) {
+        if (requestedFocusFacilityId == null && requestedFocusFacilityName == null) return@LaunchedEffect
+        if (hospitalState.isLoading) return@LaunchedEffect
+
+        val targetFacility = facilities.firstOrNull { facility ->
+            (requestedFocusFacilityId != null && facility.id == requestedFocusFacilityId) ||
+                (requestedFocusFacilityName != null && facility.name.equals(requestedFocusFacilityName, ignoreCase = true))
+        }
+
+        if (targetFacility != null) {
+            selectedFacility = targetFacility
+            showBottomSheet = true
+            isMapView = true
+            if (searchQuery != targetFacility.name) {
+                searchQuery = targetFacility.name
+            }
+            hasTriggeredFocusedSearch = true
+            return@LaunchedEffect
+        }
+
+        if (!hasTriggeredFocusedSearch && !requestedFocusFacilityName.isNullOrBlank()) {
+            searchQuery = requestedFocusFacilityName
+            hasTriggeredFocusedSearch = true
+        }
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -345,9 +386,10 @@ fun HospitalFinderScreen(
                 } else if (isMapView) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         EnhancedMapView(
-                            facilities = filteredFacilities,
+                            facilities = mappableFacilities,
                             userLat = hospitalState.userLatitude,
                             userLng = hospitalState.userLongitude,
+                            focusedFacilityId = selectedFacility?.id ?: requestedFocusFacilityId,
                             onFacilityClick = { facility ->
                                 selectedFacility = facility
                                 showBottomSheet = true
@@ -366,10 +408,11 @@ fun HospitalFinderScreen(
                             Icon(Icons.Default.MyLocation, contentDescription = "My Location")
                         }
 
-                        if (filteredFacilities.isEmpty()) {
+                        if (mappableFacilities.isEmpty()) {
                             MapEmptyStateCard(
                                 selectedFacilityType = selectedFacilityType,
                                 activeRadiusKm = hospitalState.activeRadiusKm,
+                                facilitiesMissingMapCoordinates = facilitiesMissingMapCoordinates,
                                 onResetFilters = resetFilters,
                                 onRefreshNearby = { viewModel.loadNearbyFacilities(facilityType = selectedFacilityType) },
                                 modifier = Modifier
@@ -385,7 +428,7 @@ fun HospitalFinderScreen(
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(filteredFacilities) { facility ->
+                                items(mappableFacilities) { facility ->
                                     FacilityMapCard(
                                         facility = facility,
                                         onClick = {
@@ -433,12 +476,21 @@ fun HospitalFinderScreen(
                     showBottomSheet = false
                     selectedFacility = null
                     viewModel.clearPharmacyMedicines()
+                    viewModel.clearSelectedHospitalDetails()
                     viewModel.clearClinicDoctors()
                     viewModel.clearPharmacyInventory()
                 },
                 sheetState = sheetState,
                 containerColor = surfaceColor
             ) {
+                val sheetFacility = if (facility.type == FacilityType.HOSPITAL) {
+                    mergeFacilityDetails(
+                        baseFacility = facility,
+                        loadedDetails = hospitalState.selectedHospitalDetails?.takeIf { it.id == facility.id }
+                    )
+                } else {
+                    facility
+                }
                 val cartState by medicineViewModel.cartState.collectAsState()
                 cartState.pharmacyConflict?.let { conflict ->
                     AlertDialog(
@@ -482,6 +534,7 @@ fun HospitalFinderScreen(
                                 // Convert PharmacyInventoryItemDto → Medicine → add to cart
                                 val medicine = Medicine(
                                     id = item.medicineId ?: item.id,
+                                    inventoryItemId = item.id,
                                     name = item.displayName,
                                     genericName = null,
                                     manufacturer = item.manufacturer,
@@ -508,6 +561,48 @@ fun HospitalFinderScreen(
                             isDarkMode = isDarkMode
                         )
                     }
+                    FacilityType.HOSPITAL -> {
+                        LaunchedEffect(facility.id) {
+                            viewModel.loadHospitalDetails(facility.id)
+                        }
+                        FacilityDetailSheet(
+                            facility = sheetFacility,
+                            isDetailsLoading = hospitalState.isHospitalDetailsLoading,
+                            detailsError = hospitalState.hospitalDetailsError,
+                            onDoctorBook = { doctor ->
+                                showBottomSheet = false
+                                onDoctorBookClick(doctor, sheetFacility)
+                            },
+                            onBookAppointment = {
+                                val preferredDoctor = sheetFacility.doctors.firstOrNull()
+                                when {
+                                    hospitalState.isHospitalDetailsLoading && preferredDoctor == null -> {
+                                        android.widget.Toast.makeText(
+                                            appContext,
+                                            "Loading hospital doctors...",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    preferredDoctor != null -> {
+                                        showBottomSheet = false
+                                        onDoctorBookClick(preferredDoctor, sheetFacility)
+                                    }
+                                    else -> {
+                                        android.widget.Toast.makeText(
+                                            appContext,
+                                            "No doctors available for booking right now",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            },
+                            onViewDetails = {
+                                showBottomSheet = false
+                                onHospitalClick(facility.id)
+                            },
+                            isDarkMode = isDarkMode
+                        )
+                    }
                     FacilityType.CLINIC -> {
                         // Load clinic doctors when sheet opens
                         LaunchedEffect(facility.id) {
@@ -520,6 +615,10 @@ fun HospitalFinderScreen(
                             onDoctorBook = { doctor ->
                                 showBottomSheet = false
                                 onDoctorBookClick(doctor, facility)
+                            },
+                            onViewDetails = {
+                                showBottomSheet = false
+                                onClinicClick(facility.id)
                             },
                             onBookAppointment = {
                                 val preferredDoctor = hospitalState.clinicDoctors.firstOrNull()?.let { doc ->
@@ -552,36 +651,11 @@ fun HospitalFinderScreen(
                             facility = facility,
                             onBookTest = {
                                 showBottomSheet = false
-                                onNavigateToDiagnosticBooking()
+                                onNavigateToDiagnosticBooking(facility.id)
                             },
                             isDarkMode = isDarkMode
                         )
                     }
-                    else -> FacilityDetailSheet(
-                        facility = facility,
-                        onDoctorBook = { doctor ->
-                            showBottomSheet = false
-                            onDoctorBookClick(doctor, facility)
-                        },
-                        onBookAppointment = {
-                            // Navigate to appointment booking via the first available doctor or general booking
-                            if (facility.doctors.isNotEmpty()) {
-                                showBottomSheet = false
-                                onDoctorBookClick(facility.doctors.first(), facility)
-                            } else {
-                                android.widget.Toast.makeText(
-                                    appContext,
-                                    "No doctors available for booking right now",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
-                        onViewDetails = {
-                            showBottomSheet = false
-                            onHospitalClick(facility.id)
-                        },
-                        isDarkMode = isDarkMode
-                    )
                 }
             }
         }
@@ -619,18 +693,22 @@ private fun EnhancedMapView(
     facilities: List<MedicalFacility>,
     userLat: Double = 0.0,
     userLng: Double = 0.0,
+    focusedFacilityId: String? = null,
     onFacilityClick: (MedicalFacility) -> Unit
 ) {
     // Use actual user GPS location as map center (if available), fallback to facility centroid
-    val centerLat = if (userLat != 0.0) userLat
-        else facilities.filter { it.latitude != 0.0 }
+    val positionedFacilities = facilities.filter(::hasValidMapCoordinates)
+    val focusedFacility = focusedFacilityId?.let { targetId ->
+        positionedFacilities.firstOrNull { it.id == targetId }
+    }
+    val centerLat = focusedFacility?.latitude ?: if (userLat != 0.0) userLat
+        else positionedFacilities
             .map { it.latitude }.average().takeIf { !it.isNaN() } ?: 20.5937
-    val centerLng = if (userLng != 0.0) userLng
-        else facilities.filter { it.longitude != 0.0 }
+    val centerLng = focusedFacility?.longitude ?: if (userLng != 0.0) userLng
+        else positionedFacilities
             .map { it.longitude }.average().takeIf { !it.isNaN() } ?: 78.9629
 
-    val mapMarkers = facilities.mapNotNull { facility ->
-        if (kotlin.math.abs(facility.latitude) < 1.0 && kotlin.math.abs(facility.longitude) < 1.0) return@mapNotNull null
+    val mapMarkers = positionedFacilities.map { facility ->
         val color = when (facility.type) {
             FacilityType.HOSPITAL -> android.graphics.Color.parseColor("#D32F2F")       // Red
             FacilityType.CLINIC -> android.graphics.Color.parseColor("#4CAF50")         // Green (matches model)
@@ -652,7 +730,8 @@ private fun EnhancedMapView(
         modifier = Modifier.fillMaxSize(),
         center = GeoPoint(centerLat, centerLng),
         zoom = when {
-            facilities.isNotEmpty() -> 13.0
+            focusedFacility != null -> 15.5
+            positionedFacilities.isNotEmpty() -> 13.0
             userLat != 0.0 && userLng != 0.0 -> 14.0
             else -> 5.0
         },
@@ -935,6 +1014,8 @@ private fun FacilityDetailSheet(
     onDoctorBook: (HospitalDoctor) -> Unit,
     onBookAppointment: () -> Unit = {},
     onViewDetails: () -> Unit = {},
+    isDetailsLoading: Boolean = false,
+    detailsError: String? = null,
     isDarkMode: Boolean
 ) {
     val textColor = if (isDarkMode) Color.White else Color.Black
@@ -1182,6 +1263,78 @@ private fun FacilityDetailSheet(
             }
         }
 
+        if (facility.departments.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Departments",
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = textColor,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(facility.departments) { department ->
+                    Box(
+                        modifier = Modifier
+                            .background(SwastikPurple.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = department,
+                            fontSize = 12.sp,
+                            color = SwastikPurple,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        if (facility.type == FacilityType.HOSPITAL && isDetailsLoading && facility.doctors.isEmpty()) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = SwastikPurple
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Loading hospital team...",
+                    fontSize = 13.sp,
+                    color = subtextColor
+                )
+            }
+        }
+
+        if (facility.type == FacilityType.HOSPITAL && detailsError != null && facility.doctors.isEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = detailsError,
+                    modifier = Modifier.padding(14.dp),
+                    fontSize = 13.sp,
+                    color = Color(0xFFE65100)
+                )
+            }
+        }
+
         // Doctor Listing (only for hospitals and clinics)
         if ((facility.type == FacilityType.HOSPITAL || facility.type == FacilityType.CLINIC) && facility.doctors.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
@@ -1206,8 +1359,56 @@ private fun FacilityDetailSheet(
                     )
                 }
             }
+        } else if (facility.type == FacilityType.HOSPITAL && !isDetailsLoading && detailsError == null) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No doctors listed at this hospital yet",
+                    fontSize = 14.sp,
+                    color = subtextColor,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "You can still open details or contact the hospital directly.",
+                    fontSize = 12.sp,
+                    color = subtextColor,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
+}
+
+private fun mergeFacilityDetails(
+    baseFacility: MedicalFacility,
+    loadedDetails: MedicalFacility?
+): MedicalFacility {
+    if (loadedDetails == null) return baseFacility
+
+    return loadedDetails.copy(
+        latitude = loadedDetails.latitude.takeIf { it != 0.0 } ?: baseFacility.latitude,
+        longitude = loadedDetails.longitude.takeIf { it != 0.0 } ?: baseFacility.longitude,
+        distance = if (loadedDetails.distance == "N/A" && baseFacility.distance != "N/A") {
+            baseFacility.distance
+        } else {
+            loadedDetails.distance
+        },
+        distanceKm = loadedDetails.distanceKm.takeIf { it > 0.0 } ?: baseFacility.distanceKm,
+        rating = loadedDetails.rating.takeIf { it > 0f } ?: baseFacility.rating,
+        reviewCount = loadedDetails.reviewCount.takeIf { it > 0 } ?: baseFacility.reviewCount,
+        phone = loadedDetails.phone.ifBlank { baseFacility.phone },
+        isOpen = loadedDetails.isOpen || baseFacility.isOpen,
+        isEmergencyAvailable = loadedDetails.isEmergencyAvailable || baseFacility.isEmergencyAvailable,
+        specializations = (loadedDetails.specializations + baseFacility.specializations).distinct(),
+        hospitalSubType = loadedDetails.hospitalSubType ?: baseFacility.hospitalSubType,
+        departments = (loadedDetails.departments + baseFacility.departments).distinct()
+    )
 }
 
 // ==================== 4️⃣ DOCTOR LISTING CARD ====================
@@ -1829,6 +2030,7 @@ private fun ClinicDetailSheet(
     clinicDoctors: List<ClinicDoctorDto> = emptyList(),
     isDoctorsLoading: Boolean = false,
     onDoctorBook: (HospitalDoctor) -> Unit = {},
+    onViewDetails: () -> Unit = {},
     onBookAppointment: () -> Unit = {},
     isDarkMode: Boolean
 ) {
@@ -1922,6 +2124,20 @@ private fun ClinicDetailSheet(
                 modifier = Modifier.weight(1f),
                 onClick = onBookAppointment
             )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = onViewDetails,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Open Clinic Details")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2766,6 +2982,7 @@ private fun EmptyStateView(
 private fun MapEmptyStateCard(
     selectedFacilityType: FacilityType? = null,
     activeRadiusKm: Int,
+    facilitiesMissingMapCoordinates: Int = 0,
     onResetFilters: () -> Unit,
     onRefreshNearby: () -> Unit,
     modifier: Modifier = Modifier
@@ -2794,7 +3011,11 @@ private fun MapEmptyStateCard(
                 color = Color(0xFF212121)
             )
             Text(
-                "The map is centered on your current location. Refresh location or reset filters to try again.",
+                if (facilitiesMissingMapCoordinates > 0) {
+                    "We found $facilitiesMissingMapCoordinates matching $emptyLabel, but they don't have usable map coordinates yet. Refresh nearby results or switch to list view to keep browsing."
+                } else {
+                    "The map is centered on your current location. Refresh location or reset filters to try again."
+                },
                 fontSize = 14.sp,
                 color = Color(0xFF616161)
             )
@@ -2821,6 +3042,13 @@ private fun MapEmptyStateCard(
             }
         }
     }
+}
+
+private fun hasValidMapCoordinates(facility: MedicalFacility): Boolean {
+    if (facility.latitude == 0.0 && facility.longitude == 0.0) return false
+    if (facility.latitude !in -90.0..90.0) return false
+    if (facility.longitude !in -180.0..180.0) return false
+    return true
 }
 
 // ==================== HELPER COMPONENTS ====================

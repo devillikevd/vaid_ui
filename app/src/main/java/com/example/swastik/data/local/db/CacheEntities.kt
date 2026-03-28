@@ -49,6 +49,8 @@ data class CachedNotification(
     val type: String,
     val isRead: Boolean,
     val createdAt: String,
+    val actionLabel: String? = null,
+    val actionRoute: String? = null,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

@@ -65,11 +65,18 @@ router.post('/',
   [
     body('name').notEmpty().withMessage('Report name is required'),
     body('type').notEmpty().withMessage('Report type is required'),
+    body('externalUrl')
+      .optional({ values: 'falsy' })
+      .isURL()
+      .withMessage('External report URL must be valid'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Report file is required' });
+    if (!req.file && !req.body.externalUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report file or external report URL is required',
+      });
     }
     const report = await reportService.uploadReport(req.user.id, req.file, req.body);
     res.status(201).json({ success: true, data: report });

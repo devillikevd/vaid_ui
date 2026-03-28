@@ -32,5 +32,6 @@
 \i 017_ai_vitals_feature_toggles.sql
 \i 018_fix_users_role_check.sql
 \i 019_reminder_reliability_and_timezone.sql
+\i 020_family_member_phone.sql
 
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

@@ -284,6 +284,7 @@ router.post('/family-members',
   [
     body('name').notEmpty().withMessage('Name is required'),
     body('relation').notEmpty().withMessage('Relation is required'),
+    body('phone').optional({ nullable: true, checkFalsy: true }).isMobilePhone().withMessage('Valid phone is required'),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -605,7 +606,12 @@ router.post('/prescriptions/:id/forward-to-pharmacy',
 
     // Verify pharmacy exists
     const { data: pharmacy } = await supabaseAdmin
-      .from('pharmacies').select('id, name').eq('id', req.body.pharmacyId).single();
+      .from('pharmacies')
+      .select('id, name')
+      .eq('id', req.body.pharmacyId)
+      .eq('is_active', true)
+      .eq('is_approved', true)
+      .maybeSingle();
 
     if (!pharmacy) {
       return res.status(404).json({ success: false, message: 'Pharmacy not found' });
@@ -614,7 +620,9 @@ router.post('/prescriptions/:id/forward-to-pharmacy',
     // Build order items from prescription medicines
     const rxMeds = rx.prescription_medicines || [];
     const items = rxMeds.map(m => ({
+      medicineId: m.medicine_id || null,
       name: m.medicine_name,
+      genericName: m.generic_name || null,
       quantity: m.quantity || 1,
       price: 0, // pharmacy will set actual price
       fromPrescription: true,
@@ -661,41 +669,63 @@ router.post('/emergency',
   validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.requestSOS(req.user.id, req.body);
-    res.status(201).json({ success: true, data: result });
+    res.status(result.alreadyActive ? 200 : 201).json({ success: true, data: result });
   })
 );
 
 // Get active emergency
 router.get('/emergency/active',
   asyncHandler(async (req, res) => {
-    try {
-      // Resolve patient record ID from user ID
-      const { data: patient } = await supabaseAdmin
-        .from('patients')
-        .select('id')
-        .eq('user_id', req.user.id)
-        .single();
+    // Resolve patient record ID from user ID
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
 
-      if (!patient) {
-        return res.json({ success: true, data: null });
-      }
-
-      const { data, error } = await supabaseAdmin
-        .from('emergency_requests')
-        .select('*')
-        .eq('patient_id', patient.id)
-        .in('status', ['pending', 'broadcasting', 'assigned', 'accepted', 'en_route', 'arrived', 'picked_up'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error || !data) {
-        return res.json({ success: true, data: null });
-      }
-      res.json({ success: true, data });
-    } catch (err) {
+    if (!patient) {
       res.json({ success: true, data: null });
+      return;
     }
+
+    const { data, error } = await supabaseAdmin
+      .from('emergency_requests')
+      .select(`
+        *,
+        vehicle:ambulances(
+          vehicle_number,
+          driver_name,
+          driver_phone,
+          vehicle_type,
+          current_latitude,
+          current_longitude
+        )
+      `)
+      .eq('patient_id', patient.id)
+      .in('status', [
+        'pending',
+        'broadcasting',
+        'assigned',
+        'dispatched',
+        'accepted',
+        'en_route',
+        'en_route_pickup',
+        'arrived',
+        'arrived_pickup',
+        'picked_up',
+        'patient_onboard',
+        'en_route_hospital',
+        'arrived_hospital',
+      ])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    res.json({ success: true, data: data || null });
   })
 );
 
@@ -822,7 +852,7 @@ router.get('/orders',
         page: parseInt(page),
         limit: parseInt(limit),
         total: count || 0,
-        totalPages: Math.ceil((count || 0) / parseInt(limit)),
+        totalPages: Math.max(1, Math.ceil((count || 0) / parseInt(limit))),
       },
     });
   })

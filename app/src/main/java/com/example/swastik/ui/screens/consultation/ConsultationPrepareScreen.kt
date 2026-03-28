@@ -1,156 +1,318 @@
 package com.example.swastik.ui.screens.consultation
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.ui.theme.SwastikPurple
-import kotlin.math.cos
-import kotlin.math.sin
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConsultationPrepareScreen(
-    userName: String = "Gurpreet",
+    userName: String = "Patient",
     doctorName: String = "Doctor",
     isConnecting: Boolean = false,
     statusMessage: String = "",
     onBackClick: () -> Unit,
     onStartConsultation: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Consultation Prepare",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 18.sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search")
-                    }
-                    Box {
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                        }
-                        // Notification badge
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(Color.Red, CircleShape)
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-8).dp, y = 8.dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
-                )
-            )
-        },
-        containerColor = Color.White
-    ) { paddingValues ->
+    val backgroundBrush = Brush.verticalGradient(
+        listOf(
+            Color(0xFF07101F),
+            Color(0xFF0D1730),
+            Color(0xFF13233F)
+        )
+    )
+    val accentBlue = Color(0xFF4C8DFF)
+    val accentTeal = Color(0xFF2DD4BF)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundBrush)
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 12.dp, end = (-72).dp)
+                .size(220.dp)
+                .clip(CircleShape)
+                .background(accentBlue.copy(alpha = 0.16f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = (-48).dp, bottom = 48.dp)
+                .size(180.dp)
+                .clip(CircleShape)
+                .background(accentTeal.copy(alpha = 0.10f))
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 24.dp, vertical = 28.dp)
         ) {
-            // Clock Icon with decorative elements
-            ClockIcon()
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f))
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
 
-            // Greeting Text
-            Text(
-                text = buildAnnotatedString {
-                    append("Hello, ")
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("$userName!")
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Consultation Room",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Secure video session with live chat fallback",
+                        color = Color.White.copy(alpha = 0.66f),
+                        fontSize = 12.sp
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                ) {
+                    Text(
+                        text = "Encrypted",
+                        color = Color.White.copy(alpha = 0.82f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(accentBlue.copy(alpha = 0.16f))
+                            .border(1.dp, accentBlue.copy(alpha = 0.22f), RoundedCornerShape(18.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Now connecting to Dr. $doctorName",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                },
-                fontSize = 24.sp,
-                color = Color.Black
-            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-            // Description Text
-            Text(
-                text = "We will record your conversation with the doctor, useful for your history, in case you want to view the video again at a later time.",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+                    Text(
+                        text = "Ready when you are, $userName",
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        lineHeight = 36.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-            Spacer(modifier = Modifier.height(40.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-            // Start Consultation Button
+                    Text(
+                        text = "Your consultation stays in one secure room. If the network weakens, we keep audio and chat available so the session does not break.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 15.sp,
+                        lineHeight = 24.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 18.dp, vertical = 18.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                accentBlue,
+                                                accentTeal
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = doctorName.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Dr. $doctorName",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Consultation will open in video first, with voice and chat available whenever needed.",
+                                    color = Color.White.copy(alpha = 0.66f),
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ConsultationPrepFeatureCard(
+                            icon = Icons.Outlined.Videocam,
+                            title = "Camera and mic check",
+                            description = "Video starts first so the doctor can see and hear you clearly."
+                        )
+                        ConsultationPrepFeatureCard(
+                            icon = Icons.Outlined.ChatBubbleOutline,
+                            title = "Chat stays available",
+                            description = "If the connection drops in quality, the consultation can continue in chat."
+                        )
+                        ConsultationPrepFeatureCard(
+                            icon = Icons.Outlined.Description,
+                            title = "Notes stay in your history",
+                            description = "Prescriptions and consultation context remain linked to your records."
+                        )
+                    }
+
+                    if (statusMessage.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .padding(horizontal = 14.dp, vertical = 9.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = accentTeal,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = statusMessage,
+                                    color = Color.White.copy(alpha = 0.82f),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Button(
                 onClick = onStartConsultation,
                 enabled = !isConnecting,
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .height(56.dp),
-                shape = RoundedCornerShape(28.dp),
+                    .fillMaxWidth()
+                    .height(58.dp),
+                shape = RoundedCornerShape(22.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SwastikPurple,
-                    disabledContainerColor = SwastikPurple.copy(alpha = 0.6f)
+                    containerColor = accentBlue,
+                    disabledContainerColor = accentBlue.copy(alpha = 0.72f)
                 )
             ) {
                 if (isConnecting) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(22.dp),
                         color = Color.White,
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = statusMessage.ifEmpty { "Connecting..." },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = statusMessage.ifEmpty { "Preparing consultation..." },
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                 } else {
                     Text(
-                        text = "Start Consultation with $doctorName",
+                        text = "Start Consultation",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                 }
             }
@@ -159,92 +321,53 @@ fun ConsultationPrepareScreen(
 }
 
 @Composable
-private fun ClockIcon() {
-    Box(
-        modifier = Modifier.size(160.dp),
-        contentAlignment = Alignment.Center
+private fun ConsultationPrepFeatureCard(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(18.dp)
     ) {
-        // Decorative sparkles
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sparkleColor = SwastikPurple
-
-            // Top right sparkle
-            drawCircle(
-                color = sparkleColor,
-                radius = 6.dp.toPx(),
-                center = Offset(size.width * 0.85f, size.height * 0.15f)
-            )
-
-            // Small sparkles
-            drawCircle(
-                color = sparkleColor,
-                radius = 3.dp.toPx(),
-                center = Offset(size.width * 0.75f, size.height * 0.22f)
-            )
-
-            // Bottom left sparkle
-            drawCircle(
-                color = sparkleColor,
-                radius = 4.dp.toPx(),
-                center = Offset(size.width * 0.12f, size.height * 0.7f)
-            )
-        }
-
-        // Outer ring (light purple)
-        Box(
+        Row(
             modifier = Modifier
-                .size(140.dp)
-                .clip(CircleShape)
-                .background(SwastikPurple.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Inner clock circle
             Box(
                 modifier = Modifier
-                    .size(100.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(SwastikPurple),
+                    .background(Color(0xFF4C8DFF).copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
-                // Clock hands
-                Canvas(modifier = Modifier.size(60.dp)) {
-                    val center = Offset(size.width / 2, size.height / 2)
-                    val hourHandLength = size.width * 0.25f
-                    val minuteHandLength = size.width * 0.35f
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = Color(0xFF9FC0FF),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
-                    // Hour hand (pointing to ~10)
-                    val hourAngle = Math.toRadians(-60.0)
-                    drawLine(
-                        color = Color.White,
-                        start = center,
-                        end = Offset(
-                            center.x + (hourHandLength * cos(hourAngle)).toFloat(),
-                            center.y + (hourHandLength * sin(hourAngle)).toFloat()
-                        ),
-                        strokeWidth = 4.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
+            Spacer(modifier = Modifier.width(12.dp))
 
-                    // Minute hand (pointing to ~6)
-                    val minuteAngle = Math.toRadians(90.0)
-                    drawLine(
-                        color = Color.White,
-                        start = center,
-                        end = Offset(
-                            center.x + (minuteHandLength * cos(minuteAngle)).toFloat(),
-                            center.y + (minuteHandLength * sin(minuteAngle)).toFloat()
-                        ),
-                        strokeWidth = 4.dp.toPx(),
-                        cap = StrokeCap.Round
-                    )
-
-                    // Center dot
-                    drawCircle(
-                        color = Color.White,
-                        radius = 4.dp.toPx(),
-                        center = center
-                    )
-                }
+            Column {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
             }
         }
     }

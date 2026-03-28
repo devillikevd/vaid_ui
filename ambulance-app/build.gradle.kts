@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -85,6 +86,7 @@ dependencies {
     // Coroutines
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // ViewModel & Lifecycle
     implementation(libs.lifecycle.viewmodel.compose)
@@ -105,6 +107,9 @@ dependencies {
     implementation("io.socket:socket.io-client:2.1.0") {
         exclude(group = "org.json", module = "json")
     }
+
+    // Firebase Cloud Messaging
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

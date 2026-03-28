@@ -75,7 +75,7 @@ function VitalBadge({ icon: Icon, label, value, unit, color, bg }: {
 }
 
 export default function DoctorVitalsPage() {
-    const { vitals, loadingVitals, fetchVitals, recordVitals, patients, fetchPatients } = useDoctorStore();
+    const { vitals, loadingVitals, fetchVitals, recordVitals } = useDoctorStore();
     const toast = useToast();
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
@@ -98,9 +98,9 @@ export default function DoctorVitalsPage() {
 
     const loadPatientList = useCallback(async () => {
         try {
-            const result = await doctorApi.getPatients(1);
+            const result = await doctorApi.getPatients(1, '', 200);
             if (result.success) {
-                const list = (result.data as any)?.data || [];
+                const list = Array.isArray(result.data) ? result.data : [];
                 setPatientList(list.map((p: any) => ({ id: p.id, name: p.name || p.patientName })));
             }
         } catch {
@@ -140,13 +140,16 @@ export default function DoctorVitalsPage() {
 
             const result = await recordVitals(form.patientId, payload);
             if (result) {
+                toast.success('Vitals recorded', 'The patient vitals were saved successfully.');
                 setForm(emptyForm);
                 setShowForm(false);
             } else {
                 setError('Failed to save vitals');
+                toast.error('Unable to save vitals', 'Please review the form and try again.');
             }
         } catch {
             setError('Failed to save vitals');
+            toast.error('Unable to save vitals', 'Please try again in a moment.');
         } finally {
             setIsSaving(false);
         }
@@ -225,7 +228,7 @@ export default function DoctorVitalsPage() {
                     <div className="p-3 bg-orange-50 rounded-lg w-fit mb-2">
                         <Thermometer className="h-6 w-6 text-orange-500" />
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{patients.length}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{patientList.length}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Your Patients</p>
                 </Card>
             </div>

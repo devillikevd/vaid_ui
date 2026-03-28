@@ -71,6 +71,15 @@ const toMinutes = (time24) => {
   return (h * 60) + m;
 };
 
+const normalizeBoolean = (value, fallback = true) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return fallback;
+};
+
 class DoctorService {
   // Get doctor profile
   async getProfile(userId) {
@@ -135,11 +144,27 @@ class DoctorService {
       updatePayload.experience_years = updateData.experience || updateData.experienceYears;
     }
     if (updateData.qualifications !== undefined) updatePayload.qualifications = updateData.qualifications;
-    if (updateData.registrationNo !== undefined) updatePayload.registration_number = updateData.registrationNo;
-    if (updateData.consultationFee !== undefined) updatePayload.consultation_fee = updateData.consultationFee;
+    if (updateData.registrationNo !== undefined || updateData.registration_number !== undefined) {
+      updatePayload.registration_number = updateData.registrationNo ?? updateData.registration_number;
+    }
+    if (updateData.licenseNumber !== undefined || updateData.license_number !== undefined) {
+      updatePayload.license_number = updateData.licenseNumber ?? updateData.license_number;
+    }
+    if (updateData.licenseDocumentUrl !== undefined || updateData.license_document_url !== undefined) {
+      updatePayload.license_document_url = updateData.licenseDocumentUrl ?? updateData.license_document_url;
+    }
+    if (updateData.degreeCertificateUrl !== undefined || updateData.degree_certificate_url !== undefined) {
+      updatePayload.degree_certificate_url = updateData.degreeCertificateUrl ?? updateData.degree_certificate_url;
+    }
+    if (updateData.consultationFee !== undefined || updateData.consultation_fee !== undefined) {
+      updatePayload.consultation_fee = updateData.consultationFee ?? updateData.consultation_fee;
+    }
     if (updateData.bio !== undefined) updatePayload.bio = updateData.bio;
     if (updateData.languages !== undefined) updatePayload.languages = updateData.languages;
     if (updateData.hospitalId !== undefined) updatePayload.hospital_id = updateData.hospitalId;
+    if (updateData.profileImage !== undefined || updateData.profile_image !== undefined || updateData.profile_image_url !== undefined) {
+      updatePayload.profile_image_url = updateData.profileImage ?? updateData.profile_image ?? updateData.profile_image_url;
+    }
 
     const { data: updatedDoctor, error } = await supabaseAdmin
       .from('doctors')
@@ -476,6 +501,7 @@ class DoctorService {
       const day_of_week = normalizeDayOfWeek(slot);
       const start_time = normalizeTime24(slot.startTime ?? slot.start_time);
       const end_time = normalizeTime24(slot.endTime ?? slot.end_time);
+      const is_active = normalizeBoolean(slot.isAvailable ?? slot.is_active ?? slot.isActive, true);
 
       if (day_of_week === null || !start_time || !end_time) {
         throw new ApiError(400, 'Invalid slot format. Provide valid day, startTime, and endTime.');
@@ -487,13 +513,16 @@ class DoctorService {
         throw new ApiError(400, 'Invalid slot range. endTime must be after startTime.');
       }
 
-      return { day_of_week, start_time, end_time };
+      return { day_of_week, start_time, end_time, is_active };
     });
 
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('rpc_replace_doctor_slots', {
-      p_doctor_id: doctor.id,
-      p_slots: slotsJson,
-    });
+    const canUseRpc = slotsJson.every((slot) => slot.is_active === true);
+    const { error: rpcError } = canUseRpc
+      ? await supabaseAdmin.rpc('rpc_replace_doctor_slots', {
+        p_doctor_id: doctor.id,
+        p_slots: slotsJson,
+      })
+      : { error: new Error('Slot replacement RPC cannot preserve inactive slots') };
 
     if (rpcError) {
       // Backward-compatible fallback for environments where RPC is missing/outdated
@@ -514,7 +543,7 @@ class DoctorService {
         slot_duration: 15,
         is_video_enabled: true,
         is_clinic_enabled: true,
-        is_active: true,
+        is_active: slot.is_active,
       }));
 
       const { error: insertFallbackError } = await supabaseAdmin
@@ -541,7 +570,7 @@ class DoctorService {
   }
 
   // Get patients list (for doctor)
-  async getPatients(userId, page = 1, limit = 20) {
+  async getPatients(userId, page = 1, limit = 20, search = '') {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
       .select('id')
@@ -558,23 +587,63 @@ class DoctorService {
     const { data: appointments } = await supabaseAdmin
       .from('appointments')
       .select(`
+        patient_id,
+        appointment_date,
+        created_at,
         patient:patients(
           id, name, age, gender, blood_group, profile_image_url,
-          user:users(phone)
+          user:users(email, phone)
         )
       `)
       .eq('doctor_id', doctor.id)
+      .order('appointment_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     // Get unique patients
     const patientMap = new Map();
     appointments?.forEach(apt => {
-      if (apt.patient && !patientMap.has(apt.patient.id)) {
-        patientMap.set(apt.patient.id, apt.patient);
+      if (!apt.patient) return;
+
+      const existing = patientMap.get(apt.patient.id);
+      const lastVisit = apt.appointment_date || apt.created_at || null;
+
+      if (!existing) {
+        patientMap.set(apt.patient.id, {
+          id: apt.patient.id,
+          name: apt.patient.name,
+          age: apt.patient.age,
+          gender: apt.patient.gender,
+          bloodGroup: apt.patient.blood_group,
+          profileImageUrl: apt.patient.profile_image_url,
+          email: apt.patient.user?.email || null,
+          phone: apt.patient.user?.phone || null,
+          lastVisit,
+          totalVisits: 1,
+        });
+        return;
+      }
+
+      existing.totalVisits += 1;
+      if (lastVisit && (!existing.lastVisit || new Date(lastVisit) > new Date(existing.lastVisit))) {
+        existing.lastVisit = lastVisit;
       }
     });
 
-    const patients = Array.from(patientMap.values());
+    let patients = Array.from(patientMap.values());
+    const normalizedSearch = sanitizeSearch(search)?.toLowerCase();
+    if (normalizedSearch) {
+      patients = patients.filter((patient) =>
+        [patient.name, patient.email, patient.phone]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch))
+      );
+    }
+
+    patients.sort((a, b) => {
+      const left = b.lastVisit ? new Date(b.lastVisit).getTime() : 0;
+      const right = a.lastVisit ? new Date(a.lastVisit).getTime() : 0;
+      return left - right;
+    });
     const paginatedPatients = patients.slice(offset, offset + limit);
 
     return paginatedResponse(paginatedPatients, patients.length, page, limit);
@@ -605,37 +674,54 @@ class DoctorService {
       throw new ApiError(403, 'You can only view details of your patients');
     }
 
-    // Get patient details
-    const { data: patient } = await supabaseAdmin
-      .from('patients')
-      .select(`
-        *,
-        user:users(email, phone)
-      `)
-      .eq('id', patientId)
-      .single();
+    const [
+      { data: patient },
+      { data: consultations },
+      { data: reports },
+      { data: appointments },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from('patients')
+        .select(`
+          *,
+          user:users(email, phone)
+        `)
+        .eq('id', patientId)
+        .single(),
+      supabaseAdmin
+        .from('consultations')
+        .select(`
+          *,
+          prescriptions(*)
+        `)
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('reports')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('date', { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from('appointments')
+        .select('id, appointment_date, time_slot, type, status, reason, fee, notes, created_at')
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
+        .order('appointment_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false }),
+    ]);
 
-    // Get consultation history with this doctor
-    const { data: consultations } = await supabaseAdmin
-      .from('consultations')
-      .select(`
-        *,
-        prescriptions(*)
-      `)
-      .eq('doctor_id', doctor.id)
-      .eq('patient_id', patientId)
-      .order('created_at', { ascending: false });
-
-    // Get reports
-    const { data: reports } = await supabaseAdmin
-      .from('reports')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('date', { ascending: false })
-      .limit(10);
+    const totalVisits = appointments?.length || 0;
+    const lastVisit = appointments?.[0]?.appointment_date || appointments?.[0]?.created_at || null;
 
     return {
       ...patient,
+      email: patient?.user?.email || null,
+      phone: patient?.user?.phone || null,
+      totalVisits,
+      lastVisit,
+      appointments: appointments || [],
       consultations: consultations || [],
       reports: reports || [],
     };

@@ -1,179 +1,241 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import { hospitalApi } from '@/lib/api';
-import {
-    Video,
-    Phone,
-    MessageCircle,
-    Clock,
-    CheckCircle,
-    XCircle,
-    ChevronLeft,
-    ChevronRight,
-    Filter,
-    User,
-    Stethoscope,
-    ExternalLink,
-} from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Pagination } from '@/components/ui/Pagination';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Video, Phone, MessageCircle, Loader2, Filter, User, Stethoscope, RefreshCw, AlertCircle, Search, Clock } from 'lucide-react';
 
 interface Consultation {
     id: string;
     status: string;
     type: string;
-    started_at: string;
+    created_at?: string | null;
+    started_at: string | null;
     ended_at: string | null;
     diagnosis: string | null;
     notes: string | null;
-    doctor: { id: string; name: string; specialization: string; profile_image: string | null };
-    patient: { id: string; name: string; phone: string };
-    appointment: { id: string; date: string; time_slot: string; type: string } | null;
+    doctor: { id: string; name: string; specialization: string; profile_image_url: string | null };
+    patient: { id: string; name: string; phone?: string };
+    appointment: { id: string; appointment_date: string; time_slot: string; type: string } | null;
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    in_progress: { label: 'In Progress', color: 'bg-green-100 text-green-800', icon: <Video className="w-4 h-4" /> },
-    completed: { label: 'Completed', color: 'bg-blue-100 text-blue-800', icon: <CheckCircle className="w-4 h-4" /> },
-    cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: <XCircle className="w-4 h-4" /> },
-};
+const PAGE_SIZE = 10;
 
 export default function HospitalConsultationsPage() {
     const [consultations, setConsultations] = useState<Consultation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
     const [statusFilter, setStatusFilter] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const deferredSearchQuery = useDeferredValue(searchQuery.trim());
 
-    useEffect(() => {
-        loadConsultations();
-    }, [page, statusFilter]);
-
-    const loadConsultations = async () => {
+    const loadConsultations = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
-            const res = await hospitalApi.getConsultations(page, statusFilter || undefined) as any;
+            const res = await hospitalApi.getConsultations(page, statusFilter || undefined, deferredSearchQuery, PAGE_SIZE) as any;
             if (res.success) {
                 setConsultations((res.data || []) as Consultation[]);
                 setTotalPages(res.pagination?.totalPages || 1);
+                setTotalItems(res.pagination?.total || 0);
+            } else {
+                setError(res.error || 'Failed to load consultations');
             }
         } catch (err) {
             console.error('Failed to load consultations:', err);
+            setError('Failed to load consultations');
         } finally {
             setLoading(false);
         }
+    }, [deferredSearchQuery, page, statusFilter]);
+
+    useEffect(() => {
+        loadConsultations();
+    }, [loadConsultations]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [statusFilter, searchQuery]);
+
+    const formatDate = (dateStr?: string | null) =>
+        dateStr
+            ? new Date(dateStr).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+            })
+            : '—';
+
+    const formatDateTime = (dateStr?: string | null) =>
+        dateStr
+            ? new Date(dateStr).toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            })
+            : '—';
+
+    const renderTypeIcon = (type?: string) => {
+        if (type === 'audio') return <Phone className="w-4 h-4" />;
+        if (type === 'chat') return <MessageCircle className="w-4 h-4" />;
+        return <Video className="w-4 h-4" />;
     };
 
-    const formatDate = (dateStr: string) =>
-        new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if (loading && consultations.length === 0) {
+        return (
+            <div className="flex justify-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
+            </div>
+        );
+    }
+
+    if (error && consultations.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96 gap-4">
+                <AlertCircle className="h-12 w-12 text-red-400" />
+                <p className="text-red-600 dark:text-red-400">{error}</p>
+                <Button onClick={loadConsultations} leftIcon={<RefreshCw className="h-4 w-4" />}>Retry</Button>
+            </div>
+        );
+    }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Hospital Consultations</h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">View consultations by your affiliated doctors</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Track consultations handled by doctors linked to your hospital</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                        className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">All Status</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
+                <Button variant="outline" onClick={loadConsultations} disabled={loading} leftIcon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}>
+                    Refresh
+                </Button>
             </div>
 
-            {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            {error ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+                    {error}
                 </div>
-            ) : consultations.length === 0 ? (
+            ) : null}
+
+            <Card padding="sm">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto]">
+                    <Input
+                        placeholder="Search by patient, doctor, specialization, or status..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        leftIcon={<Search className="h-5 w-5" />}
+                    />
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100">
+                        <Filter className="w-4 h-4 text-gray-400" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full bg-transparent focus:outline-none"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="waiting">Waiting</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span className="rounded-full bg-teal-50 px-3 py-1 text-teal-700">{totalItems} consultations</span>
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">Page {page} of {totalPages}</span>
+                    </div>
+                </div>
+            </Card>
+
+            {consultations.length === 0 ? (
                 <div className="text-center py-20 text-gray-500 dark:text-gray-400">
                     <Stethoscope className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No consultations found</p>
+                    <p>No consultations found for the current filters</p>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Patient</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Doctor</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">Started</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden lg:table-cell">Diagnosis</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {consultations.map((c) => {
-                                const status = statusConfig[c.status] || statusConfig.completed;
-                                return (
-                                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                    <User className="w-4 h-4 text-blue-600" />
+                <Card padding="none">
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {consultations.map((consultation) => {
+                            const consultationType = consultation.type || consultation.appointment?.type || 'video';
+                            const visitDate = consultation.appointment?.appointment_date || consultation.started_at || consultation.created_at;
+                            return (
+                                <div key={consultation.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+                                            <div className="flex items-center gap-3 min-w-[220px]">
+                                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-900/30">
+                                                    <User className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{c.patient?.name || 'N/A'}</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{c.patient?.phone || ''}</p>
+                                                    <p className="font-medium text-gray-900 dark:text-gray-100">{consultation.patient?.name || 'N/A'}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{consultation.patient?.phone || 'Phone not available'}</p>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{c.doctor?.name || 'N/A'}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">{c.doctor?.specialization || ''}</p>
-                                        </td>
-                                        <td className="px-6 py-4 hidden sm:table-cell">
-                                            <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                                                {c.type === 'video' ? <Video className="w-4 h-4" /> : c.type === 'audio' ? <Phone className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
-                                                {c.type || c.appointment?.type || 'video'}
+                                            <div className="space-y-1 min-w-[220px]">
+                                                <p className="font-medium text-gray-900 dark:text-gray-100">Dr. {consultation.doctor?.name || 'N/A'}</p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">{consultation.doctor?.specialization || 'Specialization not set'}</p>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                                                {status.icon} {status.label}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                                            {c.started_at ? formatDate(c.started_at) : '—'}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate hidden lg:table-cell">
-                                            {c.diagnosis || '—'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {c.status === 'in_progress' && (c.type === 'video' || c.appointment?.type === 'video') && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-100 rounded-lg">
-                                                    <Video className="w-3.5 h-3.5" /> Doctor-only
+                                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                                <div className="flex items-center gap-2">
+                                                    {renderTypeIcon(consultationType)}
+                                                    <span className="capitalize">{consultationType}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-4 h-4" />
+                                                    <span>{formatDate(visitDate)}</span>
+                                                    {consultation.appointment?.time_slot ? <span>{consultation.appointment.time_slot}</span> : null}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-start gap-2 xl:items-end">
+                                            <StatusBadge status={consultation.status || 'pending'} size="sm" />
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Started: {formatDateTime(consultation.started_at || consultation.created_at)}
+                                            </p>
+                                            {consultation.status === 'in_progress' ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                                    <Video className="w-3.5 h-3.5" />
+                                                    Doctor live
                                                 </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                    {(consultation.diagnosis || consultation.notes) ? (
+                                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                                            <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-gray-800 dark:text-gray-300">
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">Diagnosis</p>
+                                                <p className="mt-1">{consultation.diagnosis || 'Not recorded'}</p>
+                                            </div>
+                                            <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-gray-800 dark:text-gray-300">
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-gray-400">Notes</p>
+                                                <p className="mt-1">{consultation.notes || 'No notes added'}</p>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
             )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6">
-                    <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50">
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
-                    <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50">
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
+            <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                totalItems={totalItems}
+                itemsPerPage={PAGE_SIZE}
+            />
         </div>
     );
 }

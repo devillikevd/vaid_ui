@@ -2,6 +2,8 @@ package com.example.swastik.data.repository
 
 import android.util.Log
 import com.example.swastik.data.model.FacilityType
+import com.example.swastik.data.model.Hospital
+import com.example.swastik.data.model.HospitalDoctor
 import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.remote.ApiService
@@ -44,23 +46,7 @@ class HospitalRepository @Inject constructor(
             val response = apiService.getNearbyHospitals(latitude, longitude, radius)
             if (response.isSuccessful && response.body()?.success == true) {
                 val facilities = response.body()?.data?.map { hospital ->
-                    val distKm = hospital.distance?.toDouble() ?: 0.0
-                    MedicalFacility(
-                        id = hospital.id,
-                        name = hospital.name,
-                        type = FacilityType.HOSPITAL,
-                        address = hospital.address,
-                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
-                        distanceKm = distKm,
-                        rating = hospital.rating ?: 0f,
-                        reviewCount = hospital.reviewCount ?: 0,
-                        latitude = hospital.latitude ?: 0.0,
-                        longitude = hospital.longitude ?: 0.0,
-                        phone = hospital.phone ?: "",
-                        isEmergencyAvailable = hospital.isEmergencyAvailable ?: false,
-                        specializations = hospital.specializations ?: emptyList(),
-                        hospitalSubType = hospital.type
-                    )
+                    hospital.toMedicalFacility(latitude, longitude)
                 } ?: emptyList()
                 // Cache hospitals (upsert — don't wipe other results)
                 try {
@@ -202,23 +188,9 @@ class HospitalRepository @Inject constructor(
             val response = apiService.getEmergencyHospitals(latitude, longitude)
             if (response.isSuccessful && response.body()?.success == true) {
                 return response.body()?.data?.map { hospital ->
-                    val distKm = hospital.distance?.toDouble() ?: 0.0
-                    MedicalFacility(
-                        id = hospital.id,
-                        name = hospital.name,
-                        type = FacilityType.HOSPITAL,
-                        address = hospital.address,
-                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
-                        distanceKm = distKm,
-                        rating = hospital.rating ?: 0f,
-                        reviewCount = hospital.reviewCount ?: 0,
-                        latitude = hospital.latitude ?: 0.0,
-                        longitude = hospital.longitude ?: 0.0,
-                        phone = hospital.phone ?: "",
+                    hospital.toMedicalFacility(latitude, longitude).copy(
                         isEmergencyAvailable = true,
-                        isOpen = hospital.is24Hours ?: true,
-                        specializations = hospital.specializations ?: emptyList(),
-                        hospitalSubType = hospital.type
+                        isOpen = hospital.is24Hours ?: true
                     )
                 } ?: emptyList()
             }
@@ -283,23 +255,7 @@ class HospitalRepository @Inject constructor(
             val response = apiService.getHospitalDetails(hospitalId)
             if (response.isSuccessful && response.body()?.success == true) {
                 val hospital = response.body()?.data ?: return null
-                return MedicalFacility(
-                    id = hospital.id,
-                    name = hospital.name,
-                    type = FacilityType.HOSPITAL,
-                    address = hospital.address,
-                    distance = "N/A",
-                    distanceKm = hospital.distance?.toDouble() ?: 0.0,
-                    rating = hospital.rating ?: 0f,
-                    reviewCount = hospital.reviewCount ?: 0,
-                    latitude = hospital.latitude ?: 0.0,
-                    longitude = hospital.longitude ?: 0.0,
-                    phone = hospital.phone ?: "",
-                    isOpen = hospital.is24Hours ?: false,
-                    isEmergencyAvailable = hospital.isEmergencyAvailable ?: false,
-                    specializations = hospital.specializations ?: emptyList(),
-                    hospitalSubType = hospital.type
-                )
+                return hospital.toMedicalFacility()
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch hospital details: ${e.message}")
@@ -308,6 +264,27 @@ class HospitalRepository @Inject constructor(
         return try {
             hospitalDao.getHospitalById(hospitalId)?.toMedicalFacility()
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Fetch full clinic details by ID and merge the live doctor roster.
+     */
+    suspend fun getClinicDetails(clinicId: String): MedicalFacility? {
+        return try {
+            val detailResponse = apiService.getClinicDetails(clinicId)
+            if (detailResponse.isSuccessful && detailResponse.body()?.success == true) {
+                val clinic = detailResponse.body()?.data ?: return null
+                val clinicDoctors = getClinicDoctors(clinicId)
+                clinic.toMedicalFacility().copy(
+                    doctors = clinicDoctors.map { it.toHospitalDoctor() }
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch clinic details: ${e.message}")
+            null
+        }
     }
 
     /**
@@ -323,24 +300,7 @@ class HospitalRepository @Inject constructor(
             val response = apiService.searchHospitals(query, latitude, longitude)
             if (response.isSuccessful && response.body()?.success == true) {
                 val facilities = response.body()?.data?.map { hospital ->
-                    val distKm = hospital.distance?.toDouble() ?: 0.0
-                    MedicalFacility(
-                        id = hospital.id,
-                        name = hospital.name,
-                        type = FacilityType.HOSPITAL,
-                        address = hospital.address,
-                        distance = if (distKm > 0) String.format(Locale.US, "%.1f km", distKm) else "N/A",
-                        distanceKm = distKm,
-                        rating = hospital.rating ?: 0f,
-                        reviewCount = hospital.reviewCount ?: 0,
-                        latitude = hospital.latitude ?: 0.0,
-                        longitude = hospital.longitude ?: 0.0,
-                        phone = hospital.phone ?: "",
-                        isOpen = hospital.is24Hours ?: false,
-                        isEmergencyAvailable = hospital.isEmergencyAvailable ?: false,
-                        specializations = hospital.specializations ?: emptyList(),
-                        hospitalSubType = hospital.type
-                    )
+                    hospital.toMedicalFacility(latitude, longitude)
                 } ?: emptyList()
                 // Cache search results
                 try {
@@ -504,6 +464,58 @@ class HospitalRepository @Inject constructor(
         hospitalSubType = hospitalType
     )
 
+    private fun Hospital.toMedicalFacility(
+        userLatitude: Double? = null,
+        userLongitude: Double? = null
+    ): MedicalFacility {
+        val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+        val departmentNames = departments.orEmpty()
+            .filter { it.isActive != false }
+            .mapNotNull { it.name?.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+        val resolvedSpecializations = (specializations.orEmpty() + departmentNames)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+        val resolvedDoctors = doctors.orEmpty()
+            .filter { it.isActive != false }
+            .mapNotNull { assignment ->
+                val doctor = assignment.doctor ?: return@mapNotNull null
+                HospitalDoctor(
+                    id = doctor.id,
+                    name = doctor.name,
+                    specialization = doctor.specialization?.takeIf { it.isNotBlank() } ?: "General Physician",
+                    experience = assignment.department?.takeIf { it.isNotBlank() } ?: "Hospital specialist",
+                    rating = 0f,
+                    consultationFee = doctor.consultationFee ?: 0
+                )
+            }
+            .distinctBy { it.id }
+
+        return MedicalFacility(
+            id = id,
+            name = name,
+            type = FacilityType.HOSPITAL,
+            address = address,
+            distance = formatDistanceLabel(distKm),
+            distanceKm = distKm,
+            rating = rating ?: 0f,
+            reviewCount = reviewCount ?: 0,
+            latitude = latitude ?: 0.0,
+            longitude = longitude ?: 0.0,
+            phone = phone ?: "",
+            isOpen = is24Hours ?: false,
+            isEmergencyAvailable = isEmergencyAvailable ?: false,
+            specializations = resolvedSpecializations,
+            doctors = resolvedDoctors,
+            hospitalSubType = type,
+            departments = departmentNames
+        )
+    }
+
     private fun ClinicDto.toMedicalFacility(
         userLatitude: Double? = null,
         userLongitude: Double? = null
@@ -523,6 +535,17 @@ class HospitalRepository @Inject constructor(
             phone = phone ?: "",
             isOpen = is24Hours ?: true,
             specializations = specializations ?: emptyList()
+        )
+    }
+
+    private fun ClinicDoctorDto.toHospitalDoctor(): HospitalDoctor {
+        return HospitalDoctor(
+            id = id,
+            name = name,
+            specialization = specialization ?: "General Physician",
+            experience = experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Clinic specialist",
+            rating = resolvedRating,
+            consultationFee = consultationFee ?: 0
         )
     }
 

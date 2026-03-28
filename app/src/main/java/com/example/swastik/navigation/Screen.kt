@@ -34,17 +34,26 @@ sealed class Screen(val route: String) {
     object MedicineDetail : Screen("medicine_detail/{medicineId}") {
         fun createRoute(medicineId: String): String = "medicine_detail/$medicineId"
     }
-    object HospitalFinder : Screen("hospital_finder?type={type}") {
-        fun createRoute(type: FacilityType? = null): String {
-            return if (type == null) {
-                "hospital_finder"
-            } else {
-                "hospital_finder?type=${type.name}"
+    object HospitalFinder : Screen("hospital_finder?type={type}&focusFacilityId={focusFacilityId}&focusFacilityName={focusFacilityName}") {
+        fun createRoute(
+            type: FacilityType? = null,
+            focusFacilityId: String? = null,
+            focusFacilityName: String? = null
+        ): String {
+            val params = mutableListOf<String>()
+            if (type != null) params.add("type=${type.name}")
+            if (!focusFacilityId.isNullOrBlank()) params.add("focusFacilityId=$focusFacilityId")
+            if (!focusFacilityName.isNullOrBlank()) {
+                params.add("focusFacilityName=${java.net.URLEncoder.encode(focusFacilityName, "UTF-8")}")
             }
+            return if (params.isEmpty()) "hospital_finder" else "hospital_finder?${params.joinToString("&")}"
         }
     }
     object HospitalDetail : Screen("hospital_detail/{hospitalId}") {
         fun createRoute(hospitalId: String): String = "hospital_detail/$hospitalId"
+    }
+    object ClinicDetail : Screen("clinic_detail/{clinicId}") {
+        fun createRoute(clinicId: String): String = "clinic_detail/$clinicId"
     }
     object VideoConsultation : Screen("video_consultation/{appointmentId}/{doctorName}") {
         fun createRoute(appointmentId: String, doctorName: String): String {
@@ -55,7 +64,15 @@ sealed class Screen(val route: String) {
     object Prescriptions : Screen("prescriptions")
     object Chatbot : Screen("chatbot")
     object Emergency : Screen("emergency")
-    object DiagnosticBooking : Screen("diagnostic_booking")
+    object DiagnosticBooking : Screen("diagnostic_booking?centerId={centerId}") {
+        fun createRoute(centerId: String? = null): String {
+            return if (centerId.isNullOrBlank()) {
+                "diagnostic_booking"
+            } else {
+                "diagnostic_booking?centerId=${java.net.URLEncoder.encode(centerId, "UTF-8")}"
+            }
+        }
+    }
     object VitalsReminders : Screen("vitals_reminders")
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")

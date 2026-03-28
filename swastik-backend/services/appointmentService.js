@@ -7,10 +7,18 @@ const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const notificationService = require('./notificationService');
 
+const APPOINTMENT_SELECT = `
+  *,
+  doctor:doctors(id, name, specialization, profile_image_url, consultation_fee),
+  patient:patients(id, name, blood_group),
+  hospital:hospitals(id, name, address, city, type),
+  clinic:clinics(id, name, address, city)
+`;
+
 // Get appointments for a user (patient or doctor)
 const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
-  let query = supabaseAdmin.from('appointments').select('*, doctor:doctors(id, name, specialization, profile_image_url), patient:patients(id, name)', { count: 'exact' });
+  let query = supabaseAdmin.from('appointments').select(APPOINTMENT_SELECT, { count: 'exact' });
 
   // Filter by role
   if (role === 'patient') {
@@ -178,7 +186,7 @@ const bookAppointment = async (patientId, appointmentData) => {
 
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name)')
+    .select(APPOINTMENT_SELECT)
     .eq('id', insertedAppointment.id)
     .single();
 
@@ -234,7 +242,7 @@ const bookAppointment = async (patientId, appointmentData) => {
 const getAppointmentById = async (userId, role, appointmentId) => {
   const { data: appointment, error } = await supabaseAdmin
     .from('appointments')
-    .select('*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee), patient:patients(id, name, blood_group)')
+    .select(APPOINTMENT_SELECT)
     .eq('id', appointmentId)
     .single();
 
@@ -299,7 +307,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
     .update({ status, cancellation_reason: reason, updated_at: new Date().toISOString() })
     .eq('id', appointmentId)
     .eq('doctor_id', doctor?.id)
-    .select('*, doctor:doctors(id, name, specialization), patient:patients(id, name)')
+    .select(APPOINTMENT_SELECT)
     .single();
 
   if (error || !appointment) {
@@ -348,7 +356,7 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
     .eq('id', appointmentId)
     .eq('patient_id', patient?.id)
     .in('status', ['scheduled', 'confirmed'])
-    .select('*')
+    .select(APPOINTMENT_SELECT)
     .single();
 
   if (error || !appointment) {
@@ -442,7 +450,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
     })
     .eq('id', appointmentId)
     .in('status', ['scheduled', 'confirmed']) // ensures status hasn't changed since we checked
-    .select('*')
+    .select(APPOINTMENT_SELECT)
     .single();
 
   if (error || !appointment) {

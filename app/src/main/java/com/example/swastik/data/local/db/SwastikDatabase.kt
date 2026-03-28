@@ -24,7 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CachedHospital::class,
         PendingSyncAction::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {
@@ -89,6 +89,13 @@ abstract class SwastikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `cached_notifications` ADD COLUMN `actionLabel` TEXT")
+                db.execSQL("ALTER TABLE `cached_notifications` ADD COLUMN `actionRoute` TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): SwastikDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -96,7 +103,7 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .fallbackToDestructiveMigration()
                     .build()

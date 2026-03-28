@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,19 +11,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocalHospital
+import androidx.compose.material.icons.outlined.LocalPharmacy
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Medication
+import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Rule
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,9 +40,13 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,16 +65,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.model.Prescription
 import com.example.swastik.data.model.PrescriptionItem
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.RecordsViewModel
+import com.example.swastik.utils.NavigationHelper
+import java.time.LocalDate
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PrescriptionsScreen(
     onBackClick: () -> Unit = {},
     onPrescriptionClick: ((Prescription) -> Unit)? = null,
+    onNavigateToOrderHistory: () -> Unit = {},
     viewModel: RecordsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -76,7 +93,9 @@ fun PrescriptionsScreen(
     selectedPrescription?.let { prescription ->
         PrescriptionDetailScreen(
             prescription = prescription,
-            onBackClick = { selectedPrescription = null }
+            onBackClick = { selectedPrescription = null },
+            onNavigateToOrderHistory = onNavigateToOrderHistory,
+            viewModel = viewModel
         )
         return
     }
@@ -370,8 +389,180 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun PrescriptionDetailScreen(prescription: Prescription, onBackClick: () -> Unit = {}) {
+fun PrescriptionDetailScreen(
+    prescription: Prescription,
+    onBackClick: () -> Unit = {},
+    onNavigateToOrderHistory: () -> Unit = {},
+    viewModel: RecordsViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+    val canForwardToPharmacy = isPrescriptionForwardable(prescription)
+    var showForwardSheet by remember(prescription.id) { mutableStateOf(false) }
+    var selectedPharmacyId by remember(prescription.id) { mutableStateOf<String?>(null) }
+    var selectedPharmacyName by remember(prescription.id) { mutableStateOf<String?>(null) }
+    var selectedPharmacyPhone by remember(prescription.id) { mutableStateOf<String?>(null) }
+    var pharmacyQuery by remember(prescription.id) { mutableStateOf("") }
+    var deliveryAddress by remember(prescription.id) { mutableStateOf("") }
+
+    androidx.compose.runtime.LaunchedEffect(showForwardSheet, uiState.patientDefaultDeliveryAddress) {
+        if (showForwardSheet && deliveryAddress.isBlank() && !uiState.patientDefaultDeliveryAddress.isNullOrBlank()) {
+            deliveryAddress = uiState.patientDefaultDeliveryAddress.orEmpty()
+        }
+    }
+
+    uiState.prescriptionForwardSuccess?.let { successState ->
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.clearPrescriptionForwardSuccess()
+                showForwardSheet = false
+                viewModel.clearPrescriptionPharmacies()
+            },
+            icon = {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = { Text("Sent To Pharmacy", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(successState.message)
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = SwastikPurple.copy(alpha = 0.08f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "Selected Pharmacy",
+                                fontSize = 12.sp,
+                                color = SwastikPurple
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = selectedPharmacyName ?: "Chosen pharmacy",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black
+                            )
+                            selectedPharmacyPhone
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { phone ->
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = phone,
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                        }
+                    }
+
+                    if (!successState.orderId.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFFF5F5F5)
+                        ) {
+                            Text(
+                                text = "Order ID: ${successState.orderId.take(8)}",
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                fontSize = 13.sp,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearPrescriptionForwardSuccess()
+                        showForwardSheet = false
+                        viewModel.clearPrescriptionPharmacies()
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                ) {
+                    Text("Done")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            selectedPharmacyPhone
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { phone ->
+                                    NavigationHelper.openDialer(context, phone)
+                                }
+                        },
+                        enabled = !selectedPharmacyPhone.isNullOrBlank()
+                    ) {
+                        Text("Call Pharmacy")
+                    }
+                    TextButton(
+                        onClick = {
+                            viewModel.clearPrescriptionForwardSuccess()
+                            showForwardSheet = false
+                            viewModel.clearPrescriptionPharmacies()
+                            onNavigateToOrderHistory()
+                        }
+                    ) {
+                        Text("View My Orders")
+                    }
+                }
+            }
+        )
+    }
+
+    if (showForwardSheet) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                showForwardSheet = false
+                viewModel.clearPrescriptionForwardError()
+                viewModel.clearPrescriptionPharmacies()
+            }
+        ) {
+            ForwardPrescriptionSheet(
+                pharmacies = uiState.prescriptionPharmacies,
+                isLoading = uiState.loadingPrescriptionPharmacies,
+                sourceLabel = uiState.prescriptionPharmacySourceLabel,
+                pharmacyLookupError = uiState.prescriptionPharmacyError,
+                forwardError = uiState.prescriptionForwardError,
+                selectedPharmacyId = selectedPharmacyId,
+                searchQuery = pharmacyQuery,
+                deliveryAddress = deliveryAddress,
+                isSubmitting = uiState.forwardingPrescription,
+                onSearchQueryChange = { query ->
+                    pharmacyQuery = query
+                    if (query.isBlank() || query.length >= 2) {
+                        viewModel.loadPrescriptionPharmacies(query)
+                    }
+                },
+                onSelectPharmacy = { pharmacy ->
+                    selectedPharmacyId = pharmacy.id
+                    selectedPharmacyName = pharmacy.name
+                    selectedPharmacyPhone = pharmacy.phone
+                },
+                onDeliveryAddressChange = { deliveryAddress = it },
+                onSubmit = {
+                    viewModel.forwardPrescriptionToPharmacy(
+                        prescriptionId = prescription.id,
+                        pharmacyId = selectedPharmacyId.orEmpty(),
+                        pharmacyName = selectedPharmacyName ?: "selected pharmacy",
+                        deliveryAddress = deliveryAddress
+                    )
+                }
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -549,6 +740,24 @@ fun PrescriptionDetailScreen(prescription: Prescription, onBackClick: () -> Unit
                             )
                         }
                     }
+                }
+            }
+
+            if (prescription.medicines.orEmpty().isNotEmpty()) {
+                item {
+                    PrescriptionForwardCard(
+                        canForwardToPharmacy = canForwardToPharmacy,
+                        onSendToPharmacy = {
+                            selectedPharmacyId = null
+                            selectedPharmacyName = null
+                            selectedPharmacyPhone = null
+                            pharmacyQuery = ""
+                            deliveryAddress = ""
+                            showForwardSheet = true
+                            viewModel.clearPrescriptionForwardError()
+                            viewModel.loadPrescriptionPharmacies()
+                        }
+                    )
                 }
             }
 
@@ -736,6 +945,353 @@ fun PrescriptionDetailScreen(prescription: Prescription, onBackClick: () -> Unit
     }
 }
 
+@Composable
+private fun PrescriptionForwardCard(
+    canForwardToPharmacy: Boolean,
+    onSendToPharmacy: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (canForwardToPharmacy) Color(0xFFF1F8E9) else Color(0xFFF5F5F5)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.LocalPharmacy,
+                    contentDescription = null,
+                    tint = if (canForwardToPharmacy) Color(0xFF2E7D32) else Color.Gray,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Send To Pharmacy",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (canForwardToPharmacy) {
+                            "Choose a medical store and send this prescription directly."
+                        } else {
+                            "Only active prescriptions with medicines can be sent to a pharmacy."
+                        },
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Button(
+                onClick = onSendToPharmacy,
+                enabled = canForwardToPharmacy,
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = SwastikPurple,
+                    disabledContainerColor = Color.LightGray
+                )
+            ) {
+                Text("Choose Pharmacy")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForwardPrescriptionSheet(
+    pharmacies: List<MedicalFacility>,
+    isLoading: Boolean,
+    sourceLabel: String?,
+    pharmacyLookupError: String?,
+    forwardError: String?,
+    selectedPharmacyId: String?,
+    searchQuery: String,
+    deliveryAddress: String,
+    isSubmitting: Boolean,
+    onSearchQueryChange: (String) -> Unit,
+    onSelectPharmacy: (MedicalFacility) -> Unit,
+    onDeliveryAddressChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(bottom = 24.dp)
+    ) {
+        Text(
+            text = "Send Prescription",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Pick a pharmacy and optionally add a delivery address.",
+            fontSize = 13.sp,
+            color = Color.Gray
+        )
+
+        if (!sourceLabel.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SwastikPurple.copy(alpha = 0.08f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Outlined.NearMe,
+                        contentDescription = null,
+                        tint = SwastikPurple,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = sourceLabel,
+                        fontSize = 12.sp,
+                        color = SwastikPurple,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Search pharmacy by name") },
+            leadingIcon = {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.Gray)
+            },
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SwastikPurple,
+                unfocusedBorderColor = Color.LightGray
+            )
+        )
+
+        if (!pharmacyLookupError.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFEBEE)
+            ) {
+                Text(
+                    text = pharmacyLookupError,
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 12.sp,
+                    color = Color(0xFFC62828)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = SwastikPurple)
+                }
+            }
+
+            pharmacies.isEmpty() -> {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White
+                ) {
+                    Text(
+                        text = "No pharmacies available for this search yet.",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        fontSize = 13.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 280.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(pharmacies, key = { it.id }) { pharmacy ->
+                        PharmacySelectionCard(
+                            pharmacy = pharmacy,
+                            isSelected = selectedPharmacyId == pharmacy.id,
+                            onClick = { onSelectPharmacy(pharmacy) }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        OutlinedTextField(
+            value = deliveryAddress,
+            onValueChange = onDeliveryAddressChange,
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            placeholder = {
+                Text(
+                    if (deliveryAddress.isBlank()) "Delivery address (optional)"
+                    else deliveryAddress
+                )
+            },
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SwastikPurple,
+                unfocusedBorderColor = Color.LightGray
+            )
+        )
+
+        if (!forwardError.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFEBEE)
+            ) {
+                Text(
+                    text = forwardError,
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 12.sp,
+                    color = Color(0xFFC62828)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onSubmit,
+            enabled = !isSubmitting && !selectedPharmacyId.isNullOrBlank(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+        ) {
+            if (isSubmitting) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Send Prescription")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PharmacySelectionCard(
+    pharmacy: MedicalFacility,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .border(
+                width = if (isSelected) 1.5.dp else 1.dp,
+                color = if (isSelected) SwastikPurple else Color(0xFFE0E0E0),
+                shape = RoundedCornerShape(14.dp)
+            ),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) SwastikPurple.copy(alpha = 0.06f) else Color.White
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.LocalPharmacy,
+                    contentDescription = null,
+                    tint = if (isSelected) SwastikPurple else Color(0xFF4CAF50),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = pharmacy.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = pharmacy.distance,
+                        fontSize = 12.sp,
+                        color = if (pharmacy.distanceKm > 0.0) SwastikPurple else Color.Gray
+                    )
+                }
+                if (isSelected) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        tint = SwastikPurple,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            if (pharmacy.address.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = pharmacy.address,
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            if (pharmacy.phone.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.Call,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = pharmacy.phone,
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
 private fun prescriptionMatchesFilter(prescription: Prescription, filter: String): Boolean {
     val status = (prescription.status ?: "").lowercase()
     return when (filter) {
@@ -776,6 +1332,20 @@ private fun prescriptionStatusTextColor(prescription: Prescription): Color {
         "expired", "cancelled" -> Color(0xFFC62828)
         else -> SwastikPurple
     }
+}
+
+private fun isPrescriptionForwardable(prescription: Prescription): Boolean {
+    val status = (prescription.status ?: "active").lowercase()
+    val isExpiredByDate = prescription.validUntil
+        ?.let { validUntil ->
+            runCatching { LocalDate.parse(validUntil).isBefore(LocalDate.now()) }.getOrDefault(false)
+        }
+        ?: false
+
+    return prescription.medicines.orEmpty().isNotEmpty() &&
+        prescription.isDispensed != true &&
+        status !in setOf("dispensed", "fulfilled", "expired", "cancelled", "completed") &&
+        !isExpiredByDate
 }
 
 @Composable

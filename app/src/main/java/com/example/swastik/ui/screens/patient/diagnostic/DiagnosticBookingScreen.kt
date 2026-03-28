@@ -40,6 +40,8 @@ private val SwastikPurple = Color(0xFF6C63FF)
 @Composable
 fun DiagnosticBookingScreen(
     onBackClick: () -> Unit,
+    initialCenterId: String? = null,
+    onNavigateToBookingHistory: () -> Unit = {},
     viewModel: DiagnosticViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -54,7 +56,12 @@ fun DiagnosticBookingScreen(
 
     // DC3: Use location-aware search on initial load when possible
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
+    LaunchedEffect(initialCenterId) {
+        if (!initialCenterId.isNullOrBlank()) {
+            viewModel.openCenter(initialCenterId)
+            return@LaunchedEffect
+        }
+
         val hasLocationPermission = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
@@ -97,6 +104,16 @@ fun DiagnosticBookingScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                 ) { Text("Done") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetBooking()
+                        onNavigateToBookingHistory()
+                    }
+                ) {
+                    Text("View My Tests")
+                }
             }
         )
     }
@@ -404,7 +421,7 @@ private fun CenterTestsView(
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
-        if (tests.isEmpty()) {
+                if (tests.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No tests available", color = Color.Gray)
             }
@@ -471,7 +488,12 @@ private fun TestCard(
             Column(Modifier.weight(1f)) {
                 Text(test.name, fontWeight = FontWeight.SemiBold)
                 test.category?.let { Text(it, color = Color.Gray, fontSize = 12.sp) }
-                test.reportTime?.let { Text("Report in: $it", color = Color.Gray, fontSize = 12.sp) }
+                val turnaroundLabel = test.reportTime
+                    ?: test.turnaroundHours?.let { hours ->
+                        if (hours == 24) "24 hours" else "$hours hours"
+                    }
+                turnaroundLabel?.let { Text("Report in: $it", color = Color.Gray, fontSize = 12.sp) }
+                test.sampleType?.let { Text("Sample: $it", color = Color.Gray, fontSize = 12.sp) }
             }
             test.price?.let {
                 Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 16.sp)

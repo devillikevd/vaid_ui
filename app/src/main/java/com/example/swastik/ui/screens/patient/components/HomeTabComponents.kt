@@ -615,6 +615,24 @@ private fun DoctorCard(
                 color = Color.Gray
             )
 
+            doctor.recommendationReason?.takeIf { it.isNotBlank() }?.let { reason ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = SwastikPurple.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = reason,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        color = SwastikPurple,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             val ratingText = doctor.rating

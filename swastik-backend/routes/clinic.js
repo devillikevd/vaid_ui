@@ -71,7 +71,8 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, a
     const allowed = [
         'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
         'latitude', 'longitude', 'specializations', 'facilities', 'description',
-        'opening_hours', 'is_24_hours', 'profile_image_url', 'image_url', 'profile_image'
+        'opening_hours', 'is_24_hours', 'profile_image_url', 'image_url', 'profile_image',
+        'registration_number', 'license_number', 'license_document_url'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -84,9 +85,9 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, a
 // Doctors
 router.get('/owner/doctors', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, search } = req.query;
 
-    const result = await clinicService.getDoctors(clinic.id, req.user.id, parseInt(page), parseInt(limit));
+    const result = await clinicService.getDoctors(clinic.id, req.user.id, parseInt(page), parseInt(limit), search);
     res.json({ success: true, ...result });
 }));
 
@@ -137,12 +138,12 @@ router.delete('/owner/doctors/:doctorId', requireRole(ROLES.CLINIC_OWNER), async
 // Appointments
 router.get('/owner/appointments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
-    const { status, date, page = 1, limit = 20 } = req.query;
+    const { status, date, search, page = 1, limit = 20 } = req.query;
 
     const result = await clinicService.getAppointments(
         clinic.id,
         req.user.id,
-        { status, date },
+        { status, date, search },
         parseInt(page),
         parseInt(limit)
     );
@@ -152,8 +153,8 @@ router.get('/owner/appointments', requireRole(ROLES.CLINIC_OWNER), asyncHandler(
 
 // Consultations — view all consultations by clinic-affiliated doctors
 router.get('/owner/consultations', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
-    const { status, page = 1, limit = 20 } = req.query;
-    const result = await clinicService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status);
+    const { status, search, page = 1, limit = 20 } = req.query;
+    const result = await clinicService.getConsultations(req.user.id, parseInt(page), parseInt(limit), status, search);
     res.json({ success: true, ...result });
 }));
 

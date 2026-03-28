@@ -56,6 +56,8 @@ export interface DoctorPatient {
     phone?: string;
     age?: number;
     gender?: string;
+    bloodGroup?: string;
+    profileImageUrl?: string;
     lastVisit?: string;
     totalVisits?: number;
 }
@@ -129,7 +131,7 @@ interface DoctorState {
     fetchDashboardData: () => Promise<void>;
     fetchAppointments: (status?: string, date?: string, page?: number) => Promise<void>;
     fetchConsultations: () => Promise<void>;
-    fetchPatients: (page?: number) => Promise<void>;
+    fetchPatients: (page?: number, search?: string, limit?: number) => Promise<void>;
     fetchSchedule: () => Promise<void>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
@@ -159,6 +161,60 @@ function mapAppointment(raw: any): Appointment {
         timeSlot: raw.timeSlot || raw.time_slot || raw.time || '',
         type: raw.type || 'clinic',
         status: raw.status || 'scheduled',
+    };
+}
+
+const DAY_INDEX_TO_NAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+const DAY_SORT_ORDER: Record<string, number> = {
+    Monday: 0,
+    Tuesday: 1,
+    Wednesday: 2,
+    Thursday: 3,
+    Friday: 4,
+    Saturday: 5,
+    Sunday: 6,
+};
+
+function normalizeTimeValue(value?: string | null) {
+    if (!value) return '';
+    const match = value.match(/^(\d{2}:\d{2})/);
+    return match ? match[1] : value;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDoctorPatient(raw: any): DoctorPatient {
+    return {
+        ...raw,
+        id: raw.id || raw.patientId || '',
+        name: raw.name || raw.patientName || 'Patient',
+        email: raw.email || raw.user?.email || '',
+        phone: raw.phone || raw.user?.phone || '',
+        age: raw.age,
+        gender: raw.gender,
+        bloodGroup: raw.bloodGroup || raw.blood_group,
+        profileImageUrl: raw.profileImageUrl || raw.profile_image_url,
+        lastVisit: raw.lastVisit || raw.last_visit || '',
+        totalVisits: raw.totalVisits || raw.total_visits || 0,
+    };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapTimeSlot(raw: any): TimeSlot {
+    const normalizedDay =
+        typeof raw.day === 'string' && raw.day.trim()
+            ? raw.day
+            : Number.isInteger(raw.day_of_week)
+                ? DAY_INDEX_TO_NAME[raw.day_of_week]
+                : Number.isInteger(raw.dayOfWeek)
+                    ? DAY_INDEX_TO_NAME[raw.dayOfWeek]
+                    : 'Monday';
+
+    return {
+        id: raw.id,
+        day: normalizedDay,
+        startTime: normalizeTimeValue(raw.startTime || raw.start_time),
+        endTime: normalizeTimeValue(raw.endTime || raw.end_time),
+        isAvailable: raw.isAvailable ?? raw.is_active ?? raw.isActive ?? true,
     };
 }
 
@@ -281,10 +337,10 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         }
     },
 
-    fetchPatients: async (page: number = 1) => {
+    fetchPatients: async (page: number = 1, search: string = '', limit: number = 20) => {
         set({ loadingPatients: true, error: null });
         try {
-            const response = await doctorApi.getPatients(page);
+            const response = await doctorApi.getPatients(page, search, limit);
             if (!response.success) {
                 set({ error: response.error || 'Failed to load patients', loadingPatients: false });
                 return;
@@ -292,7 +348,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             // After fetchWithAuth unwrap, response.data IS the array;
             // pagination is preserved as response.pagination
             const rawData = response.data;
-            const patients = (Array.isArray(rawData) ? rawData : (rawData as any)?.patients || (rawData as any)?.data || []) as DoctorPatient[];
+            const patients = ((Array.isArray(rawData) ? rawData : (rawData as any)?.patients || (rawData as any)?.data || []) as DoctorPatient[]).map(mapDoctorPatient);
             const pagination = (response as any).pagination as Record<string, number> | undefined;
             set({
                 patients: page === 1 ? patients : [...get().patients, ...patients],
@@ -320,7 +376,12 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const apiData = (result.data as any)?.slots ?? result.data ?? [];
-            set({ schedule: Array.isArray(apiData) ? apiData : [], loadingSchedule: false });
+            const schedule = Array.isArray(apiData) ? apiData.map(mapTimeSlot).sort((a, b) => {
+                const dayDelta = (DAY_SORT_ORDER[a.day] ?? 99) - (DAY_SORT_ORDER[b.day] ?? 99);
+                if (dayDelta !== 0) return dayDelta;
+                return a.startTime.localeCompare(b.startTime);
+            }) : [];
+            set({ schedule, loadingSchedule: false });
         } catch (error) {
             console.error('Error fetching schedule:', error);
             set({ error: 'Failed to load schedule.', loadingSchedule: false });

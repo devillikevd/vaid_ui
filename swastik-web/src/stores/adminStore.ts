@@ -48,15 +48,49 @@ export interface PendingProvider {
     id: string;
     name: string;
     provider_type: string;
+    provider_type_key?: string;
     email?: string;
     phone?: string;
     address?: string;
     latitude?: number | null;
     longitude?: number | null;
+    contact_name?: string | null;
+    status?: string;
+    can_approve?: boolean;
+    approval_block_reason?: string | null;
     created_at: string;
     approval_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
     registration_number?: string;
+    compliance_documents?: Array<{
+        id: string;
+        document_type: string;
+        document_url?: string | null;
+        status: string;
+        missing_items?: string[];
+    }>;
+    missing_compliance_documents?: string[];
 }
+
+const normalizeProviderTypeForApi = (rawType: string): string => {
+    if (!rawType || rawType === 'all') return 'all';
+    const normalized = rawType.trim().toLowerCase();
+    const map: Record<string, string> = {
+        doctors: 'doctor',
+        doctor: 'doctor',
+        hospitals: 'hospital',
+        hospital: 'hospital',
+        clinics: 'clinic',
+        clinic: 'clinic',
+        pharmacies: 'pharmacy',
+        pharmacy: 'pharmacy',
+        diagnosticcenters: 'diagnostic_center',
+        diagnostic_centers: 'diagnostic_center',
+        diagnostic_center: 'diagnostic_center',
+        ambulances: 'ambulance',
+        ambulance: 'ambulance',
+    };
+    return map[normalized] || normalized;
+};
 
 interface AdminState {
     stats: AdminDashboardStats | null;
@@ -66,6 +100,7 @@ interface AdminState {
     alerts: Alert[];
     pendingProviders: PendingProvider[];
     selectedProvider: PendingProvider | null;
+    currentApprovalsFilter: string;
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingApprovals: boolean;
@@ -93,6 +128,7 @@ const adminInitialState = {
     alerts: [] as Alert[],
     pendingProviders: [] as PendingProvider[],
     selectedProvider: null as PendingProvider | null,
+    currentApprovalsFilter: 'all',
     isLoading: false,
     loadingDashboard: false,
     loadingApprovals: false,
@@ -148,29 +184,8 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     },
 
     fetchPendingApprovals: async (type = 'all') => {
-        set({ loadingApprovals: true });
+        set({ loadingApprovals: true, currentApprovalsFilter: type, error: null });
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                if (!rawType || rawType === 'all') return 'all';
-                const normalized = rawType.trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
-
             const response = await adminApi.getPendingApprovals(normalizeProviderTypeForApi(type));
             if (response.success) {
                 const rawData = response.data as any;
@@ -207,26 +222,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     fetchProviderDetails: async (type, id) => {
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                const normalized = (rawType || '').trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
-
             const response = await adminApi.getProviderDetails(normalizeProviderTypeForApi(type), id);
             if (response.success) {
                 return response.data as PendingProvider;
@@ -239,30 +234,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     approveProvider: async (id, type, notes) => {
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                const normalized = (rawType || '').trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
             const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.approveProvider(providerType, id, notes);
             if (response.success) {
-                get().fetchPendingApprovals();
-                get().fetchDashboardData();
+                await Promise.all([
+                    get().fetchPendingApprovals(get().currentApprovalsFilter),
+                    get().fetchDashboardData(),
+                ]);
                 set({ selectedProvider: null });
                 return true;
             }
@@ -277,30 +255,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     rejectProvider: async (id, type, reason) => {
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                const normalized = (rawType || '').trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
             const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.rejectProvider(providerType, id, reason);
             if (response.success) {
-                get().fetchPendingApprovals();
-                get().fetchDashboardData();
+                await Promise.all([
+                    get().fetchPendingApprovals(get().currentApprovalsFilter),
+                    get().fetchDashboardData(),
+                ]);
                 set({ selectedProvider: null });
                 return true;
             }
@@ -308,80 +269,52 @@ export const useAdminStore = create<AdminState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Error rejecting provider:', error);
+            set({ error: error instanceof Error ? error.message : 'Failed to reject provider' });
             return false;
         }
     },
 
     suspendProvider: async (id, type, reason) => {
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                const normalized = (rawType || '').trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
             const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.suspendProvider(providerType, id, reason);
             if (response.success) {
-                get().fetchDashboardData();
+                await Promise.all([
+                    get().fetchPendingApprovals(get().currentApprovalsFilter),
+                    get().fetchDashboardData(),
+                ]);
                 set({ selectedProvider: null });
                 return true;
             }
+            set({ error: response.error || 'Failed to suspend provider' });
             return false;
         } catch (error) {
             console.error('Error suspending provider:', error);
+            set({ error: error instanceof Error ? error.message : 'Failed to suspend provider' });
             return false;
         }
     },
 
     reactivateProvider: async (id, type, notes) => {
         try {
-            const normalizeProviderTypeForApi = (rawType: string): string => {
-                const normalized = (rawType || '').trim().toLowerCase();
-                const map: Record<string, string> = {
-                    doctors: 'doctor',
-                    doctor: 'doctor',
-                    hospitals: 'hospital',
-                    hospital: 'hospital',
-                    clinics: 'clinic',
-                    clinic: 'clinic',
-                    pharmacies: 'pharmacy',
-                    pharmacy: 'pharmacy',
-                    diagnosticcenters: 'diagnostic_center',
-                    diagnostic_centers: 'diagnostic_center',
-                    diagnostic_center: 'diagnostic_center',
-                    ambulances: 'ambulance',
-                    ambulance: 'ambulance',
-                };
-                return map[normalized] || normalized;
-            };
             const providerType = normalizeProviderTypeForApi(type);
             const response = await adminApi.reactivateProvider(providerType, id, notes);
             if (response.success) {
-                get().fetchDashboardData();
+                await Promise.all([
+                    get().fetchPendingApprovals(get().currentApprovalsFilter),
+                    get().fetchDashboardData(),
+                ]);
                 set({ selectedProvider: null });
                 return true;
             }
+            set({ error: response.error || 'Failed to reactivate provider' });
             return false;
         } catch (error) {
             console.error('Error reactivating provider:', error);
+            set({ error: error instanceof Error ? error.message : 'Failed to reactivate provider' });
             return false;
         }
     },
 
     setSelectedProvider: (provider) => set({ selectedProvider: provider }),
 }));
-

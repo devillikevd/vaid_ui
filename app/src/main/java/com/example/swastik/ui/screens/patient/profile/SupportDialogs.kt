@@ -281,7 +281,7 @@ fun QrCodeDialog(
 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Any doctor can scan this QR to view your\ncomplete medical records securely",
+                    "Anyone with this active QR or link can view your\nshared clinical summary until it expires or you revoke it",
                     fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center
                 )
 
@@ -296,7 +296,16 @@ fun QrCodeDialog(
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_SUBJECT, "My Swastik Health Card")
-                                    putExtra(Intent.EXTRA_TEXT, "View my health records: ${healthCardState.url}")
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        buildString {
+                                            append("Swastik Health Card (time-limited clinical summary)")
+                                            append("\n")
+                                            append("Valid until: ${formattedExpiry ?: "revoked or expired soon"}")
+                                            append("\n")
+                                            append(healthCardState.url)
+                                        }
+                                    )
                                 }
                                 context.startActivity(Intent.createChooser(shareIntent, "Share Health Card"))
                             },

@@ -48,7 +48,8 @@ data class NotificationItem(
     val time: String,
     val type: NotificationType,
     @SerializedName("is_read") val isRead: Boolean = false,
-    @SerializedName("action_label") val actionLabel: String? = null
+    @SerializedName("action_label") val actionLabel: String? = null,
+    @SerializedName("action_route") val actionRoute: String? = null
 )
 
 enum class NotificationType {
@@ -122,7 +123,8 @@ data class Doctor(
     @SerializedName("rating") val averageRating: Float?,
     @SerializedName("total_reviews") val totalReviews: Int?,
     @SerializedName("is_available") val isAvailable: Boolean,
-    @SerializedName("hospital_values") val hospitalValues: List<String> = emptyList()
+    @SerializedName("hospital_values") val hospitalValues: List<String> = emptyList(),
+    @SerializedName("recommendation_reason") val recommendationReason: String? = null
 )
 
 data class DoctorDetails(
@@ -158,7 +160,32 @@ data class Hospital(
     @SerializedName("ambulance_service") val ambulanceService: Boolean?,
     @SerializedName("is_24_hours") val is24Hours: Boolean?,
     val type: String? = null,
-    val city: String? = null
+    val city: String? = null,
+    val departments: List<HospitalDepartment>? = null,
+    val doctors: List<HospitalDoctorAssignment>? = null
+)
+
+data class HospitalDepartment(
+    val id: String? = null,
+    val name: String? = null,
+    val description: String? = null,
+    @SerializedName("is_active") val isActive: Boolean? = null
+)
+
+data class HospitalDoctorAssignment(
+    val id: String? = null,
+    @SerializedName("doctor_id") val doctorId: String? = null,
+    val department: String? = null,
+    @SerializedName("is_active") val isActive: Boolean? = null,
+    val doctor: HospitalDoctorSummary? = null
+)
+
+data class HospitalDoctorSummary(
+    val id: String,
+    val name: String,
+    val specialization: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    @SerializedName("consultation_fee") val consultationFee: Int? = null
 )
 
 data class Clinic(
@@ -175,11 +202,21 @@ data class Review(
     val patient: Patient?
 )
 
+data class AppointmentFacility(
+    val id: String,
+    val name: String,
+    val address: String? = null,
+    val city: String? = null,
+    val type: String? = null
+)
+
 data class Appointment(
     val id: String,
     @SerializedName("appointment_number") val appointmentNumber: String?,
     @SerializedName("patient_id") val patientId: String,
     @SerializedName("doctor_id") val doctorId: String,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null,
     @SerializedName("appointment_date") val date: String,
     @SerializedName("time_slot") val timeSlot: String,
     val type: String,
@@ -189,7 +226,9 @@ data class Appointment(
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("cancellation_reason") val cancellationReason: String?,
     val doctor: Doctor?,
-    val patient: Patient?
+    val patient: Patient?,
+    val hospital: AppointmentFacility? = null,
+    val clinic: AppointmentFacility? = null
 )
 
 data class Prescription(
@@ -209,6 +248,7 @@ data class Prescription(
 
 data class Medicine(
     val id: String,
+    @SerializedName("inventory_item_id") val inventoryItemId: String? = null,
     val name: String,
     @SerializedName("generic_name") val genericName: String? = null,
     val manufacturer: String?,
@@ -218,6 +258,7 @@ data class Medicine(
     val description: String? = null,
     @SerializedName("in_stock") val inStock: Boolean = true,
     @SerializedName("stock_count") val stockCount: Int = 0,
+    @SerializedName("nearby_pharmacy_id") val nearbyPharmacyId: String? = null,
     @SerializedName("nearby_pharmacy") val nearbyPharmacy: String? = null,
     @SerializedName("pharmacy_distance") val pharmacyDistance: String? = null
 )

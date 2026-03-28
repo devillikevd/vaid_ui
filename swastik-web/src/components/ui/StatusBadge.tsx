@@ -26,6 +26,11 @@ const statusConfig: Record<string, {
         icon: Clock,
         className: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700',
     },
+    booked: {
+        label: 'Booked',
+        icon: Calendar,
+        className: 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700',
+    },
     review: {
         label: 'Under Review',
         icon: Eye,
@@ -91,6 +96,11 @@ const statusConfig: Record<string, {
         icon: Clock,
         className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
     },
+    sample_collected: {
+        label: 'Sample Collected',
+        icon: CheckCircle,
+        className: 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-700',
+    },
     ready: {
         label: 'Ready',
         icon: CheckCircle,
@@ -116,6 +126,26 @@ const statusConfig: Record<string, {
         icon: Calendar,
         className: 'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700',
     },
+    waiting: {
+        label: 'Waiting',
+        icon: Clock,
+        className: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+    },
+    no_show: {
+        label: 'No Show',
+        icon: AlertTriangle,
+        className: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+    },
+    'no-show': {
+        label: 'No Show',
+        icon: AlertTriangle,
+        className: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700',
+    },
+    timed_out: {
+        label: 'Timed Out',
+        icon: XCircle,
+        className: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+    },
     dispensed: {
         label: 'Dispensed',
         icon: CheckCircle,
@@ -130,6 +160,11 @@ const statusConfig: Record<string, {
         label: 'Dispatched',
         icon: CheckCircle,
         className: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+    },
+    delivered: {
+        label: 'Delivered',
+        icon: CheckCircle,
+        className: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
     },
 };
 

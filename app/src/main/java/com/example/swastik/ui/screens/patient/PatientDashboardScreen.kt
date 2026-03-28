@@ -1,5 +1,9 @@
 package com.example.swastik.ui.screens.patient
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
@@ -15,8 +19,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import com.example.swastik.ui.screens.patient.components.*
 import com.example.swastik.ui.screens.patient.tabs.*
 import com.example.swastik.ui.theme.*
@@ -58,10 +64,27 @@ fun PatientDashboardScreen(
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
+    onNotificationActionRoute: (String) -> Unit = {}
 ) {
     var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 3)) }
     var showNotificationPanel by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     // Collect data from ViewModel
     val profile by viewModel.patientProfile.collectAsState()
@@ -205,6 +228,11 @@ fun PatientDashboardScreen(
                 },
                 onMarkAsRead = { notificationId ->
                     viewModel.markNotificationRead(notificationId)
+                },
+                onActionClick = { notification ->
+                    viewModel.markNotificationRead(notification.id)
+                    notification.actionRoute?.let(onNotificationActionRoute)
+                    showNotificationPanel = false
                 }
             )
         }

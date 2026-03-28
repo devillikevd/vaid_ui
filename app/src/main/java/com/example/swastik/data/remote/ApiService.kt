@@ -101,7 +101,13 @@ interface ApiService {
     
     @GET("patients/prescriptions/{id}")
     suspend fun getPrescriptionDetails(@Path("id") id: String): Response<ApiResponse<Prescription>>
-    
+
+    @POST("patients/prescriptions/{id}/forward-to-pharmacy")
+    suspend fun forwardPrescriptionToPharmacy(
+        @Path("id") id: String,
+        @Body request: ForwardPrescriptionRequest
+    ): Response<ApiResponse<MedicineOrderDto>>
+
     @GET("patients/reports")
     suspend fun getPatientReports(
         @Query("page") page: Int = 1,
@@ -111,10 +117,11 @@ interface ApiService {
     @Multipart
     @POST("reports")
     suspend fun createPatientReport(
-        @Part file: MultipartBody.Part,
+        @Part file: MultipartBody.Part? = null,
         @Part("name") name: RequestBody,
         @Part("type") type: RequestBody,
         @Part("date") date: RequestBody? = null,
+        @Part("externalUrl") externalUrl: RequestBody? = null,
         @Part("notes") notes: RequestBody? = null,
         @Part("labName") labName: RequestBody? = null
     ): Response<ApiResponse<ReportDto>>
@@ -188,6 +195,9 @@ interface ApiService {
         @Query("longitude") longitude: Double,
         @Query("radius") radius: Int = 5
     ): Response<ApiResponse<List<ClinicDto>>>
+
+    @GET("clinics/{id}")
+    suspend fun getClinicDetails(@Path("id") id: String): Response<ApiResponse<ClinicDto>>
 
     @GET("hospitals/diagnostic-centers")
     suspend fun getDiagnosticCenters(
@@ -398,6 +408,12 @@ interface ApiService {
 
     @POST("patients/reminders")
     suspend fun createReminder(@Body request: CreateReminderRequest): Response<ApiResponse<ReminderDto>>
+
+    @POST("patients/reminders/{id}/action")
+    suspend fun actOnReminder(
+        @Path("id") id: String,
+        @Body request: ReminderActionRequest
+    ): Response<ApiResponse<ReminderActionResultDto>>
 
     @PUT("patients/reminders/{id}")
     suspend fun updateReminder(

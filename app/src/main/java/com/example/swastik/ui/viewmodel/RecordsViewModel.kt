@@ -4,13 +4,17 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.ConsultationRecord
+import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.model.MedicalDocument
 import com.example.swastik.data.model.DocumentType
 import com.example.swastik.data.model.Prescription
 import com.example.swastik.data.model.PrescriptionItem
+import com.example.swastik.data.remote.SocketManager
+import com.example.swastik.data.repository.HospitalRepository
 import com.example.swastik.data.repository.RecordsRepository
 import com.example.swastik.data.remote.dto.ConsultationDto
 import com.example.swastik.data.remote.dto.ReportDto
+import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,9 +28,22 @@ data class RecordsUiState(
     val consultations: List<ConsultationRecord> = emptyList(),
     val prescriptions: List<Prescription> = emptyList(),
     val documents: List<MedicalDocument> = emptyList(),
+    val prescriptionPharmacies: List<MedicalFacility> = emptyList(),
+    val patientDefaultDeliveryAddress: String? = null,
+    val loadingPrescriptionPharmacies: Boolean = false,
+    val prescriptionPharmacySourceLabel: String? = null,
+    val prescriptionPharmacyError: String? = null,
+    val forwardingPrescription: Boolean = false,
+    val prescriptionForwardError: String? = null,
+    val prescriptionForwardSuccess: PrescriptionForwardSuccess? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val uploadState: UploadState = UploadState.Idle
+)
+
+data class PrescriptionForwardSuccess(
+    val message: String,
+    val orderId: String? = null
 )
 
 sealed class UploadState {
@@ -38,7 +55,10 @@ sealed class UploadState {
 
 @HiltViewModel
 class RecordsViewModel @Inject constructor(
-    private val recordsRepository: RecordsRepository
+    private val recordsRepository: RecordsRepository,
+    private val hospitalRepository: HospitalRepository,
+    private val locationHelper: LocationHelper,
+    private val socketManager: SocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecordsUiState())
@@ -46,6 +66,7 @@ class RecordsViewModel @Inject constructor(
 
     init {
         loadRecords()
+        observeDiagnosticUpdates()
     }
 
     fun loadRecords() {
@@ -77,29 +98,39 @@ class RecordsViewModel @Inject constructor(
     }
 
     private suspend fun loadConsultations() {
-        val dtos = recordsRepository.getConsultations(page = 1)
+        val dtos = recordsRepository.getAllConsultations()
         val consultations = dtos.map { it.toConsultationRecord() }
         // Thread-safe update using update {} to prevent race condition
         _uiState.update { it.copy(consultations = consultations) }
     }
 
     private suspend fun loadPrescriptions() {
-        val prescriptions = recordsRepository.getPatientPrescriptions(page = 1)
+        val prescriptions = recordsRepository.getAllPatientPrescriptions()
         _uiState.update { it.copy(prescriptions = prescriptions) }
     }
 
     private suspend fun loadReports() {
-        val dtos = recordsRepository.getPatientReports(page = 1)
+        val dtos = recordsRepository.getAllPatientReports()
         val documents = dtos.map { it.toMedicalDocument() }
         // Thread-safe update using update {} to prevent race condition
         _uiState.update { it.copy(documents = documents) }
     }
 
-    fun uploadReport(uri: Uri, name: String, type: String) {
+    private fun observeDiagnosticUpdates() {
+        viewModelScope.launch {
+            socketManager.diagnosticUpdates.collect { update ->
+                if (update.status == "result_ready" || !update.resultUrl.isNullOrBlank()) {
+                    runCatching { loadReports() }
+                }
+            }
+        }
+    }
+
+    fun uploadReport(uri: Uri?, name: String, type: String, externalUrl: String? = null) {
         viewModelScope.launch {
             _uiState.update { it.copy(uploadState = UploadState.Uploading) }
             try {
-                recordsRepository.uploadReport(uri, name, type)
+                recordsRepository.uploadReport(uri, name, type, externalUrl)
                 _uiState.update { it.copy(uploadState = UploadState.Success("Report uploaded successfully")) }
                 // Reload records to show new report
                 loadRecords()
@@ -130,6 +161,139 @@ class RecordsViewModel @Inject constructor(
     fun clearUploadState() {
         _uiState.update { it.copy(uploadState = UploadState.Idle) }
     }
+
+    fun loadPrescriptionPharmacies(search: String = "") {
+        val normalizedSearch = search.trim()
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    loadingPrescriptionPharmacies = true,
+                    prescriptionPharmacyError = null
+                )
+            }
+
+            try {
+                val defaultAddress = _uiState.value.patientDefaultDeliveryAddress
+                    ?: runCatching { recordsRepository.getDefaultDeliveryAddress() }.getOrNull()
+
+                val pharmacies = if (normalizedSearch.isNotEmpty()) {
+                    recordsRepository.searchPharmacies(search = normalizedSearch)
+                } else {
+                    val location = try { locationHelper.getLastLocation() } catch (_: Exception) { null }
+                    val nearbyPharmacies = if (location != null) {
+                        hospitalRepository.getNearbyPharmacies(
+                            latitude = location.latitude,
+                            longitude = location.longitude,
+                            radius = 15
+                        )
+                    } else {
+                        emptyList()
+                    }
+                    val approvedPharmacies = recordsRepository.searchPharmacies(limit = 20)
+                    mergePharmacies(nearbyPharmacies, approvedPharmacies)
+                }
+
+                _uiState.update {
+                    it.copy(
+                        prescriptionPharmacies = pharmacies,
+                        patientDefaultDeliveryAddress = defaultAddress ?: it.patientDefaultDeliveryAddress,
+                        loadingPrescriptionPharmacies = false,
+                        prescriptionPharmacySourceLabel = when {
+                            normalizedSearch.isNotEmpty() -> "Search results"
+                            pharmacies.any { pharmacy -> pharmacy.distanceKm > 0.0 } -> "Nearby and approved pharmacies"
+                            else -> "Approved pharmacies"
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        loadingPrescriptionPharmacies = false,
+                        prescriptionPharmacyError = e.message ?: "Failed to load pharmacies"
+                    )
+                }
+            }
+        }
+    }
+
+    fun forwardPrescriptionToPharmacy(
+        prescriptionId: String,
+        pharmacyId: String,
+        pharmacyName: String,
+        deliveryAddress: String
+    ) {
+        if (pharmacyId.isBlank()) {
+            _uiState.update { it.copy(prescriptionForwardError = "Please choose a pharmacy first.") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    forwardingPrescription = true,
+                    prescriptionForwardError = null,
+                    prescriptionForwardSuccess = null
+                )
+            }
+
+            try {
+                val order = recordsRepository.forwardPrescriptionToPharmacy(
+                    prescriptionId = prescriptionId,
+                    pharmacyId = pharmacyId,
+                    deliveryAddress = deliveryAddress
+                )
+                _uiState.update {
+                    it.copy(
+                        forwardingPrescription = false,
+                        prescriptionForwardSuccess = PrescriptionForwardSuccess(
+                            message = "Prescription sent to $pharmacyName.",
+                            orderId = order.id
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        forwardingPrescription = false,
+                        prescriptionForwardError = e.message ?: "Failed to send prescription"
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearPrescriptionForwardSuccess() {
+        _uiState.update { it.copy(prescriptionForwardSuccess = null) }
+    }
+
+    fun clearPrescriptionForwardError() {
+        _uiState.update { it.copy(prescriptionForwardError = null) }
+    }
+
+    fun clearPrescriptionPharmacies() {
+        _uiState.update {
+            it.copy(
+                prescriptionPharmacies = emptyList(),
+                prescriptionPharmacySourceLabel = null,
+                prescriptionPharmacyError = null,
+                loadingPrescriptionPharmacies = false
+            )
+        }
+    }
+}
+
+private fun mergePharmacies(
+    primary: List<MedicalFacility>,
+    fallback: List<MedicalFacility>
+): List<MedicalFacility> {
+    val merged = LinkedHashMap<String, MedicalFacility>()
+    (primary + fallback).forEach { pharmacy ->
+        if (pharmacy.id.isNotBlank()) {
+            merged.putIfAbsent(pharmacy.id, pharmacy)
+        }
+    }
+    return merged.values.toList()
 }
 
 private fun ConsultationDto.toConsultationRecord(): ConsultationRecord {
@@ -162,7 +326,7 @@ private fun ConsultationDto.toConsultationRecord(): ConsultationRecord {
  */
 private fun ReportDto.toMedicalDocument(): MedicalDocument {
     val docType = when (type.lowercase()) {
-        "blood_test", "urine_test", "ecg" -> DocumentType.LAB_REPORT
+        "blood_test", "urine_test", "ecg", "diagnostic_result" -> DocumentType.LAB_REPORT
         "x_ray", "mri", "ct_scan", "ultrasound" -> DocumentType.SCAN
         "prescription", "rx" -> DocumentType.PRESCRIPTION
         "discharge", "discharge_summary" -> DocumentType.DISCHARGE_SUMMARY
