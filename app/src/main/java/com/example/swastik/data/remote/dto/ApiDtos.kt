@@ -106,7 +106,7 @@ data class ChatMessage(
 
 data class RegisterRequest(
     val email: String,
-    val phone: String,
+    val phone: String? = null,
     val password: String,
     val name: String,
     val role: String = "patient"

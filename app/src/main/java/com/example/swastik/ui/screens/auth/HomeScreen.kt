@@ -31,8 +31,8 @@ import com.example.swastik.ui.theme.SwastikPurpleLight
 
 @Composable
 fun HomeScreen(
-    onPatientClick: () -> Unit,
-    onDoctorClick: () -> Unit = {} // Kept for compatibility, not used
+    onPatientRegisterClick: () -> Unit,
+    onPatientLoginClick: () -> Unit
 ) {
     // Subtle animation for the logo
     val infiniteTransition = rememberInfiniteTransition(label = "logo")
@@ -166,7 +166,7 @@ fun HomeScreen(
 
                 // Get Started Button
                 Button(
-                    onClick = onPatientClick,
+                    onClick = onPatientRegisterClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp),
@@ -185,7 +185,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            "Get Started",
+                            "Create Patient Account",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -193,6 +193,37 @@ fun HomeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = onPatientLoginClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple.copy(alpha = 0.28f))
+                    )
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Sign In",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Already have account
                 Row(
@@ -204,9 +235,9 @@ fun HomeScreen(
                         fontSize = 14.sp,
                         color = Color.Gray
                     )
-                    TextButton(onClick = onPatientClick) {
+                    TextButton(onClick = onPatientLoginClick) {
                         Text(
-                            "Sign In",
+                            "Login here",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPurple
@@ -323,4 +354,3 @@ private fun FeatureItem(icon: String, label: String) {
         )
     }
 }
-

@@ -34,7 +34,6 @@ fun EmailVerificationPendingScreen(
     val viewModel: AuthViewModel = hiltViewModel()
     val uiState = viewModel.uiState
     var resendCooldown by remember { mutableIntStateOf(0) }
-    var resendSuccess by remember { mutableStateOf(false) }
 
     // Cooldown timer
     LaunchedEffect(resendCooldown) {
@@ -126,8 +125,7 @@ fun EmailVerificationPendingScreen(
             )
         }
 
-        // Resend success message
-        if (resendSuccess) {
+        uiState.infoMessage?.let { info ->
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier
@@ -136,7 +134,7 @@ fun EmailVerificationPendingScreen(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
             ) {
                 Text(
-                    text = "Verification email resent! Check your inbox.",
+                    text = info,
                     fontSize = 13.sp,
                     color = Color(0xFF2E7D32),
                     modifier = Modifier.padding(12.dp),
@@ -171,10 +169,9 @@ fun EmailVerificationPendingScreen(
             if (email.isNotBlank()) {
                 OutlinedButton(
                     onClick = {
-                        resendSuccess = false
+                        viewModel.clearFeedback()
                         viewModel.resendVerification(email)
                         resendCooldown = 60
-                        resendSuccess = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()

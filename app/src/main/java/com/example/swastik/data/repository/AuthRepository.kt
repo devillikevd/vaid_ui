@@ -36,7 +36,8 @@ class AuthRepository @Inject constructor(
     fun loginWithEmail(email: String, password: String): Flow<Result<Boolean>> = flow {
         emit(Result.Loading)
         try {
-            val response = apiService.login(LoginRequest(email = email, password = password, role = "patient"))
+            val normalizedEmail = email.trim()
+            val response = apiService.login(LoginRequest(email = normalizedEmail, password = password, role = "patient"))
             if (response.isSuccessful) {
                 val body = response.body()
                 val token = body?.resolvedAccessToken()
@@ -64,8 +65,8 @@ class AuthRepository @Inject constructor(
                     emit(Result.Error(body?.message ?: "Login failed"))
                 }
             } else {
-                val errorBody = response.errorBody()?.string()
-                emit(Result.Error(parseErrorMessage(errorBody) ?: "Login failed"))
+                val failure = parseApiFailure(response.errorBody()?.string())
+                emit(Result.Error(failure?.message ?: "Login failed", failure))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Login failed", e)
@@ -77,13 +78,13 @@ class AuthRepository @Inject constructor(
      * Register a new patient account.
      * Backend no longer returns tokens — requires email verification first.
      */
-    fun register(name: String, phone: String, email: String, password: String = ""): Flow<Result<Boolean>> = flow {
+    fun register(name: String, phone: String?, email: String, password: String = ""): Flow<Result<Boolean>> = flow {
         emit(Result.Loading)
         try {
             val request = RegisterRequest(
                 name = name,
-                phone = phone,
-                email = email,
+                phone = phone?.takeIf { it.isNotBlank() },
+                email = email.trim(),
                 password = password,
                 role = "patient"
             )
@@ -97,8 +98,8 @@ class AuthRepository @Inject constructor(
                     emit(Result.Error(body?.message ?: "Registration failed"))
                 }
             } else {
-                val errorBody = response.errorBody()?.string()
-                emit(Result.Error(parseErrorMessage(errorBody) ?: "Registration failed"))
+                val failure = parseApiFailure(response.errorBody()?.string())
+                emit(Result.Error(failure?.message ?: "Registration failed", failure))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Registration failed", e)
@@ -109,13 +110,18 @@ class AuthRepository @Inject constructor(
     /**
      * Resend email verification link.
      */
-    suspend fun resendVerification(email: String): Result<Boolean> {
+    suspend fun resendVerification(email: String): Result<String> {
         return try {
-            val response = apiService.resendVerification(ResendVerificationRequest(email = email))
+            val response = apiService.resendVerification(ResendVerificationRequest(email = email.trim()))
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(true)
+                Result.Success(response.body()?.message ?: "Verification email sent. Please check your inbox.")
             } else {
-                Result.Error(response.body()?.message ?: "Failed to resend verification email")
+                val errorBody = response.errorBody()?.string()
+                val failure = parseApiFailure(errorBody)
+                Result.Error(
+                    response.body()?.message ?: failure?.message ?: "Failed to resend verification email",
+                    failure
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Resend verification failed", e)
@@ -156,13 +162,18 @@ class AuthRepository @Inject constructor(
     /**
      * Forgot password.
      */
-    suspend fun forgotPassword(email: String): Result<Boolean> {
+    suspend fun forgotPassword(email: String): Result<String> {
         return try {
-            val response = apiService.forgotPassword(ForgotPasswordRequest(email = email))
+            val response = apiService.forgotPassword(ForgotPasswordRequest(email = email.trim()))
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(true)
+                Result.Success(response.body()?.message ?: "Password reset email sent.")
             } else {
-                Result.Error(response.body()?.message ?: "Failed to send reset email")
+                val errorBody = response.errorBody()?.string()
+                val failure = parseApiFailure(errorBody)
+                Result.Error(
+                    response.body()?.message ?: failure?.message ?: "Failed to send reset email",
+                    failure
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Forgot password failed", e)
@@ -235,17 +246,21 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    private fun parseErrorMessage(errorBody: String?): String? {
+    private fun parseApiFailure(errorBody: String?): AuthApiException? {
         if (errorBody == null) return null
         return try {
             val json = org.json.JSONObject(errorBody)
-            when {
+            val message = when {
                 json.has("message") && !json.isNull("message") -> json.optString("message")
                 json.has("error") && !json.isNull("error") -> json.optString("error")
                 else -> null
-            }
+            } ?: return null
+            AuthApiException(
+                message = message,
+                code = json.optString("code").takeIf { it.isNotBlank() }
+            )
         } catch (_: Exception) {
-            errorBody
+            AuthApiException(errorBody)
         }
     }
 

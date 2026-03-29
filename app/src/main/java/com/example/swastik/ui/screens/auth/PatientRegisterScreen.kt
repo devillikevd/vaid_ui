@@ -2,29 +2,72 @@ package com.example.swastik.ui.screens.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.swastik.ui.screens.auth.AuthViewModel
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.ui.theme.SwastikPurple
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientRegisterScreen(
     onLoginClick: () -> Unit,
@@ -33,50 +76,89 @@ fun PatientRegisterScreen(
 ) {
     val viewModel: AuthViewModel = hiltViewModel()
     val uiState = viewModel.uiState
+    val focusManager = LocalFocusManager.current
+    val appSettings by AppSettingsStore.settings.collectAsState()
 
-    var fullName by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var phoneNumber by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var roleExpanded by remember { mutableStateOf(false) }
-    var languageExpanded by remember { mutableStateOf(false) }
-    var selectedLanguage by remember { mutableStateOf("English") }
+    var fullName by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var phoneNumber by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var languageExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedLanguage by remember(appSettings.language) { mutableStateOf(appSettings.language) }
 
-    val roles = listOf("Patient", "Caregiver", "Family Member")
-    val languages = listOf("English", "Hindi", "Tamil", "Telugu", "Bengali")
+    val languages = listOf("English", "Hindi", "Tamil", "Telugu", "Bengali", "Kannada", "Marathi")
+    val trimmedName = fullName.trim()
+    val normalizedEmail = email.trim()
+    val normalizedPhoneDigits = normalizeIndianPhoneInput(phoneNumber)
+    val phoneForApi = normalizedPhoneDigits.takeIf { it.length == 10 }?.let { "+91$it" }
+    val passwordMessage = passwordValidationMessage(password)
+    val emailError = when {
+        email.isBlank() -> null
+        !isValidEmail(normalizedEmail) -> "Enter a valid email address."
+        else -> null
+    }
+    val nameError = when {
+        fullName.isBlank() -> null
+        trimmedName.length < 2 -> "Enter your full name."
+        else -> null
+    }
+    val phoneError = phoneValidationMessage(normalizedPhoneDigits)
+    val confirmPasswordError = when {
+        confirmPassword.isBlank() -> null
+        confirmPassword != password -> "Passwords do not match."
+        else -> null
+    }
+    val canSubmit = trimmedName.isNotBlank() &&
+        nameError == null &&
+        emailError == null &&
+        passwordMessage == null &&
+        confirmPasswordError == null &&
+        phoneError == null &&
+        password.isNotBlank() &&
+        confirmPassword.isNotBlank() &&
+        !uiState.isLoading
 
-    // Navigate to verification pending screen on successful registration
     LaunchedEffect(uiState.registrationComplete) {
         if (uiState.registrationComplete) {
             viewModel.onRegistrationNavigated()
-            onRegisterSuccess(email)
+            onRegisterSuccess(normalizedEmail)
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SwastikPurple)
+            .background(
+                Brush.verticalGradient(
+                    listOf(SwastikPurple, SwastikPurple.copy(alpha = 0.78f), Color(0xFF6A5AE0))
+                )
+            )
     ) {
-        // Purple header area with back button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 40.dp, start = 16.dp),
+                .padding(top = 28.dp, start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
                 Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = Color.White
                 )
             }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Create patient account",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
 
-        // White form area
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -86,40 +168,47 @@ fun PatientRegisterScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Header with Language selector
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Register",
-                            fontSize = 32.sp,
+                            text = "Get started",
+                            fontSize = 30.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Please Register Before Login",
+                            text = "Create your personal patient account. Doctors, hospitals, pharmacies, and other providers register from their own portals.",
                             fontSize = 14.sp,
-                            color = Color.Gray
+                            color = Color(0xFF6B7280),
+                            lineHeight = 20.sp
                         )
                     }
 
-                    // Language Dropdown
                     Box {
                         Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF3F4F6), RoundedCornerShape(12.dp))
                                 .clickable { languageExpanded = true }
-                                .padding(8.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(selectedLanguage, fontWeight = FontWeight.Medium)
+                            Text(
+                                text = selectedLanguage,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
                         }
+
                         DropdownMenu(
                             expanded = languageExpanded,
                             onDismissRequest = { languageExpanded = false }
@@ -129,6 +218,7 @@ fun PatientRegisterScreen(
                                     text = { Text(language) },
                                     onClick = {
                                         selectedLanguage = language
+                                        AppSettingsStore.updateLanguage(language)
                                         languageExpanded = false
                                     }
                                 )
@@ -137,197 +227,272 @@ fun PatientRegisterScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Full Name Field
-                Text("Full Name*", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = fullName,
-                    onValueChange = { fullName = it },
-                    placeholder = { Text("Fullname") },
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = authOutlinedTextFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Role Dropdown
-                Text("Role*", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                ExposedDropdownMenuBox(
-                    expanded = roleExpanded,
-                    onExpandedChange = { roleExpanded = !roleExpanded }
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F5FF))
                 ) {
-                    OutlinedTextField(
-                        value = selectedRole,
-                        onValueChange = {},
-                        readOnly = true,
-                        placeholder = { Text("Select your Role") },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = authOutlinedTextFieldColors()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = roleExpanded,
-                        onDismissRequest = { roleExpanded = false }
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        roles.forEach { role ->
-                            DropdownMenuItem(
-                                text = { Text(role) },
-                                onClick = {
-                                    selectedRole = role
-                                    roleExpanded = false
-                                }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(SwastikPurple.copy(alpha = 0.12f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = SwastikPurple,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "What happens next",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF312E81)
                             )
                         }
+                        Text(
+                            text = "We’ll send a verification link to your email. After verifying it, you can log in and access the full patient ecosystem.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF4B5563),
+                            lineHeight = 19.sp
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Email Field
-                Text("Email*", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = { Text("Enter your email") },
-                    leadingIcon = { Icon(Icons.Default.Email, null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = authOutlinedTextFieldColors()
+                AuthInlineCard(
+                    text = uiState.errorMessage,
+                    containerColor = Color(0xFFFFEBEE),
+                    contentColor = Color(0xFFB3261E)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Password Field
-                Text("Password*", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = { Text("Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, null) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                null
-                            )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Full name", fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = fullName,
+                        onValueChange = {
+                            fullName = it
+                            viewModel.clearFeedback()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = nameError != null,
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        placeholder = { Text("Enter your full name") },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        colors = authOutlinedTextFieldColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        supportingText = {
+                            nameError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = authOutlinedTextFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Phone Input Field (optional)
-                Text("Phone Number", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
-                    placeholder = { Text("Input Phone Number (optional)") },
-                    leadingIcon = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 12.dp)
-                        ) {
-                            Text("🇮🇳", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("+91", fontWeight = FontWeight.Medium)
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(1.dp)
-                                    .height(24.dp)
-                                    .background(Color.LightGray)
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = authOutlinedTextFieldColors()
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Error message
-                uiState.errorMessage?.let { error ->
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Register Button
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Email address", fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            viewModel.clearFeedback()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = emailError != null,
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        placeholder = { Text("you@example.com") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        colors = authOutlinedTextFieldColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        supportingText = {
+                            emailError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Mobile number", fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = normalizedPhoneDigits,
+                        onValueChange = {
+                            phoneNumber = normalizeIndianPhoneInput(it)
+                            viewModel.clearFeedback()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = phoneError != null,
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        prefix = { Text("+91") },
+                        placeholder = { Text("Optional") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction = ImeAction.Next
+                        ),
+                        colors = authOutlinedTextFieldColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        supportingText = {
+                            val supportText = phoneError ?: "Optional. Add this for quicker SOS and provider communication."
+                            Text(
+                                supportText,
+                                color = if (phoneError != null) MaterialTheme.colorScheme.error else Color(0xFF6B7280)
+                            )
+                        }
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Password", fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            viewModel.clearFeedback()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = passwordMessage != null,
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        placeholder = { Text("Create a strong password") },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Next
+                        ),
+                        colors = authOutlinedTextFieldColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        supportingText = {
+                            Text(
+                                text = passwordMessage ?: AUTH_PASSWORD_HINT,
+                                color = if (passwordMessage != null) MaterialTheme.colorScheme.error else Color(0xFF6B7280)
+                            )
+                        }
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Confirm password", fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = {
+                            confirmPassword = it
+                            viewModel.clearFeedback()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = confirmPasswordError != null,
+                        leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                Icon(
+                                    imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        placeholder = { Text("Re-enter your password") },
+                        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                if (canSubmit) {
+                                    viewModel.register(
+                                        name = trimmedName,
+                                        phone = phoneForApi,
+                                        email = normalizedEmail,
+                                        password = password
+                                    )
+                                }
+                            }
+                        ),
+                        colors = authOutlinedTextFieldColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        supportingText = {
+                            confirmPasswordError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        }
+                    )
+                }
+
                 Button(
                     onClick = {
-                        // Call register API with email verification
-                        val phone = if (phoneNumber.isNotBlank()) "+91$phoneNumber" else ""
+                        focusManager.clearFocus()
                         viewModel.register(
-                            name = fullName,
-                            phone = phone,
-                            email = email,
+                            name = trimmedName,
+                            phone = phoneForApi,
+                            email = normalizedEmail,
                             password = password
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
-                    enabled = fullName.isNotEmpty() && email.isNotEmpty() && password.isNotEmpty() && !uiState.isLoading
+                    enabled = canSubmit
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(22.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Register", fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                        Text("Register", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Login Link
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Have an account?", color = Color.Gray)
-                    TextButton(onClick = onLoginClick) {
-                        Text(
-                            "Login Here",
-                            color = SwastikPurple,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Text("Already registered?", color = Color(0xFF6B7280))
+                    TextButton(onClick = onLoginClick, enabled = !uiState.isLoading) {
+                        Text("Login here", fontWeight = FontWeight.Bold)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun AuthInlineCard(
+    text: String?,
+    containerColor: Color,
+    contentColor: Color
+) {
+    if (text.isNullOrBlank()) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Text(
+            text = text,
+            color = contentColor,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            modifier = Modifier.padding(14.dp)
+        )
     }
 }

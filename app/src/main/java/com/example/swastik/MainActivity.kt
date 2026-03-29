@@ -107,8 +107,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         // ── Auth ──────────────────────────────────────────
         composable(Screen.Home.route) {
             HomeScreen(
-                onPatientClick = { navController.navigate(Screen.PatientRegister.route) },
-                onDoctorClick = { navController.navigate(Screen.DoctorLogin.route) }
+                onPatientRegisterClick = { navController.navigate(Screen.PatientRegister.route) },
+                onPatientLoginClick = { navController.navigate(Screen.PatientLogin.route) }
             )
         }
 

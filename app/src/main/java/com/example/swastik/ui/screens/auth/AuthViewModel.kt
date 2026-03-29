@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.PatientProfile
+import com.example.swastik.data.repository.AuthApiException
 import com.example.swastik.data.repository.AuthRepository
 import com.example.swastik.data.repository.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,8 @@ data class AuthUiState(
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
     val errorMessage: String? = null,
+    val errorCode: String? = null,
+    val infoMessage: String? = null,
     val registrationComplete: Boolean = false // Email verification required
 )
 
@@ -56,7 +59,7 @@ class AuthViewModel @Inject constructor(
      */
     fun login(email: String, password: String) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
 
             authRepository.loginWithEmail(email, password).collectLatest { result ->
                 when (result) {
@@ -64,11 +67,16 @@ class AuthViewModel @Inject constructor(
                         uiState = uiState.copy(
                             isLoading = false,
                             isSuccess = true,
-                            errorMessage = null
+                            errorMessage = null,
+                            errorCode = null
                         )
                     }
                     is Result.Error -> {
-                        uiState = uiState.copy(isLoading = false, errorMessage = result.message)
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = result.message,
+                            errorCode = (result.exception as? AuthApiException)?.code
+                        )
                     }
                     is Result.Loading -> {
                         uiState = uiState.copy(isLoading = true)
@@ -81,9 +89,9 @@ class AuthViewModel @Inject constructor(
     /**
      * Register new patient — backend sends verification email
      */
-    fun register(name: String, phone: String, email: String, password: String? = null) {
+    fun register(name: String, phone: String?, email: String, password: String? = null) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
             
             authRepository.register(name, phone, email, password ?: "").collectLatest { result ->
                 when (result) {
@@ -94,7 +102,11 @@ class AuthViewModel @Inject constructor(
                         )
                     }
                     is Result.Error -> {
-                        uiState = uiState.copy(isLoading = false, errorMessage = result.message)
+                        uiState = uiState.copy(
+                            isLoading = false,
+                            errorMessage = result.message,
+                            errorCode = (result.exception as? AuthApiException)?.code
+                        )
                     }
                     is Result.Loading -> {
                         uiState = uiState.copy(isLoading = true)
@@ -159,13 +171,50 @@ class AuthViewModel @Inject constructor(
      */
     fun resendVerification(email: String) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
             when (val result = authRepository.resendVerification(email)) {
                 is Result.Success -> {
-                    uiState = uiState.copy(isLoading = false, errorMessage = null)
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        errorCode = null,
+                        infoMessage = result.data
+                    )
                 }
                 is Result.Error -> {
-                    uiState = uiState.copy(isLoading = false, errorMessage = result.message)
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = result.message,
+                        errorCode = (result.exception as? AuthApiException)?.code,
+                        infoMessage = null
+                    )
+                }
+                is Result.Loading -> {
+                    uiState = uiState.copy(isLoading = true)
+                }
+            }
+        }
+    }
+
+    fun forgotPassword(email: String) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
+            when (val result = authRepository.forgotPassword(email)) {
+                is Result.Success -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        errorCode = null,
+                        infoMessage = result.data
+                    )
+                }
+                is Result.Error -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = result.message,
+                        errorCode = (result.exception as? AuthApiException)?.code,
+                        infoMessage = null
+                    )
                 }
                 is Result.Loading -> {
                     uiState = uiState.copy(isLoading = true)
@@ -187,8 +236,12 @@ class AuthViewModel @Inject constructor(
     /**
      * Clear error message
      */
+    fun clearFeedback() {
+        uiState = uiState.copy(errorMessage = null, errorCode = null, infoMessage = null)
+    }
+
     fun clearError() {
-         uiState = uiState.copy(errorMessage = null)
+         clearFeedback()
     }
     
     /**

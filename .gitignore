@@ -12,6 +12,7 @@ local.properties
 
 # Android app build outputs
 app/build/
+app/release/
 app/local.properties
 ambulance-app/build/
 google-services.json
