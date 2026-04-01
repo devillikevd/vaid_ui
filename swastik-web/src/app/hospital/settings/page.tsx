@@ -10,6 +10,7 @@ import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { hospitalApi, authApi } from '@/lib/api';
+import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 
 export default function HospitalSettingsPage() {
     const user = useAuthStore((s) => s.user);
@@ -42,7 +43,7 @@ export default function HospitalSettingsPage() {
                         email: p.email || user?.email || '',
                         phone: p.phone || '',
                         address: p.address || '',
-                        bedCapacity: p.bed_capacity?.toString() || p.total_beds?.toString() || '',
+                        bedCapacity: p.total_beds?.toString() || p.bed_capacity?.toString() || '',
                         licenseNumber: p.license_number || '',
                         licenseDocumentUrl: p.license_document_url || '',
                         accreditations: Array.isArray(p.accreditations) ? p.accreditations.join(', ') : '',
@@ -59,6 +60,7 @@ export default function HospitalSettingsPage() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         setSaveStatus(null);
+        const previousApprovalStatus = user?.approval_status;
         if (!profile.phone.trim()) {
             setSaveStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
             setIsSaving(false);
@@ -72,7 +74,7 @@ export default function HospitalSettingsPage() {
         try {
             const res = await hospitalApi.updateProfile({
                 name: profile.name, email: profile.email, phone: profile.phone, address: profile.address,
-                bed_capacity: Number(profile.bedCapacity) || undefined,
+                total_beds: Number(profile.bedCapacity) || undefined,
                 license_number: profile.licenseNumber.trim() || undefined,
                 license_document_url: profile.licenseDocumentUrl.trim() || undefined,
                 accreditations: profile.accreditations
@@ -82,9 +84,15 @@ export default function HospitalSettingsPage() {
                 profile_image_url: profile.profileImage || undefined,
                 ...(profile.latitude != null && profile.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : {}),
             });
-            setSaveStatus(res.success
-                ? { type: 'success', message: 'Hospital profile updated!' }
-                : { type: 'error', message: res.error || 'Failed to update profile' });
+            if (res.success) {
+                const refreshedUser = await refreshAuthenticatedUser();
+                setSaveStatus({
+                    type: 'success',
+                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Hospital profile updated!'),
+                });
+            } else {
+                setSaveStatus({ type: 'error', message: res.error || 'Failed to update profile' });
+            }
         } catch { setSaveStatus({ type: 'error', message: 'Network error.' }); }
         setIsSaving(false);
         setTimeout(() => setSaveStatus(null), 4000);

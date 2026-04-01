@@ -82,6 +82,11 @@ fun PatientLoginScreen(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var showForgotPasswordDialog by rememberSaveable { mutableStateOf(false) }
     var forgotPasswordEmail by rememberSaveable { mutableStateOf("") }
+    var verificationOtp by rememberSaveable { mutableStateOf("") }
+    var forgotPasswordStep by rememberSaveable { mutableStateOf(0) }
+    var forgotPasswordOtp by rememberSaveable { mutableStateOf("") }
+    var forgotPasswordNewPassword by rememberSaveable { mutableStateOf("") }
+    var forgotPasswordConfirmPassword by rememberSaveable { mutableStateOf("") }
 
     val normalizedEmail = email.trim()
     val emailError = when {
@@ -102,7 +107,24 @@ fun PatientLoginScreen(
 
     LaunchedEffect(uiState.infoMessage) {
         if (showForgotPasswordDialog && !uiState.infoMessage.isNullOrBlank()) {
+            // handled by state-specific effects below
+        }
+    }
+
+    LaunchedEffect(uiState.forgotPasswordCodeSent, showForgotPasswordDialog) {
+        if (showForgotPasswordDialog && uiState.forgotPasswordCodeSent) {
+            forgotPasswordStep = 1
+        }
+    }
+
+    LaunchedEffect(uiState.passwordResetComplete) {
+        if (uiState.passwordResetComplete) {
             showForgotPasswordDialog = false
+            forgotPasswordStep = 0
+            forgotPasswordOtp = ""
+            forgotPasswordNewPassword = ""
+            forgotPasswordConfirmPassword = ""
+            viewModel.clearPasswordResetFlags()
         }
     }
 
@@ -208,6 +230,21 @@ fun PatientLoginScreen(
                     icon = Icons.Default.Info
                 )
 
+                if (uiState.emailVerificationComplete) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                    ) {
+                        Text(
+                            text = "Email verified successfully. Sign in with your password to continue.",
+                            modifier = Modifier.padding(14.dp),
+                            color = Color(0xFF1B5E20),
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
                 if (showVerificationHelp) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -231,16 +268,40 @@ fun PatientLoginScreen(
                                 )
                             }
                             Text(
-                                text = "Finish email verification first, or resend the link below.",
+                                text = "Finish email verification first. Enter the 6-digit code from your inbox or request a fresh code below.",
                                 color = Color(0xFF4B5563),
                                 fontSize = 13.sp
                             )
+                            OutlinedTextField(
+                                value = verificationOtp,
+                                onValueChange = {
+                                    verificationOtp = it.filter(Char::isDigit).take(6)
+                                    viewModel.clearFeedback()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                placeholder = { Text("123456") },
+                                leadingIcon = { Icon(Icons.Default.MarkEmailRead, contentDescription = null) },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                colors = authOutlinedTextFieldColors(),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            Button(
+                                onClick = { viewModel.verifyEmailOtp(normalizedEmail, verificationOtp) },
+                                enabled = normalizedEmail.isNotBlank() && verificationOtp.length == 6 && !uiState.isLoading,
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                            ) {
+                                Text("Verify email OTP")
+                            }
                             OutlinedButton(
                                 onClick = { viewModel.resendVerification(normalizedEmail) },
                                 enabled = normalizedEmail.isNotBlank() && emailError == null && !uiState.isLoading,
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
                             ) {
-                                Text("Resend verification email")
+                                Text("Resend verification code")
                             }
                         }
                     }
@@ -255,7 +316,12 @@ fun PatientLoginScreen(
                             if (forgotPasswordEmail.isBlank()) {
                                 forgotPasswordEmail = it
                             }
-                            viewModel.clearFeedback()
+                            verificationOtp = ""
+                            if (uiState.emailVerificationComplete) {
+                                viewModel.consumeEmailVerificationSuccess()
+                            } else {
+                                viewModel.clearFeedback()
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
@@ -317,7 +383,7 @@ fun PatientLoginScreen(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
                 ) {
                     Text(
-                        text = "First-time sign-ins require verified email access. If your verification link expired, resend it from this screen.",
+                        text = "First-time sign-ins require verified email access. If your code expired, request a new one from this screen.",
                         modifier = Modifier.padding(14.dp),
                         color = Color(0xFF4B5563),
                         fontSize = 13.sp,
@@ -332,7 +398,11 @@ fun PatientLoginScreen(
                     TextButton(
                         onClick = {
                             forgotPasswordEmail = normalizedEmail
-                            viewModel.clearFeedback()
+                            forgotPasswordStep = 0
+                            forgotPasswordOtp = ""
+                            forgotPasswordNewPassword = ""
+                            forgotPasswordConfirmPassword = ""
+                            viewModel.resetPasswordRecoveryState()
                             showForgotPasswordDialog = true
                         },
                         enabled = !uiState.isLoading
@@ -390,19 +460,48 @@ fun PatientLoginScreen(
 
     if (showForgotPasswordDialog) {
         ForgotPasswordDialog(
+            step = forgotPasswordStep,
             email = forgotPasswordEmail,
+            otp = forgotPasswordOtp,
+            newPassword = forgotPasswordNewPassword,
+            confirmPassword = forgotPasswordConfirmPassword,
             isLoading = uiState.isLoading,
             errorMessage = if (showForgotPasswordDialog) uiState.errorMessage else null,
+            infoMessage = if (showForgotPasswordDialog) uiState.infoMessage else null,
             onEmailChange = {
                 forgotPasswordEmail = it
                 viewModel.clearFeedback()
             },
-            onDismiss = {
-                showForgotPasswordDialog = false
+            onOtpChange = {
+                forgotPasswordOtp = it
                 viewModel.clearFeedback()
             },
+            onNewPasswordChange = {
+                forgotPasswordNewPassword = it
+                viewModel.clearFeedback()
+            },
+            onConfirmPasswordChange = {
+                forgotPasswordConfirmPassword = it
+                viewModel.clearFeedback()
+            },
+            onDismiss = {
+                showForgotPasswordDialog = false
+                forgotPasswordStep = 0
+                forgotPasswordOtp = ""
+                forgotPasswordNewPassword = ""
+                forgotPasswordConfirmPassword = ""
+                viewModel.resetPasswordRecoveryState()
+            },
             onSend = {
-                viewModel.forgotPassword(forgotPasswordEmail.trim())
+                if (forgotPasswordStep == 0) {
+                    viewModel.forgotPassword(forgotPasswordEmail.trim())
+                } else {
+                    viewModel.resetPasswordWithOtp(
+                        forgotPasswordEmail.trim(),
+                        forgotPasswordOtp,
+                        forgotPasswordNewPassword
+                    )
+                }
             }
         )
     }
@@ -434,10 +533,18 @@ private fun AuthFeedbackCard(
 
 @Composable
 private fun ForgotPasswordDialog(
+    step: Int,
     email: String,
+    otp: String,
+    newPassword: String,
+    confirmPassword: String,
     isLoading: Boolean,
     errorMessage: String?,
+    infoMessage: String?,
     onEmailChange: (String) -> Unit,
+    onOtpChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -447,16 +554,39 @@ private fun ForgotPasswordDialog(
         !isValidEmail(normalizedEmail) -> "Enter a valid email address."
         else -> null
     }
+    val otpError = when {
+        step == 0 -> null
+        otp.isBlank() -> null
+        otp.length != 6 -> "Enter the 6-digit reset code."
+        else -> null
+    }
+    val passwordError = when {
+        step == 0 -> null
+        newPassword.isBlank() -> null
+        newPassword.length < 8 -> "Password must be at least 8 characters."
+        !Regex("(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)").containsMatchIn(newPassword) -> "Use uppercase, lowercase, and a number."
+        else -> null
+    }
+    val confirmPasswordError = when {
+        step == 0 -> null
+        confirmPassword.isBlank() -> null
+        confirmPassword != newPassword -> "Passwords do not match."
+        else -> null
+    }
 
     AlertDialog(
         onDismissRequest = {
             if (!isLoading) onDismiss()
         },
-        title = { Text("Reset Password") },
+        title = { Text(if (step == 0) "Reset Password" else "Enter Reset Code") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "We’ll email you a password reset link for your patient account.",
+                    if (step == 0) {
+                        "We’ll email you a 6-digit password reset code for your patient account."
+                    } else {
+                        "Enter the reset code from your email and choose a new password."
+                    },
                     color = Color(0xFF4B5563),
                     fontSize = 14.sp
                 )
@@ -476,16 +606,92 @@ private fun ForgotPasswordDialog(
                     supportingText = {
                         when {
                             emailError != null -> Text(emailError, color = MaterialTheme.colorScheme.error)
-                            !errorMessage.isNullOrBlank() -> Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                            step == 0 && !errorMessage.isNullOrBlank() -> Text(errorMessage, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 )
+
+                if (!infoMessage.isNullOrBlank()) {
+                    Text(
+                        text = infoMessage,
+                        color = Color(0xFF1B5E20),
+                        fontSize = 12.sp
+                    )
+                }
+
+                if (step == 1) {
+                    OutlinedTextField(
+                        value = otp,
+                        onValueChange = { onOtpChange(it.filter(Char::isDigit).take(6)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = otpError != null,
+                        leadingIcon = { Icon(Icons.Default.MarkEmailRead, contentDescription = null) },
+                        placeholder = { Text("123456") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        colors = authOutlinedTextFieldColors(),
+                        supportingText = {
+                            when {
+                                otpError != null -> Text(otpError, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    )
+
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = onNewPasswordChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = passwordError != null,
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        placeholder = { Text("New password") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = authOutlinedTextFieldColors(),
+                        supportingText = {
+                            when {
+                                passwordError != null -> Text(passwordError, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    )
+
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = onConfirmPasswordChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        isError = confirmPasswordError != null || (!errorMessage.isNullOrBlank() && step == 1),
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        placeholder = { Text("Confirm new password") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = authOutlinedTextFieldColors(),
+                        supportingText = {
+                            when {
+                                confirmPasswordError != null -> Text(confirmPasswordError, color = MaterialTheme.colorScheme.error)
+                                !errorMessage.isNullOrBlank() -> Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = onSend,
-                enabled = normalizedEmail.isNotBlank() && emailError == null && !isLoading
+                enabled = if (step == 0) {
+                    normalizedEmail.isNotBlank() && emailError == null && !isLoading
+                } else {
+                    normalizedEmail.isNotBlank() &&
+                        emailError == null &&
+                        otp.length == 6 &&
+                        otpError == null &&
+                        passwordError == null &&
+                        confirmPasswordError == null &&
+                        newPassword.isNotBlank() &&
+                        confirmPassword.isNotBlank() &&
+                        !isLoading
+                }
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -494,7 +700,7 @@ private fun ForgotPasswordDialog(
                         color = Color.White
                     )
                 } else {
-                    Text("Send reset link")
+                    Text(if (step == 0) "Send reset code" else "Reset password")
                 }
             }
         },

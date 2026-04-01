@@ -53,9 +53,11 @@ function VerifyEmailContent() {
         if (!role) return '/';
         const roleMap: Record<string, string> = {
             admin: 'admin',
+            super_admin: 'admin',
             doctor: 'doctor',
             patient: 'patient',
             hospital_owner: 'hospital',
+            hospital_manager: 'hospital',
             clinic_owner: 'clinic',
             diagnostic_center_owner: 'diagnostic-center',
             pharmacy_owner: 'pharmacy',

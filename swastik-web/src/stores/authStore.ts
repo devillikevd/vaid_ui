@@ -53,7 +53,7 @@ interface AuthState {
     _hasHydrated: boolean;
 
     login: (email: string, password: string, expectedRole: UserRole, rememberMe?: boolean) => Promise<{ success: boolean; error?: string; code?: string }>;
-    register: (data: RegisterData, role: UserRole) => Promise<{ success: boolean; error?: string }>;
+    register: (data: RegisterData, role: UserRole) => Promise<{ success: boolean; error?: string; fieldErrors?: Array<{ field: string; message: string }> }>;
     logout: () => void;
     refreshAuth: () => Promise<boolean>;
     setLoading: (loading: boolean) => void;
@@ -64,8 +64,8 @@ interface RegisterData {
     email: string;
     password: string;
     name: string;
-    phone: string;
-    [key: string]: string;
+    phone?: string;
+    [key: string]: unknown;
 }
 
 export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
@@ -118,9 +118,14 @@ export const useAuthStore = create<AuthState>()(
                     const data = await response.json();
 
                     if (!response.ok || !data.success) {
+                        const firstValidationError = Array.isArray(data.errors) ? data.errors[0]?.message : undefined;
                         // Pass through error code for email verification handling
                         const errorCode = data.data?.code || data.code;
-                        return { success: false, error: data.message || 'Login failed', code: errorCode };
+                        return {
+                            success: false,
+                            error: firstValidationError || data.error || data.message || 'Login failed',
+                            code: errorCode,
+                        };
                     }
 
                     const user = data.data?.user || data.user;
@@ -179,7 +184,11 @@ export const useAuthStore = create<AuthState>()(
                     const result = await response.json();
 
                     if (!response.ok || !result.success) {
-                        return { success: false, error: result.message || 'Registration failed' };
+                        return {
+                            success: false,
+                            error: (Array.isArray(result.errors) ? result.errors[0]?.message : undefined) || result.error || result.message || 'Registration failed',
+                            fieldErrors: Array.isArray(result.errors) ? result.errors : undefined,
+                        };
                     }
 
                     return { success: true };

@@ -3,10 +3,12 @@
  * Clinic registration, management, doctors, appointments
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
+const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -57,6 +59,18 @@ const buildUserContactMap = async (userIds = []) => {
       .filter((user) => user?.id)
       .map((user) => [user.id, user])
   );
+};
+
+const getActiveClinicDoctorIds = async (clinicId) => {
+  const { data, error } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('doctor_id')
+    .eq('clinic_id', clinicId)
+    .eq('is_active', true);
+
+  if (error) throw error;
+
+  return (data || []).map((row) => row.doctor_id).filter(Boolean);
 };
 
 const mapClinicDoctorAssociation = (association, userContactMap = new Map()) => {
@@ -266,6 +280,23 @@ const getDashboard = async (clinicId, userId) => {
   }
 
   const today = new Date().toISOString().split('T')[0];
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+
+  if (activeDoctorIds.length === 0) {
+    return {
+      stats: {
+        totalDoctors: 0,
+        todayAppointments: 0,
+        totalStaff: 0,
+        todaysAppointments: 0,
+        walkInsToday: 0,
+        repeatPatients: '0%',
+        totalPatients: 0,
+      },
+      todayAppointments: [],
+      recentAppointments: [],
+    };
+  }
 
   const [
     { count: totalDoctors },
@@ -276,11 +307,11 @@ const getDashboard = async (clinicId, userId) => {
     { data: recentAppointments },
   ] = await Promise.all([
     supabaseAdmin.from('clinic_doctors').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('is_active', true),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).eq('appointment_date', today).eq('type', 'clinic').not('status', 'in', '(cancelled)'),
-    supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)'),
-    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
-    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).eq('type', 'clinic').not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('patient_id').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).not('status', 'in', '(cancelled)'),
+    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).eq('appointment_date', today).not('status', 'in', '(cancelled)').order('time_slot', { ascending: true }).limit(25),
+    supabaseAdmin.from('appointments').select('*, patient:patients(id, name, user_id), doctor:doctors(id, name, specialization)').eq('clinic_id', clinicId).in('doctor_id', activeDoctorIds).not('status', 'in', '(cancelled)').order('appointment_date', { ascending: false }).limit(10),
   ]);
 
   const patientIds = (patientRows || []).map((r) => r.patient_id).filter(Boolean);
@@ -314,7 +345,7 @@ const getDashboard = async (clinicId, userId) => {
 const updateClinic = async (clinicId, userId, updates) => {
   const { data: existingClinic, error: existingClinicError } = await supabaseAdmin
     .from('clinics')
-    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude, approval_status')
     .eq('id', clinicId)
     .eq('owner_id', userId)
     .single();
@@ -343,6 +374,7 @@ const updateClinic = async (clinicId, userId, updates) => {
 
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingClinic, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
+  Object.assign(safeUpdates, buildProviderResubmissionFields('clinic_owner', existingClinic.approval_status));
 
   const { data, error } = await supabaseAdmin
     .from('clinics')
@@ -353,6 +385,7 @@ const updateClinic = async (clinicId, userId, updates) => {
     .single();
 
   if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
   return data;
 };
 
@@ -428,11 +461,65 @@ const getDoctors = async (clinicId, userId, page = 1, limit = 20, search = '') =
 
 // Add doctor to clinic
 const addDoctor = async (clinicId, userId, doctorId) => {
-  const { data, error } = await supabaseAdmin
-    .from('clinic_doctors')
-    .insert({ clinic_id: clinicId, doctor_id: doctorId })
-    .select('*, doctor:doctors(id, name, specialization)')
+  const { data: doctor, error: doctorError } = await supabaseAdmin
+    .from('doctors')
+    .select('id, name')
+    .eq('id', doctorId)
     .single();
+
+  if (doctorError || !doctor) {
+    throw doctorError || new ApiError(404, 'Doctor not found');
+  }
+
+  const { data: existingAssociation, error: existingAssociationError } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('id, is_active')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctor.id)
+    .maybeSingle();
+
+  if (existingAssociationError) throw existingAssociationError;
+
+  if (existingAssociation && existingAssociation.is_active !== false) {
+    throw new ApiError(409, 'Doctor is already linked to this clinic');
+  }
+
+  let data;
+  let error;
+  const nowIso = new Date().toISOString();
+
+  const { data: pendingInvite, error: pendingInviteError } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctor.id)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (pendingInviteError) throw pendingInviteError;
+  if (pendingInvite) {
+    throw new ApiError(409, 'An invite is already pending for this doctor');
+  }
+
+  await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .update({ status: 'expired', responded_at: nowIso })
+    .eq('clinic_id', clinicId)
+    .eq('doctor_id', doctor.id)
+    .eq('status', 'pending')
+    .lt('expires_at', nowIso);
+
+  ({ data, error } = await supabaseAdmin
+    .from('clinic_doctor_invites')
+    .insert({
+      clinic_id: clinicId,
+      doctor_id: doctor.id,
+      invited_by: userId,
+      status: 'pending',
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+    .select('*, clinic:clinics(name, city), doctor:doctors(name, specialization)')
+    .single());
 
   if (error) throw error;
   return data;
@@ -442,7 +529,7 @@ const addDoctor = async (clinicId, userId, doctorId) => {
 const removeDoctor = async (clinicId, userId, doctorId) => {
   const { error } = await supabaseAdmin
     .from('clinic_doctors')
-    .delete()
+    .update({ is_active: false })
     .eq('clinic_id', clinicId)
     .eq('doctor_id', doctorId);
 
@@ -452,6 +539,14 @@ const removeDoctor = async (clinicId, userId, doctorId) => {
 // Get appointments for clinic
 const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
+  const activeDoctorIds = await getActiveClinicDoctorIds(clinicId);
+  if (activeDoctorIds.length === 0) {
+    return {
+      data: [],
+      pagination: { page, limit, total: 0, totalPages: 1 },
+    };
+  }
+
   let query = supabaseAdmin
     .from('appointments')
     .select(`
@@ -476,7 +571,8 @@ const getAppointments = async (clinicId, userId, filters = {}, page = 1, limit =
         specialization
       )
     `)
-    .eq('clinic_id', clinicId);
+    .eq('clinic_id', clinicId)
+    .in('doctor_id', activeDoctorIds);
 
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.date) query = query.eq('appointment_date', filters.date);

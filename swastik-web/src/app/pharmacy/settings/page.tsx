@@ -10,6 +10,7 @@ import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 import { pharmacyApi, authApi } from '@/lib/api';
+import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 
 export default function PharmacySettingsPage() {
     const user = useAuthStore((s) => s.user);
@@ -65,6 +66,7 @@ export default function PharmacySettingsPage() {
     const handleSave = async () => {
         setSaving(true);
         setStatus(null);
+        const previousApprovalStatus = user?.approval_status;
         if (!form.phone.trim()) {
             setStatus({ type: 'error', message: 'Phone is required for approval and patient contact.' });
             setSaving(false);
@@ -86,8 +88,13 @@ export default function PharmacySettingsPage() {
                 profile_image_url: form.profileImage,
                 ...(form.latitude != null && form.longitude != null ? { latitude: form.latitude, longitude: form.longitude } : {}),
             });
-            if (res.success) setStatus({ type: 'success', message: 'Settings saved successfully.' });
-            else setStatus({ type: 'error', message: res.error || 'Failed to save.' });
+            if (res.success) {
+                const refreshedUser = await refreshAuthenticatedUser();
+                setStatus({
+                    type: 'success',
+                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Settings saved successfully.'),
+                });
+            } else setStatus({ type: 'error', message: res.error || 'Failed to save.' });
         } catch { setStatus({ type: 'error', message: 'Network error.' }); }
         setSaving(false);
         setTimeout(() => setStatus(null), 4000);

@@ -23,7 +23,10 @@ data class AuthUiState(
     val errorMessage: String? = null,
     val errorCode: String? = null,
     val infoMessage: String? = null,
-    val registrationComplete: Boolean = false // Email verification required
+    val registrationComplete: Boolean = false,
+    val emailVerificationComplete: Boolean = false,
+    val forgotPasswordCodeSent: Boolean = false,
+    val passwordResetComplete: Boolean = false
 )
 
 /**
@@ -91,14 +94,14 @@ class AuthViewModel @Inject constructor(
      */
     fun register(name: String, phone: String?, email: String, password: String? = null) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, emailVerificationComplete = false)
             
             authRepository.register(name, phone, email, password ?: "").collectLatest { result ->
                 when (result) {
                     is Result.Success -> {
                         uiState = uiState.copy(
                             isLoading = false,
-                            registrationComplete = true // Show "check your email" screen
+                            registrationComplete = true
                         )
                     }
                     is Result.Error -> {
@@ -196,16 +199,46 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun verifyEmailOtp(email: String, otp: String) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, emailVerificationComplete = false)
+            when (val result = authRepository.verifyEmailOtp(email, otp)) {
+                is Result.Success -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        errorCode = null,
+                        infoMessage = result.data,
+                        emailVerificationComplete = true
+                    )
+                }
+                is Result.Error -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = result.message,
+                        errorCode = (result.exception as? AuthApiException)?.code,
+                        infoMessage = null,
+                        emailVerificationComplete = false
+                    )
+                }
+                is Result.Loading -> {
+                    uiState = uiState.copy(isLoading = true)
+                }
+            }
+        }
+    }
+
     fun forgotPassword(email: String) {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null)
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, forgotPasswordCodeSent = false, passwordResetComplete = false)
             when (val result = authRepository.forgotPassword(email)) {
                 is Result.Success -> {
                     uiState = uiState.copy(
                         isLoading = false,
                         errorMessage = null,
                         errorCode = null,
-                        infoMessage = result.data
+                        infoMessage = result.data,
+                        forgotPasswordCodeSent = true
                     )
                 }
                 is Result.Error -> {
@@ -214,6 +247,35 @@ class AuthViewModel @Inject constructor(
                         errorMessage = result.message,
                         errorCode = (result.exception as? AuthApiException)?.code,
                         infoMessage = null
+                    )
+                }
+                is Result.Loading -> {
+                    uiState = uiState.copy(isLoading = true)
+                }
+            }
+        }
+    }
+
+    fun resetPasswordWithOtp(email: String, otp: String, newPassword: String) {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, errorMessage = null, errorCode = null, infoMessage = null, passwordResetComplete = false)
+            when (val result = authRepository.resetPasswordWithOtp(email, otp, newPassword)) {
+                is Result.Success -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        errorCode = null,
+                        infoMessage = "Password reset successfully. You can now sign in.",
+                        passwordResetComplete = true
+                    )
+                }
+                is Result.Error -> {
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = result.message,
+                        errorCode = (result.exception as? AuthApiException)?.code,
+                        infoMessage = null,
+                        passwordResetComplete = false
                     )
                 }
                 is Result.Loading -> {
@@ -238,6 +300,34 @@ class AuthViewModel @Inject constructor(
      */
     fun clearFeedback() {
         uiState = uiState.copy(errorMessage = null, errorCode = null, infoMessage = null)
+    }
+
+    fun resetPasswordRecoveryState() {
+        uiState = uiState.copy(
+            errorMessage = null,
+            errorCode = null,
+            infoMessage = null,
+            forgotPasswordCodeSent = false,
+            passwordResetComplete = false
+        )
+    }
+
+    fun clearPasswordResetFlags() {
+        uiState = uiState.copy(
+            errorMessage = null,
+            errorCode = null,
+            forgotPasswordCodeSent = false,
+            passwordResetComplete = false
+        )
+    }
+
+    fun consumeEmailVerificationSuccess() {
+        uiState = uiState.copy(
+            errorMessage = null,
+            errorCode = null,
+            infoMessage = null,
+            emailVerificationComplete = false
+        )
     }
 
     fun clearError() {

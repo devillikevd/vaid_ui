@@ -246,6 +246,15 @@ export const authApi = {
         return response.json();
     },
 
+    verifyEmailOtp: async (email: string, otp: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/verify-email-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp }),
+        });
+        return response.json();
+    },
+
     logout: async () => {
         await fetchWithAuth('/auth/logout', { method: 'POST' });
         clearTokens();
@@ -279,6 +288,15 @@ export const authApi = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token, password }),
+        });
+        return response.json();
+    },
+
+    resetPasswordWithOtp: async (email: string, otp: string, password: string) => {
+        const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp, password }),
         });
         return response.json();
     },
@@ -456,6 +474,22 @@ export const doctorApi = {
             body: JSON.stringify({ isAvailable }),
         }),
 
+    getHospitalInvites: () => fetchWithAuth('/doctors/me/hospital-invites'),
+
+    respondHospitalInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/doctors/me/hospital-invites/${inviteId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+
+    getClinicInvites: () => fetchWithAuth('/doctors/me/clinic-invites'),
+
+    respondClinicInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/doctors/me/clinic-invites/${inviteId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+
     getPatientVitals: (page: number = 1, patientId?: string) => {
         const params = new URLSearchParams({ page: page.toString() });
         if (patientId) params.set('patientId', patientId);
@@ -508,6 +542,28 @@ export const hospitalApi = {
 
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/hospital-manager/doctors/${doctorId}`, { method: 'DELETE' }),
+
+    getAssociatedPharmacies: () => fetchWithAuth('/hospital-manager/pharmacies'),
+
+    invitePharmacy: (email: string) =>
+        fetchWithAuth('/hospital-manager/pharmacies/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    unlinkPharmacy: (providerId: string) =>
+        fetchWithAuth(`/hospital-manager/pharmacies/${providerId}`, { method: 'DELETE' }),
+
+    getAssociatedDiagnosticCenters: () => fetchWithAuth('/hospital-manager/diagnostic-centers'),
+
+    inviteDiagnosticCenter: (email: string) =>
+        fetchWithAuth('/hospital-manager/diagnostic-centers/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    unlinkDiagnosticCenter: (providerId: string) =>
+        fetchWithAuth(`/hospital-manager/diagnostic-centers/${providerId}`, { method: 'DELETE' }),
 
     getAppointments: (params: {
         page?: number;
@@ -659,6 +715,16 @@ export const pharmacyApi = {
             method: 'PATCH',
             body: JSON.stringify({ status: 'dispensed' }),
         }),
+
+    getAssociationInvites: () => fetchWithAuth('/pharmacy/associations/invites'),
+
+    respondToAssociationInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/pharmacy/associations/invites/${inviteId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+
+    getAssociations: () => fetchWithAuth('/pharmacy/associations'),
 };
 
 // ==================== CLINIC API ====================
@@ -692,6 +758,28 @@ export const clinicApi = {
 
     removeDoctor: (doctorId: string) =>
         fetchWithAuth(`/clinics/owner/doctors/${doctorId}`, { method: 'DELETE' }),
+
+    getAssociatedPharmacies: () => fetchWithAuth('/clinics/owner/pharmacies'),
+
+    invitePharmacy: (email: string) =>
+        fetchWithAuth('/clinics/owner/pharmacies/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    unlinkPharmacy: (providerId: string) =>
+        fetchWithAuth(`/clinics/owner/pharmacies/${providerId}`, { method: 'DELETE' }),
+
+    getAssociatedDiagnosticCenters: () => fetchWithAuth('/clinics/owner/diagnostic-centers'),
+
+    inviteDiagnosticCenter: (email: string) =>
+        fetchWithAuth('/clinics/owner/diagnostic-centers/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    unlinkDiagnosticCenter: (providerId: string) =>
+        fetchWithAuth(`/clinics/owner/diagnostic-centers/${providerId}`, { method: 'DELETE' }),
 
     getAppointments: (params: { page?: number; limit?: number; search?: string; status?: string; date?: string } = {}) => {
         const query = new URLSearchParams({
@@ -800,6 +888,16 @@ export const diagnosticCenterApi = {
         if (params.search) query.set('search', params.search);
         return fetchWithAuth(`/diagnostic-centers/owner/bookings?${query}`);
     },
+
+    getAssociationInvites: () => fetchWithAuth('/diagnostic-centers/owner/associations/invites'),
+
+    respondToAssociationInvite: (inviteId: string, decision: 'accept' | 'reject') =>
+        fetchWithAuth(`/diagnostic-centers/owner/associations/invites/${inviteId}/respond`, {
+            method: 'POST',
+            body: JSON.stringify({ decision }),
+        }),
+
+    getAssociations: () => fetchWithAuth('/diagnostic-centers/owner/associations'),
 };
 
 // ==================== APPOINTMENTS API ====================

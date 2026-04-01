@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 val localBuildProperties = Properties().apply {
     val localPropsFile = rootProject.file("local.properties")
@@ -9,6 +10,12 @@ val localBuildProperties = Properties().apply {
 
 fun localBuildProperty(key: String): String? =
     localBuildProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+
+fun localOrEnvProperty(key: String): String? =
+    localBuildProperty(key) ?: System.getenv(key)?.takeIf { it.isNotBlank() }
+
+fun localOrEnvBoolean(key: String, default: Boolean): Boolean =
+    (localOrEnvProperty(key) ?: default.toString()).toBooleanStrictOrNull() ?: default
 
 plugins {
     alias(libs.plugins.android.application)
@@ -24,6 +31,26 @@ plugins {
 android {
     namespace = "com.example.swastik"
     compileSdk = 34
+
+    signingConfigs {
+        create("release") {
+            val storeFilePath = localOrEnvProperty("RELEASE_STORE_FILE")
+            val storePasswordValue = localOrEnvProperty("RELEASE_STORE_PASSWORD")
+            val keyAliasValue = localOrEnvProperty("RELEASE_KEY_ALIAS")
+            val keyPasswordValue = localOrEnvProperty("RELEASE_KEY_PASSWORD")
+
+            if (!storeFilePath.isNullOrBlank() &&
+                !storePasswordValue.isNullOrBlank() &&
+                !keyAliasValue.isNullOrBlank() &&
+                !keyPasswordValue.isNullOrBlank()
+            ) {
+                storeFile = file(storeFilePath)
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.example.swastik"
@@ -54,9 +81,23 @@ android {
                 buildConfigField("String", "AI_WS_BASE_URL", "\"$aiWsUrl\"")
             }
         }
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            matchingFallbacks += listOf("debug")
+            signingConfig = signingConfigs.getByName("debug")
+
+            // Production-like build with debug signing for easy local installs
+            val stagingApiUrl = localBuildProperty("API_BASE_URL") ?: "http://10.0.2.2:5001/api/"
+            val stagingAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
+            buildConfigField("String", "API_BASE_URL", "\"$stagingApiUrl\"")
+            buildConfigField("String", "AI_WS_BASE_URL", "\"$stagingAiWsUrl\"")
+        }
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            val useDebugSigningForRelease = localOrEnvBoolean("USE_DEBUG_SIGNING_FOR_RELEASE", true)
+            isMinifyEnabled = !useDebugSigningForRelease
+            isShrinkResources = !useDebugSigningForRelease
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -66,7 +107,26 @@ android {
             val releaseAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiUrl\"")
             buildConfigField("String", "AI_WS_BASE_URL", "\"$releaseAiWsUrl\"")
-            signingConfig = signingConfigs.getByName("debug")
+
+            if (useDebugSigningForRelease) {
+                // Local QA release build (installable quickly on test devices)
+                signingConfig = signingConfigs.getByName("debug")
+            } else {
+                val required = listOf(
+                    "RELEASE_STORE_FILE",
+                    "RELEASE_STORE_PASSWORD",
+                    "RELEASE_KEY_ALIAS",
+                    "RELEASE_KEY_PASSWORD"
+                )
+                val missing = required.filter { localOrEnvProperty(it).isNullOrBlank() }
+                if (missing.isNotEmpty()) {
+                    throw GradleException(
+                        "Missing release signing properties: ${missing.joinToString(", ")}. " +
+                            "Set them in local.properties or environment variables."
+                    )
+                }
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

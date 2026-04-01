@@ -3,11 +3,13 @@
  * Inventory, orders, analytics for pharmacy owners
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
+const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
 const enrichMissingPhonesFromOwners = async (rows = []) => {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
@@ -43,6 +45,7 @@ const enrichMissingPhonesFromOwners = async (rows = []) => {
 };
 
 const ACTIVE_ORDER_STATUSES = ['confirmed', 'processing', 'ready', 'dispatched'];
+const ACTIVE_ORDER_DATABASE_STATUSES = ['confirmed', 'processing', 'ready', 'dispatched', 'out_for_delivery'];
 const COMPLETED_ORDER_STATUSES = ['delivered', 'cancelled'];
 
 const buildPagination = (page, limit, total) => ({
@@ -107,6 +110,24 @@ const normalizeSearchToken = (value) =>
   sanitizeSearch(String(value || ''))
     .trim()
     .toLowerCase();
+
+const normalizeOrderStatus = (status) => (
+  status === 'out_for_delivery' ? 'dispatched' : status
+);
+
+const getDatabaseStatusesForFilter = (status) => {
+  const normalizedStatus = normalizeOrderStatus(status);
+  if (normalizedStatus === 'dispatched') {
+    return ['dispatched', 'out_for_delivery'];
+  }
+  return [normalizedStatus];
+};
+
+const normalizeOrderRecord = (order) => (
+  order ? { ...order, status: normalizeOrderStatus(order.status) } : order
+);
+
+const normalizeOrderRecords = (orders = []) => orders.map(normalizeOrderRecord);
 
 const collectDistinctSearchTokens = (...values) => [
   ...new Set(values.map(normalizeSearchToken).filter(Boolean)),
@@ -219,7 +240,8 @@ const matchesOrderSearch = (order, term) => {
 
 const filterOrdersByGroup = (orders = [], filters = {}) => {
   if (filters.status) {
-    return orders.filter((order) => order.status === filters.status);
+    const normalizedStatus = normalizeOrderStatus(filters.status);
+    return orders.filter((order) => order.status === normalizedStatus);
   }
   if (filters.group === 'active') {
     return orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status));
@@ -365,7 +387,7 @@ const getPharmacyByOwner = async (userId) => {
 const updatePharmacy = async (pharmacyId, userId, updates) => {
   const { data: existingPharmacy, error: existingPharmacyError } = await supabaseAdmin
     .from('pharmacies')
-    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude, approval_status')
     .eq('id', pharmacyId)
     .eq('owner_id', userId)
     .single();
@@ -386,6 +408,7 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingPharmacy, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
+  Object.assign(safeUpdates, buildProviderResubmissionFields('pharmacy_owner', existingPharmacy.approval_status));
 
   const { data, error } = await supabaseAdmin
     .from('pharmacies')
@@ -396,6 +419,7 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
     .single();
 
   if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
   return data;
 };
 
@@ -585,7 +609,8 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
 
     if (error) throw error;
 
-    const searchMatchedOrders = (allOrders || []).filter((order) => matchesOrderSearch(order, search));
+    const normalizedOrders = normalizeOrderRecords(allOrders || []);
+    const searchMatchedOrders = normalizedOrders.filter((order) => matchesOrderSearch(order, search));
     const filteredOrders = filterOrdersByGroup(searchMatchedOrders, filters);
     orders = filteredOrders.slice(offset, offset + safeLimit);
     count = filteredOrders.length;
@@ -597,9 +622,12 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
       .eq('pharmacy_id', pharmacyId);
 
     if (filters.status) {
-      query = query.eq('status', filters.status);
+      const statusFilters = getDatabaseStatusesForFilter(filters.status);
+      query = statusFilters.length > 1
+        ? query.in('status', statusFilters)
+        : query.eq('status', statusFilters[0]);
     } else if (filters.group === 'active') {
-      query = query.in('status', ACTIVE_ORDER_STATUSES);
+      query = query.in('status', ACTIVE_ORDER_DATABASE_STATUSES);
     } else if (filters.group === 'completed') {
       query = query.in('status', COMPLETED_ORDER_STATUSES);
     }
@@ -610,7 +638,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
 
     if (error) throw error;
 
-    orders = data || [];
+    orders = normalizeOrderRecords(data || []);
     count = totalCount || 0;
 
     const [
@@ -622,7 +650,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
     ] = await Promise.all([
       supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId),
       supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'pending'),
-      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).in('status', ACTIVE_ORDER_STATUSES),
+      supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).in('status', ACTIVE_ORDER_DATABASE_STATUSES),
       supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).in('status', COMPLETED_ORDER_STATUSES),
       supabaseAdmin.from('pharmacy_orders').select('*', { count: 'exact', head: true }).eq('pharmacy_id', pharmacyId).eq('status', 'delivered'),
     ]);
@@ -667,43 +695,62 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
 
   if (fetchError || !current) throw new ApiError(404, 'Order not found');
 
-  const allowed = ORDER_STATUS_TRANSITIONS[current.status] || [];
-  if (!allowed.includes(status)) {
-    throw new ApiError(400, `Cannot transition order from '${current.status}' to '${status}'`);
+  const currentStatus = normalizeOrderStatus(current.status);
+  const nextStatus = normalizeOrderStatus(status);
+  const allowed = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
+  if (!allowed.includes(nextStatus)) {
+    throw new ApiError(400, `Cannot transition order from '${currentStatus}' to '${nextStatus}'`);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('pharmacy_orders')
-    .update({
-      status,
-      notes,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', orderId)
-    .eq('pharmacy_id', pharmacyId)
-    .select('*')
-    .single();
+  const persistedStatusCandidates = nextStatus === 'dispatched'
+    ? ['dispatched', 'out_for_delivery']
+    : [nextStatus];
 
-  if (error) throw error;
+  let data = null;
+  let error = null;
+  for (const candidateStatus of persistedStatusCandidates) {
+    const response = await supabaseAdmin
+      .from('pharmacy_orders')
+      .update({
+        status: candidateStatus,
+        notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+      .eq('pharmacy_id', pharmacyId)
+      .select('*')
+      .single();
+
+    if (!response.error) {
+      data = response.data;
+      error = null;
+      break;
+    }
+
+    error = response.error;
+  }
+
+  if (error || !data) throw error;
+  const normalizedOrder = normalizeOrderRecord(data);
 
   // Notify patient
-  if (data?.patient_id) {
+  if (normalizedOrder?.patient_id) {
     const { data: patient } = await supabaseAdmin
       .from('patients')
       .select('user_id')
-      .eq('id', data.patient_id)
+      .eq('id', normalizedOrder.patient_id)
       .single();
 
     if (patient) {
       eventEmitter.emitOrderStatusUpdated({
-        ...data,
+        ...normalizedOrder,
         patient_id: patient.user_id,
         pharmacy_owner_id: userId,
       });
     }
   }
 
-  return data;
+  return normalizedOrder;
 };
 
 // Analytics

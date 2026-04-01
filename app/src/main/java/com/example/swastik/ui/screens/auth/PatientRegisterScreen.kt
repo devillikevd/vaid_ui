@@ -257,7 +257,7 @@ fun PatientRegisterScreen(
                             )
                         }
                         Text(
-                            text = "We’ll send a verification link to your email. After verifying it, you can log in and access the full patient ecosystem.",
+                            text = "We’ll send a 6-digit verification code to your email. After entering it, you can log in and access the full patient ecosystem.",
                             fontSize = 13.sp,
                             color = Color(0xFF4B5563),
                             lineHeight = 19.sp

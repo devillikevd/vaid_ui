@@ -116,6 +116,11 @@ data class ResendVerificationRequest(
     val email: String
 )
 
+data class VerifyEmailOtpRequest(
+    val email: String,
+    val otp: String
+)
+
 data class RefreshTokenRequest(
     val refreshToken: String
 )
@@ -607,7 +612,9 @@ data class ChangePasswordRequest(
 )
 
 data class ResetPasswordRequest(
-    val token: String,
+    val token: String? = null,
+    val email: String? = null,
+    val otp: String? = null,
     @SerializedName("password") val newPassword: String
 )
 

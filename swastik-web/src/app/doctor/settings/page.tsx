@@ -9,6 +9,7 @@ import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi, authApi } from '@/lib/api';
+import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 
 export default function DoctorSettingsPage() {
     const user = useAuthStore((s) => s.user);
@@ -71,6 +72,7 @@ export default function DoctorSettingsPage() {
     const handleSaveProfile = async () => {
         setIsSaving(true);
         setSaveStatus(null);
+        const previousApprovalStatus = user?.approval_status;
         try {
             const authRes = await authApi.updateProfile({
                 name: profile.name,
@@ -92,9 +94,15 @@ export default function DoctorSettingsPage() {
                 degree_certificate_url: profile.degreeCertificateUrl.trim() || undefined,
                 profile_image: profile.profileImage || undefined,
             });
-            setSaveStatus(res.success
-                ? { type: 'success', message: 'Profile updated successfully!' }
-                : { type: 'error', message: res.error || 'Failed to update profile' });
+            if (res.success) {
+                const refreshedUser = await refreshAuthenticatedUser();
+                setSaveStatus({
+                    type: 'success',
+                    message: getResubmissionSuccessMessage(previousApprovalStatus, refreshedUser?.approval_status, 'Profile updated successfully!'),
+                });
+            } else {
+                setSaveStatus({ type: 'error', message: res.error || 'Failed to update profile' });
+            }
         } catch {
             setSaveStatus({ type: 'error', message: 'Network error. Please try again.' });
         }

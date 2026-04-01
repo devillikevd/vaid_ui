@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import {
     Stethoscope,
@@ -24,7 +23,8 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { useAuthStore, type UserRole, ROLE_HOME_ROUTES } from '@/stores/authStore';
+import { useAuthStore, type UserRole } from '@/stores/authStore';
+import { authApi } from '@/lib/api';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 
 // Role configurations (Must match Login Page for consistency)
@@ -93,7 +93,6 @@ interface RegisterPageProps {
 
 export default function RegisterPage({ params }: RegisterPageProps) {
     const { role } = use(params);
-    const router = useRouter();
     const { register } = useAuthStore();
 
     // Common State
@@ -105,6 +104,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [showPassword, setShowPassword] = useState(false);
 
     // Role Specific State
+    const [facilityName, setFacilityName] = useState('');
     const [licenseNumber, setLicenseNumber] = useState('');
     const [specialization, setSpecialization] = useState('');
     const [address, setAddress] = useState('');
@@ -116,6 +116,19 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [verificationSent, setVerificationSent] = useState(false);
+    const [verificationOtp, setVerificationOtp] = useState('');
+    const [verificationError, setVerificationError] = useState('');
+    const [verificationInfo, setVerificationInfo] = useState('');
+    const [verificationComplete, setVerificationComplete] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [resendingOtp, setResendingOtp] = useState(false);
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = window.setTimeout(() => setResendCooldown((current) => current - 1), 1000);
+        return () => window.clearTimeout(timer);
+    }, [resendCooldown]);
 
     const config = ROLE_CONFIG[role];
 
@@ -134,6 +147,14 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     }
 
     const Icon = config.icon;
+    const isFacilityRole = ['hospital_owner', 'clinic_owner', 'pharmacy_owner', 'diagnostic_center_owner'].includes(config.role);
+    const nameLabel = isFacilityRole ? 'Contact Person Name' : 'Full Name';
+    const namePlaceholder = isFacilityRole ? 'Enter admin or contact person name' : 'Enter full name';
+    const facilityLabel = config.role === 'diagnostic_center_owner' ? 'Diagnostic Center Name' : config.title.replace(' Registration', ' Name');
+    const withRequiredMark = (label: string, required = false) => (required ? `${label} *` : label);
+    const approvalHint = isFacilityRole
+        ? 'Fields marked * are required to complete registration and qualify for admin approval. Facility roles must provide a reachable phone number, full address, and map location so patients can discover them.'
+        : 'Fields marked * are required to complete registration and qualify for admin approval. Doctor approval requires a reachable phone number and valid professional credentials.';
 
     // ── Form Validation ────────────────────────────────────────────
     const validate = (): boolean => {
@@ -147,8 +168,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         if (!email.trim()) errors.email = 'Email is required';
         else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) errors.email = 'Invalid email address';
 
-        // Phone (optional)
-        if (phone.trim() && !/^[+]?\d{10,15}$/.test(phone.replace(/[\s-]/g, ''))) errors.phone = 'Enter a valid phone number (10–15 digits)';
+        // Phone
+        if (!phone.trim()) errors.phone = 'Phone number is required';
+        else if (!/^[+]?\d{10,15}$/.test(phone.replace(/[\s-]/g, ''))) errors.phone = 'Enter a valid phone number (10–15 digits)';
 
         // Password
         if (!password) errors.password = 'Password is required';
@@ -163,9 +185,12 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         if (config.role === 'doctor') {
             if (!licenseNumber.trim()) errors.licenseNumber = 'License number is required';
             if (!specialization.trim()) errors.specialization = 'Specialization is required';
+            if (!experience.trim()) errors.experience = 'Years of experience is required';
         } else {
+            if (!facilityName.trim()) errors.facilityName = 'Facility name is required';
             if (!licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
             if (!address.trim()) errors.address = 'Address is required';
+            if (latitude == null || longitude == null) errors.location = 'Map location is required for approval';
         }
 
         setFieldErrors(errors);
@@ -183,9 +208,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
         try {
             // Construct data payload based on role
             const baseData = {
-                name,
-                email,
-                phone,
+                name: name.trim(),
+                email: email.trim(),
+                phone: phone.trim() || undefined,
                 password,
             };
 
@@ -204,8 +229,9 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                 case 'clinic_owner':
                 case 'diagnostic_center_owner':
                     roleData = {
+                        facility_name: facilityName.trim(),
                         license_number: licenseNumber,
-                        address,
+                        address: address.trim(),
                         ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
                     };
                     break;
@@ -216,13 +242,67 @@ export default function RegisterPage({ params }: RegisterPageProps) {
             if (result.success) {
                 // Show email verification success screen
                 setVerificationSent(true);
+                setVerificationComplete(false);
+                setVerificationError('');
+                setVerificationInfo('We sent a 6-digit verification code to your email.');
             } else {
+                if (result.fieldErrors?.length) {
+                    const backendFieldErrors = result.fieldErrors.reduce<Record<string, string>>((acc, item) => {
+                        acc[item.field] = item.message;
+                        return acc;
+                    }, {});
+                    setFieldErrors((prev) => ({ ...prev, ...backendFieldErrors }));
+                }
                 setError(result.error || 'Registration failed');
             }
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        if (resendCooldown > 0 || !email.trim()) return;
+
+        setResendingOtp(true);
+        setVerificationError('');
+
+        try {
+            const result = await authApi.resendVerification(email.trim());
+            if (result.success) {
+                setVerificationInfo(result.message || 'Verification code sent. Please check your inbox.');
+                setResendCooldown(60);
+            } else {
+                setVerificationError(result.message || 'Failed to resend verification code.');
+            }
+        } catch {
+            setVerificationError('Network error. Please try again.');
+        } finally {
+            setResendingOtp(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!/^\d{6}$/.test(verificationOtp.trim())) {
+            setVerificationError('Enter the 6-digit verification code from your email.');
+            return;
+        }
+
+        setVerifyingOtp(true);
+        setVerificationError('');
+        try {
+            const result = await authApi.verifyEmailOtp(email.trim(), verificationOtp.trim());
+            if (result.success) {
+                setVerificationComplete(true);
+                setVerificationInfo(result.message || 'Email verified successfully. You can now sign in.');
+            } else {
+                setVerificationError(result.message || 'Failed to verify email.');
+            }
+        } catch {
+            setVerificationError('Network error. Please try again.');
+        } finally {
+            setVerifyingOtp(false);
         }
     };
 
@@ -243,10 +323,57 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                             <div className="inline-flex p-3 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
                                 <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
                             </div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Verify Your Email</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                {verificationComplete ? 'Email Verified' : 'Enter Verification Code'}
+                            </h1>
                             <p className="text-gray-600 dark:text-gray-400 mt-3 text-sm leading-relaxed max-w-xs mx-auto">
-                                We&apos;ve sent a verification link to <strong>{email}</strong>. Please check your inbox and click the link to activate your account.
+                                {verificationComplete ? (
+                                    <>Your email for <strong>{email}</strong> is verified. You can now sign in and continue to approval review.</>
+                                ) : (
+                                    <>We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to activate your account.</>
+                                )}
                             </p>
+                            {verificationInfo && (
+                                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
+                                    {verificationInfo}
+                                </div>
+                            )}
+                            {verificationError && (
+                                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                                    {verificationError}
+                                </div>
+                            )}
+                            {!verificationComplete && (
+                                <div className="mt-5 space-y-4 text-left">
+                                    <Input
+                                        label="Verification Code"
+                                        type="text"
+                                        value={verificationOtp}
+                                        onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        placeholder="123456"
+                                        inputMode="numeric"
+                                        maxLength={6}
+                                        autoComplete="one-time-code"
+                                        required
+                                    />
+                                    <Button
+                                        type="button"
+                                        isLoading={verifyingOtp}
+                                        onClick={handleVerifyOtp}
+                                        className={`w-full ${config.bgColor} ${config.hoverColor} text-white`}
+                                    >
+                                        Verify Email OTP
+                                    </Button>
+                                    <button
+                                        type="button"
+                                        onClick={handleResendVerification}
+                                        disabled={resendingOtp || resendCooldown > 0}
+                                        className={`w-full text-sm font-medium ${config.color} disabled:opacity-50`}
+                                    >
+                                        {resendingOtp ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
+                                    </button>
+                                </div>
+                            )}
                             <div className="mt-6 space-y-3">
                                 <Link href={`/login/${role}`}>
                                     <Button className={`w-full ${config.bgColor} ${config.hoverColor} text-white`}>
@@ -254,7 +381,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     </Button>
                                 </Link>
                                 <p className="text-gray-500 dark:text-gray-500 text-xs">
-                                    Didn&apos;t receive it? Check your spam folder or try logging in — we&apos;ll offer to resend the verification email.
+                                    Didn&apos;t receive it? Check your spam folder and confirm the email address above before requesting another code.
                                 </p>
                             </div>
                         </div>
@@ -276,17 +403,29 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         )}
 
                         <Input
-                            label="Full Name"
+                            label={withRequiredMark(nameLabel, true)}
                             value={name}
                             onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
-                            placeholder="Enter full name"
+                            placeholder={namePlaceholder}
                             leftIcon={<User className="h-5 w-5" />}
                             error={fieldErrors.name}
                             required
                         />
 
+                        {isFacilityRole && (
+                            <Input
+                                label={withRequiredMark(facilityLabel, true)}
+                                value={facilityName}
+                                onChange={(e) => { setFacilityName(e.target.value); setFieldErrors(p => { const { facilityName, ...rest } = p; return rest; }); }}
+                                placeholder={`Enter ${facilityLabel.toLowerCase()}`}
+                                leftIcon={<Building2 className="h-5 w-5" />}
+                                error={fieldErrors.facilityName}
+                                required
+                            />
+                        )}
+
                         <Input
-                            label="Email Address"
+                            label={withRequiredMark('Email Address', true)}
                             type="email"
                             value={email}
                             onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
@@ -297,19 +436,20 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         />
 
                         <Input
-                            label="Phone Number (optional)"
+                            label={withRequiredMark('Phone Number', true)}
                             value={phone}
                             onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
-                            placeholder="Enter phone number"
+                            placeholder="Enter approval contact number"
                             leftIcon={<Phone className="h-5 w-5" />}
                             error={fieldErrors.phone}
+                            required
                         />
 
                         {/* Role Specific Fields */}
                         {config.role === 'doctor' && (
                             <>
                                 <Input
-                                    label="Specialization"
+                                    label={withRequiredMark('Specialization', true)}
                                     value={specialization}
                                     onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
                                     placeholder="Enter specialization"
@@ -318,20 +458,21 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     required
                                 />
                                 <Input
-                                    label="Medical License Number"
+                                    label={withRequiredMark('Medical License Number', true)}
                                     value={licenseNumber}
                                     onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                    placeholder="License #"
+                                    placeholder="Enter medical license number"
                                     leftIcon={<FileText className="h-5 w-5" />}
                                     error={fieldErrors.licenseNumber}
                                     required
                                 />
                                 <Input
-                                    label="Years of Experience"
+                                    label={withRequiredMark('Years of Experience', true)}
                                     type="number"
                                     value={experience}
-                                    onChange={(e) => setExperience(e.target.value)}
+                                    onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
                                     placeholder="Enter years of experience"
+                                    error={fieldErrors.experience}
                                     required
                                 />
                             </>
@@ -340,16 +481,16 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner') && (
                             <>
                                 <Input
-                                    label="License Number"
+                                    label={withRequiredMark('License / Registration Number', true)}
                                     value={licenseNumber}
                                     onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                    placeholder="License #"
+                                    placeholder="Enter facility license or registration number"
                                     leftIcon={<FileText className="h-5 w-5" />}
                                     error={fieldErrors.licenseNumber}
                                     required
                                 />
                                 <Input
-                                    label="Address"
+                                    label={withRequiredMark('Address', true)}
                                     value={address}
                                     onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => { const { address, ...rest } = p; return rest; }); }}
                                     placeholder="Full Address"
@@ -369,17 +510,24 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                             setLatitude(lat);
                                             setLongitude(lng);
                                         }
+                                        setFieldErrors((p) => {
+                                            const { location, ...rest } = p;
+                                            return rest;
+                                        });
                                     }}
                                     accentColor={config.bgColor.replace('bg-', '').replace('-600', '')}
-                                    label="Pin your facility on the map"
+                                    label={withRequiredMark('Pin your facility on the map', true)}
                                     height="250px"
                                 />
+                                {fieldErrors.location && (
+                                    <p className="text-sm text-red-600 dark:text-red-400 -mt-2">{fieldErrors.location}</p>
+                                )}
                             </>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input
-                                label="Password"
+                                label={withRequiredMark('Password', true)}
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => { const { password, ...rest } = p; return rest; }); }}
@@ -398,7 +546,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                 required
                             />
                             <Input
-                                label="Confirm Password"
+                                label={withRequiredMark('Confirm Password', true)}
                                 type={showPassword ? 'text' : 'password'}
                                 value={confirmPassword}
                                 onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(p => { const { confirmPassword, ...rest } = p; return rest; }); }}
@@ -407,6 +555,10 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                 error={fieldErrors.confirmPassword}
                                 required
                             />
+                        </div>
+
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+                            {approvalHint}
                         </div>
 
                         <Button

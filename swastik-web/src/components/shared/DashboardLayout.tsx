@@ -232,11 +232,11 @@ export default function DashboardLayout({
     const colors = COLOR_CLASSES[config.theme.color] || COLOR_CLASSES.blue;
     const subtitleColor = SUBTITLE_CLASSES[config.theme.color] || 'text-blue-300';
 
-    const visibleNavItems = config.navItems.filter((item) =>
+    const roleFilteredNavItems = config.navItems.filter((item) =>
         !item.allowedRoles || (user?.role != null && item.allowedRoles.includes(user.role))
     );
     // The base route for this dashboard (first nav item or derive from role)
-    const baseRoute = visibleNavItems[0]?.href || config.navItems[0]?.href || '/';
+    const baseRoute = roleFilteredNavItems[0]?.href || config.navItems[0]?.href || '/';
     const allowedRoles = Array.isArray(config.role) ? config.role : [config.role];
     const roleMatches = user?.role != null && (
         allowedRoles.includes(user.role) ||
@@ -276,11 +276,14 @@ export default function DashboardLayout({
         user?.approval_status != null &&
         user.approval_status !== 'approved';
 
-    // Pages always accessible: dashboard root + settings + explicit allow list
-    const alwaysAllowed = [baseRoute, config.settingsHref].filter(Boolean) as string[];
+    // Pages always accessible while waiting for approval: settings + explicit allow list
+    const alwaysAllowed = [config.settingsHref].filter(Boolean) as string[];
     const allowedPaths = [...alwaysAllowed, ...(config.allowedPathsWhenPending || [])];
-    const isOnAllowedPath = allowedPaths.some(p => pathname === p);
+    const isOnAllowedPath = allowedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     const isPageBlocked = isNotApproved && !isOnAllowedPath;
+    const visibleNavItems = isNotApproved
+        ? roleFilteredNavItems.filter((item) => allowedPaths.includes(item.href))
+        : roleFilteredNavItems;
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950" data-theme={config.theme.dataTheme}>
@@ -501,19 +504,13 @@ export default function DashboardLayout({
                                         {normalizedApprovalStatus === 'suspended' && 'Account Suspended'}
                                     </h2>
                                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-md">
-                                        {normalizedApprovalStatus === 'pending' && 'Your profile must be approved by an admin before you can access this feature. Please complete your profile and wait for approval.'}
+                                        {normalizedApprovalStatus === 'pending' && 'Your profile must be approved by an admin before you can access this portal. You can still use Settings to complete or correct your profile.'}
                                         {normalizedApprovalStatus === 'review' && 'Your profile is currently being reviewed. This usually takes 24-48 hours. You will be notified once approved.'}
-                                        {normalizedApprovalStatus === 'rejected' && 'Your profile was rejected. Please update your documents in Settings and resubmit for review.'}
+                                        {normalizedApprovalStatus === 'rejected' && 'Your profile was rejected. Use Settings to correct the rejection reason and save to resubmit for review.'}
                                         {normalizedApprovalStatus === 'suspended' && 'Your account has been suspended. Please contact support for more information.'}
                                     </p>
                                 </div>
                                 <div className="flex gap-3">
-                                    <a
-                                        href={baseRoute}
-                                        className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
-                                    >
-                                        Go to Dashboard
-                                    </a>
                                     {config.settingsHref && (
                                         <a
                                             href={config.settingsHref}

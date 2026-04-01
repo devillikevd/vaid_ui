@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, query } = require('express-validator');
+const { body, query, param } = require('express-validator');
 const { validate } = require('../../middleware/validate');
 const { authenticate, authorize, optionalAuth } = require('../../middleware/auth');
 const { requireApproval } = require('../../middleware/rbac');
@@ -69,6 +69,55 @@ router.put('/me/profile',
     res.json({ success: true, data: profile });
   })
 );
+
+// Doctor hospital invites (accept/reject association requests)
+router.get('/me/hospital-invites',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const invites = await doctorService.getHospitalInvites(req.user.id);
+    res.json({ success: true, data: invites });
+  })
+);
+
+router.post('/me/hospital-invites/:inviteId/respond',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.respondHospitalInvite(req.user.id, req.params.inviteId, req.body.decision);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.get('/me/clinic-invites',
+  authenticate,
+  authorize('doctor'),
+  asyncHandler(async (req, res) => {
+    const invites = await doctorService.getClinicInvites(req.user.id);
+    res.json({ success: true, data: invites });
+  })
+);
+
+router.post('/me/clinic-invites/:inviteId/respond',
+  authenticate,
+  authorize('doctor'),
+  [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await doctorService.respondClinicInvite(req.user.id, req.params.inviteId, req.body.decision);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.use('/me', authenticate, authorize('doctor'), requireApproval);
 
 // Get doctor dashboard
 router.get('/me/dashboard',

@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const pharmacyService = require('../services/pharmacyService');
+const facilityAssociationService = require('../services/facilityAssociationService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -135,13 +136,13 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
 }));
 
 // Get own pharmacy
-router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.get('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     res.json({ success: true, data: pharmacy });
 }));
 
 // Update pharmacy
-router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
@@ -158,6 +159,44 @@ router.put('/profile', requireRole(ROLES.PHARMACY_OWNER), requireApproval, async
     }
     const updated = await pharmacyService.updatePharmacy(pharmacy.id, req.user.id, safeUpdates);
     res.json({ success: true, data: updated });
+}));
+
+router.use(requireRole(ROLES.PHARMACY_OWNER), requireApproval);
+
+router.get('/associations/invites', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.getProviderInvites({
+        providerType: 'pharmacy',
+        ownerId: req.user.id,
+    });
+    res.json({ success: true, data });
+}));
+
+router.post('/associations/invites/:inviteId/respond', requireRole(ROLES.PHARMACY_OWNER), [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.respondToProviderInvite({
+        providerType: 'pharmacy',
+        ownerId: req.user.id,
+        inviteId: req.params.inviteId,
+        decision: req.body.decision,
+    });
+    res.json({
+        success: true,
+        data,
+        message: req.body.decision === 'accept'
+            ? 'Association accepted successfully.'
+            : 'Invitation rejected successfully.',
+    });
+}));
+
+router.get('/associations', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.getProviderAssociations({
+        providerType: 'pharmacy',
+        ownerId: req.user.id,
+    });
+    res.json({ success: true, data });
 }));
 
 // Inventory routes

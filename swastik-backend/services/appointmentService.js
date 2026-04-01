@@ -132,10 +132,13 @@ const bookAppointment = async (patientId, appointmentData) => {
   if (hospitalLinksResult.error) throw hospitalLinksResult.error;
   if (clinicLinksResult.error) throw clinicLinksResult.error;
 
-  const doctorHospitalIds = new Set([
-    doctor.hospital_id,
-    ...(hospitalLinksResult.data || []).map(link => link.hospital_id),
-  ].filter(Boolean));
+  // Only treat accepted hospital roster associations as bookable hospital links.
+  // The legacy doctors.hospital_id field is intentionally ignored here so
+  // pending invites or stale historical affiliations do not leak into current
+  // hospital booking/discovery behavior.
+  const doctorHospitalIds = new Set(
+    (hospitalLinksResult.data || []).map(link => link.hospital_id).filter(Boolean)
+  );
   const doctorClinicLinks = clinicLinksResult.data || [];
   const doctorClinicIds = new Set(doctorClinicLinks.map(link => link.clinic_id).filter(Boolean));
 

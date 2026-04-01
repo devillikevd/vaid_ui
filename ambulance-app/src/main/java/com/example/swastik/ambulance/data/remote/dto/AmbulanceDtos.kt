@@ -26,6 +26,26 @@ data class RegisterRequest(
     val licenseExpiry: String? = null
 )
 
+data class ResendVerificationRequest(
+    val email: String
+)
+
+data class VerifyEmailOtpRequest(
+    val email: String,
+    val otp: String
+)
+
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+data class ResetPasswordRequest(
+    val token: String? = null,
+    val email: String? = null,
+    val otp: String? = null,
+    @SerializedName("password") val password: String
+)
+
 data class RefreshTokenRequest(
     val refreshToken: String
 )

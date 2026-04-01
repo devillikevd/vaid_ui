@@ -201,6 +201,7 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 // if backend omits departments count, derive from list length
                 departments: Number(rawStats.departments || departments.length || 0),
                 bedCapacity: (rawStats.bedCapacity as string)
+                    || (rawStats.total_beds != null ? `${rawStats.total_beds} beds` : undefined)
                     || (rawStats.bed_capacity != null ? `${rawStats.bed_capacity} beds` : undefined),
             };
 

@@ -3,11 +3,13 @@
  * Registration, management, tests catalog, appointments, and results
  */
 const { supabaseAdmin } = require('../config/supabase');
+const { cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
 const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
+const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
 const buildPagination = (page, limit, total) => ({
   page,
@@ -250,7 +252,7 @@ const getDashboard = async (centerId) => {
 const updateDiagnosticCenter = async (centerId, userId, updates) => {
   const { data: existingCenter, error: existingCenterError } = await supabaseAdmin
     .from('diagnostic_centers')
-    .select('id, owner_id, address, city, state, pincode, latitude, longitude')
+    .select('id, owner_id, address, city, state, pincode, latitude, longitude, approval_status')
     .eq('id', centerId)
     .eq('owner_id', userId)
     .single();
@@ -281,6 +283,7 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
   }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingCenter, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
+  Object.assign(safeUpdates, buildProviderResubmissionFields('diagnostic_center_owner', existingCenter.approval_status));
 
   const { data, error } = await supabaseAdmin
     .from('diagnostic_centers')
@@ -291,6 +294,7 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
     .single();
 
   if (error) throw error;
+  await cacheDel(`auth_user:${userId}`);
   return data;
 };
 

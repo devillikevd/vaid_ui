@@ -283,13 +283,33 @@ export function useNotifications(onNotification?: (notification: Notification) =
     }, []);
 
     const { on } = useSocket();
-    const [notifications, setNotifications] = useState<Notification[]>(() => {
-        if (typeof window === 'undefined') return [];
+    const { user, isAuthenticated } = useAuthStore();
+    const storageKey = user?.id && user?.role
+        ? `swastik-notifications:${user.id}:${user.role}`
+        : null;
+
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+
+    // Hydrate notifications for current authenticated role/user only.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!isAuthenticated || !storageKey) {
+            setNotifications([]);
+            return;
+        }
+
         try {
-            const stored = localStorage.getItem('swastik-notifications');
-            if (!stored) return [];
+            const stored = localStorage.getItem(storageKey);
+            if (!stored) {
+                setNotifications([]);
+                return;
+            }
+
             const parsed = JSON.parse(stored);
-            if (!Array.isArray(parsed)) return [];
+            if (!Array.isArray(parsed)) {
+                setNotifications([]);
+                return;
+            }
 
             const seenIds = new Set<string>();
             const unique: Notification[] = [];
@@ -302,37 +322,43 @@ export function useNotifications(onNotification?: (notification: Notification) =
                 unique.push(n);
                 if (unique.length >= 50) break;
             }
-            return unique;
+            setNotifications(unique);
         } catch {
-            // Corrupted data — clear it
-            try { localStorage.removeItem('swastik-notifications'); } catch { /* ignore */ }
-            return [];
+            // Corrupted scoped cache — clear only this user's scoped key
+            try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+            setNotifications([]);
         }
-    });
+    }, [isAuthenticated, storageKey]);
 
     // Persist to localStorage whenever notifications change
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        if (!storageKey) return;
         try {
-            localStorage.setItem('swastik-notifications', JSON.stringify(notifications.slice(0, 50)));
+            localStorage.setItem(storageKey, JSON.stringify(notifications.slice(0, 50)));
         } catch { /* quota exceeded — ignore */ }
-    }, [notifications]);
+    }, [notifications, storageKey]);
 
     useEffect(() => {
         const handleNotification = (notification: Notification) => {
+            // Optional role-target guard if payload contains role hint
+            const targetRole = (notification?.data?.role || notification?.data?.targetRole) as string | undefined;
+            if (targetRole && user?.role && targetRole !== user.role) {
+                return;
+            }
             setNotifications((prev) => dedupeNotifications([notification, ...prev]));
             onNotification?.(notification);
         };
 
         return on('notification:new', handleNotification);
-    }, [on, onNotification, dedupeNotifications]);
+    }, [on, onNotification, dedupeNotifications, user?.role]);
 
     const clearNotifications = useCallback(() => {
         setNotifications([]);
-        if (typeof window !== 'undefined') {
-            localStorage.removeItem('swastik-notifications');
+        if (typeof window !== 'undefined' && storageKey) {
+            localStorage.removeItem(storageKey);
         }
-    }, []);
+    }, [storageKey]);
 
     const unreadCount = notifications.length;
 

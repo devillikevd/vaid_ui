@@ -33,5 +33,9 @@
 \i 018_fix_users_role_check.sql
 \i 019_reminder_reliability_and_timezone.sql
 \i 020_family_member_phone.sql
+\i 021_email_otp_indexes.sql
+\i 022_hospital_doctor_invites.sql
+\i 023_clinic_doctor_invites.sql
+\i 024_facility_provider_associations.sql
 
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

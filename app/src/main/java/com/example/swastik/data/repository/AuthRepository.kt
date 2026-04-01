@@ -76,7 +76,7 @@ class AuthRepository @Inject constructor(
 
     /**
      * Register a new patient account.
-     * Backend no longer returns tokens — requires email verification first.
+     * Backend no longer returns tokens — requires email OTP verification first.
      */
     fun register(name: String, phone: String?, email: String, password: String = ""): Flow<Result<Boolean>> = flow {
         emit(Result.Loading)
@@ -108,23 +108,42 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * Resend email verification link.
+     * Resend email verification OTP.
      */
     suspend fun resendVerification(email: String): Result<String> {
         return try {
             val response = apiService.resendVerification(ResendVerificationRequest(email = email.trim()))
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.message ?: "Verification email sent. Please check your inbox.")
+                Result.Success(response.body()?.message ?: "Verification code sent. Please check your inbox.")
             } else {
                 val errorBody = response.errorBody()?.string()
                 val failure = parseApiFailure(errorBody)
                 Result.Error(
-                    response.body()?.message ?: failure?.message ?: "Failed to resend verification email",
+                    response.body()?.message ?: failure?.message ?: "Failed to resend verification code",
                     failure
                 )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Resend verification failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
+        }
+    }
+
+    suspend fun verifyEmailOtp(email: String, otp: String): Result<String> {
+        return try {
+            val response = apiService.verifyEmailOtp(VerifyEmailOtpRequest(email = email.trim(), otp = otp.trim()))
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.message ?: "Email verified successfully.")
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val failure = parseApiFailure(errorBody)
+                Result.Error(
+                    response.body()?.message ?: failure?.message ?: "Failed to verify email",
+                    failure
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Verify email OTP failed", e)
             Result.Error(userFriendlyErrorMessage(e))
         }
     }
@@ -160,13 +179,13 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * Forgot password.
+     * Forgot password - sends an email OTP.
      */
     suspend fun forgotPassword(email: String): Result<String> {
         return try {
             val response = apiService.forgotPassword(ForgotPasswordRequest(email = email.trim()))
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.message ?: "Password reset email sent.")
+                Result.Success(response.body()?.message ?: "Password reset code sent.")
             } else {
                 val errorBody = response.errorBody()?.string()
                 val failure = parseApiFailure(errorBody)
@@ -227,8 +246,7 @@ class AuthRepository @Inject constructor(
     }
 
     /**
-     * Reset password with token from email link.
-     * POST /api/auth/reset-password
+     * Reset password with token from legacy email link.
      */
     suspend fun resetPassword(token: String, newPassword: String): Result<Boolean> {
         return try {
@@ -242,6 +260,27 @@ class AuthRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Reset password failed", e)
+            Result.Error(userFriendlyErrorMessage(e))
+        }
+    }
+
+    suspend fun resetPasswordWithOtp(email: String, otp: String, newPassword: String): Result<Boolean> {
+        return try {
+            val response = apiService.resetPassword(
+                com.example.swastik.data.remote.dto.ResetPasswordRequest(
+                    email = email.trim(),
+                    otp = otp.trim(),
+                    newPassword = newPassword
+                )
+            )
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(true)
+            } else {
+                val failure = parseApiFailure(response.errorBody()?.string())
+                Result.Error(response.body()?.message ?: failure?.message ?: "Failed to reset password", failure)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Reset password with OTP failed", e)
             Result.Error(userFriendlyErrorMessage(e))
         }
     }

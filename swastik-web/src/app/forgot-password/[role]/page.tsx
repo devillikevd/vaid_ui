@@ -2,7 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { Mail, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -15,9 +15,14 @@ interface ForgotPasswordPageProps {
 export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) {
     const { role } = use(params);
     const [email, setEmail] = useState('');
+    const [otp, setOtp] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    const [codeSent, setCodeSent] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,11 +30,49 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         setIsLoading(true);
 
         try {
-            const result = await authApi.forgotPassword(email);
+            const result = await authApi.forgotPassword(email.trim());
+            if (result.success) {
+                setCodeSent(true);
+                setSuccessMessage(result.message || 'If an account exists with this email, a reset code has been sent.');
+            } else {
+                setError(result.error || result.message || 'Failed to send reset code. Please try again.');
+            }
+        } catch {
+            setError('Network error. Please check your connection.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+
+        if (!/^\d{6}$/.test(otp.trim())) {
+            setError('Enter the 6-digit reset code from your email.');
+            return;
+        }
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+            setError('Password must include an uppercase letter, a lowercase letter, and a number.');
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError('Passwords do not match.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const result = await authApi.resetPasswordWithOtp(email.trim(), otp.trim(), password);
             if (result.success) {
                 setSuccess(true);
+                setSuccessMessage(result.message || 'Password reset successfully.');
             } else {
-                setError(result.error || result.message || 'Failed to send reset email. Please try again.');
+                setError(result.error || result.message || 'Failed to reset password. Please try again.');
             }
         } catch {
             setError('Network error. Please check your connection.');
@@ -55,36 +98,40 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
                             <div className="inline-flex p-3 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
                                 <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                             </div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Check Your Email</h1>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Password Reset</h1>
                             <p className="text-gray-600 dark:text-gray-400 mt-3 text-sm leading-relaxed">
-                                If an account exists with <strong>{email}</strong>, we&apos;ve sent password reset instructions to that address.
+                                {successMessage || `Your password for ${email} has been reset.`}
                             </p>
                             <p className="text-gray-500 dark:text-gray-500 mt-4 text-xs">
-                                Didn&apos;t receive the email? Check your spam folder or{' '}
-                                <button
-                                    onClick={() => { setSuccess(false); setEmail(''); }}
-                                    className="text-blue-600 hover:underline"
-                                >
-                                    try again
-                                </button>
+                                You can now return to the sign-in page and use your new password.
                             </p>
                         </div>
                     ) : (
                         <>
                             <div className="text-center mb-8">
                                 <div className="inline-flex p-3 rounded-xl bg-blue-600 text-white mb-4">
-                                    <Mail className="h-8 w-8" />
+                                    {codeSent ? <Lock className="h-8 w-8" /> : <Mail className="h-8 w-8" />}
                                 </div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Reset Password</h1>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                    {codeSent ? 'Enter Reset Code' : 'Reset Password'}
+                                </h1>
                                 <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-                                    Enter your email address and we&apos;ll send you a link to reset your password.
+                                    {codeSent
+                                        ? 'Enter the 6-digit code from your email and choose a new password.'
+                                        : 'Enter your email address and we’ll send you a 6-digit reset code.'}
                                 </p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-5">
+                            <form onSubmit={codeSent ? handleResetPassword : handleSubmit} className="space-y-5">
                                 {error && (
                                     <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
                                         {error}
+                                    </div>
+                                )}
+
+                                {!error && successMessage && (
+                                    <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
+                                        {successMessage}
                                     </div>
                                 )}
 
@@ -98,15 +145,71 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
                                     required
                                     autoComplete="email"
                                     autoFocus
+                                    disabled={codeSent}
                                 />
+
+                                {codeSent && (
+                                    <>
+                                        <Input
+                                            label="Reset Code"
+                                            type="text"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            placeholder="123456"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            autoComplete="one-time-code"
+                                            required
+                                        />
+
+                                        <Input
+                                            label="New Password"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="At least 8 chars with upper, lower, number"
+                                            leftIcon={<Lock className="h-5 w-5" />}
+                                            required
+                                            autoComplete="new-password"
+                                        />
+
+                                        <Input
+                                            label="Confirm Password"
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            placeholder="Repeat your new password"
+                                            leftIcon={<Lock className="h-5 w-5" />}
+                                            required
+                                            autoComplete="new-password"
+                                        />
+                                    </>
+                                )}
 
                                 <Button
                                     type="submit"
                                     isLoading={isLoading}
                                     className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                                 >
-                                    Send Reset Link
+                                    {codeSent ? 'Reset Password' : 'Send Reset Code'}
                                 </Button>
+
+                                {codeSent && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setCodeSent(false);
+                                            setOtp('');
+                                            setPassword('');
+                                            setConfirmPassword('');
+                                            setError('');
+                                            setSuccessMessage('');
+                                        }}
+                                        className="w-full text-sm text-blue-600 hover:underline"
+                                    >
+                                        Use a different email or request a new code
+                                    </button>
+                                )}
                             </form>
                         </>
                     )}

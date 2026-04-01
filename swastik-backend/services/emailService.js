@@ -130,6 +130,83 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
   });
 };
 
+const sendOtpEmail = async ({
+  email,
+  name,
+  otp,
+  title,
+  intro,
+  subject,
+  accentColor = '#7C3AED',
+  expiryMinutes = 10,
+}) => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 Swastik Healthcare</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 5px 0 0; font-size: 14px;">Healthcare Reimagined</p>
+      </div>
+
+      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+        <h2 style="color: #1f2937; margin-top: 0;">${escapeHtml(title)}</h2>
+        <p style="color: #4b5563; line-height: 1.6;">
+          Hi ${escapeHtml(name || 'there')}, ${escapeHtml(intro)}
+        </p>
+
+        <div style="margin: 28px 0; text-align: center;">
+          <div style="display: inline-block; letter-spacing: 10px; font-size: 34px; font-weight: 700; color: ${accentColor}; background: #F9FAFB; border: 1px dashed #D1D5DB; border-radius: 14px; padding: 18px 24px;">
+            ${escapeHtml(otp)}
+          </div>
+        </div>
+
+        <p style="color: #4b5563; line-height: 1.6;">
+          Enter this 6-digit code in the Swastik app or web portal to continue.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+
+        <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+          This code expires in ${expiryMinutes} minutes. If you didn't request it, you can ignore this email.<br>
+          © ${new Date().getFullYear()} Swastik Healthcare
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject,
+    html,
+    text: `${title}: Your Swastik code is ${otp}. It expires in ${expiryMinutes} minutes.`,
+  });
+};
+
+const sendVerificationOtpEmail = async (email, name, otp) => {
+  return sendOtpEmail({
+    email,
+    name,
+    otp,
+    title: 'Verify Your Email',
+    intro: 'use the verification code below to activate your account.',
+    subject: 'Your Email Verification Code — Swastik Healthcare',
+    accentColor: '#059669',
+    expiryMinutes: 10,
+  });
+};
+
+const sendPasswordResetOtpEmail = async (email, name, otp) => {
+  return sendOtpEmail({
+    email,
+    name,
+    otp,
+    title: 'Reset Your Password',
+    intro: 'use the reset code below to set a new password.',
+    subject: 'Your Password Reset Code — Swastik Healthcare',
+    accentColor: '#DC2626',
+    expiryMinutes: 10,
+  });
+};
+
 /**
  * Send password reset link.
  */
@@ -306,6 +383,8 @@ module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendVerificationOtpEmail,
+  sendPasswordResetOtpEmail,
   sendNotificationEmail,
   sendApprovalEmail,
   getTransporter,

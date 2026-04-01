@@ -61,24 +61,29 @@ export default function ClinicStaffPage() {
         setActionLoading('add');
         const success = await addDoctor({ email: form.email.trim() });
         if (success) {
-            toast.success('Doctor Added', 'The doctor is now linked to this clinic.');
+            toast.success('Invite Sent', 'Doctor must accept the invite before appearing in your clinic roster.');
             setShowAdd(false);
             setForm({ email: '' });
             clearError();
             await loadDoctors();
         } else {
-            toast.error('Unable to add doctor', useClinicStore.getState().error || 'Check the doctor email and try again.');
+            toast.error('Unable to send invite', useClinicStore.getState().error || 'Check the doctor email and try again.');
         }
         setActionLoading(null);
     };
 
     const handleRemove = async (id: string, name: string) => {
-        const confirmed = await confirm({ title: 'Remove Staff', message: `Remove ${name} from clinic?`, confirmLabel: 'Remove', variant: 'danger' });
+        const confirmed = await confirm({
+            title: 'Remove Staff',
+            message: `Remove ${name} from clinic? Their clinic roster entry and clinic-side appointments/consultations will no longer appear in this portal.`,
+            confirmLabel: 'Remove',
+            variant: 'danger'
+        });
         if (!confirmed) return;
         setActionLoading(id);
         const success = await removeDoctor(id);
         if (success) {
-            toast.success('Doctor Removed', `${name} has been removed from this clinic.`);
+            toast.success('Doctor Removed', `${name} and their clinic-side records are now hidden from this portal.`);
             clearError();
             await loadDoctors();
         } else {
@@ -109,7 +114,7 @@ export default function ClinicStaffPage() {
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Staff</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage clinic doctors linked to this clinic</p></div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => void loadDoctors()} disabled={loadingDoctors} leftIcon={<RefreshCw className={`h-4 w-4 ${loadingDoctors ? 'animate-spin' : ''}`} />}>Refresh</Button>
-                    <Button onClick={() => setShowAdd(true)} leftIcon={<UserPlus className="h-4 w-4" />}>Add Doctor</Button>
+                    <Button onClick={() => setShowAdd(true)} leftIcon={<UserPlus className="h-4 w-4" />}>Invite Doctor</Button>
                 </div>
             </div>
 
@@ -135,18 +140,18 @@ export default function ClinicStaffPage() {
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
                     <Card padding="lg" className="w-full max-w-md">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold">Add Doctor to Clinic</h2>
+                            <h2 className="text-lg font-semibold">Invite Doctor to Clinic</h2>
                             <button onClick={() => setShowAdd(false)}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-3">
                             <Input label="Doctor Email *" type="email" value={form.email} onChange={e => setForm({ email: e.target.value })} placeholder="Enter existing doctor account email" />
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Only approved doctor accounts can be linked here. Enter the email used in the doctor portal.
+                                Enter the email used in the doctor portal. The doctor must accept this invite before appearing in clinic staff, appointments, and consultations.
                             </p>
                         </div>
                         <div className="flex justify-end gap-2 mt-4">
                             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-                            <Button onClick={handleAdd} isLoading={actionLoading === 'add'} disabled={!form.email.trim()}>Add Doctor</Button>
+                            <Button onClick={handleAdd} isLoading={actionLoading === 'add'} disabled={!form.email.trim()}>Send Invite</Button>
                         </div>
                     </Card>
                 </div>
@@ -156,7 +161,7 @@ export default function ClinicStaffPage() {
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Stethoscope className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p>No doctors linked to this clinic yet.</p>
-                    <p className="text-sm mt-1">Click &quot;Add Doctor&quot; to invite one.</p>
+                    <p className="text-sm mt-1">Click &quot;Invite Doctor&quot; to send an invite.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

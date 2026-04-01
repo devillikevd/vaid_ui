@@ -278,12 +278,14 @@ class AppEventEmitter extends EventEmitter {
 
   emitOrderStatusUpdated(order) {
     const { patient_id, pharmacy_owner_id } = order;
+    const normalizedStatus = order.status === 'out_for_delivery' ? 'dispatched' : order.status;
     // Normalize payload to include fields expected by web & Android clients
     const payload = {
       ...order,
       orderId: order.id,
       orderNumber: order.order_number || order.id?.slice(0, 8)?.toUpperCase(),
-      message: `Order status updated to ${order.status}`,
+      status: normalizedStatus,
+      message: `Order status updated to ${normalizedStatus}`,
       timestamp: order.updated_at || new Date().toISOString(),
     };
     this.notifyUser(patient_id, 'order:update', payload);

@@ -52,7 +52,7 @@ const bannerConfig: Record<ApprovalStatus, {
     rejected: {
         icon: XCircle,
         title: 'Profile Rejected',
-        description: 'Your profile has been rejected. Please review the reason below and update your documents.',
+        description: 'Your profile has been rejected. Review the reason below, update your settings or documents, and save to resubmit for admin review.',
         className: 'bg-red-50 border-red-200',
         iconClassName: 'text-red-600',
     },

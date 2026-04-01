@@ -34,6 +34,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,7 +42,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,24 +83,8 @@ fun RegisterScreen(
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.registrationSuccessMessage) {
-        if (uiState.registrationSuccessMessage != null) {
-            name = ""
-            companyName = ""
-            registrationNumber = ""
-            address = ""
-            city = ""
-            state = ""
-            phone = ""
-            alternatePhone = ""
-            email = ""
-            licenseExpiry = ""
-            licenseDocumentUrl = ""
-            password = ""
-            confirmPassword = ""
-        }
-    }
+    var verificationOtp by remember { mutableStateOf("") }
+    val verificationEmail = uiState.pendingVerificationEmail ?: email.trim()
 
     Scaffold(
         topBar = {
@@ -176,7 +160,7 @@ fun RegisterScreen(
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
-                                        text = "Registration submitted",
+                                        text = if (uiState.emailVerificationComplete) "Email verified" else "Registration submitted",
                                         color = Color(0xFF1B5E20),
                                         fontWeight = FontWeight.Bold
                                     )
@@ -186,6 +170,64 @@ fun RegisterScreen(
                                         color = Color(0xFF2E7D32),
                                         fontSize = 13.sp
                                     )
+                                    if (!uiState.infoMessage.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = uiState.infoMessage ?: "",
+                                            color = Color(0xFF2E7D32),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    if (uiState.error != null) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = uiState.error ?: "",
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    if (!uiState.emailVerificationComplete) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        OutlinedTextField(
+                                            value = verificationOtp,
+                                            onValueChange = {
+                                                verificationOtp = it.filter(Char::isDigit).take(6)
+                                                if (uiState.error != null) viewModel.clearError()
+                                            },
+                                            label = { Text("Verification code") },
+                                            placeholder = { Text("123456") },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Button(
+                                            onClick = { viewModel.verifyEmailOtp(verificationEmail, verificationOtp) },
+                                            enabled = verificationOtp.length == 6 && !uiState.isLoading && verificationEmail.isNotBlank(),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                                        ) {
+                                            if (uiState.isLoading) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.height(18.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = Color.White
+                                                )
+                                            } else {
+                                                Text("Verify email OTP")
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.resendVerification(verificationEmail) },
+                                            enabled = verificationEmail.isNotBlank() && !uiState.isLoading,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text("Resend verification code")
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     TextButton(onClick = {
                                         viewModel.clearRegistrationMessage()

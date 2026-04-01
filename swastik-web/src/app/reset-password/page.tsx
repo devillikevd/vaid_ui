@@ -23,8 +23,12 @@ function ResetPasswordForm() {
         e.preventDefault();
         setError('');
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters.');
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+            setError('Password must include an uppercase letter, a lowercase letter, and a number.');
             return;
         }
         if (password !== confirmPassword) {
@@ -103,7 +107,7 @@ function ResetPasswordForm() {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="At least 6 characters"
+                                    placeholder="At least 8 chars with upper, lower, number"
                                     leftIcon={<Lock className="h-5 w-5" />}
                                     rightIcon={
                                         <button

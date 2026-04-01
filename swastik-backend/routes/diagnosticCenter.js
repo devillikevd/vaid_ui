@@ -4,8 +4,9 @@
  */
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const diagnosticCenterService = require('../services/diagnosticCenterService');
+const facilityAssociationService = require('../services/facilityAssociationService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
@@ -139,12 +140,12 @@ router.get('/owner/dashboard', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requi
 }));
 
 // Profile
-router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.get('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     res.json({ success: true, data: center });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
@@ -160,6 +161,47 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), require
     }
     const updated = await diagnosticCenterService.updateDiagnosticCenter(center.id, req.user.id, safeUpdates);
     res.json({ success: true, data: updated });
+}));
+
+router.get('/owner/associations/invites', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.getProviderInvites({
+        providerType: 'diagnostic_center',
+        ownerId: req.user.id,
+    });
+    res.json({ success: true, data });
+}));
+
+router.post('/owner/associations/invites/:inviteId/respond',
+  requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER),
+  requireApproval,
+  [
+    param('inviteId').isUUID().withMessage('Invalid invite ID'),
+    body('decision').isIn(['accept', 'reject']).withMessage('Decision must be accept or reject'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.respondToProviderInvite({
+      providerType: 'diagnostic_center',
+      ownerId: req.user.id,
+      inviteId: req.params.inviteId,
+      decision: req.body.decision,
+    });
+    res.json({
+      success: true,
+      data,
+      message: req.body.decision === 'accept'
+        ? 'Association accepted successfully.'
+        : 'Invitation rejected successfully.',
+    });
+  })
+);
+
+router.get('/owner/associations', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const data = await facilityAssociationService.getProviderAssociations({
+        providerType: 'diagnostic_center',
+        ownerId: req.user.id,
+    });
+    res.json({ success: true, data });
 }));
 
 // ==================== Test Catalog ====================

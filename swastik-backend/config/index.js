@@ -4,6 +4,24 @@
  */
 require('dotenv').config();
 
+const normalizeFrontendUrl = (value, fallback) => {
+  const raw = value || fallback;
+
+  try {
+    const url = new URL(raw);
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      url.protocol === 'https:' &&
+      ['localhost', '127.0.0.1'].includes(url.hostname)
+    ) {
+      url.protocol = 'http:';
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return raw;
+  }
+};
+
 const config = {
   // Server
   env: process.env.NODE_ENV || 'development',
@@ -70,8 +88,8 @@ const config = {
   },
 
   // Frontend URLs
-  frontendWebUrl: process.env.FRONTEND_WEB_URL || 'http://localhost:3000',
-  frontendDoctorWebUrl: process.env.FRONTEND_DOCTOR_WEB_URL || 'http://localhost:3001',
+  frontendWebUrl: normalizeFrontendUrl(process.env.FRONTEND_WEB_URL, 'http://localhost:3000'),
+  frontendDoctorWebUrl: normalizeFrontendUrl(process.env.FRONTEND_DOCTOR_WEB_URL, 'http://localhost:3001'),
   frontendAppUrl: process.env.FRONTEND_APP_URL || 'exp://localhost:8081',
 
   // Rate Limiting

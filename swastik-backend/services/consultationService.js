@@ -62,12 +62,19 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
     }
     query = query.eq('doctor_id', doctor.id);
   } else if (role === 'hospital_owner') {
-    // Scope to doctors affiliated with the owner's hospital(s)
+    // Scope strictly to doctors with accepted active hospital roster links.
+    // Do not rely on the legacy doctors.hospital_id field here, because that
+    // can outlive the real accepted association and blur the invite boundary.
     const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
     const hospitalIds = (hospitals || []).map(h => h.id);
     if (hospitalIds.length > 0) {
-      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('hospital_id', hospitalIds);
-      const doctorIds = (doctors || []).map(d => d.id);
+      const { data: hospitalDoctors } = await supabaseAdmin
+        .from('hospital_doctors')
+        .select('doctor_id')
+        .in('hospital_id', hospitalIds)
+        .eq('is_active', true);
+
+      const doctorIds = [...new Set((hospitalDoctors || []).map((d) => d.doctor_id).filter(Boolean))];
       if (doctorIds.length > 0) {
         query = query.in('doctor_id', doctorIds);
       } else {
@@ -77,12 +84,17 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
   } else if (role === 'clinic_owner') {
-    // Scope to doctors affiliated with the owner's clinic(s)
+    // Scope strictly to doctors with accepted active clinic roster links.
     const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
     const clinicIds = (clinics || []).map(c => c.id);
     if (clinicIds.length > 0) {
-      const { data: doctors } = await supabaseAdmin.from('doctors').select('id').in('clinic_id', clinicIds);
-      const doctorIds = (doctors || []).map(d => d.id);
+      const { data: clinicDoctors } = await supabaseAdmin
+        .from('clinic_doctors')
+        .select('doctor_id')
+        .in('clinic_id', clinicIds)
+        .eq('is_active', true);
+
+      const doctorIds = [...new Set((clinicDoctors || []).map((d) => d.doctor_id).filter(Boolean))];
       if (doctorIds.length > 0) {
         query = query.in('doctor_id', doctorIds);
       } else {

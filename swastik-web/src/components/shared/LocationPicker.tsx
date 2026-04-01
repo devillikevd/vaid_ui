@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import { MapPin, Search, Loader2, Navigation, X } from 'lucide-react';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -25,6 +25,49 @@ interface LocationPickerProps {
     /** Label text */
     label?: string;
 }
+
+type LeafletAsset =
+    | string
+    | {
+        src?: string;
+        default?: string | { src?: string };
+    };
+
+const resolveLeafletAssetUrl = (asset: LeafletAsset): string => {
+    if (typeof asset === 'string') return asset;
+    if (asset?.src) return asset.src;
+    if (typeof asset?.default === 'string') return asset.default;
+    if (asset?.default && typeof asset.default === 'object' && asset.default.src) {
+        return asset.default.src;
+    }
+    return '';
+};
+
+const createMarkerIcon = () => {
+    const retinaUrl = resolveLeafletAssetUrl(markerIcon2x);
+    const iconUrl = resolveLeafletAssetUrl(markerIcon);
+    const shadowUrl = resolveLeafletAssetUrl(markerShadow);
+
+    if (!iconUrl) {
+        return L.divIcon({
+            className: 'swastik-location-marker',
+            html: '<div style="width:18px;height:18px;border-radius:9999px;background:#2563eb;border:3px solid white;box-shadow:0 4px 10px rgba(37,99,235,0.35);"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+        });
+    }
+
+    return L.icon({
+        iconRetinaUrl: retinaUrl || iconUrl,
+        iconUrl,
+        shadowUrl: shadowUrl || undefined,
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        tooltipAnchor: [16, -28],
+        shadowSize: shadowUrl ? [41, 41] : undefined,
+    });
+};
 
 /**
  * Interactive Location Picker using OpenStreetMap + Nominatim (free geocoding).
@@ -69,6 +112,7 @@ export default function LocationPicker({
     const [geocodeError, setGeocodeError] = useState('');
     const [displayLat, setDisplayLat] = useState<number | null>(latitude ?? null);
     const [displayLng, setDisplayLng] = useState<number | null>(longitude ?? null);
+    const defaultMarkerIcon = useMemo(() => createMarkerIcon(), []);
 
     // Default center: India
     const defaultLat = 20.5937;
@@ -78,12 +122,18 @@ export default function LocationPicker({
 
     // Fix Leaflet icon paths (Next.js bundling issue)
     useEffect(() => {
+        const iconUrl = resolveLeafletAssetUrl(markerIcon);
+        const retinaUrl = resolveLeafletAssetUrl(markerIcon2x);
+        const shadowUrl = resolveLeafletAssetUrl(markerShadow);
+
+        if (!iconUrl) return;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
-            iconRetinaUrl: markerIcon2x.src,
-            iconUrl: markerIcon.src,
-            shadowUrl: markerShadow.src,
+            iconRetinaUrl: retinaUrl || iconUrl,
+            iconUrl,
+            shadowUrl: shadowUrl || undefined,
         });
     }, []);
 
@@ -105,7 +155,10 @@ export default function LocationPicker({
 
         // Add marker if coordinates exist
         if (hasCoordinates) {
-            markerRef.current = L.marker([latitude, longitude], { draggable: !readOnly }).addTo(map);
+            markerRef.current = L.marker([latitude, longitude], {
+                draggable: !readOnly,
+                icon: defaultMarkerIcon,
+            }).addTo(map);
             if (!readOnly && markerRef.current) {
                 markerRef.current.on('dragend', () => {
                     const pos = markerRef.current!.getLatLng();
@@ -144,7 +197,10 @@ export default function LocationPicker({
         if (markerRef.current) {
             markerRef.current.setLatLng([lat, lng]);
         } else {
-            markerRef.current = L.marker([lat, lng], { draggable: !readOnly }).addTo(mapRef.current);
+            markerRef.current = L.marker([lat, lng], {
+                draggable: !readOnly,
+                icon: defaultMarkerIcon,
+            }).addTo(mapRef.current);
             if (!readOnly) {
                 markerRef.current.on('dragend', () => {
                     const pos = markerRef.current!.getLatLng();
@@ -156,7 +212,7 @@ export default function LocationPicker({
         }
 
         mapRef.current.setView([lat, lng], Math.max(mapRef.current.getZoom(), 15));
-    }, [readOnly, onLocationChange]);
+    }, [defaultMarkerIcon, readOnly, onLocationChange]);
 
     // Keep the marker in sync when parent-controlled coordinates change.
     useEffect(() => {
@@ -269,12 +325,13 @@ export default function LocationPicker({
                         />
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                         {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                            <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
                                 <X className="h-4 w-4" />
                             </button>
                         )}
                     </div>
                     <button
+                        type="button"
                         onClick={handleSearch}
                         disabled={isSearching}
                         className={`px-3 py-2 ${accent.bg} text-white text-sm rounded-lg ${accent.hover} disabled:opacity-50 flex items-center gap-1`}
@@ -283,6 +340,7 @@ export default function LocationPicker({
                         Search
                     </button>
                     <button
+                        type="button"
                         onClick={handleUseMyLocation}
                         disabled={isLocating}
                         className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1"

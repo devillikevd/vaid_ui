@@ -10,6 +10,7 @@
  * - NO OTP, NO Twilio, NO Supabase Auth \u2014 Supabase used as PostgreSQL only
  */
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { supabaseAdmin } = require('../config/supabase');
@@ -17,7 +18,13 @@ const { ApiError } = require('../middleware/errorHandler');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
 const { enrichAuthUser } = require('../utils/authUserEnrichment');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('./emailService');
+const { getProviderApprovalRecordByUser } = require('../utils/providerApproval');
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendVerificationOtpEmail,
+  sendPasswordResetOtpEmail,
+} = require('./emailService');
 
 // Helper: convert JWT duration string to seconds (e.g., '7d' -> 604800)
 const parseExpiresIn = (duration) => {
@@ -38,6 +45,150 @@ const parseOptionalNumber = (value) => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number.parseFloat(String(value));
   return Number.isNaN(parsed) ? null : parsed;
+};
+
+const OTP_PURPOSE_EMAIL_VERIFICATION = 'login';
+const OTP_PURPOSE_PASSWORD_RESET = 'password_reset';
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_MAX_ATTEMPTS = 5;
+
+const normalizeEmail = (value) => value?.toLowerCase().trim();
+
+const hashOtp = (otp) => crypto
+  .createHash('sha256')
+  .update(`${otp}:${config.jwt.secret}`)
+  .digest('hex');
+
+const generateEmailOtp = () => crypto.randomInt(0, 1000000).toString().padStart(6, '0');
+
+const createOtpError = (code, message, statusCode = 400) => {
+  const error = new ApiError(statusCode, message);
+  error.code = code;
+  return error;
+};
+
+const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) => {
+  const otp = generateEmailOtp();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  await supabaseAdmin
+    .from('otp_verifications')
+    .delete()
+    .eq('email', email)
+    .eq('purpose', purpose)
+    .eq('is_verified', false);
+
+  const { error } = await supabaseAdmin
+    .from('otp_verifications')
+    .insert({
+      user_id: userId,
+      email,
+      otp: hashOtp(otp),
+      purpose,
+      expires_at: expiresAt,
+      is_verified: false,
+      attempts: 0,
+    });
+
+  if (error) throw error;
+
+  await sender(email, name, otp);
+  return { expiresAt };
+};
+
+const getActiveOtpRecord = async (email, purpose) => {
+  const { data, error } = await supabaseAdmin
+    .from('otp_verifications')
+    .select('id, user_id, email, otp, purpose, attempts, expires_at, is_verified')
+    .eq('email', email)
+    .eq('purpose', purpose)
+    .eq('is_verified', false)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+};
+
+const consumeOtpRecord = async ({ email, purpose, otp }) => {
+  const record = await getActiveOtpRecord(email, purpose);
+
+  if (!record) {
+    throw createOtpError('OTP_NOT_FOUND', 'No active verification code was found. Please request a new code.');
+  }
+
+  if (new Date(record.expires_at).getTime() < Date.now()) {
+    await supabaseAdmin.from('otp_verifications').delete().eq('id', record.id);
+    throw createOtpError('OTP_EXPIRED', 'This code has expired. Please request a new one.');
+  }
+
+  if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+    await supabaseAdmin.from('otp_verifications').delete().eq('id', record.id);
+    throw createOtpError('OTP_LOCKED', 'Too many incorrect attempts. Please request a new code.');
+  }
+
+  if (record.otp !== hashOtp(otp)) {
+    const nextAttempts = (record.attempts || 0) + 1;
+    await supabaseAdmin
+      .from('otp_verifications')
+      .update({ attempts: nextAttempts })
+      .eq('id', record.id);
+
+    if (nextAttempts >= OTP_MAX_ATTEMPTS) {
+      throw createOtpError('OTP_LOCKED', 'Too many incorrect attempts. Please request a new code.');
+    }
+
+    throw createOtpError('OTP_INVALID', 'The code you entered is incorrect.');
+  }
+
+  await supabaseAdmin
+    .from('otp_verifications')
+    .update({ is_verified: true, verified_at: new Date().toISOString() })
+    .eq('id', record.id);
+
+  return record;
+};
+
+const resolveFacilityName = (data) =>
+  data.facilityName ||
+  data.facility_name ||
+  data.organizationName ||
+  data.organization_name ||
+  data.businessName ||
+  data.business_name ||
+  data.companyName ||
+  data.company_name ||
+  data.name;
+
+const toUserFacingRegistrationError = (error, fallbackMessage = 'Failed to complete registration. Please review your details and try again.') => {
+  const source = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+
+  if (source.includes('email')) {
+    return new ApiError(409, 'An account with this email already exists.');
+  }
+
+  if (source.includes('phone')) {
+    return new ApiError(409, 'An account with this phone number already exists.');
+  }
+
+  if (source.includes('license_number')) {
+    return new ApiError(409, 'This license number is already registered.');
+  }
+
+  if (source.includes('registration_number')) {
+    return new ApiError(409, 'This registration number is already registered.');
+  }
+
+  if (source.includes('users_name_key')) {
+    return new ApiError(409, 'This account already exists.');
+  }
+
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  return new ApiError(error?.statusCode || 400, error?.message || fallbackMessage);
 };
 
 // Generate JWT tokens
@@ -61,17 +212,41 @@ const generateTokens = (user) => {
 // ==================== Register ====================
 const register = async (userData) => {
   const { email: rawEmail, phone, password, name, role = 'patient', ...rest } = userData;
-  const email = rawEmail?.toLowerCase().trim();
+  const email = normalizeEmail(rawEmail);
 
   const orFilters = [];
   if (email) orFilters.push(`email.eq.${email}`);
   if (phone) orFilters.push(`phone.eq.${phone}`);
-  const { data: existing } = orFilters.length > 0
-    ? await supabaseAdmin.from('users').select('id').or(orFilters.join(',')).single()
-    : { data: null };
+  const { data: existing, error: existingLookupError } = orFilters.length > 0
+    ? await supabaseAdmin
+      .from('users')
+      .select('id, role, email, phone')
+      .or(orFilters.join(','))
+      .limit(1)
+      .maybeSingle()
+    : { data: null, error: null };
+
+  if (existingLookupError) throw existingLookupError;
 
   if (existing) {
-    const error = new Error('User with this email or phone already exists');
+    const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, existing.role, existing.id);
+    const isSameRole = existing.role === role;
+    const approvalStatus = providerRecord?.approval_status;
+    const emailConflict = Boolean(email) && existing.email === email;
+
+    let message = emailConflict
+      ? 'An account with this email already exists. Please sign in to that account or use a different email.'
+      : 'An account with this phone number already exists. Please sign in to that account or use a different phone number.';
+
+    if (isSameRole && approvalStatus === 'rejected') {
+      message = 'This account already exists and was rejected. Sign in with the same account, update your settings/documents, and save to resubmit for review.';
+    } else if (isSameRole && ['pending', 'review', 'under_review'].includes(approvalStatus)) {
+      message = 'This account already exists and is already under review. Sign in with the same account to check its approval status.';
+    } else if (isSameRole && approvalStatus === 'approved') {
+      message = 'This account already exists and has already been registered. Sign in with the same account instead of registering again.';
+    }
+
+    const error = new Error(message);
     error.statusCode = 409;
     throw error;
   }
@@ -107,136 +282,152 @@ const register = async (userData) => {
 
   if (error) throw error;
 
-  await createRoleProfile(user.id, role, { name, email, phone, ...rest });
+  try {
+    await createRoleProfile(user.id, role, { name, email, phone, ...rest });
+  } catch (profileError) {
+    console.error(`Registration profile creation failed for ${role}:`, profileError.message);
+    await supabaseAdmin.from('users').delete().eq('id', user.id);
+    throw toUserFacingRegistrationError(profileError);
+  }
 
-  const verificationToken = jwt.sign(
-    { userId: user.id, email: user.email, type: 'email_verification' },
-    config.jwt.secret,
-    { expiresIn: '24h' }
-  );
-
-  await sendVerificationEmail(email, name, verificationToken);
+  let verificationEmailSent = true;
+  try {
+    await issueEmailOtp({
+      userId: user.id,
+      email,
+      purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
+      sender: sendVerificationOtpEmail,
+      name,
+    });
+  } catch (emailError) {
+    verificationEmailSent = false;
+    console.error('Failed to send verification OTP during registration:', emailError.message);
+  }
 
   const { password_hash: _, ...safeUser } = user;
 
   return {
     user: safeUser,
-    message: 'Registration successful. Please check your email to verify your account.',
+    message: verificationEmailSent
+      ? 'Registration successful. We sent a 6-digit verification code to your email.'
+      : 'Registration successful, but we could not send the verification code right now. Please use resend verification from the login page.',
     requiresVerification: true,
+    verificationEmailSent,
   };
 };
 
 const createRoleProfile = async (userId, role, data) => {
-  try {
-    switch (role) {
-      case 'patient':
-        await supabaseAdmin.from('patients').insert({
-          user_id: userId,
-          name: data.name,
-          blood_group: data.bloodGroup,
-          date_of_birth: data.dateOfBirth,
-          gender: data.gender,
-          address: data.address,
-        });
-        break;
-      case 'doctor':
-        await supabaseAdmin.from('doctors').insert({
-          user_id: userId,
-          name: data.name,
-          specialization: data.specialization || 'General',
-          license_number: data.licenseNumber || data.license_number,
-          experience_years: parseInt(data.experienceYears || data.experience_years || '0', 10),
-          consultation_fee: data.consultationFee || data.consultation_fee || 500,
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      case 'hospital_owner':
-        await supabaseAdmin.from('hospitals').insert({
-          owner_id: userId,
-          name: data.name || 'Unnamed Hospital',
-          address: data.address || '',
-          city: data.city || '',
-          license_number: data.licenseNumber || data.license_number || null,
-          phone: data.phone || null,
-          email: data.email || null,
-          latitude: parseOptionalNumber(data.latitude),
-          longitude: parseOptionalNumber(data.longitude),
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      case 'pharmacy_owner':
-        await supabaseAdmin.from('pharmacies').insert({
-          owner_id: userId,
-          name: data.name || 'Unnamed Pharmacy',
-          address: data.address || '',
-          city: data.city || '',
-          license_number: data.licenseNumber || data.license_number || null,
-          phone: data.phone || null,
-          email: data.email || null,
-          latitude: parseOptionalNumber(data.latitude),
-          longitude: parseOptionalNumber(data.longitude),
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      case 'clinic_owner':
-        await supabaseAdmin.from('clinics').insert({
-          owner_id: userId,
-          name: data.name || 'Unnamed Clinic',
-          address: data.address || '',
-          city: data.city || '',
-          registration_number: data.registrationNumber || data.registration_number || null,
-          license_number: data.licenseNumber || data.license_number || null,
-          phone: data.phone || null,
-          email: data.email || null,
-          latitude: parseOptionalNumber(data.latitude),
-          longitude: parseOptionalNumber(data.longitude),
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      case 'diagnostic_center_owner':
-        await supabaseAdmin.from('diagnostic_centers').insert({
-          owner_id: userId,
-          name: data.name || 'Unnamed Diagnostic Center',
-          address: data.address || '',
-          city: data.city || '',
-          registration_number: data.registrationNumber || data.registration_number || null,
-          license_number: data.licenseNumber || data.license_number || null,
-          phone: data.phone || null,
-          email: data.email || null,
-          latitude: parseOptionalNumber(data.latitude),
-          longitude: parseOptionalNumber(data.longitude),
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      case 'ambulance_operator':
-        await supabaseAdmin.from('ambulance_operators').insert({
-          user_id: userId,
-          name: data.name || data.companyName || 'Unnamed Operator',
-          company_name: data.companyName || data.name,
-          registration_number: data.registrationNumber || data.registration_number || null,
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          phone: data.phone,
-          alternate_phone: data.alternatePhone || data.alternate_phone || null,
-          email: data.email || null,
-          license_document_url: data.licenseDocumentUrl || data.license_document_url || null,
-          license_expiry: data.licenseExpiry || data.license_expiry || null,
-          is_active: false,
-          is_approved: false,
-          approval_status: 'pending',
-        });
-        break;
-      default:
-        break;
-    }
-  } catch (err) {
-    console.error(`Failed to create ${role} profile:`, err.message);
+  const insertProfile = async (table, payload) => {
+    const { error } = await supabaseAdmin.from(table).insert(payload);
+    if (error) throw error;
+  };
+
+  switch (role) {
+    case 'patient':
+      await insertProfile('patients', {
+        user_id: userId,
+        name: data.name,
+        blood_group: data.bloodGroup,
+        date_of_birth: data.dateOfBirth,
+        gender: data.gender,
+        address: data.address,
+      });
+      break;
+    case 'doctor':
+      await insertProfile('doctors', {
+        user_id: userId,
+        name: data.name,
+        specialization: data.specialization || 'General',
+        license_number: data.licenseNumber || data.license_number,
+        experience_years: parseInt(data.experienceYears || data.experience_years || '0', 10),
+        consultation_fee: data.consultationFee || data.consultation_fee || 500,
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'hospital_owner':
+      await insertProfile('hospitals', {
+        owner_id: userId,
+        name: resolveFacilityName(data) || 'Unnamed Hospital',
+        address: data.address || '',
+        city: data.city || '',
+        license_number: data.licenseNumber || data.license_number || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'pharmacy_owner':
+      await insertProfile('pharmacies', {
+        owner_id: userId,
+        name: resolveFacilityName(data) || 'Unnamed Pharmacy',
+        address: data.address || '',
+        city: data.city || '',
+        license_number: data.licenseNumber || data.license_number || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'clinic_owner':
+      await insertProfile('clinics', {
+        owner_id: userId,
+        name: resolveFacilityName(data) || 'Unnamed Clinic',
+        address: data.address || '',
+        city: data.city || '',
+        registration_number: data.registrationNumber || data.registration_number || null,
+        license_number: data.licenseNumber || data.license_number || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'diagnostic_center_owner':
+      await insertProfile('diagnostic_centers', {
+        owner_id: userId,
+        name: resolveFacilityName(data) || 'Unnamed Diagnostic Center',
+        address: data.address || '',
+        city: data.city || '',
+        registration_number: data.registrationNumber || data.registration_number || null,
+        license_number: data.licenseNumber || data.license_number || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        latitude: parseOptionalNumber(data.latitude),
+        longitude: parseOptionalNumber(data.longitude),
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    case 'ambulance_operator':
+      await insertProfile('ambulance_operators', {
+        user_id: userId,
+        name: data.name || data.companyName || 'Unnamed Operator',
+        company_name: data.companyName || data.name,
+        registration_number: data.registrationNumber || data.registration_number || null,
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        phone: data.phone,
+        alternate_phone: data.alternatePhone || data.alternate_phone || null,
+        email: data.email || null,
+        license_document_url: data.licenseDocumentUrl || data.license_document_url || null,
+        license_expiry: data.licenseExpiry || data.license_expiry || null,
+        is_active: false,
+        is_approved: false,
+        approval_status: 'pending',
+      });
+      break;
+    default:
+      break;
   }
 };
 
@@ -352,6 +543,12 @@ const verifyEmail = async (token) => {
 
     if (error) throw error;
 
+    await supabaseAdmin
+      .from('otp_verifications')
+      .delete()
+      .eq('email', user.email)
+      .eq('purpose', OTP_PURPOSE_EMAIL_VERIFICATION);
+
     return {
       message: 'Email verified successfully. You can now log in.',
       user,
@@ -368,9 +565,36 @@ const verifyEmail = async (token) => {
   }
 };
 
+const verifyEmailOtp = async (rawEmail, otp) => {
+  const email = normalizeEmail(rawEmail);
+  if (!email || !otp) {
+    throw createOtpError('OTP_REQUIRED', 'Email and verification code are required.');
+  }
+
+  const record = await consumeOtpRecord({
+    email,
+    purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
+    otp,
+  });
+
+  const { data: user, error } = await supabaseAdmin
+    .from('users')
+    .update({ is_verified: true })
+    .eq('id', record.user_id)
+    .select('id, email, name, role, is_verified')
+    .single();
+
+  if (error) throw error;
+
+  return {
+    message: 'Email verified successfully. You can now log in.',
+    user,
+  };
+};
+
 // ==================== Resend Verification ====================
 const resendVerification = async (rawEmail) => {
-  const email = rawEmail?.toLowerCase().trim();
+  const email = normalizeEmail(rawEmail);
   const { data: user } = await supabaseAdmin
     .from('users')
     .select('id, email, name, is_verified')
@@ -378,27 +602,27 @@ const resendVerification = async (rawEmail) => {
     .single();
 
   if (!user) {
-    return { message: 'If an account exists with this email, a verification link has been sent.' };
+    return { message: 'If an account exists with this email, a verification code has been sent.' };
   }
 
   if (user.is_verified) {
     return { message: 'This email is already verified. You can log in.' };
   }
 
-  const verificationToken = jwt.sign(
-    { userId: user.id, email: user.email, type: 'email_verification' },
-    config.jwt.secret,
-    { expiresIn: '24h' }
-  );
+  await issueEmailOtp({
+    userId: user.id,
+    email: user.email,
+    purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
+    sender: sendVerificationOtpEmail,
+    name: user.name,
+  });
 
-  await sendVerificationEmail(user.email, user.name, verificationToken);
-
-  return { message: 'If an account exists with this email, a verification link has been sent.' };
+  return { message: 'If an account exists with this email, a verification code has been sent.' };
 };
 
 // ==================== Login ====================
 const login = async (rawEmail, password, expectedRole = null) => {
-  const email = rawEmail?.toLowerCase().trim();
+  const email = normalizeEmail(rawEmail);
   const { data: user, error } = await supabaseAdmin
     .from('users')
     .select('*')
@@ -426,7 +650,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
   }
 
   if (!user.is_verified) {
-    const err = new ApiError(403, 'Please verify your email before logging in. Check your inbox for a verification link.');
+    const err = new ApiError(403, 'Please verify your email before logging in. Enter the 6-digit verification code sent to your inbox.');
     err.code = 'EMAIL_NOT_VERIFIED';
     throw err;
   }
@@ -600,7 +824,7 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 
 // ==================== Forgot Password ====================
 const forgotPassword = async (rawEmail) => {
-  const email = rawEmail?.toLowerCase().trim();
+  const email = normalizeEmail(rawEmail);
   const { data: user } = await supabaseAdmin
     .from('users')
     .select('id, name, email, is_active')
@@ -608,76 +832,107 @@ const forgotPassword = async (rawEmail) => {
     .single();
 
   if (!user || !user.is_active) {
-    return { message: 'If an account exists with this email, a reset link has been sent.' };
+    return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
   }
 
-  const resetToken = jwt.sign(
-    { userId: user.id, type: 'password_reset' },
-    config.jwt.secret,
-    { expiresIn: '1h' }
-  );
+  await issueEmailOtp({
+    userId: user.id,
+    email: user.email,
+    purpose: OTP_PURPOSE_PASSWORD_RESET,
+    sender: sendPasswordResetOtpEmail,
+    name: user.name,
+  });
 
-  await cacheSet(`reset:${resetToken}`, user.id, 3600);
-  await sendPasswordResetEmail(user.email, user.name, resetToken);
-
-  return { message: 'If an account exists with this email, a reset link has been sent.' };
+  return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
 };
 
 // ==================== Reset Password ====================
-const resetPassword = async (token, newPassword) => {
-  try {
-    const decoded = jwt.verify(token, config.jwt.secret);
-    if (decoded.type !== 'password_reset') {
-      throw new Error('Invalid token');
-    }
-
-    // Verify token is still valid in Redis (prevents reuse)
-    const storedUserId = await cacheGet(`reset:${token}`);
-    if (!storedUserId) {
-      throw new ApiError(400, 'Reset link has already been used or expired');
-    }
-
-    // Enforce password complexity (matching register/changePassword)
-    if (!newPassword || newPassword.length < 8) {
-      throw new ApiError(400, 'Password must be at least 8 characters');
-    }
-    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
-      throw new ApiError(400, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
-    }
-
-    const password_hash = await bcrypt.hash(newPassword, 12);
-
-    // CRITICAL FIX: Update password in DB BEFORE deleting the Redis token.
-    // If DB update fails, the user can retry with the same token.
-    const { error: dbError } = await supabaseAdmin
-      .from('users')
-      .update({ password_hash })
-      .eq('id', decoded.userId);
-
-    if (dbError) {
-      // DB update failed — token is still valid for retry
-      console.error('Password reset DB update failed:', dbError.message);
-      throw new ApiError(500, 'Failed to update password. Please try again.');
-    }
-
-    // DB update succeeded — NOW delete token from Redis to prevent reuse
-    await cacheDel(`reset:${token}`);
-
-    // Revoke all existing refresh tokens for this user (force re-login)
-    await supabaseAdmin
-      .from('refresh_tokens')
-      .update({ is_revoked: true, revoked_at: new Date().toISOString() })
-      .eq('user_id', decoded.userId)
-      .eq('is_revoked', false);
-
-    return { message: 'Password reset successfully' };
-  } catch (err) {
-    // Re-throw ApiErrors (our own) without masking them
-    if (err.statusCode) throw err;
-    const error = new Error('Invalid or expired reset token');
-    error.statusCode = 400;
-    throw error;
+const resetPassword = async ({ token = null, email: rawEmail = null, otp = null, password: newPassword }) => {
+  // Enforce password complexity (matching register/changePassword)
+  if (!newPassword || newPassword.length < 8) {
+    throw new ApiError(400, 'Password must be at least 8 characters');
   }
+  if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    throw new ApiError(400, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+  }
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret);
+      if (decoded.type !== 'password_reset') {
+        throw new Error('Invalid token');
+      }
+
+      const storedUserId = await cacheGet(`reset:${token}`);
+      if (!storedUserId) {
+        throw new ApiError(400, 'Reset link has already been used or expired');
+      }
+
+      const password_hash = await bcrypt.hash(newPassword, 12);
+
+      const { error: dbError } = await supabaseAdmin
+        .from('users')
+        .update({ password_hash })
+        .eq('id', decoded.userId);
+
+      if (dbError) {
+        console.error('Password reset DB update failed:', dbError.message);
+        throw new ApiError(500, 'Failed to update password. Please try again.');
+      }
+
+      await cacheDel(`reset:${token}`);
+
+      await supabaseAdmin
+        .from('refresh_tokens')
+        .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+        .eq('user_id', decoded.userId)
+        .eq('is_revoked', false);
+
+      return { message: 'Password reset successfully' };
+    } catch (err) {
+      if (err.statusCode) throw err;
+      const error = new Error('Invalid or expired reset token');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const email = normalizeEmail(rawEmail);
+  if (!email || !otp) {
+    throw createOtpError('OTP_REQUIRED', 'Email and reset code are required.');
+  }
+
+  const record = await consumeOtpRecord({
+    email,
+    purpose: OTP_PURPOSE_PASSWORD_RESET,
+    otp,
+  });
+
+  const password_hash = await bcrypt.hash(newPassword, 12);
+
+  const { error: dbError } = await supabaseAdmin
+    .from('users')
+    .update({ password_hash })
+    .eq('id', record.user_id);
+
+  if (dbError) {
+    console.error('Password reset DB update failed:', dbError.message);
+    throw new ApiError(500, 'Failed to update password. Please try again.');
+  }
+
+  await supabaseAdmin
+    .from('otp_verifications')
+    .delete()
+    .eq('email', email)
+    .eq('purpose', OTP_PURPOSE_PASSWORD_RESET);
+
+  await supabaseAdmin
+    .from('refresh_tokens')
+    .update({ is_revoked: true, revoked_at: new Date().toISOString() })
+    .eq('user_id', record.user_id)
+    .eq('is_revoked', false);
+
+  return { message: 'Password reset successfully' };
 };
 
 // Update current user profile (name, phone)
@@ -795,6 +1050,8 @@ const updateProfile = async (userId, role, updates) => {
     }
   }
 
+  await cacheDel(`auth_user:${userId}`);
+
   return { message: 'Profile updated' };
 };
 
@@ -802,6 +1059,7 @@ module.exports = {
   register,
   login,
   verifyEmail,
+  verifyEmailOtp,
   resendVerification,
   refreshToken,
   logout,

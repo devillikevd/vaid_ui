@@ -14,6 +14,16 @@ const eventEmitter = require('../../services/eventEmitter');
 
 const router = express.Router();
 
+const normalizeOrderStatus = (status) => (status === 'out_for_delivery' ? 'dispatched' : status);
+const normalizePatientOrder = (order) => (order ? { ...order, status: normalizeOrderStatus(order.status) } : order);
+const getOrderStatusFilters = (status) => {
+  const normalizedStatus = normalizeOrderStatus(status);
+  if (normalizedStatus === 'dispatched') {
+    return ['dispatched', 'out_for_delivery'];
+  }
+  return [normalizedStatus];
+};
+
 // All routes require authentication and patient role
 router.use(authenticate);
 router.use(authorize('patient'));
@@ -837,7 +847,12 @@ router.get('/orders',
       .select('*, pharmacy:pharmacies(id, name, phone, address)', { count: 'exact' })
       .eq('patient_id', patient.id);
 
-    if (status) query = query.eq('status', status);
+    if (status) {
+      const statusFilters = getOrderStatusFilters(status);
+      query = statusFilters.length > 1
+        ? query.in('status', statusFilters)
+        : query.eq('status', statusFilters[0]);
+    }
 
     const { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -847,7 +862,7 @@ router.get('/orders',
 
     res.json({
       success: true,
-      data: data || [],
+      data: (data || []).map(normalizePatientOrder),
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -883,7 +898,7 @@ router.get('/orders/:id',
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: normalizePatientOrder(data) });
   })
 );
 
@@ -941,7 +956,7 @@ router.patch('/orders/:id/cancel',
       });
     }
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: normalizePatientOrder(data) });
   })
 );
 

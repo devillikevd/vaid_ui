@@ -4,10 +4,13 @@
  */
 const express = require('express');
 const router = express.Router();
+const { body, param } = require('express-validator');
 const clinicService = require('../services/clinicService');
+const facilityAssociationService = require('../services/facilityAssociationService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validate');
 
 // Public routes
 router.get('/search', asyncHandler(async (req, res) => {
@@ -60,12 +63,12 @@ router.get('/owner/dashboard', requireRole(ROLES.CLINIC_OWNER), requireApproval,
     res.json({ success: true, ...dashboard });
 }));
 
-router.get('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.get('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     res.json({ success: true, data: clinic });
 }));
 
-router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
@@ -81,6 +84,8 @@ router.put('/owner/profile', requireRole(ROLES.CLINIC_OWNER), requireApproval, a
     const updated = await clinicService.updateClinic(clinic.id, req.user.id, safeUpdates);
     res.json({ success: true, data: updated });
 }));
+
+router.use('/owner', requireRole(ROLES.CLINIC_OWNER), requireApproval);
 
 // Doctors
 router.get('/owner/doctors', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
@@ -125,13 +130,107 @@ router.post('/owner/doctors/:doctorId?', requireRole(ROLES.CLINIC_OWNER), asyncH
         return res.status(400).json({ success: false, message: 'Doctor ID or email is required' });
     }
 
-    const doctor = await clinicService.addDoctor(clinic.id, req.user.id, doctorId);
-    res.json({ success: true, doctor });
+    const invite = await clinicService.addDoctor(clinic.id, req.user.id, doctorId);
+    res.json({ success: true, data: invite, message: 'Invitation sent. Doctor must accept before appearing in your clinic roster.' });
 }));
 
 router.delete('/owner/doctors/:doctorId', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
     const clinic = await clinicService.getClinicByOwner(req.user.id);
     await clinicService.removeDoctor(clinic.id, req.user.id, req.params.doctorId);
+    res.json({ success: true });
+}));
+
+router.get('/owner/pharmacies', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const data = await facilityAssociationService.getFacilityAssociations({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        providerType: 'pharmacy',
+    });
+    res.json({ success: true, data });
+}));
+
+router.post('/owner/pharmacies/invite', requireRole(ROLES.CLINIC_OWNER), [
+    body('email').isEmail().normalizeEmail().withMessage('Valid pharmacy email is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await facilityAssociationService.inviteProviderForFacility({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        invitedBy: req.user.id,
+        providerType: 'pharmacy',
+        email: req.body.email,
+    });
+
+    res.json({
+        success: true,
+        data: result.invite,
+        provider: result.provider,
+        message: result.alreadyPending
+            ? 'Invitation is already pending for this pharmacy.'
+            : 'Invitation sent. Pharmacy must accept before it appears in your associated list.',
+    });
+}));
+
+router.delete('/owner/pharmacies/:providerId', requireRole(ROLES.CLINIC_OWNER), [
+    param('providerId').isUUID().withMessage('Invalid pharmacy ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    await facilityAssociationService.unlinkProviderFromFacility({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        providerType: 'pharmacy',
+        providerId: req.params.providerId,
+    });
+    res.json({ success: true });
+}));
+
+router.get('/owner/diagnostic-centers', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const data = await facilityAssociationService.getFacilityAssociations({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        providerType: 'diagnostic_center',
+    });
+    res.json({ success: true, data });
+}));
+
+router.post('/owner/diagnostic-centers/invite', requireRole(ROLES.CLINIC_OWNER), [
+    body('email').isEmail().normalizeEmail().withMessage('Valid diagnostic center email is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const result = await facilityAssociationService.inviteProviderForFacility({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        invitedBy: req.user.id,
+        providerType: 'diagnostic_center',
+        email: req.body.email,
+    });
+
+    res.json({
+        success: true,
+        data: result.invite,
+        provider: result.provider,
+        message: result.alreadyPending
+            ? 'Invitation is already pending for this diagnostic center.'
+            : 'Invitation sent. Diagnostic center must accept before it appears in your associated list.',
+    });
+}));
+
+router.delete('/owner/diagnostic-centers/:providerId', requireRole(ROLES.CLINIC_OWNER), [
+    param('providerId').isUUID().withMessage('Invalid diagnostic center ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    await facilityAssociationService.unlinkProviderFromFacility({
+        facilityType: 'clinic',
+        facilityId: clinic.id,
+        providerType: 'diagnostic_center',
+        providerId: req.params.providerId,
+    });
     res.json({ success: true });
 }));
 

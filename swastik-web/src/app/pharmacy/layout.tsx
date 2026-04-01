@@ -9,6 +9,7 @@ import {
     BarChart3,
     Settings,
     Pill,
+    Link2,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig, type NavItem } from '@/components/shared/DashboardLayout';
 import { useOrderUpdates } from '@/hooks/useSocket';
@@ -18,6 +19,7 @@ const BASE_NAV: NavItem[] = [
     { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: FileText },
     { name: 'Inventory', href: '/pharmacy/inventory', icon: Package },
     { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart },
+    { name: 'Associations', href: '/pharmacy/associations', icon: Link2 },
     { name: 'Reports', href: '/pharmacy/reports', icon: BarChart3 },
     { name: 'Settings', href: '/pharmacy/settings', icon: Settings },
 ];
@@ -43,6 +45,7 @@ export default function PharmacyLayout({ children }: { children: ReactNode }) {
         theme: { color: 'orange', dataTheme: 'pharmacy' },
         showApprovalBanner: true,
         showFullDropdown: false,
+        settingsHref: '/pharmacy/settings',
         userDisplayName: 'Pharmacy',
         navItems,
     };

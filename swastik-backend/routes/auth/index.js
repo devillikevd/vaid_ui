@@ -17,7 +17,7 @@ const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
     if (current >= maxAttempts) {
       return res.status(429).json({
         success: false,
-        message: `Too many attempts. Please try again in ${Math.ceil(windowSeconds / 60)} minutes.`,
+        message: `Too many attempts. Please try again in ${Math.max(1, Math.ceil(windowSeconds / 60))} minute${windowSeconds > 60 ? 's' : ''}.`,
       });
     }
     await cacheSet(key, (current + 1).toString(), windowSeconds);
@@ -27,10 +27,10 @@ const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
 
 // Register
 router.post('/register',
-  authRateLimit(5, 3600, 'register'), // 5 attempts per hour
+  authRateLimit(8, 600, 'register'), // 8 attempts per 10 minutes
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
-    body('phone').optional().trim().isMobilePhone().withMessage('Valid phone number is required'),
+    body('phone').optional({ values: 'falsy' }).trim().isMobilePhone().withMessage('Valid phone number is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
     body('name').trim().notEmpty().escape().withMessage('Name is required'),
     body('role').optional().isIn([
@@ -56,7 +56,7 @@ router.post('/register',
 
 // Login
 router.post('/login',
-  authRateLimit(10, 900, 'login'), // 10 attempts per 15 min
+  authRateLimit(15, 900, 'login'), // 15 attempts per 15 min
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required'),
@@ -101,8 +101,25 @@ router.get('/verify-email',
   })
 );
 
+router.post('/verify-email-otp',
+  authRateLimit(10, 600, 'verify-otp'),
+  [
+    body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('otp').trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await authService.verifyEmailOtp(req.body.email, req.body.otp);
+    res.json({
+      success: true,
+      ...result,
+    });
+  })
+);
+
 // Resend verification email
 router.post('/resend-verification',
+  authRateLimit(5, 600, 'resend'), // 5 attempts per 10 min
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
   ],
@@ -164,7 +181,7 @@ router.post('/change-password',
 
 // Forgot password
 router.post('/forgot-password',
-  authRateLimit(3, 3600, 'forgot'), // 3 attempts per hour
+  authRateLimit(5, 900, 'forgot'), // 5 attempts per 15 minutes
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
   ],
@@ -180,15 +197,21 @@ router.post('/forgot-password',
 
 // Reset password
 router.post('/reset-password',
-  authRateLimit(5, 3600, 'reset'), // 5 attempts per hour
+  authRateLimit(8, 900, 'reset'), // 8 attempts per 15 minutes
   [
-    body('token').notEmpty().withMessage('Token is required'),
+    body('token').optional().isString(),
+    body('email').optional().trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('otp').optional().trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body().custom((value) => {
+      if (value?.token) return true;
+      if (value?.email && value?.otp) return true;
+      throw new Error('Either a reset token or email + OTP is required');
+    }),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { token, password } = req.body;
-    const result = await authService.resetPassword(token, password);
+    const result = await authService.resetPassword(req.body);
     res.json({
       success: true,
       ...result,
@@ -212,7 +235,7 @@ router.put('/me',
   authenticate,
   [
     body('name').optional().isString().trim().isLength({ min: 1, max: 100 }).withMessage('Name must be 1-100 characters'),
-    body('phone').optional().isMobilePhone().withMessage('Valid phone number is required'),
+    body('phone').optional({ values: 'falsy' }).isMobilePhone().withMessage('Valid phone number is required'),
     body('companyName').optional().isString().trim().isLength({ max: 150 }).withMessage('Company name must be 150 characters or less'),
     body('company_name').optional().isString().trim().isLength({ max: 150 }).withMessage('Company name must be 150 characters or less'),
     body('registrationNumber').optional().isString().trim().isLength({ max: 100 }).withMessage('Registration number must be 100 characters or less'),
@@ -220,8 +243,8 @@ router.put('/me',
     body('address').optional().isString().trim().isLength({ max: 255 }).withMessage('Address must be 255 characters or less'),
     body('city').optional().isString().trim().isLength({ max: 100 }).withMessage('City must be 100 characters or less'),
     body('state').optional().isString().trim().isLength({ max: 100 }).withMessage('State must be 100 characters or less'),
-    body('alternatePhone').optional().isMobilePhone().withMessage('Valid alternate phone number is required'),
-    body('alternate_phone').optional().isMobilePhone().withMessage('Valid alternate phone number is required'),
+    body('alternatePhone').optional({ values: 'falsy' }).isMobilePhone().withMessage('Valid alternate phone number is required'),
+    body('alternate_phone').optional({ values: 'falsy' }).isMobilePhone().withMessage('Valid alternate phone number is required'),
     body('licenseDocumentUrl').optional().isString().trim().isLength({ max: 1000 }).withMessage('License document URL is too long'),
     body('license_document_url').optional().isString().trim().isLength({ max: 1000 }).withMessage('License document URL is too long'),
     body('licenseExpiry').optional().isISO8601().withMessage('License expiry must be a valid date'),

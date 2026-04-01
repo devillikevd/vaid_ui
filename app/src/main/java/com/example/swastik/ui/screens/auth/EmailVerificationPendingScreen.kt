@@ -23,7 +23,7 @@ import kotlinx.coroutines.delay
 
 /**
  * Screen shown after successful registration.
- * Instructs the user to check their email for a verification link.
+ * Lets the user enter the emailed OTP code to verify their address.
  */
 @Composable
 fun EmailVerificationPendingScreen(
@@ -34,6 +34,7 @@ fun EmailVerificationPendingScreen(
     val viewModel: AuthViewModel = hiltViewModel()
     val uiState = viewModel.uiState
     var resendCooldown by remember { mutableIntStateOf(0) }
+    var otp by remember { mutableStateOf("") }
 
     // Cooldown timer
     LaunchedEffect(resendCooldown) {
@@ -76,7 +77,7 @@ fun EmailVerificationPendingScreen(
 
         // Title
         Text(
-            text = "Check Your Email",
+            text = if (uiState.emailVerificationComplete) "Email Verified" else "Verify Your Email",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black,
@@ -89,9 +90,17 @@ fun EmailVerificationPendingScreen(
         // Description
         Text(
             text = if (email.isNotBlank())
-                "We've sent a verification link to\n$email\nPlease check your inbox and click the link to verify your account."
+                if (uiState.emailVerificationComplete) {
+                    "Your email address\n$email\nis verified. You can now sign in to continue."
+                } else {
+                    "We've sent a 6-digit verification code to\n$email\nPlease enter it below to verify your account."
+                }
             else
-                "We've sent a verification link to your email address.\nPlease check your inbox and click the link to verify your account.",
+                if (uiState.emailVerificationComplete) {
+                    "Your email address is verified. You can now sign in."
+                } else {
+                    "We've sent a 6-digit verification code to your email address.\nPlease enter it below to verify your account."
+                },
             fontSize = 14.sp,
             color = Color.Gray,
             modifier = Modifier
@@ -119,7 +128,7 @@ fun EmailVerificationPendingScreen(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Don't forget to check your spam folder",
+                text = if (uiState.emailVerificationComplete) "You can move ahead with sign in now" else "Don't forget to check your spam folder",
                 fontSize = 12.sp,
                 color = Color.Gray
             )
@@ -157,6 +166,27 @@ fun EmailVerificationPendingScreen(
             )
         }
 
+        if (!uiState.emailVerificationComplete) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedTextField(
+                value = otp,
+                onValueChange = {
+                    otp = it.filter(Char::isDigit).take(6)
+                    if (uiState.errorMessage != null || uiState.infoMessage != null) {
+                        viewModel.clearFeedback()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                label = { Text("Verification code") },
+                placeholder = { Text("123456") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium
+            )
+        }
+
         Spacer(modifier = Modifier.weight(1f))
 
         // Buttons
@@ -185,11 +215,21 @@ fun EmailVerificationPendingScreen(
                         )
                     } else {
                         Text(
-                            text = if (resendCooldown > 0) "Resend in ${resendCooldown}s" else "Resend Verification Email",
+                            text = if (resendCooldown > 0) "Resend in ${resendCooldown}s" else "Resend Verification Code",
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (!uiState.emailVerificationComplete) {
+                SwastikButton(
+                    text = "Verify Email OTP",
+                    onClick = { viewModel.verifyEmailOtp(email, otp) },
+                    enabled = otp.length == 6 && !uiState.isLoading
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
             }
 

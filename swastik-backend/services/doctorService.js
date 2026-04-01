@@ -3,7 +3,8 @@ const { uploadProfileImage, deleteFile } = require('../config/minio');
 const { ApiError } = require('../middleware/errorHandler');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { sanitizeSearch } = require('../utils/sanitize');
-const { cacheGet, cacheSet } = require('../config/redis');
+const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
+const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
 const DAY_NAME_TO_INDEX = {
   sunday: 0,
@@ -127,7 +128,7 @@ class DoctorService {
   async updateProfile(userId, updateData) {
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
-      .select('id')
+      .select('id, approval_status')
       .eq('user_id', userId)
       .single();
 
@@ -165,6 +166,7 @@ class DoctorService {
     if (updateData.profileImage !== undefined || updateData.profile_image !== undefined || updateData.profile_image_url !== undefined) {
       updatePayload.profile_image_url = updateData.profileImage ?? updateData.profile_image ?? updateData.profile_image_url;
     }
+    Object.assign(updatePayload, buildProviderResubmissionFields('doctor', doctor.approval_status));
 
     const { data: updatedDoctor, error } = await supabaseAdmin
       .from('doctors')
@@ -176,6 +178,8 @@ class DoctorService {
     if (error) {
       throw new ApiError(400, 'Failed to update profile');
     }
+
+    await cacheDel(`auth_user:${userId}`);
 
     return updatedDoctor;
   }
@@ -647,6 +651,281 @@ class DoctorService {
     const paginatedPatients = patients.slice(offset, offset + limit);
 
     return paginatedResponse(paginatedPatients, patients.length, page, limit);
+  }
+
+  async getHospitalInvites(userId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // Expire stale pending invites (best-effort cleanup)
+    await supabaseAdmin
+      .from('hospital_doctor_invites')
+      .update({ status: 'expired', responded_at: nowIso })
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'pending')
+      .lt('expires_at', nowIso);
+
+    const { data, error } = await supabaseAdmin
+      .from('hospital_doctor_invites')
+      .select(`
+        id,
+        hospital_id,
+        doctor_id,
+        department,
+        schedule,
+        status,
+        created_at,
+        responded_at,
+        expires_at,
+        hospital:hospitals(id, name, city, address),
+        invitedBy:users!hospital_doctor_invites_invited_by_fkey(id, name, email)
+      `)
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return data || [];
+  }
+
+  async respondHospitalInvite(userId, inviteId, decision) {
+    const action = (decision || '').toLowerCase();
+    if (!['accept', 'reject'].includes(action)) {
+      throw new ApiError(400, 'Decision must be either accept or reject');
+    }
+
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id, hospital_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    const { data: invite, error: inviteError } = await supabaseAdmin
+      .from('hospital_doctor_invites')
+      .select('*')
+      .eq('id', inviteId)
+      .eq('doctor_id', doctor.id)
+      .single();
+
+    if (inviteError || !invite) {
+      throw new ApiError(404, 'Invite not found');
+    }
+
+    if (invite.status !== 'pending') {
+      throw new ApiError(409, `Invite already ${invite.status}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
+      await supabaseAdmin
+        .from('hospital_doctor_invites')
+        .update({ status: 'expired', responded_at: nowIso })
+        .eq('id', invite.id);
+      throw new ApiError(400, 'Invite has expired');
+    }
+
+    if (action === 'reject') {
+      const { error } = await supabaseAdmin
+        .from('hospital_doctor_invites')
+        .update({ status: 'rejected', responded_at: nowIso })
+        .eq('id', invite.id);
+
+      if (error) throw error;
+      return { message: 'Invite rejected successfully' };
+    }
+
+    // Accept flow
+    const { data: existingAssoc } = await supabaseAdmin
+      .from('hospital_doctors')
+      .select('id, is_active')
+      .eq('hospital_id', invite.hospital_id)
+      .eq('doctor_id', doctor.id)
+      .maybeSingle();
+
+    if (!existingAssoc) {
+      const { error: assocError } = await supabaseAdmin
+        .from('hospital_doctors')
+        .insert({
+          hospital_id: invite.hospital_id,
+          doctor_id: doctor.id,
+          department: invite.department,
+          schedule: invite.schedule || {},
+          is_active: true,
+        });
+
+      if (assocError) throw assocError;
+    } else if (existingAssoc.is_active === false) {
+      const { error: assocError } = await supabaseAdmin
+        .from('hospital_doctors')
+        .update({
+          department: invite.department,
+          schedule: invite.schedule || {},
+          is_active: true,
+          joined_at: nowIso,
+        })
+        .eq('id', existingAssoc.id);
+
+      if (assocError) throw assocError;
+    }
+
+    const { error: inviteUpdateError } = await supabaseAdmin
+      .from('hospital_doctor_invites')
+      .update({ status: 'accepted', responded_at: nowIso })
+      .eq('id', invite.id);
+
+    if (inviteUpdateError) throw inviteUpdateError;
+
+    // Keep legacy single-hospital field in sync with the most recently
+    // accepted hospital association.
+    await supabaseAdmin
+      .from('doctors')
+      .update({ hospital_id: invite.hospital_id })
+      .eq('id', doctor.id);
+
+    return { message: 'Invite accepted. Hospital assigned successfully.' };
+  }
+
+  async getClinicInvites(userId) {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    const nowIso = new Date().toISOString();
+
+    await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .update({ status: 'expired', responded_at: nowIso })
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'pending')
+      .lt('expires_at', nowIso);
+
+    const { data, error } = await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select(`
+        id,
+        clinic_id,
+        doctor_id,
+        status,
+        created_at,
+        responded_at,
+        expires_at,
+        clinic:clinics(id, name, city, address),
+        invitedBy:users!clinic_doctor_invites_invited_by_fkey(id, name, email)
+      `)
+      .eq('doctor_id', doctor.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return data || [];
+  }
+
+  async respondClinicInvite(userId, inviteId, decision) {
+    const action = (decision || '').toLowerCase();
+    if (!['accept', 'reject'].includes(action)) {
+      throw new ApiError(400, 'Decision must be either accept or reject');
+    }
+
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!doctor) {
+      throw new ApiError(404, 'Doctor profile not found');
+    }
+
+    const { data: invite, error: inviteError } = await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .select('*')
+      .eq('id', inviteId)
+      .eq('doctor_id', doctor.id)
+      .single();
+
+    if (inviteError || !invite) {
+      throw new ApiError(404, 'Invite not found');
+    }
+
+    if (invite.status !== 'pending') {
+      throw new ApiError(409, `Invite already ${invite.status}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
+      await supabaseAdmin
+        .from('clinic_doctor_invites')
+        .update({ status: 'expired', responded_at: nowIso })
+        .eq('id', invite.id);
+      throw new ApiError(400, 'Invite has expired');
+    }
+
+    if (action === 'reject') {
+      const { error } = await supabaseAdmin
+        .from('clinic_doctor_invites')
+        .update({ status: 'rejected', responded_at: nowIso })
+        .eq('id', invite.id);
+
+      if (error) throw error;
+      return { message: 'Invite rejected successfully' };
+    }
+
+    const { data: existingAssoc } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('id, is_active')
+      .eq('clinic_id', invite.clinic_id)
+      .eq('doctor_id', doctor.id)
+      .maybeSingle();
+
+    if (!existingAssoc) {
+      const { error: assocError } = await supabaseAdmin
+        .from('clinic_doctors')
+        .insert({
+          clinic_id: invite.clinic_id,
+          doctor_id: doctor.id,
+          is_active: true,
+        });
+
+      if (assocError) throw assocError;
+    } else if (existingAssoc.is_active === false) {
+      const { error: assocError } = await supabaseAdmin
+        .from('clinic_doctors')
+        .update({
+          is_active: true,
+          joined_at: nowIso,
+        })
+        .eq('id', existingAssoc.id);
+
+      if (assocError) throw assocError;
+    }
+
+    const { error: inviteUpdateError } = await supabaseAdmin
+      .from('clinic_doctor_invites')
+      .update({ status: 'accepted', responded_at: nowIso })
+      .eq('id', invite.id);
+
+    if (inviteUpdateError) throw inviteUpdateError;
+
+    return { message: 'Invite accepted. Clinic assigned successfully.' };
   }
 
   // Get patient details (for doctor)

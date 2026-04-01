@@ -111,6 +111,9 @@ export default function LoginPage({ params }: LoginPageProps) {
     const [resendingVerification, setResendingVerification] = useState(false);
     const [verificationResent, setVerificationResent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
+    const [verificationOtp, setVerificationOtp] = useState('');
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+    const [verificationComplete, setVerificationComplete] = useState(false);
 
     // Cooldown timer for resend verification
     useEffect(() => {
@@ -142,10 +145,11 @@ export default function LoginPage({ params }: LoginPageProps) {
         setError('');
         setEmailNotVerified(false);
         setVerificationResent(false);
+        setVerificationComplete(false);
         setIsLoading(true);
 
         try {
-            const result = await login(email, password, config.role, rememberMe);
+            const result = await login(email.trim(), password, config.role, rememberMe);
 
             if (result.success) {
                 router.push(ROLE_HOME_ROUTES[config.role]);
@@ -164,20 +168,53 @@ export default function LoginPage({ params }: LoginPageProps) {
 
     const handleResendVerification = async () => {
         if (resendCooldown > 0) return;
+        if (!email.trim()) {
+            setError('Enter your email address first so we know where to resend the verification code.');
+            return;
+        }
         setResendingVerification(true);
         try {
-            const result = await authApi.resendVerification(email);
+            const result = await authApi.resendVerification(email.trim());
             if (result.success) {
                 setVerificationResent(true);
                 setError('');
+                setVerificationComplete(false);
                 setResendCooldown(60); // 60 second cooldown
             } else {
-                setError(result.message || 'Failed to resend verification email');
+                setError(result.message || 'Failed to resend verification code');
             }
         } catch {
             setError('Network error. Please try again.');
         } finally {
             setResendingVerification(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!email.trim()) {
+            setError('Enter your email address first.');
+            return;
+        }
+        if (!/^\d{6}$/.test(verificationOtp.trim())) {
+            setError('Enter the 6-digit verification code from your email.');
+            return;
+        }
+
+        setVerifyingOtp(true);
+        try {
+            const result = await authApi.verifyEmailOtp(email.trim(), verificationOtp.trim());
+            if (result.success) {
+                setVerificationComplete(true);
+                setEmailNotVerified(false);
+                setVerificationResent(false);
+                setError('');
+            } else {
+                setError(result.message || 'Verification failed. Please try again.');
+            }
+        } catch {
+            setError('Network error. Please try again.');
+        } finally {
+            setVerifyingOtp(false);
         }
     };
 
@@ -207,7 +244,13 @@ export default function LoginPage({ params }: LoginPageProps) {
                     <form onSubmit={handleSubmit} className="space-y-5">
                         {verificationResent && (
                             <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
-                                Verification email sent! Please check your inbox and click the link to verify your account.
+                                Verification code sent. Please check your inbox and enter the 6-digit code below.
+                            </div>
+                        )}
+
+                        {verificationComplete && (
+                            <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
+                                Email verified successfully. You can now sign in with your password.
                             </div>
                         )}
 
@@ -228,9 +271,39 @@ export default function LoginPage({ params }: LoginPageProps) {
                                         className="mt-2 inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm disabled:opacity-50"
                                     >
                                         <Mail className="h-3.5 w-3.5" />
-                                        {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification email'}
+                                        {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
                                     </button>
                                 )}
+                            </div>
+                        )}
+
+                        {emailNotVerified && (
+                            <div className="space-y-3 rounded-xl border border-purple-200 bg-purple-50/70 p-4 dark:border-purple-900 dark:bg-purple-950/30">
+                                <div>
+                                    <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Verify your email</p>
+                                    <p className="mt-1 text-xs text-purple-700 dark:text-purple-300">
+                                        Enter the 6-digit code we emailed to this address before signing in.
+                                    </p>
+                                </div>
+                                <Input
+                                    label="Verification Code"
+                                    type="text"
+                                    value={verificationOtp}
+                                    onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="123456"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    autoComplete="one-time-code"
+                                    required
+                                />
+                                <Button
+                                    type="button"
+                                    isLoading={verifyingOtp}
+                                    onClick={handleVerifyOtp}
+                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                    Verify Email OTP
+                                </Button>
                             </div>
                         )}
 
@@ -238,7 +311,10 @@ export default function LoginPage({ params }: LoginPageProps) {
                             label="Email Address"
                             type="email"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setVerificationComplete(false);
+                            }}
                             placeholder="Enter your email"
                             leftIcon={<Mail className="h-5 w-5" />}
                             required

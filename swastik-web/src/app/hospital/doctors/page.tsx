@@ -38,20 +38,25 @@ export default function HospitalDoctorsPage() {
         if (success) {
             setShowInviteModal(false);
             setInviteData({ email: '', department: '' });
-            toast.success('Doctor linked', 'The doctor was added to your hospital roster.');
+            toast.success('Invite sent', 'Doctor must accept the invite before appearing in your hospital roster.');
         } else {
-            toast.error('Unable to link doctor', 'Please confirm the doctor account exists and try again.');
+            toast.error('Unable to send invite', 'Please confirm the doctor account exists and try again.');
         }
         setActionLoading(null);
     };
 
     const handleRemove = async (doctorId: string, doctorName: string) => {
-        const confirmed = await confirm({ title: 'Remove Doctor', message: `Remove Dr. ${doctorName} from the hospital?`, confirmLabel: 'Remove', variant: 'danger' });
+        const confirmed = await confirm({
+            title: 'Remove Doctor',
+            message: `Remove Dr. ${doctorName} from the hospital? Their hospital roster entry and hospital-side appointments/consultations will no longer appear in this portal.`,
+            confirmLabel: 'Remove',
+            variant: 'danger'
+        });
         if (!confirmed) return;
         setActionLoading(doctorId);
         const success = await removeDoctor(doctorId);
         if (success) {
-            toast.success('Doctor Removed', 'Doctor has been removed');
+            toast.success('Doctor Removed', 'Doctor and their hospital-side records are now hidden from this portal.');
         } else {
             toast.error('Unable to remove doctor', 'Please try again in a moment.');
         }
@@ -164,7 +169,7 @@ export default function HospitalDoctorsPage() {
                         </div>
                         <div className="p-4 space-y-4">
                             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                                Use the email of an existing approved doctor account to link it to this hospital.
+                                Use the email of an existing approved doctor account to send an invite. The doctor must accept it before they appear in your hospital roster or contribute to hospital appointments and consultations.
                             </div>
                             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Doctor Email *</label><Input value={inviteData.email} onChange={e => setInviteData(d => ({ ...d, email: e.target.value }))} placeholder="doctor@example.com" /></div>
                             <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label><Input value={inviteData.department} onChange={e => setInviteData(d => ({ ...d, department: e.target.value }))} placeholder="Cardiology, Emergency, Pediatrics..." /></div>

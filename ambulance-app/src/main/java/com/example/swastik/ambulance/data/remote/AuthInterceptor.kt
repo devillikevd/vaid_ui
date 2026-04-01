@@ -31,7 +31,7 @@ class AuthInterceptor @Inject constructor(
         val path = originalRequest.url.encodedPath
 
         // Skip auth for public endpoints
-        if (path.contains("auth/login") || path.contains("auth/register") || path.contains("auth/forgot-password") || path.contains("auth/resend-verification") || path.contains("auth/verify-email")) {
+        if (path.contains("auth/login") || path.contains("auth/register") || path.contains("auth/forgot-password") || path.contains("auth/resend-verification") || path.contains("auth/verify-email") || path.contains("auth/verify-email-otp")) {
             return chain.proceed(originalRequest)
         }
 

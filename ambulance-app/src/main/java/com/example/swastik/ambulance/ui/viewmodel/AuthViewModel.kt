@@ -17,7 +17,13 @@ data class AuthUiState(
     val isLoggedIn: Boolean = false,
     val user: UserDto? = null,
     val error: String? = null,
-    val registrationSuccessMessage: String? = null
+    val errorCode: String? = null,
+    val infoMessage: String? = null,
+    val registrationSuccessMessage: String? = null,
+    val pendingVerificationEmail: String? = null,
+    val emailVerificationComplete: Boolean = false,
+    val passwordResetCodeSent: Boolean = false,
+    val passwordResetComplete: Boolean = false
 )
 
 @HiltViewModel
@@ -43,7 +49,7 @@ class AuthViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null)
             val result = authRepository.restoreSession()
             result.fold(
                 onSuccess = { user ->
@@ -70,20 +76,20 @@ class AuthViewModel @Inject constructor(
         // Client-side validation before hitting the server
         val trimmedEmail = email.trim()
         if (trimmedEmail.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Email is required")
+            _uiState.value = _uiState.value.copy(error = "Email is required", errorCode = null)
             return
         }
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
-            _uiState.value = _uiState.value.copy(error = "Please enter a valid email address")
+            _uiState.value = _uiState.value.copy(error = "Please enter a valid email address", errorCode = null)
             return
         }
         if (password.length < 6) {
-            _uiState.value = _uiState.value.copy(error = "Password must be at least 6 characters")
+            _uiState.value = _uiState.value.copy(error = "Password must be at least 6 characters", errorCode = null)
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, isSessionResolved = false)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null, infoMessage = null, isSessionResolved = false, emailVerificationComplete = false)
             val result = authRepository.login(trimmedEmail, password)
             result.fold(
                 onSuccess = { user ->
@@ -98,7 +104,8 @@ class AuthViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isSessionResolved = true,
-                        error = e.message ?: "Login failed"
+                        error = e.message ?: "Login failed",
+                        errorCode = (e as? AuthRepository.AuthApiException)?.code
                     )
                 }
             )
@@ -130,48 +137,48 @@ class AuthViewModel @Inject constructor(
 
         when {
             trimmedName.isBlank() -> {
-                _uiState.value = _uiState.value.copy(error = "Name is required")
+                _uiState.value = _uiState.value.copy(error = "Name is required", errorCode = null)
                 return
             }
             trimmedCompanyName.isBlank() -> {
-                _uiState.value = _uiState.value.copy(error = "Company or fleet name is required")
+                _uiState.value = _uiState.value.copy(error = "Company or fleet name is required", errorCode = null)
                 return
             }
             trimmedRegistrationNumber.isBlank() -> {
-                _uiState.value = _uiState.value.copy(error = "Registration number is required for approval")
+                _uiState.value = _uiState.value.copy(error = "Registration number is required for approval", errorCode = null)
                 return
             }
             !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
-                _uiState.value = _uiState.value.copy(error = "Please enter a valid email address")
+                _uiState.value = _uiState.value.copy(error = "Please enter a valid email address", errorCode = null)
                 return
             }
             trimmedPhone.length < 10 -> {
-                _uiState.value = _uiState.value.copy(error = "Please enter a valid phone number")
+                _uiState.value = _uiState.value.copy(error = "Please enter a valid phone number", errorCode = null)
                 return
             }
             trimmedAlternatePhone.isNotBlank() && trimmedAlternatePhone.length < 10 -> {
-                _uiState.value = _uiState.value.copy(error = "Please enter a valid alternate phone number")
+                _uiState.value = _uiState.value.copy(error = "Please enter a valid alternate phone number", errorCode = null)
                 return
             }
             trimmedLicenseExpiry.isNotBlank() && !Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(trimmedLicenseExpiry) -> {
-                _uiState.value = _uiState.value.copy(error = "License expiry must use YYYY-MM-DD format")
+                _uiState.value = _uiState.value.copy(error = "License expiry must use YYYY-MM-DD format", errorCode = null)
                 return
             }
             password.length < 8 -> {
-                _uiState.value = _uiState.value.copy(error = "Password must be at least 8 characters")
+                _uiState.value = _uiState.value.copy(error = "Password must be at least 8 characters", errorCode = null)
                 return
             }
             !password.any(Char::isUpperCase) || !password.any(Char::isLowerCase) || !password.any(Char::isDigit) -> {
-                _uiState.value = _uiState.value.copy(error = "Password needs uppercase, lowercase, and a number")
+                _uiState.value = _uiState.value.copy(error = "Password needs uppercase, lowercase, and a number", errorCode = null)
                 return
             }
             password != confirmPassword -> {
-                _uiState.value = _uiState.value.copy(error = "Passwords do not match")
+                _uiState.value = _uiState.value.copy(error = "Passwords do not match", errorCode = null)
                 return
             }
             else -> {
                 viewModelScope.launch {
-                    _uiState.value = _uiState.value.copy(isLoading = true, error = null, registrationSuccessMessage = null)
+                    _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null, infoMessage = null, registrationSuccessMessage = null, emailVerificationComplete = false)
                     val result = authRepository.registerOperator(
                         name = trimmedName,
                         email = trimmedEmail,
@@ -191,18 +198,124 @@ class AuthViewModel @Inject constructor(
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 registrationSuccessMessage = message,
-                                error = null
+                                pendingVerificationEmail = trimmedEmail,
+                                error = null,
+                                errorCode = null,
+                                infoMessage = "We sent a 6-digit verification code to your email."
                             )
                         },
                         onFailure = { e ->
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
-                                error = e.message ?: "Registration failed"
+                                error = e.message ?: "Registration failed",
+                                errorCode = (e as? AuthRepository.AuthApiException)?.code
                             )
                         }
                     )
                 }
             }
+        }
+    }
+
+    fun resendVerification(email: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null)
+            val result = authRepository.resendVerification(email)
+            result.fold(
+                onSuccess = { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        infoMessage = message,
+                        error = null,
+                        errorCode = null
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to resend verification code",
+                        errorCode = (e as? AuthRepository.AuthApiException)?.code
+                    )
+                }
+            )
+        }
+    }
+
+    fun verifyEmailOtp(email: String, otp: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null, emailVerificationComplete = false)
+            val result = authRepository.verifyEmailOtp(email, otp)
+            result.fold(
+                onSuccess = { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        infoMessage = message,
+                        error = null,
+                        errorCode = null,
+                        emailVerificationComplete = true
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to verify email",
+                        errorCode = (e as? AuthRepository.AuthApiException)?.code,
+                        emailVerificationComplete = false
+                    )
+                }
+            )
+        }
+    }
+
+    fun forgotPassword(email: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null, infoMessage = null, passwordResetCodeSent = false, passwordResetComplete = false)
+            val result = authRepository.forgotPassword(email)
+            result.fold(
+                onSuccess = { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        infoMessage = message,
+                        error = null,
+                        errorCode = null,
+                        passwordResetCodeSent = true
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to send reset code",
+                        errorCode = (e as? AuthRepository.AuthApiException)?.code,
+                        passwordResetCodeSent = false
+                    )
+                }
+            )
+        }
+    }
+
+    fun resetPasswordWithOtp(email: String, otp: String, password: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, errorCode = null, passwordResetComplete = false)
+            val result = authRepository.resetPasswordWithOtp(email, otp, password)
+            result.fold(
+                onSuccess = { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        infoMessage = message,
+                        error = null,
+                        errorCode = null,
+                        passwordResetComplete = true
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to reset password",
+                        errorCode = (e as? AuthRepository.AuthApiException)?.code,
+                        passwordResetComplete = false
+                    )
+                }
+            )
         }
     }
 
@@ -218,10 +331,36 @@ class AuthViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.value = _uiState.value.copy(error = null, errorCode = null)
     }
 
     fun clearRegistrationMessage() {
-        _uiState.value = _uiState.value.copy(registrationSuccessMessage = null)
+        _uiState.value = _uiState.value.copy(
+            registrationSuccessMessage = null,
+            pendingVerificationEmail = null,
+            emailVerificationComplete = false,
+            infoMessage = null,
+            error = null,
+            errorCode = null
+        )
+    }
+
+    fun resetPasswordRecoveryState() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            errorCode = null,
+            infoMessage = null,
+            passwordResetCodeSent = false,
+            passwordResetComplete = false
+        )
+    }
+
+    fun clearPasswordResetFlags() {
+        _uiState.value = _uiState.value.copy(
+            error = null,
+            errorCode = null,
+            passwordResetCodeSent = false,
+            passwordResetComplete = false
+        )
     }
 }

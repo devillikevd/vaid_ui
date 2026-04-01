@@ -11,6 +11,8 @@ import {
     Settings,
     Stethoscope,
     UserCog,
+    Pill,
+    Microscope,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -23,11 +25,14 @@ const HOSPITAL_CONFIG: DashboardConfig = {
     theme: { color: 'teal', dataTheme: 'hospital' },
     showApprovalBanner: true,
     showFullDropdown: false,
+    settingsHref: '/hospital/settings',
     userDisplayName: 'Hospital',
     navItems: [
         { name: 'Dashboard', href: '/hospital', icon: LayoutDashboard },
         { name: 'Departments', href: '/hospital/departments', icon: Building2 },
         { name: 'Doctors', href: '/hospital/doctors', icon: Users },
+        { name: 'Pharmacies', href: '/hospital/pharmacies', icon: Pill },
+        { name: 'Diagnostics', href: '/hospital/diagnostic-centers', icon: Microscope },
         { name: 'Appointments', href: '/hospital/appointments', icon: Calendar },
         { name: 'Consultations', href: '/hospital/consultations', icon: Stethoscope },
         { name: 'Emergency', href: '/hospital/emergency', icon: AlertTriangle },
