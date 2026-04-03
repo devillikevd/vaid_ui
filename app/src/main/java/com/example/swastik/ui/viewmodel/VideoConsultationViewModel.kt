@@ -75,7 +75,11 @@ data class VideoConsultationUiState(
     val connectionMode: ConsultationMode = ConsultationMode.VIDEO,
     val networkQuality: WebRTCManager.NetworkQuality = WebRTCManager.NetworkQuality.GOOD,
     val modeBanner: String? = null,
-    val consultationCompleted: Boolean = false
+    val consultationCompleted: Boolean = false,
+    val isMedicalRecordAccessLoading: Boolean = false,
+    val hasMedicalRecordAccess: Boolean = false,
+    val medicalRecordAccessExpiresAt: String? = null,
+    val medicalRecordAccessMessage: String? = null
 )
 
 data class ChatMessageUi(
@@ -122,6 +126,7 @@ class VideoConsultationViewModel @Inject constructor(
     private var userMicPreference = true
     private var lastPublishedModeConstraint = ConsultationMode.VIDEO
     private var pendingAppointmentId: String? = null
+    private var currentAppointmentId: String? = null
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
 
     // Expose local and remote video tracks for the UI to render
@@ -501,6 +506,94 @@ class VideoConsultationViewModel @Inject constructor(
         }
     }
 
+    fun loadMedicalRecordAccess(appointmentId: String) {
+        if (appointmentId.isBlank()) return
+        currentAppointmentId = appointmentId
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isMedicalRecordAccessLoading = true,
+                medicalRecordAccessMessage = null
+            )
+
+            when (val result = appointmentRepository.getMedicalRecordAccess(appointmentId)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        hasMedicalRecordAccess = result.data.hasAccess,
+                        medicalRecordAccessExpiresAt = result.data.expiresAt,
+                        medicalRecordAccessMessage = null
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        hasMedicalRecordAccess = false,
+                        medicalRecordAccessExpiresAt = null,
+                        medicalRecordAccessMessage = result.message
+                    )
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun grantMedicalRecordAccess() {
+        val appointmentId = currentAppointmentId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isMedicalRecordAccessLoading = true,
+                medicalRecordAccessMessage = null
+            )
+
+            when (val result = appointmentRepository.grantMedicalRecordAccess(appointmentId)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        hasMedicalRecordAccess = result.data.hasAccess,
+                        medicalRecordAccessExpiresAt = result.data.expiresAt,
+                        medicalRecordAccessMessage = "Only this doctor can view your older records for the next 24 hours, unless you revoke access sooner."
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        medicalRecordAccessMessage = result.message
+                    )
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun revokeMedicalRecordAccess() {
+        val appointmentId = currentAppointmentId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isMedicalRecordAccessLoading = true,
+                medicalRecordAccessMessage = null
+            )
+
+            when (val result = appointmentRepository.revokeMedicalRecordAccess(appointmentId)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        hasMedicalRecordAccess = false,
+                        medicalRecordAccessExpiresAt = null,
+                        medicalRecordAccessMessage = "Doctor access to older records has been revoked."
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isMedicalRecordAccessLoading = false,
+                        medicalRecordAccessMessage = result.message
+                    )
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
     /**
      * Join a video consultation for the given appointment.
      */
@@ -508,6 +601,7 @@ class VideoConsultationViewModel @Inject constructor(
         viewModelScope.launch {
             resetModeControllers()
             pendingAppointmentId = appointmentId
+            currentAppointmentId = appointmentId
             _uiState.value = _uiState.value.copy(
                 isConnecting = true,
                 isWaitingForDoctor = false,

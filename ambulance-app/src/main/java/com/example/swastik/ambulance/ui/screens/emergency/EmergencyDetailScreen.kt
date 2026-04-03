@@ -394,6 +394,7 @@ private fun OperationalOverviewCard(
 @Composable
 private fun StatusTimelineCard(currentStatus: String) {
     val allStages = listOf(
+        "pending" to "Awaiting your response",
         "assigned" to "Confirmed",
         "en_route" to "Drive to patient",
         "arrived" to "At pickup",
@@ -404,7 +405,7 @@ private fun StatusTimelineCard(currentStatus: String) {
     )
 
     val normalized = when (currentStatus.lowercase()) {
-        "pending", "requested", "broadcasting" -> "assigned"
+        "pending", "requested", "broadcasting" -> "pending"
         "accepted", "dispatched" -> "assigned"
         else -> currentStatus.lowercase()
     }
@@ -448,8 +449,8 @@ private fun StatusTimelineCard(currentStatus: String) {
 @Composable
 private fun StatusBadge(status: String) {
     val (bgColor, textColor, label) = when (status.lowercase()) {
-        "pending", "requested" -> Triple(Color(0xFFFFF3E0), Color(0xFFE65100), "⏳ Pending")
-        "broadcasting" -> Triple(Color(0xFFFFF8E1), Color(0xFFFF6F00), "📡 Broadcasting")
+        "pending", "requested" -> Triple(Color(0xFFFFF3E0), Color(0xFFE65100), "⏳ Awaiting Dispatch")
+        "broadcasting" -> Triple(Color(0xFFFFF8E1), Color(0xFFFF6F00), "📡 Awaiting Your Response")
         "assigned", "accepted", "dispatched" -> Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), "✅ Confirmed")
         "en_route", "enroute" -> Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "🚑 En Route")
         "arrived" -> Triple(Color(0xFFF3E5F5), Color(0xFF7B1FA2), "📍 Arrived at Pickup")
@@ -537,6 +538,14 @@ private fun StatusActionButtons(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
+                }
+
+                if (currentStatus.lowercase() in listOf("pending", "broadcasting", "requested")) {
+                    Text(
+                        text = "Once you accept, only then does this emergency become your active dispatch journey.",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
                 }
             }
         }

@@ -38,6 +38,12 @@ fun VideoConsultationFlow(
         }
     }
 
+    LaunchedEffect(appointmentId) {
+        if (appointmentId.isNotBlank()) {
+            viewModel.loadMedicalRecordAccess(appointmentId)
+        }
+    }
+
     // If was connected and now disconnected, show completion
     LaunchedEffect(uiState.consultationCompleted, hasBeenConnected) {
         if (hasBeenConnected && uiState.consultationCompleted) {
@@ -71,6 +77,10 @@ fun VideoConsultationFlow(
             modeBanner = uiState.modeBanner,
             callDurationSeconds = uiState.callDuration,
             chatMessages = uiState.chatMessages,
+            hasMedicalRecordAccess = uiState.hasMedicalRecordAccess,
+            medicalRecordAccessExpiresAt = uiState.medicalRecordAccessExpiresAt,
+            isMedicalRecordAccessLoading = uiState.isMedicalRecordAccessLoading,
+            medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
             onBackClick = {
                 viewModel.endCall()
                 onBackClick()
@@ -78,6 +88,8 @@ fun VideoConsultationFlow(
             onEndCall = {
                 viewModel.endCall()
             },
+            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess() },
+            onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
             onMicToggle = { viewModel.toggleMic() },
             onCameraToggle = { viewModel.toggleCamera() },
             onCameraFlip = { viewModel.switchCamera() },
@@ -91,7 +103,13 @@ fun VideoConsultationFlow(
             doctorName = doctorName,
             isConnecting = uiState.isConnecting || uiState.isWaitingForDoctor,
             statusMessage = statusMessage,
+            hasMedicalRecordAccess = uiState.hasMedicalRecordAccess,
+            medicalRecordAccessExpiresAt = uiState.medicalRecordAccessExpiresAt,
+            isMedicalRecordAccessLoading = uiState.isMedicalRecordAccessLoading,
+            medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
             onBackClick = onBackClick,
+            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess() },
+            onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
             onStartConsultation = {
                 viewModel.joinConsultation(appointmentId)
             }

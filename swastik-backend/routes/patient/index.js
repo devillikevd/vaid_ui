@@ -347,6 +347,47 @@ router.post('/appointments',
   })
 );
 
+router.get('/appointments/:appointmentId/record-access',
+  [
+    param('appointmentId').isUUID().withMessage('Valid appointment ID is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const access = await patientService.getMedicalRecordAccessForAppointment(req.user.id, req.params.appointmentId);
+    res.json({ success: true, data: access });
+  })
+);
+
+router.post('/appointments/:appointmentId/record-access',
+  [
+    param('appointmentId').isUUID().withMessage('Valid appointment ID is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const access = await patientService.grantMedicalRecordAccessForAppointment(req.user.id, req.params.appointmentId);
+    res.json({
+      success: true,
+      data: access,
+      message: 'Medical records shared with your doctor for this consultation',
+    });
+  })
+);
+
+router.delete('/appointments/:appointmentId/record-access',
+  [
+    param('appointmentId').isUUID().withMessage('Valid appointment ID is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const access = await patientService.revokeMedicalRecordAccessForAppointment(req.user.id, req.params.appointmentId);
+    res.json({
+      success: true,
+      data: access,
+      message: 'Medical record access revoked',
+    });
+  })
+);
+
 // Cancel appointment
 router.put('/appointments/:id/cancel',
   asyncHandler(async (req, res) => {

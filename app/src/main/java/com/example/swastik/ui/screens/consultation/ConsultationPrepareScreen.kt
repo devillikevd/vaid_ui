@@ -26,6 +26,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +46,13 @@ fun ConsultationPrepareScreen(
     doctorName: String = "Doctor",
     isConnecting: Boolean = false,
     statusMessage: String = "",
+    hasMedicalRecordAccess: Boolean = false,
+    medicalRecordAccessExpiresAt: String? = null,
+    isMedicalRecordAccessLoading: Boolean = false,
+    medicalRecordAccessMessage: String? = null,
     onBackClick: () -> Unit,
+    onGrantMedicalRecordAccess: () -> Unit = {},
+    onRevokeMedicalRecordAccess: () -> Unit = {},
     onStartConsultation: () -> Unit
 ) {
     val backgroundBrush = Brush.verticalGradient(
@@ -252,6 +259,95 @@ fun ConsultationPrepareScreen(
                             title = "Notes stay in your history",
                             description = "Prescriptions and consultation context remain linked to your records."
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = if (hasMedicalRecordAccess) accentTeal else Color(0xFFFFD166),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = if (hasMedicalRecordAccess) "Medical records shared" else "Past medical history stays private",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = if (hasMedicalRecordAccess) {
+                                            if (medicalRecordAccessExpiresAt.isNullOrBlank()) {
+                                                "Only Dr. $doctorName can currently review your past reports, prescriptions, and consultations."
+                                            } else {
+                                                "Only Dr. $doctorName can review your past reports, prescriptions, and consultations for 24 hours unless you revoke access earlier."
+                                            }
+                                        } else {
+                                            "Share only if you want Dr. $doctorName to review older reports, prescriptions, and consultations for this visit."
+                                        },
+                                        color = Color.White.copy(alpha = 0.68f),
+                                        fontSize = 12.sp,
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+
+                            medicalRecordAccessMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                                Text(
+                                    text = message,
+                                    color = Color.White.copy(alpha = 0.72f),
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            if (hasMedicalRecordAccess) {
+                                OutlinedButton(
+                                    onClick = onRevokeMedicalRecordAccess,
+                                    enabled = !isMedicalRecordAccessLoading,
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                ) {
+                                    if (isMedicalRecordAccessLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("Revoke doctor access")
+                                    }
+                                }
+                            } else {
+                                Button(
+                                    onClick = onGrantMedicalRecordAccess,
+                                    enabled = !isMedicalRecordAccessLoading,
+                                    colors = ButtonDefaults.buttonColors(containerColor = accentTeal)
+                                ) {
+                                    if (isMedicalRecordAccessLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("Share 24h record access")
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if (statusMessage.isNotBlank()) {

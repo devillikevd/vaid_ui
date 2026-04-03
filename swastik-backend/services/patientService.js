@@ -7,6 +7,7 @@ const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const VALID_GENDERS = ['male', 'female', 'other'];
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const NEGATION_WORDS = ['no', 'not', 'without', 'denies', 'denied', 'never', "don't", "doesn't", "didn't"];
+const MEDICAL_RECORD_ACCESS_HOURS = 24;
 
 const normalizeRecommendationText = (value = '') =>
   String(value)
@@ -47,6 +48,83 @@ const countKeywordMatches = (sourceText, keywords = []) => {
 };
 
 class PatientService {
+  async _getPatientByUserId(userId) {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!patient) {
+      throw new ApiError(404, 'Patient profile not found');
+    }
+
+    return patient;
+  }
+
+  async _resolveRecordAccessContext(userId, appointmentId) {
+    const patient = await this._getPatientByUserId(userId);
+
+    const { data: appointment } = await supabaseAdmin
+      .from('appointments')
+      .select(`
+        id,
+        patient_id,
+        doctor_id,
+        status,
+        appointment_date,
+        time_slot,
+        doctor:doctors(id, name)
+      `)
+      .eq('id', appointmentId)
+      .eq('patient_id', patient.id)
+      .maybeSingle();
+
+    if (!appointment) {
+      throw new ApiError(404, 'Appointment not found for this patient');
+    }
+
+    if (!appointment.doctor_id) {
+      throw new ApiError(400, 'This appointment is not linked to a doctor');
+    }
+
+    return { patient, appointment };
+  }
+
+  async _getActiveMedicalRecordGrant(patientId, doctorId) {
+    const nowIso = new Date().toISOString();
+    const { data: grant } = await supabaseAdmin
+      .from('patient_record_access')
+      .select('*')
+      .eq('patient_id', patientId)
+      .eq('doctor_id', doctorId)
+      .maybeSingle();
+
+    if (!grant) return null;
+    if (grant.status !== 'active') return null;
+
+    if (grant.expires_at && new Date(grant.expires_at).getTime() <= Date.now()) {
+      await supabaseAdmin
+        .from('patient_record_access')
+        .update({ status: 'expired', updated_at: nowIso })
+        .eq('id', grant.id);
+      return null;
+    }
+
+    return grant;
+  }
+
+  _buildMedicalRecordAccessPayload(appointment, grant) {
+    return {
+      appointmentId: appointment.id,
+      doctorId: appointment.doctor_id,
+      doctorName: appointment.doctor?.name || 'Doctor',
+      hasAccess: Boolean(grant),
+      grantedAt: grant?.granted_at || null,
+      expiresAt: grant?.expires_at || null,
+    };
+  }
+
   // Get patient profile
   async getProfile(userId) {
     const { data: patient, error } = await supabaseAdmin
@@ -161,6 +239,57 @@ class PatientService {
 
     // Return normalized profile shape expected by clients
     return this.getProfile(userId);
+  }
+
+  async getMedicalRecordAccessForAppointment(userId, appointmentId) {
+    const { patient, appointment } = await this._resolveRecordAccessContext(userId, appointmentId);
+    const grant = await this._getActiveMedicalRecordGrant(patient.id, appointment.doctor_id);
+    return this._buildMedicalRecordAccessPayload(appointment, grant);
+  }
+
+  async grantMedicalRecordAccessForAppointment(userId, appointmentId) {
+    const { patient, appointment } = await this._resolveRecordAccessContext(userId, appointmentId);
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + MEDICAL_RECORD_ACCESS_HOURS * 60 * 60 * 1000);
+
+    const { data: grant, error } = await supabaseAdmin
+      .from('patient_record_access')
+      .upsert({
+        patient_id: patient.id,
+        doctor_id: appointment.doctor_id,
+        appointment_id: appointment.id,
+        granted_by: userId,
+        status: 'active',
+        granted_at: now.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        revoked_at: null,
+        updated_at: now.toISOString(),
+      }, { onConflict: 'patient_id,doctor_id' })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return this._buildMedicalRecordAccessPayload(appointment, grant);
+  }
+
+  async revokeMedicalRecordAccessForAppointment(userId, appointmentId) {
+    const { patient, appointment } = await this._resolveRecordAccessContext(userId, appointmentId);
+    const nowIso = new Date().toISOString();
+
+    const { error } = await supabaseAdmin
+      .from('patient_record_access')
+      .update({
+        status: 'revoked',
+        revoked_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('patient_id', patient.id)
+      .eq('doctor_id', appointment.doctor_id);
+
+    if (error) throw error;
+
+    return this._buildMedicalRecordAccessPayload(appointment, null);
   }
 
   // Upload profile image

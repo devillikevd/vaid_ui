@@ -342,6 +342,25 @@ router.get('/presigned-download', authenticateToken, async (req, res, next) => {
                             }
 
                             if (!hasAccess) {
+                                const { data: patient } = await supabaseAdmin
+                                    .from('patients').select('id').eq('user_id', patientIdFromPath).single();
+
+                                if (patient) {
+                                    const nowIso = new Date().toISOString();
+                                    const { data: grant } = await supabaseAdmin
+                                        .from('patient_record_access')
+                                        .select('id')
+                                        .eq('patient_id', patient.id)
+                                        .eq('doctor_id', doctor.id)
+                                        .eq('status', 'active')
+                                        .gt('expires_at', nowIso)
+                                        .maybeSingle();
+
+                                    hasAccess = Boolean(grant);
+                                }
+                            }
+
+                            if (!hasAccess) {
                                 // Check if doctor has consultation with this specific patient
                                 const { data: patient } = await supabaseAdmin
                                     .from('patients').select('id').eq('user_id', patientIdFromPath).single();

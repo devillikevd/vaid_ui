@@ -16,13 +16,9 @@ import OsmMap from '@/components/shared/OsmMapDynamic';
 import type { MapMarker } from '@/components/shared/OsmMapDynamic';
 
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
-    active: { color: 'bg-red-100 text-red-700 border-red-200', label: 'ACTIVE', icon: '🔴' },
     pending: { color: 'bg-red-100 text-red-700 border-red-200', label: 'PENDING', icon: '🔴' },
     broadcasting: { color: 'bg-orange-100 text-orange-700 border-orange-200', label: 'BROADCASTING', icon: '📡' },
     assigned: { color: 'bg-blue-100 text-blue-700 border-blue-200', label: 'ASSIGNED', icon: '📋' },
-    accepted: { color: 'bg-indigo-100 text-indigo-700 border-indigo-200', label: 'ACCEPTED', icon: '✅' },
-    dispatched: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'DISPATCHED', icon: '🚑' },
-    en_route_pickup: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'EN ROUTE', icon: '🚑' },
     en_route: { color: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'EN ROUTE', icon: '🚑' },
     arrived: { color: 'bg-green-100 text-green-700 border-green-200', label: 'ARRIVED', icon: '📍' },
     picked_up: { color: 'bg-purple-100 text-purple-700 border-purple-200', label: 'PICKED UP', icon: '🏥' },
@@ -72,13 +68,10 @@ const STATUS_FILTERS = [
 ];
 
 const EMERGENCY_STATUS_TRANSITIONS: Record<string, string[]> = {
-    pending: ['broadcasting', 'assigned', 'dispatched', 'cancelled', 'no_ambulance'],
-    broadcasting: ['assigned', 'dispatched', 'timeout', 'cancelled', 'no_ambulance'],
-    assigned: ['dispatched', 'en_route', 'cancelled'],
-    accepted: ['en_route', 'cancelled'],
-    dispatched: ['en_route', 'cancelled'],
-    en_route_pickup: ['arrived', 'picked_up', 'cancelled'],
-    en_route: ['arrived', 'picked_up', 'cancelled'],
+    pending: ['broadcasting', 'assigned', 'cancelled', 'no_ambulance'],
+    broadcasting: ['assigned', 'timeout', 'cancelled', 'no_ambulance'],
+    assigned: ['en_route', 'cancelled'],
+    en_route: ['arrived', 'cancelled'],
     arrived: ['picked_up', 'completed', 'cancelled'],
     picked_up: ['en_route_hospital', 'completed', 'cancelled'],
     en_route_hospital: ['arrived_hospital', 'completed', 'cancelled'],

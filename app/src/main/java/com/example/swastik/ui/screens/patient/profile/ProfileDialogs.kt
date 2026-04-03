@@ -27,6 +27,7 @@ import com.example.swastik.data.local.ThemePreference
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.theme.*
+import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.utils.ProfileValidation
 
 // ==================== EDIT PROFILE DIALOG ====================
@@ -35,6 +36,7 @@ import com.example.swastik.utils.ProfileValidation
 @Composable
 fun EditProfileDialog(
     profile: PatientProfile?,
+    saveState: ProfileUpdateState = ProfileUpdateState.Idle,
     onDismiss: () -> Unit,
     onSave: (UpdateProfileRequest) -> Unit
 ) {
@@ -48,6 +50,18 @@ fun EditProfileDialog(
     var genderExpanded by remember { mutableStateOf(false) }
     var bloodGroupExpanded by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    val isSaving = saveState is ProfileUpdateState.Loading
+
+    LaunchedEffect(profile?.id, profile?.name, profile?.age, profile?.gender, profile?.bloodGroup, profile?.weight, profile?.height, profile?.location) {
+        name = profile?.name ?: ""
+        age = if ((profile?.age ?: 0) > 0) profile?.age.toString() else ""
+        gender = profile?.gender ?: ""
+        bloodGroup = profile?.bloodGroup ?: ""
+        weight = if ((profile?.weight ?: 0f) > 0f) profile?.weight.toString() else ""
+        height = if ((profile?.height ?: 0f) > 0f) profile?.height.toString() else ""
+        location = profile?.location ?: ""
+        validationError = null
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -75,13 +89,26 @@ fun EditProfileDialog(
                         }
                     }
                 }
+                if (saveState is ProfileUpdateState.Error) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ErrorOutline, null, tint = Color(0xFFEF6C00), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(saveState.message, fontSize = 12.sp, color = Color(0xFFEF6C00))
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
                     label = { Text("Full Name") },
                     leadingIcon = { Icon(Icons.Outlined.Person, null, modifier = Modifier.size(20.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isSaving
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -90,11 +117,12 @@ fun EditProfileDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !isSaving
                     )
                     ExposedDropdownMenuBox(
                         expanded = genderExpanded,
-                        onExpandedChange = { genderExpanded = it },
+                        onExpandedChange = { if (!isSaving) genderExpanded = it },
                         modifier = Modifier.weight(1f)
                     ) {
                         OutlinedTextField(
@@ -105,13 +133,15 @@ fun EditProfileDialog(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
                             modifier = Modifier.menuAnchor(),
                             shape = RoundedCornerShape(12.dp),
-                            singleLine = true
+                            singleLine = true,
+                            enabled = !isSaving
                         )
                         ExposedDropdownMenu(expanded = genderExpanded, onDismissRequest = { genderExpanded = false }) {
                             ProfileValidation.GENDER_OPTIONS.forEach { g ->
                                 DropdownMenuItem(
                                     text = { Text(g.replaceFirstChar { it.uppercase() }) },
-                                    onClick = { gender = g; genderExpanded = false }
+                                    onClick = { gender = g; genderExpanded = false },
+                                    enabled = !isSaving
                                 )
                             }
                         }
@@ -119,7 +149,7 @@ fun EditProfileDialog(
                 }
                 ExposedDropdownMenuBox(
                     expanded = bloodGroupExpanded,
-                    onExpandedChange = { bloodGroupExpanded = it }
+                    onExpandedChange = { if (!isSaving) bloodGroupExpanded = it }
                 ) {
                     OutlinedTextField(
                         value = bloodGroup.ifEmpty { "Select Blood Group" },
@@ -129,13 +159,15 @@ fun EditProfileDialog(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bloodGroupExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !isSaving
                     )
                     ExposedDropdownMenu(expanded = bloodGroupExpanded, onDismissRequest = { bloodGroupExpanded = false }) {
                         ProfileValidation.BLOOD_GROUP_OPTIONS.forEach { bg ->
                             DropdownMenuItem(
                                 text = { Text(bg) },
-                                onClick = { bloodGroup = bg; bloodGroupExpanded = false }
+                                onClick = { bloodGroup = bg; bloodGroupExpanded = false },
+                                enabled = !isSaving
                             )
                         }
                     }
@@ -147,7 +179,8 @@ fun EditProfileDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !isSaving
                     )
                     OutlinedTextField(
                         value = height, onValueChange = { height = it },
@@ -155,7 +188,8 @@ fun EditProfileDialog(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !isSaving
                     )
                 }
                 OutlinedTextField(
@@ -164,7 +198,8 @@ fun EditProfileDialog(
                     leadingIcon = { Icon(Icons.Outlined.LocationOn, null, modifier = Modifier.size(20.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = !isSaving
                 )
             }
         },
@@ -198,11 +233,22 @@ fun EditProfileDialog(
                     )
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Save Changes") }
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save Changes")
+                }
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
         },
         shape = RoundedCornerShape(20.dp)
     )

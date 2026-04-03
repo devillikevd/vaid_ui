@@ -19,6 +19,63 @@ try {
   ({ getDb } = require('../config/mongodb'));
 } catch { getDb = null; }
 
+const getAccessibleHospitalIds = async (userId) => {
+  const { data: ownedHospitals, error: ownedHospitalsError } = await supabaseAdmin
+    .from('hospitals')
+    .select('id')
+    .eq('owner_id', userId);
+
+  if (ownedHospitalsError) throw ownedHospitalsError;
+
+  const { data: managedHospitals, error: managedHospitalsError } = await supabaseAdmin
+    .from('hospital_managers')
+    .select('hospital_id')
+    .eq('user_id', userId);
+
+  if (managedHospitalsError) throw managedHospitalsError;
+
+  return [...new Set([
+    ...(ownedHospitals || []).map((hospital) => hospital.id),
+    ...(managedHospitals || []).map((manager) => manager.hospital_id),
+  ].filter(Boolean))];
+};
+
+const getActiveHospitalDoctorIds = async (hospitalIds = []) => {
+  if (hospitalIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('hospital_doctors')
+    .select('doctor_id')
+    .in('hospital_id', hospitalIds)
+    .eq('is_active', true);
+
+  if (error) throw error;
+  return [...new Set((data || []).map((row) => row.doctor_id).filter(Boolean))];
+};
+
+const getAccessibleClinicIds = async (userId) => {
+  const { data: clinics, error } = await supabaseAdmin
+    .from('clinics')
+    .select('id')
+    .eq('owner_id', userId);
+
+  if (error) throw error;
+  return (clinics || []).map((clinic) => clinic.id).filter(Boolean);
+};
+
+const getActiveClinicDoctorIds = async (clinicIds = []) => {
+  if (clinicIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('doctor_id')
+    .in('clinic_id', clinicIds)
+    .eq('is_active', true);
+
+  if (error) throw error;
+  return [...new Set((data || []).map((row) => row.doctor_id).filter(Boolean))];
+};
+
 const syncConsultationSessionState = async (consultationId, fields = {}) => {
   const updates = {};
   if (fields.roomId) updates.room_id = fields.roomId;
@@ -61,20 +118,11 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
     query = query.eq('doctor_id', doctor.id);
-  } else if (role === 'hospital_owner') {
+  } else if (role === 'hospital_owner' || role === 'hospital_manager') {
     // Scope strictly to doctors with accepted active hospital roster links.
-    // Do not rely on the legacy doctors.hospital_id field here, because that
-    // can outlive the real accepted association and blur the invite boundary.
-    const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
-    const hospitalIds = (hospitals || []).map(h => h.id);
+    const hospitalIds = await getAccessibleHospitalIds(userId);
     if (hospitalIds.length > 0) {
-      const { data: hospitalDoctors } = await supabaseAdmin
-        .from('hospital_doctors')
-        .select('doctor_id')
-        .in('hospital_id', hospitalIds)
-        .eq('is_active', true);
-
-      const doctorIds = [...new Set((hospitalDoctors || []).map((d) => d.doctor_id).filter(Boolean))];
+      const doctorIds = await getActiveHospitalDoctorIds(hospitalIds);
       if (doctorIds.length > 0) {
         query = query.in('doctor_id', doctorIds);
       } else {
@@ -85,16 +133,9 @@ const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
     }
   } else if (role === 'clinic_owner') {
     // Scope strictly to doctors with accepted active clinic roster links.
-    const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
-    const clinicIds = (clinics || []).map(c => c.id);
+    const clinicIds = await getAccessibleClinicIds(userId);
     if (clinicIds.length > 0) {
-      const { data: clinicDoctors } = await supabaseAdmin
-        .from('clinic_doctors')
-        .select('doctor_id')
-        .in('clinic_id', clinicIds)
-        .eq('is_active', true);
-
-      const doctorIds = [...new Set((clinicDoctors || []).map((d) => d.doctor_id).filter(Boolean))];
+      const doctorIds = await getActiveClinicDoctorIds(clinicIds);
       if (doctorIds.length > 0) {
         query = query.in('doctor_id', doctorIds);
       } else {
@@ -273,20 +314,40 @@ const getConsultation = async (userId, role, consultationId) => {
     if (!patient || consultation.patient_id !== patient.id) {
       throw new ApiError(403, 'Unauthorized to view this consultation');
     }
-  } else if (role === 'hospital_owner') {
-    // Scope: consultation's doctor must belong to one of the owner's hospitals
-    const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
-    const hospitalIds = (hospitals || []).map(h => h.id);
-    const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('id', consultation.doctor_id).in('hospital_id', hospitalIds).maybeSingle();
-    if (!doctor) {
+  } else if (role === 'hospital_owner' || role === 'hospital_manager') {
+    // Scope strictly via active accepted hospital roster links.
+    const hospitalIds = await getAccessibleHospitalIds(userId);
+    if (hospitalIds.length === 0) {
+      throw new ApiError(403, 'Unauthorized to view this consultation');
+    }
+
+    const { data: association } = await supabaseAdmin
+      .from('hospital_doctors')
+      .select('doctor_id')
+      .in('hospital_id', hospitalIds)
+      .eq('doctor_id', consultation.doctor_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!association) {
       throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   } else if (role === 'clinic_owner') {
-    // Scope: consultation's doctor must belong to one of the owner's clinics
-    const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
-    const clinicIds = (clinics || []).map(c => c.id);
-    const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('id', consultation.doctor_id).in('clinic_id', clinicIds).maybeSingle();
-    if (!doctor) {
+    // Scope strictly via active accepted clinic roster links.
+    const clinicIds = await getAccessibleClinicIds(userId);
+    if (clinicIds.length === 0) {
+      throw new ApiError(403, 'Unauthorized to view this consultation');
+    }
+
+    const { data: association } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('doctor_id')
+      .in('clinic_id', clinicIds)
+      .eq('doctor_id', consultation.doctor_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!association) {
       throw new ApiError(403, 'Unauthorized to view this consultation');
     }
   }

@@ -226,11 +226,37 @@ router.get('/dashboard', authenticate,
       activeRequests = data || [];
     }
 
-    // Also include unassigned SOS broadcasts
-    const { data: broadcastRequests } = await supabaseAdmin.from('emergency_requests').select('*')
-      .in('status', ['pending', 'broadcasting']).order('created_at', { ascending: false }).limit(10);
+    // Only show SOS broadcasts that were actually sent to this ambulance/operator fleet.
+    // Hospital-controlled pending requests must stay on the hospital board until assigned.
+    let targetedBroadcastRequests = [];
+    if (vehicleIds.length > 0) {
+      const { data: broadcastRequests } = await supabaseAdmin
+        .from('emergency_requests')
+        .select('*')
+        .eq('dispatch_mode', 'sos_broadcast')
+        .in('status', ['pending', 'broadcasting'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      targetedBroadcastRequests = (broadcastRequests || []).filter((request) => {
+        if (request.vehicle_id && vehicleIds.includes(request.vehicle_id)) {
+          return true;
+        }
+
+        const broadcastVehicleIds = Array.isArray(request.broadcast_ambulance_ids)
+          ? request.broadcast_ambulance_ids
+          : [];
+
+        return broadcastVehicleIds.some((vehicleId) => vehicleIds.includes(vehicleId));
+      });
+    }
+
     const allRequests = [...activeRequests];
-    (broadcastRequests || []).forEach(br => { if (!allRequests.find(ar => ar.id === br.id)) allRequests.push(br); });
+    targetedBroadcastRequests.forEach((request) => {
+      if (!allRequests.find((activeRequest) => activeRequest.id === request.id)) {
+        allRequests.push(request);
+      }
+    });
 
     const today = new Date().toISOString().split('T')[0];
     let completedToday = 0;

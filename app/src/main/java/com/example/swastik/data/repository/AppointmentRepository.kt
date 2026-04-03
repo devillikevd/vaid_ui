@@ -318,6 +318,48 @@ class AppointmentRepository @Inject constructor(
             Result.Error(e.message ?: "Network error")
         }
     }
+
+    suspend fun getMedicalRecordAccess(appointmentId: String): Result<MedicalRecordAccessDto> {
+        return try {
+            val response = apiService.getMedicalRecordAccess(appointmentId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let { Result.Success(it) }
+                    ?: Result.Error("Failed to load medical record access")
+            } else {
+                Result.Error(response.body()?.message ?: parseApiErrorMessage(response.errorBody()) ?: "Failed to load medical record access")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun grantMedicalRecordAccess(appointmentId: String): Result<MedicalRecordAccessDto> {
+        return try {
+            val response = apiService.grantMedicalRecordAccess(appointmentId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let { Result.Success(it) }
+                    ?: Result.Error("Failed to share medical records")
+            } else {
+                Result.Error(response.body()?.message ?: parseApiErrorMessage(response.errorBody()) ?: "Failed to share medical records")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun revokeMedicalRecordAccess(appointmentId: String): Result<MedicalRecordAccessDto> {
+        return try {
+            val response = apiService.revokeMedicalRecordAccess(appointmentId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let { Result.Success(it) }
+                    ?: Result.Error("Failed to revoke medical record access")
+            } else {
+                Result.Error(response.body()?.message ?: parseApiErrorMessage(response.errorBody()) ?: "Failed to revoke medical record access")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
     
     /**
      * Join a video consultation

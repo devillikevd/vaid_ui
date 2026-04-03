@@ -15,6 +15,63 @@ const APPOINTMENT_SELECT = `
   clinic:clinics(id, name, address, city)
 `;
 
+const getAccessibleHospitalIds = async (userId) => {
+  const { data: ownedHospitals, error: ownedHospitalsError } = await supabaseAdmin
+    .from('hospitals')
+    .select('id')
+    .eq('owner_id', userId);
+
+  if (ownedHospitalsError) throw ownedHospitalsError;
+
+  const { data: managedHospitals, error: managedHospitalsError } = await supabaseAdmin
+    .from('hospital_managers')
+    .select('hospital_id')
+    .eq('user_id', userId);
+
+  if (managedHospitalsError) throw managedHospitalsError;
+
+  return [...new Set([
+    ...(ownedHospitals || []).map((hospital) => hospital.id),
+    ...(managedHospitals || []).map((manager) => manager.hospital_id),
+  ].filter(Boolean))];
+};
+
+const getActiveHospitalDoctorIds = async (hospitalIds = []) => {
+  if (hospitalIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('hospital_doctors')
+    .select('doctor_id')
+    .in('hospital_id', hospitalIds)
+    .eq('is_active', true);
+
+  if (error) throw error;
+  return [...new Set((data || []).map((row) => row.doctor_id).filter(Boolean))];
+};
+
+const getAccessibleClinicIds = async (userId) => {
+  const { data: clinics, error } = await supabaseAdmin
+    .from('clinics')
+    .select('id')
+    .eq('owner_id', userId);
+
+  if (error) throw error;
+  return (clinics || []).map((clinic) => clinic.id).filter(Boolean);
+};
+
+const getActiveClinicDoctorIds = async (clinicIds = []) => {
+  if (clinicIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('clinic_doctors')
+    .select('doctor_id')
+    .in('clinic_id', clinicIds)
+    .eq('is_active', true);
+
+  if (error) throw error;
+  return [...new Set((data || []).map((row) => row.doctor_id).filter(Boolean))];
+};
+
 // Get appointments for a user (patient or doctor)
 const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
@@ -35,20 +92,26 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
     query = query.eq('doctor_id', doctor.id);
-  } else if (role === 'hospital_owner') {
-    const { data: hospitals } = await supabaseAdmin.from('hospitals').select('id').eq('owner_id', userId);
-    const hospitalIds = (hospitals || []).map(h => h.id);
+  } else if (role === 'hospital_owner' || role === 'hospital_manager') {
+    const hospitalIds = await getAccessibleHospitalIds(userId);
     if (hospitalIds.length === 0) {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
-    query = query.in('hospital_id', hospitalIds);
+    const doctorIds = await getActiveHospitalDoctorIds(hospitalIds);
+    if (doctorIds.length === 0) {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+    query = query.in('hospital_id', hospitalIds).in('doctor_id', doctorIds);
   } else if (role === 'clinic_owner') {
-    const { data: clinics } = await supabaseAdmin.from('clinics').select('id').eq('owner_id', userId);
-    const clinicIds = (clinics || []).map(c => c.id);
+    const clinicIds = await getAccessibleClinicIds(userId);
     if (clinicIds.length === 0) {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
     }
-    query = query.in('clinic_id', clinicIds);
+    const doctorIds = await getActiveClinicDoctorIds(clinicIds);
+    if (doctorIds.length === 0) {
+      return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
+    }
+    query = query.in('clinic_id', clinicIds).in('doctor_id', doctorIds);
   } else if (!['admin', 'super_admin'].includes(role)) {
     // Fix #27: Unknown roles get no appointments
     return { data: [], pagination: { page, limit, total: 0, totalPages: 0 } };
@@ -264,8 +327,41 @@ const getAppointmentById = async (userId, role, appointmentId) => {
     if (!doctor || appointment.doctor_id !== doctor.id) {
       throw new ApiError(403, 'Unauthorized to view this appointment');
     }
+  } else if (role === 'hospital_owner' || role === 'hospital_manager') {
+    const hospitalIds = await getAccessibleHospitalIds(userId);
+    if (!hospitalIds.includes(appointment.hospital_id)) {
+      throw new ApiError(403, 'Unauthorized to view this appointment');
+    }
+
+    const { data: association } = await supabaseAdmin
+      .from('hospital_doctors')
+      .select('doctor_id')
+      .eq('hospital_id', appointment.hospital_id)
+      .eq('doctor_id', appointment.doctor_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!association) {
+      throw new ApiError(403, 'Unauthorized to view this appointment');
+    }
+  } else if (role === 'clinic_owner') {
+    const clinicIds = await getAccessibleClinicIds(userId);
+    if (!clinicIds.includes(appointment.clinic_id)) {
+      throw new ApiError(403, 'Unauthorized to view this appointment');
+    }
+
+    const { data: association } = await supabaseAdmin
+      .from('clinic_doctors')
+      .select('doctor_id')
+      .eq('clinic_id', appointment.clinic_id)
+      .eq('doctor_id', appointment.doctor_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!association) {
+      throw new ApiError(403, 'Unauthorized to view this appointment');
+    }
   }
-  // hospital_owner, clinic_owner, admin roles can view any appointment
 
   return appointment;
 };

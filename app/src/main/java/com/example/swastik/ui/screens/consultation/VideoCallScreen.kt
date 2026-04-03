@@ -47,8 +47,14 @@ fun VideoCallScreen(
     modeBanner: String? = null,
     callDurationSeconds: Long = 0L,
     chatMessages: List<ChatMessageUi> = emptyList(),
+    hasMedicalRecordAccess: Boolean = false,
+    medicalRecordAccessExpiresAt: String? = null,
+    isMedicalRecordAccessLoading: Boolean = false,
+    medicalRecordAccessMessage: String? = null,
     onBackClick: () -> Unit,
     onEndCall: () -> Unit,
+    onGrantMedicalRecordAccess: () -> Unit = {},
+    onRevokeMedicalRecordAccess: () -> Unit = {},
     onMicToggle: () -> Unit = {},
     onCameraToggle: () -> Unit = {},
     onCameraFlip: () -> Unit = {},
@@ -154,6 +160,16 @@ fun VideoCallScreen(
                         }
                     }
 
+                    ConsultationAccessBanner(
+                        hasMedicalRecordAccess = hasMedicalRecordAccess,
+                        medicalRecordAccessExpiresAt = medicalRecordAccessExpiresAt,
+                        isMedicalRecordAccessLoading = isMedicalRecordAccessLoading,
+                        medicalRecordAccessMessage = medicalRecordAccessMessage,
+                        accentColor = accentColor,
+                        onGrantMedicalRecordAccess = onGrantMedicalRecordAccess,
+                        onRevokeMedicalRecordAccess = onRevokeMedicalRecordAccess
+                    )
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -233,6 +249,110 @@ fun VideoCallScreen(
                 }
             } // end VIDEO
         } // end when
+    }
+}
+
+@Composable
+private fun ConsultationAccessBanner(
+    hasMedicalRecordAccess: Boolean,
+    medicalRecordAccessExpiresAt: String?,
+    isMedicalRecordAccessLoading: Boolean,
+    medicalRecordAccessMessage: String?,
+    accentColor: Color,
+    onGrantMedicalRecordAccess: () -> Unit,
+    onRevokeMedicalRecordAccess: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            color = Color.White.copy(alpha = 0.08f),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = if (hasMedicalRecordAccess) Color(0xFF2DD4BF) else Color(0xFFFFD166),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (hasMedicalRecordAccess) "Past medical records shared" else "Past medical records are private",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (hasMedicalRecordAccess) {
+                                if (medicalRecordAccessExpiresAt.isNullOrBlank()) {
+                                    "Only your consulting doctor can currently review your older reports, prescriptions, and consultations."
+                                } else {
+                                    "Only your consulting doctor can review your older reports, prescriptions, and consultations for 24 hours unless you revoke access sooner."
+                                }
+                            } else {
+                                "Share only if you want your doctor to review older reports, prescriptions, and consultations during this consultation."
+                            },
+                            color = Color.White.copy(alpha = 0.68f),
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
+                medicalRecordAccessMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                    Text(
+                        text = message,
+                        color = Color.White.copy(alpha = 0.76f),
+                        fontSize = 12.sp
+                    )
+                }
+
+                if (hasMedicalRecordAccess) {
+                    OutlinedButton(
+                        onClick = onRevokeMedicalRecordAccess,
+                        enabled = !isMedicalRecordAccessLoading,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        if (isMedicalRecordAccessLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Revoke doctor access")
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = onGrantMedicalRecordAccess,
+                        enabled = !isMedicalRecordAccessLoading,
+                        colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                    ) {
+                        if (isMedicalRecordAccessLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Share 24h record access")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

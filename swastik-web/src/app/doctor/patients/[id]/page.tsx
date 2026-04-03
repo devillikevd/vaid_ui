@@ -9,11 +9,15 @@ import {
     Calendar,
     Clock3,
     FileText,
+    Lock,
     Loader2,
     Mail,
+    MapPin,
     Phone,
     Pill,
     RefreshCw,
+    Ruler,
+    Scale,
     User,
 } from 'lucide-react';
 import { doctorApi } from '@/lib/api';
@@ -39,6 +43,44 @@ interface ConsultationRecord {
     diagnosis?: string;
     notes?: string;
     prescriptions?: Array<Record<string, unknown>>;
+}
+
+interface SharedConsultationRecord {
+    id: string;
+    created_at?: string;
+    status?: string;
+    diagnosis?: string;
+    notes?: string;
+    doctor?: {
+        id?: string;
+        name?: string;
+        specialization?: string;
+    };
+    appointment?: {
+        appointment_date?: string;
+        time_slot?: string;
+        type?: string;
+    };
+}
+
+interface SharedPrescriptionRecord {
+    id: string;
+    diagnosis?: string;
+    notes?: string;
+    status?: string;
+    created_at?: string;
+    doctor?: {
+        id?: string;
+        name?: string;
+        specialization?: string;
+    };
+    prescription_medicines?: Array<{
+        id?: string;
+        medicine_name?: string;
+        dosage?: string;
+        frequency?: string;
+        duration?: string;
+    }>;
 }
 
 interface ReportRecord {
@@ -70,6 +112,13 @@ interface VitalRecord {
     notes?: string;
 }
 
+interface RecordAccessMeta {
+    hasFullHistoryAccess?: boolean;
+    grantedAt?: string | null;
+    expiresAt?: string | null;
+    reportVisibility?: 'all' | 'shared_only' | 'none' | string;
+}
+
 interface PatientRecord {
     id: string;
     name: string;
@@ -77,6 +126,9 @@ interface PatientRecord {
     gender?: string;
     blood_group?: string;
     date_of_birth?: string;
+    weight?: number;
+    height?: number;
+    address?: string;
     profile_image_url?: string;
     email?: string;
     phone?: string;
@@ -84,7 +136,10 @@ interface PatientRecord {
     lastVisit?: string;
     appointments?: AppointmentRecord[];
     consultations?: ConsultationRecord[];
+    sharedConsultations?: SharedConsultationRecord[];
+    sharedPrescriptions?: SharedPrescriptionRecord[];
     reports?: ReportRecord[];
+    recordAccess?: RecordAccessMeta;
 }
 
 function formatDate(value?: string, includeTime = false) {
@@ -167,7 +222,10 @@ export default function DoctorPatientRecordPage() {
 
     const recentAppointments = useMemo(() => record?.appointments || [], [record]);
     const consultations = useMemo(() => record?.consultations || [], [record]);
+    const sharedConsultations = useMemo(() => record?.sharedConsultations || [], [record]);
+    const sharedPrescriptions = useMemo(() => record?.sharedPrescriptions || [], [record]);
     const reports = useMemo(() => record?.reports || [], [record]);
+    const recordAccess = record?.recordAccess;
     const patientLabel = record?.name || 'Patient';
 
     if (isLoading) {
@@ -212,7 +270,7 @@ export default function DoctorPatientRecordPage() {
                         Back to patient list
                     </button>
                     <h1 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">{patientLabel}</h1>
-                    <p className="mt-1 text-gray-600 dark:text-gray-400">A complete view of consultations, reports, visits, and vitals for this patient.</p>
+                    <p className="mt-1 text-gray-600 dark:text-gray-400">Core profile details are always visible. Older history from other doctors stays patient-controlled and only opens after time-limited patient approval.</p>
                 </div>
                 <Button variant="outline" onClick={() => void loadRecord(true)} leftIcon={<RefreshCw className="h-4 w-4" />} isLoading={isRefreshing}>
                     Refresh record
@@ -242,6 +300,9 @@ export default function DoctorPatientRecordPage() {
                                 <span className="flex items-center gap-2"><Mail className="h-4 w-4 text-cyan-300" />{record.email || 'Email not recorded'}</span>
                                 <span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-cyan-300" />Last visit: {formatDate(record.lastVisit)}</span>
                                 <span className="flex items-center gap-2"><User className="h-4 w-4 text-cyan-300" />DOB: {formatDate(record.date_of_birth)}</span>
+                                <span className="flex items-center gap-2"><Scale className="h-4 w-4 text-cyan-300" />Weight: {record.weight ? `${record.weight} kg` : 'Not recorded'}</span>
+                                <span className="flex items-center gap-2"><Ruler className="h-4 w-4 text-cyan-300" />Height: {record.height ? `${record.height} cm` : 'Not recorded'}</span>
+                                <span className="flex items-center gap-2 sm:col-span-2"><MapPin className="h-4 w-4 text-cyan-300" />{record.address || 'Location not recorded'}</span>
                             </div>
                         </div>
                     </div>
@@ -406,8 +467,122 @@ export default function DoctorPatientRecordPage() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
+                                <CardTitle>Patient-Approved Medical History</CardTitle>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    Historical records from other doctors only appear after patient consent during the consultation flow.
+                                </p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-medium ${recordAccess?.hasFullHistoryAccess ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'}`}>
+                                {recordAccess?.hasFullHistoryAccess ? 'Approved' : 'Locked'}
+                            </span>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {recordAccess?.hasFullHistoryAccess ? (
+                                <>
+                                    <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-4 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:text-emerald-200">
+                                        Patient-approved access is active{recordAccess.expiresAt ? ` until ${formatDate(recordAccess.expiresAt, true)}` : ''}. Core profile details remain visible even after this shared-history window ends.
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Other Consultation History</p>
+                                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300">
+                                                {sharedConsultations.length} records
+                                            </span>
+                                        </div>
+                                        {sharedConsultations.length === 0 ? (
+                                            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                                No prior consultations from other doctors are available.
+                                            </p>
+                                        ) : sharedConsultations.map((consultation) => (
+                                            <div key={consultation.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                            {consultation.doctor?.name ? `Dr. ${consultation.doctor.name}` : 'Doctor not recorded'}
+                                                            {consultation.doctor?.specialization ? ` • ${consultation.doctor.specialization}` : ''}
+                                                        </p>
+                                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                            {formatDate(consultation.appointment?.appointment_date || consultation.created_at, true)}
+                                                        </p>
+                                                    </div>
+                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(consultation.status)}`}>
+                                                        {formatStatus(consultation.status)}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                                    {consultation.diagnosis || consultation.notes || 'No diagnosis or notes were recorded for this consultation.'}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Other Prescriptions</p>
+                                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300">
+                                                {sharedPrescriptions.length} records
+                                            </span>
+                                        </div>
+                                        {sharedPrescriptions.length === 0 ? (
+                                            <p className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                                No prior prescriptions from other doctors are available.
+                                            </p>
+                                        ) : sharedPrescriptions.map((prescription) => (
+                                            <div key={prescription.id} className="rounded-2xl border border-gray-200/80 p-4 dark:border-gray-700">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                            {prescription.doctor?.name ? `Dr. ${prescription.doctor.name}` : 'Doctor not recorded'}
+                                                            {prescription.doctor?.specialization ? ` • ${prescription.doctor.specialization}` : ''}
+                                                        </p>
+                                                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDate(prescription.created_at, true)}</p>
+                                                    </div>
+                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses(prescription.status)}`}>
+                                                        {formatStatus(prescription.status)}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                                                    {prescription.diagnosis || prescription.notes || 'No diagnosis or notes were recorded for this prescription.'}
+                                                </p>
+                                                {prescription.prescription_medicines && prescription.prescription_medicines.length > 0 ? (
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {prescription.prescription_medicines.slice(0, 4).map((medicine, index) => (
+                                                            <span key={`${prescription.id}-${medicine.id || index}`} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                                                                {medicine.medicine_name || 'Medicine'}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-amber-200 bg-amber-50/60 p-5 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">
+                                    <div className="flex items-start gap-3">
+                                        <Lock className="mt-0.5 h-5 w-5 shrink-0" />
+                                        <div className="space-y-2">
+                                            <p className="font-semibold">Patient approval is required for past medical history.</p>
+                                            <p>
+                                                Ask the patient to use the consultation screen to share 24-hour access to past reports, prescriptions, and older consultations. Until then, you only see the core profile and any reports the patient shared individually.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
                                 <CardTitle>Reports</CardTitle>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Recent reports and lab documents connected to this patient.</p>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    {recordAccess?.hasFullHistoryAccess
+                                        ? 'Patient-approved reports and lab documents.'
+                                        : 'Only individually shared reports are visible until the patient grants full record access.'}
+                                </p>
                             </div>
                             <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
                                 {reports.length} files

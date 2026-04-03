@@ -37,5 +37,6 @@
 \i 022_hospital_doctor_invites.sql
 \i 023_clinic_doctor_invites.sql
 \i 024_facility_provider_associations.sql
+\i 025_patient_record_access.sql
 
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

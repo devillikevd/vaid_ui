@@ -259,6 +259,21 @@ data class UpdateProfileRequest(
     val location: String? = null
 )
 
+data class MedicalRecordAccessDto(
+    @SerializedName("appointmentId")
+    val appointmentId: String,
+    @SerializedName("doctorId")
+    val doctorId: String,
+    @SerializedName("doctorName")
+    val doctorName: String,
+    @SerializedName("hasAccess")
+    val hasAccess: Boolean,
+    @SerializedName("grantedAt")
+    val grantedAt: String? = null,
+    @SerializedName("expiresAt")
+    val expiresAt: String? = null
+)
+
 data class PatientDashboardResponse(
     val success: Boolean,
     val reminders: List<ReminderDto>?,

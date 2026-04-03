@@ -213,11 +213,10 @@ fun ProfileTabContent(
     if (showEditProfileDialog || showPersonalInfoDialog) {
         EditProfileDialog(
             profile = profile,
+            saveState = viewModel?.profileUpdateState?.collectAsState()?.value ?: ProfileUpdateState.Idle,
             onDismiss = { showEditProfileDialog = false; showPersonalInfoDialog = false },
             onSave = { request ->
                 viewModel?.updateProfile(request)
-                showEditProfileDialog = false
-                showPersonalInfoDialog = false
             }
         )
     }
@@ -347,6 +346,8 @@ fun ProfileTabContent(
                     (updateState.value as ProfileUpdateState.Success).message,
                     Toast.LENGTH_SHORT
                 ).show()
+                showEditProfileDialog = false
+                showPersonalInfoDialog = false
                 viewModel?.resetProfileUpdateState()
             }
             is ProfileUpdateState.Error -> {

@@ -6,6 +6,42 @@ const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
+const getActivePatientRecordGrant = async (patientId, doctorId) => {
+  const nowIso = new Date().toISOString();
+  const { data: grant } = await supabaseAdmin
+    .from('patient_record_access')
+    .select('*')
+    .eq('patient_id', patientId)
+    .eq('doctor_id', doctorId)
+    .maybeSingle();
+
+  if (!grant) return null;
+  if (grant.status !== 'active') return null;
+
+  if (grant.expires_at && new Date(grant.expires_at).getTime() <= Date.now()) {
+    await supabaseAdmin
+      .from('patient_record_access')
+      .update({ status: 'expired', updated_at: nowIso })
+      .eq('id', grant.id);
+    return null;
+  }
+
+  return grant;
+};
+
+const getExplicitlySharedReports = async (patientId, doctorId) => {
+  const { data, error } = await supabaseAdmin
+    .from('reports')
+    .select('*, report_shares!inner(doctor_id, shared_at)')
+    .eq('patient_id', patientId)
+    .eq('report_shares.doctor_id', doctorId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) throw error;
+  return data || [];
+};
+
 const DAY_NAME_TO_INDEX = {
   sunday: 0,
   monday: 1,
@@ -953,11 +989,16 @@ class DoctorService {
       throw new ApiError(403, 'You can only view details of your patients');
     }
 
+    const grant = await getActivePatientRecordGrant(patientId, doctor.id);
+
     const [
       { data: patient },
       { data: consultations },
-      { data: reports },
       { data: appointments },
+      { data: sharedConsultations },
+      { data: sharedPrescriptions },
+      fullHistoryReportsResult,
+      explicitlySharedReports,
     ] = await Promise.all([
       supabaseAdmin
         .from('patients')
@@ -977,22 +1018,62 @@ class DoctorService {
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false }),
       supabaseAdmin
-        .from('reports')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('date', { ascending: false })
-        .limit(10),
-      supabaseAdmin
         .from('appointments')
         .select('id, appointment_date, time_slot, type, status, reason, fee, notes, created_at')
         .eq('doctor_id', doctor.id)
         .eq('patient_id', patientId)
         .order('appointment_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false }),
+      grant
+        ? supabaseAdmin
+          .from('consultations')
+          .select(`
+            id,
+            created_at,
+            status,
+            diagnosis,
+            notes,
+            doctor:doctors(id, name, specialization, profile_image_url),
+            appointment:appointments(id, appointment_date, time_slot, type)
+          `)
+          .eq('patient_id', patientId)
+          .neq('doctor_id', doctor.id)
+          .order('created_at', { ascending: false })
+          .limit(12)
+        : Promise.resolve({ data: [] }),
+      grant
+        ? supabaseAdmin
+          .from('prescriptions')
+          .select(`
+            id,
+            diagnosis,
+            notes,
+            status,
+            created_at,
+            doctor:doctors(id, name, specialization, profile_image_url),
+            prescription_medicines(*)
+          `)
+          .eq('patient_id', patientId)
+          .neq('doctor_id', doctor.id)
+          .order('created_at', { ascending: false })
+          .limit(12)
+        : Promise.resolve({ data: [] }),
+      grant
+        ? supabaseAdmin
+          .from('reports')
+          .select('*')
+          .eq('patient_id', patientId)
+          .order('created_at', { ascending: false })
+          .limit(10)
+        : Promise.resolve({ data: [] }),
+      grant ? Promise.resolve([]) : getExplicitlySharedReports(patientId, doctor.id),
     ]);
 
     const totalVisits = appointments?.length || 0;
     const lastVisit = appointments?.[0]?.appointment_date || appointments?.[0]?.created_at || null;
+    const visibleReports = grant
+      ? (fullHistoryReportsResult?.data || [])
+      : explicitlySharedReports;
 
     return {
       ...patient,
@@ -1002,7 +1083,15 @@ class DoctorService {
       lastVisit,
       appointments: appointments || [],
       consultations: consultations || [],
-      reports: reports || [],
+      sharedConsultations: sharedConsultations || [],
+      sharedPrescriptions: sharedPrescriptions || [],
+      reports: visibleReports || [],
+      recordAccess: {
+        hasFullHistoryAccess: Boolean(grant),
+        grantedAt: grant?.granted_at || null,
+        expiresAt: grant?.expires_at || null,
+        reportVisibility: grant ? 'all' : ((visibleReports || []).length > 0 ? 'shared_only' : 'none'),
+      },
     };
   }
 }

@@ -1611,13 +1611,21 @@ const getSystemHealth = async () => {
 };
 
 // Valid emergency status transitions
+const CANONICAL_EMERGENCY_STATUS_MAP = {
+  active: 'pending',
+  accepted: 'assigned',
+  dispatched: 'assigned',
+  en_route_pickup: 'en_route',
+  arrived_pickup: 'arrived',
+  patient_onboard: 'picked_up',
+};
+
+const toCanonicalEmergencyStatus = (status) => CANONICAL_EMERGENCY_STATUS_MAP[status] || status;
+
 const EMERGENCY_STATUS_TRANSITIONS = {
-  pending: ['broadcasting', 'assigned', 'dispatched', 'cancelled', 'no_ambulance'],
-  broadcasting: ['assigned', 'dispatched', 'timeout', 'cancelled', 'no_ambulance'],
-  assigned: ['dispatched', 'en_route', 'cancelled'],
-  accepted: ['en_route', 'cancelled'],
-  dispatched: ['en_route', 'cancelled'],
-  en_route_pickup: ['arrived', 'picked_up', 'cancelled'],
+  pending: ['broadcasting', 'assigned', 'cancelled', 'no_ambulance'],
+  broadcasting: ['assigned', 'timeout', 'cancelled', 'no_ambulance'],
+  assigned: ['en_route', 'cancelled'],
   en_route: ['arrived', 'picked_up', 'cancelled'],
   arrived: ['picked_up', 'completed', 'cancelled'],
   picked_up: ['en_route_hospital', 'completed', 'cancelled'],
@@ -1639,14 +1647,17 @@ const updateEmergencyStatus = async (emergencyId, status, adminId) => {
 
   if (fetchError || !current) throw new ApiError(404, 'Emergency request not found');
 
-  const allowed = EMERGENCY_STATUS_TRANSITIONS[current.status] || [];
-  if (!allowed.includes(status)) {
+  const currentStatus = toCanonicalEmergencyStatus(current.status);
+  const nextStatus = toCanonicalEmergencyStatus(status);
+
+  const allowed = EMERGENCY_STATUS_TRANSITIONS[currentStatus] || [];
+  if (!allowed.includes(nextStatus)) {
     throw new ApiError(400, `Cannot transition emergency from '${current.status}' to '${status}'`);
   }
 
   const { data, error } = await supabaseAdmin
     .from('emergency_requests')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
     .eq('id', emergencyId)
     .select('*')
     .single();
@@ -1659,10 +1670,10 @@ const updateEmergencyStatus = async (emergencyId, status, adminId) => {
     action: 'emergency.status_update',
     entityType: 'emergency_request',
     entityId: emergencyId,
-    details: { from: current.status, to: status },
+    details: { from: current.status, to: nextStatus },
   });
 
-  return { data, message: `Emergency status updated to '${status}'` };
+  return { data, message: `Emergency status updated to '${nextStatus}'` };
 };
 
 module.exports = {

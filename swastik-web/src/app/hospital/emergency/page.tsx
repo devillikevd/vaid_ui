@@ -65,6 +65,20 @@ const CANONICAL_STATUS_MAP: Record<string, string> = {
 
 const toCanonicalStatus = (status: string) => CANONICAL_STATUS_MAP[status] || status;
 
+const canAssignEmergency = (emergency: DispatchEmergency) =>
+    PENDING_STATUSES.includes(toCanonicalStatus(emergency.status)) && !emergency.ambulance;
+
+const formatEmergencyLocation = (emergency: DispatchEmergency) => {
+    const rawLocation = emergency.location?.trim();
+    if (rawLocation && !/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/.test(rawLocation)) {
+        return rawLocation;
+    }
+    if (Number.isFinite(emergency.latitude) && Number.isFinite(emergency.longitude)) {
+        return `Live GPS • ${emergency.latitude?.toFixed(5)}, ${emergency.longitude?.toFixed(5)}`;
+    }
+    return rawLocation || 'Live GPS location';
+};
+
 const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
     pending: { color: 'bg-red-100 text-red-700', label: 'PENDING', icon: '🔴' },
     broadcasting: { color: 'bg-orange-100 text-orange-700', label: 'BROADCASTING', icon: '📡' },
@@ -207,7 +221,7 @@ export default function HospitalEmergencyPage() {
                     title: e.patientName,
                     popup: `${e.type || 'Emergency'} • ${STATUS_CONFIG[toCanonicalStatus(e.status)]?.label || toCanonicalStatus(e.status)}`,
                     color: e.priority === 'critical' ? '#DC2626' : e.priority === 'high' ? '#F59E0B' : '#3B82F6',
-                    pulse: PENDING_STATUSES.includes(e.status),
+                    pulse: PENDING_STATUSES.includes(toCanonicalStatus(e.status)),
                 });
             }
         const ambulanceLat = e.ambulance?.latitude;
@@ -372,7 +386,7 @@ export default function HospitalEmergencyPage() {
                                                 </div>
                                                 <p className="text-sm text-red-600 font-medium mt-1">{e.type}</p>
                                                 <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                                    {e.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{e.location}</span>}
+                                                    <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{formatEmergencyLocation(e)}</span>
                                                     {e.patientPhone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{e.patientPhone}</span>}
                                                     <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatTimeAgo(e.createdAt)}</span>
                                                 </div>
@@ -391,13 +405,13 @@ export default function HospitalEmergencyPage() {
 
                                         {/* Action Buttons */}
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            {e.status === 'pending' && !e.ambulance && (
+                                            {canAssignEmergency(e) && (
                                                 <button
                                                     onClick={() => handleSelectForAssign(e)}
                                                     className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                                                 >
                                                     <Ambulance className="h-3.5 w-3.5" />
-                                                    <span>Assign Ambulance</span>
+                                                    <span>{toCanonicalStatus(e.status) === 'broadcasting' ? 'Assign Manually' : 'Assign Ambulance'}</span>
                                                 </button>
                                             )}
                                             {e.patientPhone && (

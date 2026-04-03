@@ -95,6 +95,21 @@ interface ApiService {
     suspend fun getAppointmentDetails(
         @Path("id") id: String
     ): Response<ApiResponse<Appointment>>
+
+    @GET("patients/appointments/{id}/record-access")
+    suspend fun getMedicalRecordAccess(
+        @Path("id") id: String
+    ): Response<ApiResponse<MedicalRecordAccessDto>>
+
+    @POST("patients/appointments/{id}/record-access")
+    suspend fun grantMedicalRecordAccess(
+        @Path("id") id: String
+    ): Response<ApiResponse<MedicalRecordAccessDto>>
+
+    @HTTP(method = "DELETE", path = "patients/appointments/{id}/record-access", hasBody = false)
+    suspend fun revokeMedicalRecordAccess(
+        @Path("id") id: String
+    ): Response<ApiResponse<MedicalRecordAccessDto>>
     
     @GET("patients/prescriptions")
     suspend fun getPatientPrescriptions(
