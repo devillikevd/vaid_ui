@@ -9,6 +9,7 @@ import com.example.swastik.data.local.db.NotificationDao
 import com.example.swastik.data.local.db.PrescriptionDao
 import com.example.swastik.data.local.db.CachedNotification
 import com.example.swastik.data.local.db.CachedPrescription
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.notifications.resolvePatientNotificationDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -112,12 +113,20 @@ class PatientRepository @Inject constructor(
                     if (dashboardData.upcomingAppointments != null) {
                         upcomingAppointments = dashboardData.upcomingAppointments.map { it.toAppointment() }
                     }
-
+                    
                     // Update Recommended Doctors from smart recommendation engine
                     if (dashboardData.recommendedDoctors != null) {
                         _recommendedDoctors.value = dashboardData.recommendedDoctors.map { it.toDoctor() }
                         Log.d("PatientRepository", "Loaded ${dashboardData.recommendedDoctors.size} recommended doctors")
                     }
+                }
+            }
+
+            if (_recommendedDoctors.value.isEmpty()) {
+                when (val recommendedResult = fetchRecommendedDoctors(limit = 8)) {
+                    is Result.Success -> _recommendedDoctors.value = recommendedResult.data
+                    is Result.Error -> Log.w("PatientRepository", "Recommended doctors fallback failed: ${recommendedResult.message}")
+                    is Result.Loading -> Unit
                 }
             }
 
@@ -137,9 +146,9 @@ class PatientRepository @Inject constructor(
                 if (apiNotifications != null) {
                     val uiNotifications = apiNotifications.map { notification ->
                         notification.toDomainNotification()
-                    }
+                    }.filter(::shouldShowNotification)
                     _notifications.value = uiNotifications
-                    unreadNotifications = apiNotifications.count { !it.isRead }
+                    unreadNotifications = uiNotifications.count { !it.isRead }
                     // Cache notifications
                     try {
                         val cached = apiNotifications.map { it.toCachedNotification() }
@@ -154,9 +163,9 @@ class PatientRepository @Inject constructor(
                 try {
                     val cached = notificationDao.getAllNotificationsSync()
                     if (cached.isNotEmpty()) {
-                        val uiNotifications = cached.map { it.toDomainNotification() }
+                        val uiNotifications = cached.map { it.toDomainNotification() }.filter(::shouldShowNotification)
                         _notifications.value = uiNotifications
-                        unreadNotifications = cached.count { !it.isRead }
+                        unreadNotifications = uiNotifications.count { !it.isRead }
                     }
                 } catch (_: Exception) {}
             }
@@ -220,7 +229,7 @@ class PatientRepository @Inject constructor(
                 if (apiNotifications != null) {
                     val uiNotifications = apiNotifications.notifications.map { notification ->
                         notification.toDomainNotification()
-                    }
+                    }.filter(::shouldShowNotification)
                     _notifications.value = uiNotifications
                     // Update cache
                     try {
@@ -236,7 +245,7 @@ class PatientRepository @Inject constructor(
                 try {
                     val cached = notificationDao.getAllNotificationsSync()
                     if (cached.isNotEmpty()) {
-                        _notifications.value = cached.map { it.toDomainNotification() }
+                        _notifications.value = cached.map { it.toDomainNotification() }.filter(::shouldShowNotification)
                     }
                 } catch (_: Exception) {}
             }
@@ -258,7 +267,12 @@ class PatientRepository @Inject constructor(
             actionLabel = destination.actionLabel,
             actionRoute = destination.route
         )
+        if (!shouldShowNotification(realtimeItem)) return
         _notifications.value = listOf(realtimeItem) + _notifications.value.filterNot { it.id == realtimeItem.id }
+    }
+
+    fun updateReminderSnapshot(reminderDtos: List<ReminderDto>) {
+        _reminders.value = reminderDtos.map { it.toReminder() }
     }
 
     /**
@@ -691,6 +705,19 @@ class PatientRepository @Inject constructor(
         }
     }
 
+    private suspend fun fetchRecommendedDoctors(limit: Int = 8): Result<List<Doctor>> {
+        return try {
+            val response = apiService.getRecommendedDoctors(limit)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data?.map { it.toDoctor() } ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to load recommended doctors")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     private fun calculateAge(dob: String?): Int {
         if (dob.isNullOrBlank()) return 0
         return try {
@@ -868,7 +895,20 @@ class PatientRepository @Inject constructor(
             "medicine", "medicine_reminder", "medicine_missed", "health_task_reminder", "care_plan_reminder" -> NotificationType.MEDICINE_REMINDER
             "report", "report_ready", "report_uploaded", "diagnostic_result", "diagnostic_test_reminder", "report_review_reminder" -> NotificationType.REPORT_READY
             "prescription", "prescription_created", "prescription_expiry_reminder" -> NotificationType.PRESCRIPTION
+            "offer", "promotion", "promo", "discount" -> NotificationType.OFFER
             else -> NotificationType.SYSTEM
+        }
+    }
+
+    private fun shouldShowNotification(notification: NotificationItem): Boolean {
+        val preferences = AppSettingsStore.settings.value.notificationPreferences
+        return when (notification.type) {
+            NotificationType.APPOINTMENT -> preferences.appointments
+            NotificationType.MEDICINE_REMINDER -> preferences.medicines
+            NotificationType.REPORT_READY,
+            NotificationType.PRESCRIPTION -> preferences.reports
+            NotificationType.OFFER -> preferences.promotions
+            NotificationType.SYSTEM -> true
         }
     }
 

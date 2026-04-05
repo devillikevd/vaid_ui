@@ -24,6 +24,11 @@ interface Consultation {
 }
 
 const PAGE_SIZE = 10;
+const CONSULTATION_STATUS_OPTIONS = [
+    { value: '', label: 'All Statuses' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+];
 
 export default function HospitalConsultationsPage() {
     const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -141,13 +146,11 @@ export default function HospitalConsultationsPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             className="w-full bg-transparent focus:outline-none"
                         >
-                            <option value="">All Statuses</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="waiting">Waiting</option>
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
+                            {CONSULTATION_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value || 'all'} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">

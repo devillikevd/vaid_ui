@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.VitalType
 import com.example.swastik.data.remote.dto.*
+import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.VitalsRepository
 import com.example.swastik.data.repository.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +33,8 @@ data class VitalsUiState(
 
 @HiltViewModel
 class VitalsViewModel @Inject constructor(
-    private val repository: VitalsRepository
+    private val repository: VitalsRepository,
+    private val patientRepository: PatientRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(VitalsUiState())
@@ -96,6 +98,7 @@ class VitalsViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = repository.getReminders(type, isActive = true)) {
                 is Result.Success -> {
+                    patientRepository.updateReminderSnapshot(result.data)
                     _uiState.value = _uiState.value.copy(reminders = result.data)
                 }
                 is Result.Error -> {

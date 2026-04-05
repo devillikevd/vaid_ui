@@ -3,7 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import {
     ShoppingCart, Search, Loader2, RefreshCw, CheckCircle, XCircle,
-    AlertCircle, Package, Bell, MapPin, Clock, IndianRupee, ChevronDown, ChevronUp,
+    AlertCircle, Package, Bell, MapPin, Clock, IndianRupee, ChevronDown, ChevronUp, Send,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -196,7 +196,12 @@ export default function PharmacyOrdersPage() {
                                                     <CheckCircle className="h-4 w-4" />
                                                 </button>
                                             ) : null}
-                                            {['ready', 'dispatched'].includes(order.status) ? (
+                                            {order.status === 'ready' ? (
+                                                <button onClick={() => void handleStatus(order.id, 'dispatched')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-purple-600 hover:bg-purple-50" title="Dispatch Order">
+                                                    <Send className="h-4 w-4" />
+                                                </button>
+                                            ) : null}
+                                            {order.status === 'dispatched' ? (
                                                 <button onClick={() => void handleStatus(order.id, 'delivered')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-green-600 hover:bg-green-50" title="Mark Delivered">
                                                     <CheckCircle className="h-4 w-4" />
                                                 </button>

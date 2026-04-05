@@ -19,6 +19,8 @@ export default function DoctorAppointmentsPage() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
     const [page, setPage] = useState(1);
+    const [cancelAppointmentId, setCancelAppointmentId] = useState<string | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
 
     const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
 
@@ -53,7 +55,7 @@ export default function DoctorAppointmentsPage() {
     const handleStartConsultation = async (appointmentId: string) => {
         setActionLoading(appointmentId);
         const result = await startConsultation(appointmentId);
-        if (result && typeof result === 'string' && result !== 'started') {
+        if (result && typeof result === 'string') {
             router.push(`/consultation/${result}`);
         }
         setActionLoading(null);
@@ -66,11 +68,18 @@ export default function DoctorAppointmentsPage() {
     };
 
     const handleCancel = async (appointmentId: string) => {
-        const reason = prompt('Reason for cancellation (optional):');
-        if (reason === null) return; // user pressed Cancel
+        setCancelAppointmentId(appointmentId);
+        setCancelReason('');
+    };
+
+    const confirmCancel = async () => {
+        if (!cancelAppointmentId) return;
+        const appointmentId = cancelAppointmentId;
         setActionLoading(appointmentId);
-        await cancelAppointment(appointmentId, reason || undefined);
+        await cancelAppointment(appointmentId, cancelReason.trim() || undefined);
         setActionLoading(null);
+        setCancelAppointmentId(null);
+        setCancelReason('');
     };
 
     if (isLoading && appointments.length === 0) {
@@ -88,6 +97,7 @@ export default function DoctorAppointmentsPage() {
     }
 
     return (
+        <>
         <div className="space-y-6">
             {/* Real-time Alert */}
             {newApptAlert && (
@@ -169,5 +179,57 @@ export default function DoctorAppointmentsPage() {
                 />
             </Card>
         </div>
+        {cancelAppointmentId && (
+            <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={(event) => {
+                    if (event.target === event.currentTarget && actionLoading !== cancelAppointmentId) {
+                        setCancelAppointmentId(null);
+                        setCancelReason('');
+                    }
+                }}
+            >
+                <Card className="w-full max-w-md">
+                    <div className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Cancel Appointment</h2>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Add an optional reason so the patient has more context in their appointment updates.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Cancellation Reason</label>
+                            <textarea
+                                value={cancelReason}
+                                onChange={(event) => setCancelReason(event.target.value)}
+                                rows={4}
+                                placeholder="Optional reason for cancellation"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setCancelAppointmentId(null);
+                                    setCancelReason('');
+                                }}
+                                disabled={actionLoading === cancelAppointmentId}
+                            >
+                                Keep Appointment
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={confirmCancel}
+                                isLoading={actionLoading === cancelAppointmentId}
+                            >
+                                Cancel Appointment
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        )}
+        </>
     );
 }

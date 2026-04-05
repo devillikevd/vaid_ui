@@ -53,7 +53,7 @@ export default function DiagnosticCenterSettingsPage() {
                     home_collection_available: d.home_collection_available ?? false,
                     home_collection_fee: d.home_collection_fee?.toString() || '',
                     is_24_hours: d.is_24_hours ?? false,
-                    profileImage: d.image_url || d.profile_image || null,
+                    profileImage: d.image_url || d.profile_image_url || d.profile_image || d.profileImage || d.avatar_url || null,
                     latitude: d.latitude ?? null,
                     longitude: d.longitude ?? null,
                 });

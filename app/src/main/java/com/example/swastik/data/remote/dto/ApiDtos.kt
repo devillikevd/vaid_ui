@@ -92,7 +92,10 @@ data class HealthCardStatusResponse(
 data class ChatSession(
     val id: String? = null,
     val sessionId: String,
-    val message: String? = null
+    val message: String? = null,
+    @SerializedName("lastMessage") val lastMessage: String? = null,
+    val updatedAt: String? = null,
+    val messageCount: Int? = null
 )
 
 data class ChatMessage(

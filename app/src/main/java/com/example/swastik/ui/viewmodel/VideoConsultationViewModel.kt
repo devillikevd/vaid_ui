@@ -128,6 +128,7 @@ class VideoConsultationViewModel @Inject constructor(
     private var pendingAppointmentId: String? = null
     private var currentAppointmentId: String? = null
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
+    private var callDurationJob: kotlinx.coroutines.Job? = null
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -239,6 +240,7 @@ class VideoConsultationViewModel @Inject constructor(
                             isConnecting = false,
                             consultationCompleted = false
                         )
+                        startCallDurationTimer()
                         publishModeConstraintIfNeeded()
                         applyEffectiveMediaState()
                         startNetworkQualityMonitor()
@@ -282,8 +284,37 @@ class VideoConsultationViewModel @Inject constructor(
 
             // Initialize and start
             initialize()
-            startLocalMedia()
+            val localVideoTrack = try {
+                startLocalMedia()
+            } catch (mediaError: Exception) {
+                android.util.Log.w("VideoConsultationVM", "Local media fallback to audio-only: ${mediaError.message}")
+                null
+            }
             createPeerConnection()
+
+            if (localVideoTrack == null) {
+                userPreferredMode = ConsultationMode.AUDIO
+                localBandwidthMode = ConsultationMode.AUDIO
+                applyEffectiveMediaState(
+                    banner = "Camera unavailable — switched to Audio-only mode",
+                    clearDelayMs = 4000
+                )
+            }
+        }
+    }
+
+    private fun startCallDurationTimer() {
+        if (callDurationJob?.isActive == true) return
+
+        callDurationJob = viewModelScope.launch {
+            while (isActive && _uiState.value.session != null && !_uiState.value.consultationCompleted) {
+                kotlinx.coroutines.delay(1000)
+                if (_uiState.value.isConnected) {
+                    _uiState.value = _uiState.value.copy(
+                        callDuration = _uiState.value.callDuration + 1
+                    )
+                }
+            }
         }
     }
 
@@ -378,6 +409,14 @@ class VideoConsultationViewModel @Inject constructor(
      * Manually switch consultation mode (user override).
      */
     fun switchMode(mode: ConsultationMode) {
+        if (mode == ConsultationMode.VIDEO && _localVideoTrack.value == null) {
+            userPreferredMode = ConsultationMode.AUDIO
+            applyEffectiveMediaState(
+                banner = "Camera unavailable — staying in Audio-only mode",
+                clearDelayMs = 4000
+            )
+            return
+        }
         userPreferredMode = mode
         applyEffectiveMediaState()
     }
@@ -449,7 +488,23 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun handleConsultationEnded(event: ConsultationEndedEvent) {
-        val session = _uiState.value.session ?: return
+        val session = _uiState.value.session
+        if (session == null) {
+            val pendingId = pendingAppointmentId
+            if (!pendingId.isNullOrBlank() && event.appointmentId == pendingId) {
+                pendingAppointmentId = null
+                pendingJoinRetryJob?.cancel()
+                releaseWebRTC()
+                _uiState.value = _uiState.value.copy(
+                    isConnecting = false,
+                    isWaitingForDoctor = false,
+                    consultationCompleted = false,
+                    modeBanner = null,
+                    error = "Doctor ended the consultation before you could join."
+                )
+            }
+            return
+        }
         val activeConsultationId = session.consultationId.ifEmpty { session.sessionId }
         if (event.consultationId != activeConsultationId) return
 
@@ -606,7 +661,9 @@ class VideoConsultationViewModel @Inject constructor(
                 isConnecting = true,
                 isWaitingForDoctor = false,
                 error = null,
-                consultationCompleted = false
+                consultationCompleted = false,
+                callDuration = 0L,
+                modeBanner = null
             )
 
             when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
@@ -642,7 +699,8 @@ class VideoConsultationViewModel @Inject constructor(
             session = session,
             consultationCompleted = false,
             error = null,
-            modeBanner = null
+            modeBanner = null,
+            callDuration = 0L
         )
 
         // Join signaling/chat rooms only after the session is present in state.
@@ -664,7 +722,8 @@ class VideoConsultationViewModel @Inject constructor(
             isWaitingForDoctor = true,
             error = null,
             session = null,
-            modeBanner = "Waiting for the doctor to start the consultation"
+            modeBanner = "Waiting for the doctor to start the consultation",
+            callDuration = 0L
         )
     }
 
@@ -723,6 +782,14 @@ class VideoConsultationViewModel @Inject constructor(
      * Toggle camera.
      */
     fun toggleCamera() {
+        if (_localVideoTrack.value == null) {
+            userPreferredMode = ConsultationMode.AUDIO
+            applyEffectiveMediaState(
+                banner = "Camera unavailable — staying in Audio-only mode",
+                clearDelayMs = 4000
+            )
+            return
+        }
         userPreferredMode = if (userPreferredMode == ConsultationMode.VIDEO) {
             ConsultationMode.AUDIO
         } else {
@@ -878,6 +945,8 @@ class VideoConsultationViewModel @Inject constructor(
     private fun releaseWebRTC() {
         networkMonitorJob?.cancel()
         networkMonitorJob = null
+        callDurationJob?.cancel()
+        callDurationJob = null
         vitalsStreamJob?.cancel()
         vitalsStreamJob = null
         vitalsWebSocket?.close(1000, "Consultation Ended")

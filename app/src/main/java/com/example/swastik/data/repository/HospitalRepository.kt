@@ -15,6 +15,8 @@ import com.example.swastik.data.remote.dto.DiagnosticCenterDto
 import com.example.swastik.data.remote.dto.PharmacyDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.utils.NavigationHelper
+import okhttp3.ResponseBody
+import org.json.JSONObject
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +33,19 @@ class HospitalRepository @Inject constructor(
 
     companion object {
         private const val TAG = "HospitalRepository"
+        private const val INVENTORY_PAGE_SIZE = 100
+    }
+
+    private fun parseApiErrorMessage(errorBody: ResponseBody?): String? {
+        return try {
+            val raw = errorBody?.string()?.trim().orEmpty()
+            if (raw.isBlank()) return null
+            val json = JSONObject(raw)
+            json.optString("message").ifBlank { null }
+                ?: json.optString("error").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -98,10 +113,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
+            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby pharmacies")
         } catch (e: Exception) {
             Log.w(TAG, "Network error for pharmacies: ${e.message}")
+            throw e
         }
-        return emptyList()
     }
 
     /**
@@ -134,10 +150,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
+            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby clinics")
         } catch (e: Exception) {
             Log.w(TAG, "Network error for clinics: ${e.message}")
+            throw e
         }
-        return emptyList()
     }
 
     /**
@@ -171,10 +188,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
+            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby diagnostic centers")
         } catch (e: Exception) {
             Log.w(TAG, "Network error for diagnostic centers: ${e.message}")
+            throw e
         }
-        return emptyList()
     }
 
     /**
@@ -336,11 +354,11 @@ class HospitalRepository @Inject constructor(
                     clinic.toMedicalFacility(latitude, longitude)
                 } ?: emptyList()
             } else {
-                emptyList()
+                throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to search clinics")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Clinic search failed: ${e.message}")
-            emptyList()
+            throw e
         }
     }
 
@@ -356,11 +374,11 @@ class HospitalRepository @Inject constructor(
                     pharmacy.toMedicalFacility(latitude, longitude)
                 } ?: emptyList()
             } else {
-                emptyList()
+                throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to search pharmacies")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Pharmacy search failed: ${e.message}")
-            emptyList()
+            throw e
         }
     }
 
@@ -376,11 +394,11 @@ class HospitalRepository @Inject constructor(
                     center.toMedicalFacility(latitude, longitude)
                 } ?: emptyList()
             } else {
-                emptyList()
+                throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to search diagnostic centers")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Diagnostic center search failed: ${e.message}")
-            emptyList()
+            throw e
         }
     }
 
@@ -419,13 +437,28 @@ class HospitalRepository @Inject constructor(
         category: String? = null
     ): List<PharmacyInventoryItemDto> {
         return try {
-            val response = apiService.getPharmacyInventory(pharmacyId, search, category)
-            if (response.isSuccessful) {
-                response.body()?.allItems ?: emptyList()
-            } else emptyList()
+            val items = mutableListOf<PharmacyInventoryItemDto>()
+            var page = 1
+
+            while (true) {
+                val response = apiService.getPharmacyInventory(pharmacyId, search, category, page, INVENTORY_PAGE_SIZE)
+                if (!response.isSuccessful) {
+                    throw Exception(parseApiErrorMessage(response.errorBody()) ?: "Failed to fetch pharmacy inventory")
+                }
+
+                val body = response.body()
+                val pageItems = body?.allItems.orEmpty()
+                items += pageItems
+
+                val totalPages = body?.pagination?.totalPages ?: page
+                if (page >= totalPages || pageItems.isEmpty()) break
+                page += 1
+            }
+
+            items
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch pharmacy inventory: ${e.message}")
-            emptyList()
+            throw e
         }
     }
 

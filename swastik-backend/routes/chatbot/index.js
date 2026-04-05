@@ -134,16 +134,48 @@ router.post('/analyze-symptoms',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    // Route through sendMessage so it gets session ownership + rate limiting
-    // Create a temporary session if none exists, or use a dedicated symptom session
-    const tempSession = await chatbotService.startSession(req.user.id);
-    const result = await chatbotService.sendMessage(
-      req.user.id,
-      tempSession.sessionId,
-      `I have these symptoms: ${req.body.symptoms}. Please analyze them.`,
-      { messageType: 'text', language: req.body.language || 'en' }
+    const rawSymptoms = Array.isArray(req.body.symptoms)
+      ? req.body.symptoms.join(', ')
+      : String(req.body.symptoms || '').trim();
+
+    const analysis = await chatbotService.analyzeSymptoms(
+      rawSymptoms,
+      req.body.language || 'en'
     );
-    res.json({ success: true, data: result });
+
+    const urgency = String(analysis?.urgency || '').toLowerCase();
+    const recommendedSpecialist = analysis?.recommendedSpecialist;
+    const recommendedSpecialties = recommendedSpecialist ? [recommendedSpecialist] : [];
+    const immediateSteps = Array.isArray(analysis?.immediateSteps) ? analysis.immediateSteps : [];
+    const warningSigns = Array.isArray(analysis?.warningSignsToWatch) ? analysis.warningSignsToWatch : [];
+
+    const severity = urgency === 'emergency'
+      ? 'critical'
+      : urgency === 'urgent'
+        ? 'high'
+        : urgency === 'routine'
+          ? 'low'
+          : 'medium';
+
+    const suggestions = [
+      ...immediateSteps,
+      ...warningSigns.map((sign) => `Watch for: ${sign}`),
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        possible_conditions: (analysis?.conditions || []).map((condition) => ({
+          name: condition?.name || 'Possible condition',
+          probability: condition?.probability || 'medium',
+          description: condition?.description || null,
+        })),
+        severity,
+        recommended_specialties: recommendedSpecialties,
+        suggestions,
+        seek_immediate_care: urgency === 'emergency' || urgency === 'urgent',
+      },
+    });
   })
 );
 

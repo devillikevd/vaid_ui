@@ -782,6 +782,8 @@ class PatientService {
       console.warn('[PatientService] reminder_actions persistence skipped:', persistErr.message);
     }
 
+    await cacheDel(`patient:dashboard:${userId}`);
+
     return {
       reminderId: reminder.id,
       action,
@@ -908,6 +910,8 @@ class PatientService {
       throw new ApiError(400, 'Failed to create reminder');
     }
 
+    await cacheDel(`patient:dashboard:${userId}`);
+
     return reminder;
   }
 
@@ -947,6 +951,8 @@ class PatientService {
       throw new ApiError(400, 'Failed to update reminder');
     }
 
+    await cacheDel(`patient:dashboard:${userId}`);
+
     return reminder;
   }
 
@@ -976,6 +982,8 @@ class PatientService {
     if (!deleted || deleted.length === 0) {
       throw new ApiError(404, 'Reminder not found');
     }
+
+    await cacheDel(`patient:dashboard:${userId}`);
 
     return { message: 'Reminder deleted successfully' };
   }

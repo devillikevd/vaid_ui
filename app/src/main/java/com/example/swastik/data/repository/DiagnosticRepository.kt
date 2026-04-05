@@ -2,6 +2,8 @@ package com.example.swastik.data.repository
 
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.dto.*
+import okhttp3.ResponseBody
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,6 +14,21 @@ import javax.inject.Singleton
 class DiagnosticRepository @Inject constructor(
     private val apiService: ApiService
 ) {
+    private companion object {
+        const val PAGE_SIZE = 50
+    }
+
+    private fun parseApiErrorMessage(errorBody: ResponseBody?): String? {
+        return try {
+            val raw = errorBody?.string()?.trim().orEmpty()
+            if (raw.isBlank()) return null
+            val json = JSONObject(raw)
+            json.optString("message").ifBlank { null }
+                ?: json.optString("error").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * Search diagnostic centers by city/keyword/test type.
@@ -82,12 +99,26 @@ class DiagnosticRepository @Inject constructor(
         page: Int = 1
     ): Result<List<DiagnosticTestDto>> {
         return try {
-            val response = apiService.getDiagnosticTests(centerId, search, category, page)
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
-            } else {
-                Result.Error("Failed to load tests")
+            val tests = mutableListOf<DiagnosticTestDto>()
+            var currentPage = page
+
+            while (true) {
+                val response = apiService.getDiagnosticTests(centerId, search, category, currentPage, PAGE_SIZE)
+                if (!response.isSuccessful || response.body()?.success != true) {
+                    val message = parseApiErrorMessage(response.errorBody()) ?: "Failed to load tests"
+                    return Result.Error(message)
+                }
+
+                val body = response.body()
+                val pageData = body?.data.orEmpty()
+                tests += pageData
+
+                val totalPages = body?.pagination?.totalPages ?: currentPage
+                if (currentPage >= totalPages || pageData.isEmpty()) break
+                currentPage += 1
             }
+
+            Result.Success(tests)
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
@@ -104,7 +135,7 @@ class DiagnosticRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Failed to create booking")
             } else {
-                Result.Error(response.body()?.message ?: "Booking failed")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Booking failed")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -116,12 +147,26 @@ class DiagnosticRepository @Inject constructor(
      */
     suspend fun getMyBookings(status: String? = null, page: Int = 1): Result<List<DiagnosticBookingDto>> {
         return try {
-            val response = apiService.getMyDiagnosticBookings(status = status, page = page)
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
-            } else {
-                Result.Error("Failed to load bookings")
+            val bookings = mutableListOf<DiagnosticBookingDto>()
+            var currentPage = page
+
+            while (true) {
+                val response = apiService.getMyDiagnosticBookings(status = status, page = currentPage, limit = PAGE_SIZE)
+                if (!response.isSuccessful || response.body()?.success != true) {
+                    val message = parseApiErrorMessage(response.errorBody()) ?: "Failed to load bookings"
+                    return Result.Error(message)
+                }
+
+                val body = response.body()
+                val pageData = body?.data.orEmpty()
+                bookings += pageData
+
+                val totalPages = body?.pagination?.totalPages ?: currentPage
+                if (currentPage >= totalPages || pageData.isEmpty()) break
+                currentPage += 1
             }
+
+            Result.Success(bookings)
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
@@ -138,7 +183,7 @@ class DiagnosticRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Booking not found")
             } else {
-                Result.Error("Failed to load booking")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load booking")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -156,7 +201,7 @@ class DiagnosticRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Failed to cancel booking")
             } else {
-                Result.Error(response.body()?.message ?: "Cannot cancel booking")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Cannot cancel booking")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

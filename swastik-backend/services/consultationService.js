@@ -496,13 +496,17 @@ const generateAndUploadPrescriptionPdfWithRetry = async ({
   consultationPatientId,
   enrichedItems,
 }) => {
+  const { isStorageAvailable, uploadBuffer } = require('../config/minio');
+  if (!isStorageAvailable()) {
+    return null;
+  }
+
   const maxAttempts = Math.max(1, Number(process.env.PRESCRIPTION_PDF_UPLOAD_RETRIES || 3));
   const baseDelayMs = Math.max(100, Number(process.env.PRESCRIPTION_PDF_UPLOAD_RETRY_DELAY_MS || 400));
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const { generatePrescriptionPdf } = require('../utils/prescriptionPdf');
-      const { uploadBuffer } = require('../config/minio');
 
       const pdfBuffer = await generatePrescriptionPdf({
         ...prescription,
@@ -700,11 +704,27 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   }
 
   // Get patient user_id
-  const { data: patient } = await supabaseAdmin
+  const { data: patientProfile } = await supabaseAdmin
     .from('patients')
-    .select('user_id, name, phone')
+    .select('user_id, name')
     .eq('id', consultation.patient_id)
     .single();
+
+  let patient = patientProfile ? {
+    user_id: patientProfile.user_id,
+    name: patientProfile.name,
+    phone: null,
+  } : null;
+
+  if (patient?.user_id) {
+    const { data: patientUser } = await supabaseAdmin
+      .from('users')
+      .select('phone')
+      .eq('id', patient.user_id)
+      .single();
+
+    patient.phone = patientUser?.phone || null;
+  }
 
   // Generate PDF (non-blocking — don't fail prescription creation if PDF fails)
   try {
@@ -723,6 +743,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
   eventEmitter.emitPrescriptionCreated({
     ...prescription,
     patient_id: patient?.user_id,
+    doctor_name: doctor.name,
   });
 
   // Persist notification so patient sees it even if offline

@@ -509,8 +509,12 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             if (response.success) {
                 const data = response.data as any;
                 const consultationId = data?.id || data?.consultation?.id || data?.consultationId;
+                if (!consultationId) {
+                    set({ error: 'Consultation started, but the room could not be opened. Please refresh and try again.' });
+                    return false;
+                }
                 get().fetchDashboardData();
-                return consultationId || 'started';
+                return consultationId;
             }
             set({ error: response.error || 'Failed to start consultation' });
             return false;

@@ -272,8 +272,25 @@ class AppEventEmitter extends EventEmitter {
 
   emitPrescriptionCreated(prescription) {
     const { patient_id } = prescription;
-    this.notifyUser(patient_id, 'prescription:new', prescription);
-    this.emitDistributed('prescription:created', prescription);
+    const payload = {
+      ...prescription,
+      consultationId: prescription.consultationId || prescription.consultation_id || null,
+      prescriptionId: prescription.prescriptionId || prescription.id || null,
+      doctorName: prescription.doctorName || prescription.doctor_name || prescription.doctor?.name || 'Doctor',
+      timestamp: prescription.timestamp || prescription.updated_at || prescription.created_at || new Date().toISOString(),
+    };
+    this.notifyUser(patient_id, 'prescription:new', payload);
+    this.notifyUser(patient_id, 'notification:new', {
+      type: 'prescription',
+      title: 'New Prescription',
+      message: `${payload.doctorName} has shared a prescription for this consultation`,
+      timestamp: payload.timestamp,
+      data: {
+        prescriptionId: payload.prescriptionId,
+        consultationId: payload.consultationId,
+      },
+    });
+    this.emitDistributed('prescription:created', payload);
   }
 
   emitOrderStatusUpdated(order) {

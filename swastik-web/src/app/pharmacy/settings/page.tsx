@@ -48,7 +48,7 @@ export default function PharmacySettingsPage() {
                     licenseNumber: d.licenseNumber || d.license_number || '',
                     drugLicenseNumber: d.drug_license_number || '',
                     licenseDocumentUrl: d.license_document_url || '',
-                    profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.avatar_url || null,
+                    profileImage: d.profile_image_url || d.profile_image || d.profileImage || d.image_url || d.avatar_url || null,
                     latitude: d.latitude ?? null,
                     longitude: d.longitude ?? null,
                 });

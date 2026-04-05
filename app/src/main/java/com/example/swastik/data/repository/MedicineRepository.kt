@@ -7,6 +7,8 @@ import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.remote.dto.*
 import com.example.swastik.data.local.db.MedicineDao
 import com.example.swastik.data.local.db.CachedMedicine
+import okhttp3.ResponseBody
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,6 +26,19 @@ class MedicineRepository @Inject constructor(
     companion object {
         private const val TAG = "MedicineRepository"
         private const val CACHE_DURATION_MS = 30 * 60 * 1000L // 30 minutes
+        private const val PAGE_SIZE = 50
+    }
+
+    private fun parseApiErrorMessage(errorBody: ResponseBody?): String? {
+        return try {
+            val raw = errorBody?.string()?.trim().orEmpty()
+            if (raw.isBlank()) return null
+            val json = JSONObject(raw)
+            json.optString("message").ifBlank { null }
+                ?: json.optString("error").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -231,12 +246,26 @@ class MedicineRepository @Inject constructor(
      */
     suspend fun getMyOrders(status: String? = null, page: Int = 1): Result<List<MedicineOrderDto>> {
         return try {
-            val response = apiService.getMyOrders(status = status, page = page)
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data ?: emptyList())
-            } else {
-                Result.Error("Failed to load orders")
+            val orders = mutableListOf<MedicineOrderDto>()
+            var currentPage = page
+
+            while (true) {
+                val response = apiService.getMyOrders(status = status, page = currentPage, limit = PAGE_SIZE)
+                if (!response.isSuccessful || response.body()?.success != true) {
+                    val message = parseApiErrorMessage(response.errorBody()) ?: "Failed to load orders"
+                    return Result.Error(message)
+                }
+
+                val body = response.body()
+                val pageData = body?.data.orEmpty()
+                orders += pageData
+
+                val totalPages = body?.pagination?.totalPages ?: currentPage
+                if (currentPage >= totalPages || pageData.isEmpty()) break
+                currentPage += 1
             }
+
+            Result.Success(orders)
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }
@@ -253,7 +282,7 @@ class MedicineRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Order not found")
             } else {
-                Result.Error("Failed to load order")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load order")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -271,7 +300,7 @@ class MedicineRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Failed to cancel order")
             } else {
-                Result.Error(response.body()?.message ?: "Cannot cancel order")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Cannot cancel order")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

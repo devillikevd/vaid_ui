@@ -21,6 +21,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,10 +56,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.swastik.data.remote.dto.ChatSession
+import com.example.swastik.data.remote.dto.HealthTip
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.ChatLanguage
 import com.example.swastik.ui.viewmodel.ChatUiMessage
-import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 
@@ -69,7 +71,14 @@ data class ChatQuickAction(
     val query: String
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+data class ChatFeatureAction(
+    val icon: ImageVector,
+    val label: String,
+    val helper: String,
+    val onClick: () -> Unit
+)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatbotScreen(
     onBackClick: () -> Unit = {},
@@ -84,9 +93,11 @@ fun ChatbotScreen(
     val selectedLanguage = uiState.selectedLanguage
 
     var inputText by remember { mutableStateOf("") }
+    var showSymptomChecker by remember { mutableStateOf(false) }
+    var showTipsSheet by remember { mutableStateOf(false) }
+    var showHistorySheet by remember { mutableStateOf(false) }
+    var selectedTipCategory by remember { mutableStateOf("general") }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
-
     // ==================== TTS ENGINE ====================
     var ttsReady by remember { mutableStateOf(false) }
     var isSpeaking by remember { mutableStateOf(false) }
@@ -268,6 +279,18 @@ fun ChatbotScreen(
         }
     }
 
+    LaunchedEffect(showTipsSheet, selectedTipCategory) {
+        if (showTipsSheet) {
+            viewModel.getHealthTips(selectedTipCategory)
+        }
+    }
+
+    LaunchedEffect(showHistorySheet) {
+        if (showHistorySheet) {
+            viewModel.loadSessionList()
+        }
+    }
+
     // Auto-scroll logic
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -283,6 +306,29 @@ fun ChatbotScreen(
             ChatQuickAction(Icons.Outlined.Medication, "Medicine info", "I need information about medicines"),
             ChatQuickAction(Icons.Outlined.Description, "View reports", "I want to see my medical reports"),
             ChatQuickAction(Icons.Outlined.LocalHospital, "Find hospital", "Help me find a nearby hospital")
+        )
+    }
+
+    val featureActions = remember {
+        listOf(
+            ChatFeatureAction(
+                icon = Icons.Outlined.Thermostat,
+                label = "Symptom check",
+                helper = "Structured triage",
+                onClick = { showSymptomChecker = true }
+            ),
+            ChatFeatureAction(
+                icon = Icons.Outlined.Lightbulb,
+                label = "Health tips",
+                helper = "Daily guidance",
+                onClick = { showTipsSheet = true }
+            ),
+            ChatFeatureAction(
+                icon = Icons.Outlined.History,
+                label = "Chat history",
+                helper = "Resume older chat",
+                onClick = { showHistorySheet = true }
+            )
         )
     }
 
@@ -419,7 +465,8 @@ fun ChatbotScreen(
                         }
                     },
                     onAttachClick = { showAttachMenu = true },
-                    isLoading = isSending,
+                    isLoading = isSending || isLoading,
+                    inputEnabled = !uiState.rateLimited,
                     isListening = isListening,
                     language = selectedLanguage
                 )
@@ -436,10 +483,21 @@ fun ChatbotScreen(
                 // Rate limit warning
                 if (uiState.rateLimited) {
                     Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFF3E0)) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Message limit reached. Start a new session or try again later.", fontSize = 12.sp, color = Color(0xFFE65100))
+                            Text(
+                                "Message limit reached. Start a new session or try again later.",
+                                fontSize = 12.sp,
+                                color = Color(0xFFE65100),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { viewModel.startFreshSession() }) {
+                                Text("New chat", color = Color(0xFFE65100))
+                            }
                         }
                     }
                 }
@@ -461,6 +519,13 @@ fun ChatbotScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
+                    item {
+                        SessionStatusCard(
+                            sessionId = uiState.activeSessionId,
+                            selectedLanguage = selectedLanguage,
+                            featureActions = featureActions
+                        )
+                    }
                     items(messages, key = { it.id }) { message ->
                         ChatBubble(
                             message = message,
@@ -531,6 +596,117 @@ fun ChatbotScreen(
                     }
                 )
             }
+
+            if (showSymptomChecker) {
+                SymptomCheckerSheet(
+                    onDismiss = { showSymptomChecker = false },
+                    onAnalyze = { symptoms, duration, severity ->
+                        viewModel.analyzeSymptoms(symptoms, duration, severity)
+                        showSymptomChecker = false
+                    }
+                )
+            }
+
+            if (showTipsSheet) {
+                HealthTipsSheet(
+                    tips = uiState.healthTips,
+                    isLoading = uiState.isLoadingHealthTips,
+                    selectedCategory = selectedTipCategory,
+                    onCategorySelected = { selectedTipCategory = it },
+                    onDismiss = { showTipsSheet = false }
+                )
+            }
+
+            if (showHistorySheet) {
+                ChatHistorySheet(
+                    sessions = uiState.availableSessions,
+                    isLoading = uiState.isLoadingSessions,
+                    activeSessionId = uiState.activeSessionId,
+                    onDismiss = { showHistorySheet = false },
+                    onNewChat = {
+                        viewModel.startFreshSession()
+                        showHistorySheet = false
+                    },
+                    onSessionSelected = { session ->
+                        viewModel.openSession(session.sessionId)
+                        showHistorySheet = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionStatusCard(
+    sessionId: String?,
+    selectedLanguage: ChatLanguage,
+    featureActions: List<ChatFeatureAction>
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Smart care assistant", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(
+                        text = "Live chat, symptom triage, image analysis, and bilingual support in ${selectedLanguage.nativeLabel}",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        lineHeight = 16.sp
+                    )
+                }
+                if (!sessionId.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = SwastikPurple.copy(alpha = 0.08f)
+                    ) {
+                        Text(
+                            text = "Active",
+                            color = SwastikPurple,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                featureActions.forEach { action ->
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { action.onClick() },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8FF))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(action.icon, contentDescription = action.label, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                            Text(action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(action.helper, fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -590,7 +766,7 @@ private fun AttachmentMenu(onDismiss: () -> Unit, onCameraClick: () -> Unit, onG
                 Spacer(modifier = Modifier.height(20.dp))
                 Text("Share for Analysis", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("Take a photo or choose from gallery for AI diagnosis", fontSize = 13.sp, color = Color.Gray)
+                Text("Take a photo or choose from gallery for AI analysis", fontSize = 13.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AttachmentOption(Icons.Outlined.CameraAlt, "Camera", "Take photo", Color(0xFF2196F3), onCameraClick)
@@ -819,6 +995,261 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun SymptomCheckerSheet(
+    onDismiss: () -> Unit,
+    onAnalyze: (symptoms: List<String>, duration: String?, severity: String?) -> Unit
+) {
+    val presetSymptoms = listOf(
+        "Fever", "Cough", "Headache", "Chest pain", "Breathlessness",
+        "Body ache", "Vomiting", "Stomach pain", "Dizziness", "Weakness"
+    )
+    val selectedSymptoms = remember { mutableStateListOf<String>() }
+    var customSymptoms by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("") }
+    var selectedSeverity by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Symptom Checker", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                "Share the symptoms you have right now. The assistant will suggest urgency, next steps, and a likely specialist.",
+                color = Color.Gray,
+                fontSize = 13.sp,
+                lineHeight = 18.sp
+            )
+
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                presetSymptoms.forEach { symptom ->
+                    FilterChip(
+                        selected = selectedSymptoms.contains(symptom),
+                        onClick = {
+                            if (selectedSymptoms.contains(symptom)) {
+                                selectedSymptoms.remove(symptom)
+                            } else {
+                                selectedSymptoms.add(symptom)
+                            }
+                        },
+                        label = { Text(symptom) }
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = customSymptoms,
+                onValueChange = { customSymptoms = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Add other symptoms") },
+                placeholder = { Text("Example: sore throat, fatigue") },
+                maxLines = 3
+            )
+
+            OutlinedTextField(
+                value = duration,
+                onValueChange = { duration = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Duration") },
+                placeholder = { Text("Example: 2 days") },
+                singleLine = true
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("How severe does it feel?", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("mild", "moderate", "severe").forEach { option ->
+                        FilterChip(
+                            selected = selectedSeverity == option,
+                            onClick = { selectedSeverity = option },
+                            label = { Text(option.replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    val combinedSymptoms = buildList {
+                        addAll(selectedSymptoms)
+                        addAll(
+                            customSymptoms.split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                        )
+                    }.distinct()
+                    onAnalyze(combinedSymptoms, duration.ifBlank { null }, selectedSeverity)
+                },
+                enabled = selectedSymptoms.isNotEmpty() || customSymptoms.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Analyze symptoms")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun HealthTipsSheet(
+    tips: List<HealthTip>,
+    isLoading: Boolean,
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val categories = listOf(
+        "general" to "General",
+        "diabetes" to "Diabetes",
+        "heart" to "Heart",
+        "mental" to "Mental",
+        "pregnancy" to "Pregnancy"
+    )
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Health Tips", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.forEach { (key, label) ->
+                    FilterChip(
+                        selected = selectedCategory == key,
+                        onClick = { onCategorySelected(key) },
+                        label = { Text(label) }
+                    )
+                }
+            }
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(tips, key = { it.id }) { tip ->
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(tip.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text(tip.content, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatHistorySheet(
+    sessions: List<ChatSession>,
+    isLoading: Boolean,
+    activeSessionId: String?,
+    onDismiss: () -> Unit,
+    onNewChat: () -> Unit,
+    onSessionSelected: (ChatSession) -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Chat History", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                TextButton(onClick = onNewChat) {
+                    Text("New chat")
+                }
+            }
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (sessions.isEmpty()) {
+                Text("No previous chat sessions yet.", color = Color.Gray, fontSize = 13.sp)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(sessions, key = { it.sessionId }) { session ->
+                        val preview = session.lastMessage ?: session.message ?: "Resume this chat"
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSessionSelected(session) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (session.sessionId == activeSessionId) {
+                                    SwastikPurple.copy(alpha = 0.08f)
+                                } else {
+                                    Color.White
+                                }
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = if (session.sessionId == activeSessionId) "Current chat" else "Previous chat",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                                Text(preview, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
+                                Text(
+                                    "${session.messageCount ?: 0} messages",
+                                    color = SwastikPurple,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun QuickActionsGrid(actions: List<ChatQuickAction>, onActionClick: (ChatQuickAction) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -877,14 +1308,14 @@ private fun TypingDot(delay: Int) {
 private fun ChatInputBar(
     value: String, onValueChange: (String) -> Unit,
     onSend: () -> Unit, onVoiceClick: () -> Unit,
-    onAttachClick: () -> Unit, isLoading: Boolean, isListening: Boolean,
+    onAttachClick: () -> Unit, isLoading: Boolean, inputEnabled: Boolean, isListening: Boolean,
     language: ChatLanguage = ChatLanguage.ENGLISH
 ) {
     Surface(modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp, color = Color.White) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Camera/attach button
-            IconButton(onClick = onAttachClick, enabled = !isLoading, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (!isLoading) SwastikPurple else Color.LightGray)
+            IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) SwastikPurple else Color.LightGray)
             }
             // Input field
             Box(
@@ -892,13 +1323,21 @@ private fun ChatInputBar(
                     .background(Color(0xFFF5F5F5)).padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 BasicTextField(
-                    value = value, onValueChange = onValueChange,
+                    value = value,
+                    onValueChange = { if (inputEnabled) onValueChange(it) },
+                    enabled = inputEnabled && !isLoading,
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = TextStyle(fontSize = 14.sp, color = Color.Black),
                     decorationBox = { innerTextField ->
                         if (value.isEmpty()) {
                             Text(
-                                text = if (language == ChatLanguage.HINDI) "टाइप करें, बोलें या फ़ोटो भेजें..." else "Type, speak, or send a photo...",
+                                text = if (!inputEnabled) {
+                                    "Start a new chat to continue"
+                                } else if (language == ChatLanguage.HINDI) {
+                                    "टाइप करें, बोलें या फ़ोटो भेजें..."
+                                } else {
+                                    "Type, speak, or send a photo..."
+                                },
                                 fontSize = 14.sp, color = Color.Gray
                             )
                         }
@@ -910,11 +1349,11 @@ private fun ChatInputBar(
             // Voice / Send button
             if (value.isBlank()) {
                 IconButton(
-                    onClick = onVoiceClick, enabled = !isLoading,
+                    onClick = onVoiceClick, enabled = inputEnabled && !isLoading,
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(
                         when {
                             isListening -> Color(0xFFD32F2F)
-                            !isLoading -> Color(0xFF4CAF50)
+                            inputEnabled && !isLoading -> Color(0xFF4CAF50)
                             else -> Color.LightGray
                         }
                     )
@@ -927,9 +1366,9 @@ private fun ChatInputBar(
                 }
             } else {
                 IconButton(
-                    onClick = onSend, enabled = value.isNotBlank() && !isLoading,
+                    onClick = onSend, enabled = inputEnabled && value.isNotBlank() && !isLoading,
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(
-                        if (value.isNotBlank() && !isLoading) SwastikPurple else Color.LightGray
+                        if (inputEnabled && value.isNotBlank() && !isLoading) SwastikPurple else Color.LightGray
                     )
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))

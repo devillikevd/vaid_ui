@@ -14,7 +14,6 @@ const RESULT_STATUS_FILTERS = [
     { label: 'Pending', value: 'pending', icon: Clock },
     { label: 'Processing', value: 'processing', icon: AlertCircle },
     { label: 'Completed', value: 'completed', icon: CheckCircle2 },
-    { label: 'Delivered', value: 'delivered', icon: Send },
 ];
 
 export default function ResultsPage() {
@@ -77,7 +76,6 @@ export default function ResultsPage() {
     const totalPending = resultsSummary.resultStatus.pending || 0;
     const totalProcessing = resultsSummary.resultStatus.processing || 0;
     const totalCompleted = resultsSummary.resultStatus.completed || 0;
-    const totalDelivered = resultsSummary.resultStatus.delivered || 0;
 
     return (
         <div className="space-y-6">
@@ -92,11 +90,10 @@ export default function ResultsPage() {
             )}
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <SummaryCard label="Pending" count={totalPending} icon={<Clock className="h-5 w-5" />} color="yellow" />
                 <SummaryCard label="Processing" count={totalProcessing} icon={<AlertCircle className="h-5 w-5" />} color="blue" />
                 <SummaryCard label="Completed" count={totalCompleted} icon={<CheckCircle2 className="h-5 w-5" />} color="green" />
-                <SummaryCard label="Delivered" count={totalDelivered} icon={<Send className="h-5 w-5" />} color="purple" />
             </div>
 
             {/* Filters */}

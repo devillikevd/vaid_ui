@@ -58,6 +58,36 @@ const validateData = (data, requiredFields) => {
   return requiredFields.every((field) => data[field] !== undefined && data[field] !== null);
 };
 
+const verifyConsultationParticipant = async (userId, role, consultationId) => {
+  const { data: consultation } = await supabaseAdmin
+    .from('consultations')
+    .select('doctor_id, patient_id')
+    .eq('id', consultationId)
+    .single();
+
+  if (!consultation) {
+    throw new Error('Consultation not found');
+  }
+
+  const table = role === 'doctor' ? 'doctors' : 'patients';
+  const { data: record } = await supabaseAdmin
+    .from(table)
+    .select('id')
+    .eq('user_id', userId)
+    .single();
+
+  const participantId = record?.id;
+  const isParticipant =
+    participantId === consultation.doctor_id ||
+    participantId === consultation.patient_id;
+
+  if (!isParticipant) {
+    throw new Error('Access denied: you are not a participant in this consultation');
+  }
+
+  return consultation;
+};
+
 const initializeSocketIO = (io) => {
   // Authentication middleware for Socket.IO
   io.use(async (socket, next) => {
@@ -417,37 +447,11 @@ const initializeSocketIO = (io) => {
 
       // C10 Fix: Verify the user is a participant in this consultation before allowing join
       try {
-        const { data: consultation } = await supabaseAdmin
-          .from('consultations')
-          .select('doctor_id, patient_id')
-          .eq('id', roomId)
-          .single();
-
-        if (consultation) {
-          // Resolve user's doctor/patient record ID
-          const table = socket.userRole === 'doctor' ? 'doctors' : 'patients';
-          const { data: record } = await supabaseAdmin
-            .from(table)
-            .select('id')
-            .eq('user_id', userId)
-            .single();
-
-          const participantId = record?.id;
-          const isParticipant =
-            participantId === consultation.doctor_id ||
-            participantId === consultation.patient_id;
-
-          if (!isParticipant) {
-            return socket.emit('error', { message: 'Access denied: you are not a participant in this consultation' });
-          }
-        } else {
-          // Consultation not found — deny access (default-deny)
-          return socket.emit('error', { message: 'Consultation not found' });
-        }
+        await verifyConsultationParticipant(userId, socket.userRole, roomId);
       } catch (dbErr) {
         // DB check failed — deny access to be safe
         console.warn(`C10: Ownership check failed for video:${roomId}, user ${userId}:`, dbErr.message);
-        return socket.emit('error', { message: 'Unable to verify consultation access' });
+        return socket.emit('error', { message: dbErr.message || 'Unable to verify consultation access' });
       }
 
       socket.join(`video:${roomId}`);
@@ -535,39 +539,15 @@ const initializeSocketIO = (io) => {
 
       // C10 Fix: Verify the user is a participant in this consultation
       try {
-        const { data: consultation } = await supabaseAdmin
-          .from('consultations')
-          .select('doctor_id, patient_id')
-          .eq('id', consultationId)
-          .single();
-
-        if (consultation) {
-          const table = socket.userRole === 'doctor' ? 'doctors' : 'patients';
-          const { data: record } = await supabaseAdmin
-            .from(table)
-            .select('id')
-            .eq('user_id', userId)
-            .single();
-
-          const participantId = record?.id;
-          const isParticipant =
-            participantId === consultation.doctor_id ||
-            participantId === consultation.patient_id;
-
-          if (!isParticipant) {
-            return socket.emit('error', { message: 'Access denied: you are not a participant in this consultation' });
-          }
-        } else {
-          // Fix #1: Consultation not found — deny access (default-deny)
-          return socket.emit('error', { message: 'Consultation not found' });
-        }
+        await verifyConsultationParticipant(userId, socket.userRole, consultationId);
       } catch (dbErr) {
         // Fix #1: DB check failed — deny access to be safe
         console.warn(`C10: Ownership check failed for chat:${consultationId}, user ${userId}:`, dbErr.message);
-        return socket.emit('error', { message: 'Unable to verify consultation access' });
+        return socket.emit('error', { message: dbErr.message || 'Unable to verify consultation access' });
       }
 
       socket.join(`chat:${consultationId}`);
+      socket.emit('chat:joined', { consultationId });
     }));
 
     socket.on('chat:leave', safeHandler(socket, (consultationId) => {
@@ -585,16 +565,22 @@ const initializeSocketIO = (io) => {
         return socket.emit('error', { message: 'Message too long (max 2000 characters)' });
       }
 
-      // Verify the sender has actually joined this chat room
+      // Fix: auto-join after participant verification so the first message isn't lost
+      // if the client sends immediately after entering fallback chat mode.
       const chatRoom = `chat:${data.consultationId}`;
-      if (!socket.rooms.has(chatRoom)) {
-        return socket.emit('error', { message: 'You must join the chat room first' });
-      }
-
-      // Rate limit: max 5 messages per second per user
-      const chatRateLimitKey = `${RATE_LIMIT_PREFIX}chat:${userId}`;
-      const now = Date.now();
       (async () => {
+        if (!socket.rooms.has(chatRoom)) {
+          try {
+            await verifyConsultationParticipant(userId, socket.userRole, data.consultationId);
+            socket.join(chatRoom);
+          } catch (err) {
+            return socket.emit('error', { message: err.message || 'You must join the chat room first' });
+          }
+        }
+
+        // Rate limit: max 5 messages per second per user
+        const chatRateLimitKey = `${RATE_LIMIT_PREFIX}chat:${userId}`;
+        const now = Date.now();
         try {
           const lastStr = await cacheGet(chatRateLimitKey);
           const last = lastStr ? parseInt(lastStr, 10) : 0;

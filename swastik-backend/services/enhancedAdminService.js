@@ -5,7 +5,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { sanitizeSearch } = require('../utils/sanitize');
-const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
+const { cacheGet, cacheSet, cacheDel, cacheIncr } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
 const { geocodeProvider } = require('../utils/geocoding');
 const notificationService = require('./notificationService');
@@ -119,6 +119,10 @@ const PROVIDER_UI_TYPES = {
 };
 const ADMIN_SETTINGS_CACHE_KEY = 'admin:settings';
 const ADMIN_SETTINGS_CACHE_TTL = 60 * 60 * 24 * 365;
+const ADMIN_ANALYTICS_CACHE_TTL = 60 * 5;
+const ADMIN_ANALYTICS_PERIODS = ['7d', '30d', '90d', '1y'];
+const ADMIN_PROVIDERS_CACHE_TTL = 60 * 2;
+const ADMIN_PROVIDERS_CACHE_VERSION_KEY = 'admin:providers:version';
 const ADMIN_SETTINGS_DEFAULTS = {
   emailNotifications: true,
   smsNotifications: false,
@@ -158,6 +162,95 @@ const normalizeProviderLifecycleStatus = (provider) => {
   if (provider?.is_active === false) return 'suspended';
   if (provider?.is_approved === true) return 'approved';
   return 'pending';
+};
+
+const buildAdminAnalyticsCacheKey = (period = '30d') => `admin:analytics:${String(period || '30d').trim().toLowerCase()}`;
+const buildAdminProvidersCacheKey = ({ type = 'all', status = '', search = '', page = 1, limit = 20, version = '1' }) =>
+  `admin:providers:v${version}:${type}:${status || 'all'}:${search || 'all'}:${page}:${limit}`;
+
+const countRows = (table, transform = (query) => query) =>
+  transform(supabaseAdmin.from(table).select('id', { count: 'exact', head: true }));
+
+const getProviderListSelectFields = (type) => {
+  const shared = ['id', 'name', 'created_at', 'updated_at', 'approval_status', 'is_approved'];
+
+  switch (type) {
+    case 'doctor':
+      return [
+        ...shared,
+        'user_id',
+        'registration_number',
+        'license_number',
+        'specialization',
+      ].join(', ');
+    case 'hospital':
+      return [
+        ...shared,
+        'owner_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'license_number',
+      ].join(', ');
+    case 'clinic':
+      return [
+        ...shared,
+        'owner_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'registration_number',
+        'license_number',
+      ].join(', ');
+    case 'pharmacy':
+      return [
+        ...shared,
+        'owner_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'license_number',
+        'drug_license_number',
+      ].join(', ');
+    case 'diagnostic_center':
+      return [
+        ...shared,
+        'owner_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'registration_number',
+        'license_number',
+      ].join(', ');
+    case 'ambulance':
+      return [
+        ...shared,
+        'user_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'registration_number',
+        'company_name',
+      ].join(', ');
+    default:
+      return [
+        ...shared,
+        'user_id',
+        'owner_id',
+        'is_active',
+        'email',
+        'phone',
+        'address',
+        'registration_number',
+        'license_number',
+        'company_name',
+      ].join(', ');
+  }
 };
 
 const isPresentValue = (value) => {
@@ -303,14 +396,33 @@ const getProviderUserProfile = async (provider) => {
   return data;
 };
 
-const enrichProviderForAdmin = async (type, provider, options = {}) => {
-  const user = await getProviderUserProfile(provider);
+const getProviderUserProfiles = async (providers = []) => {
+  const userIds = [...new Set(providers.map(getProviderUserId).filter(Boolean))];
+  if (userIds.length === 0) return new Map();
+
+  const { data, error } = await supabaseAdmin
+    .from('users')
+    .select('id, name, email, phone, role, is_active, is_verified')
+    .in('id', userIds);
+
+  if (error) {
+    console.warn(`[Admin] Failed to batch fetch provider user profiles: ${error.message}`);
+    return new Map();
+  }
+
+  return new Map((data || []).map((user) => [user.id, user]));
+};
+
+const buildEnrichedProviderForAdmin = (type, provider, user, options = {}) => {
   const phone = provider?.phone || user?.phone || null;
   const email = provider?.email || user?.email || null;
   const approvalBlockReason = resolveApprovalBlockReason(type, provider, phone);
-  const complianceDocuments = buildProviderComplianceDocuments(type, provider, {
-    daysWindow: options.complianceDays,
-  });
+  const includeCompliance = options.includeCompliance !== false;
+  const complianceDocuments = includeCompliance
+    ? buildProviderComplianceDocuments(type, provider, {
+      daysWindow: options.complianceDays,
+    })
+    : [];
 
   return {
     ...provider,
@@ -324,12 +436,33 @@ const enrichProviderForAdmin = async (type, provider, options = {}) => {
     status: normalizeProviderLifecycleStatus(provider),
     approval_block_reason: approvalBlockReason,
     can_approve: !approvalBlockReason,
-    compliance_documents: complianceDocuments,
-    missing_compliance_documents: complianceDocuments
-      .filter((document) => document.status === 'missing')
-      .map((document) => document.document_type),
-    compliance_summary: summarizeComplianceDocuments(complianceDocuments),
+    ...(includeCompliance
+      ? {
+        compliance_documents: complianceDocuments,
+        missing_compliance_documents: complianceDocuments
+          .filter((document) => document.status === 'missing')
+          .map((document) => document.document_type),
+        compliance_summary: summarizeComplianceDocuments(complianceDocuments),
+      }
+      : {}),
   };
+};
+
+const enrichProviderForAdmin = async (type, provider, options = {}) => {
+  const user = options.user ?? await getProviderUserProfile(provider);
+  return buildEnrichedProviderForAdmin(type, provider, user, options);
+};
+
+const enrichProvidersForAdmin = async (type, providers = [], options = {}) => {
+  if (!Array.isArray(providers) || providers.length === 0) return [];
+  const userProfiles = options.userProfiles || await getProviderUserProfiles(providers);
+
+  return providers.map((provider) => buildEnrichedProviderForAdmin(
+    type,
+    provider,
+    userProfiles.get(getProviderUserId(provider)) || null,
+    options
+  ));
 };
 
 const resolveProviderPhone = async (provider) => {
@@ -397,9 +530,15 @@ const getProviderSnapshot = async (type, id) => {
 
 const invalidateApprovalCaches = async (provider) => {
   const userId = getProviderUserId(provider);
-  const keys = ['admin:dashboard'];
+  const keys = [
+    'admin:dashboard',
+    ...ADMIN_ANALYTICS_PERIODS.map((period) => buildAdminAnalyticsCacheKey(period)),
+  ];
   if (userId) keys.push(`auth_user:${userId}`);
-  await Promise.allSettled(keys.map((key) => cacheDel(key)));
+  await Promise.allSettled([
+    ...keys.map((key) => cacheDel(key)),
+    cacheIncr(ADMIN_PROVIDERS_CACHE_VERSION_KEY, 60 * 60 * 24 * 30),
+  ]);
 };
 
 const notifyProviderStatusChange = async ({ provider, type, status, notes = '' }) => {
@@ -551,30 +690,30 @@ const getDashboard = async () => {
   const safeCount = (result) => (result.status === 'fulfilled' ? result.value.count || 0 : 0);
 
   const results = await Promise.allSettled([
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('patients').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('hospitals').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('pharmacies').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('clinics').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('diagnostic_centers').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('hospitals').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('pharmacies').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('clinics').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('diagnostic_centers').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }).eq('approval_status', 'pending'),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved'),
-    supabaseAdmin.from('hospitals').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
-    supabaseAdmin.from('pharmacies').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
-    supabaseAdmin.from('clinics').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
-    supabaseAdmin.from('diagnostic_centers').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
-    supabaseAdmin.from('ambulance_operators').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').eq('is_active', true),
-    supabaseAdmin.from('emergency_requests').select('*', { count: 'exact', head: true }).in('status', ACTIVE_EMERGENCY_STATUSES),
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('last_login', dayStartIso),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', dayStartIso),
+    countRows('users'),
+    countRows('doctors'),
+    countRows('patients'),
+    countRows('hospitals'),
+    countRows('pharmacies'),
+    countRows('clinics'),
+    countRows('diagnostic_centers'),
+    countRows('ambulance_operators'),
+    countRows('appointments'),
+    countRows('doctors', (query) => query.eq('approval_status', 'pending')),
+    countRows('hospitals', (query) => query.eq('approval_status', 'pending')),
+    countRows('pharmacies', (query) => query.eq('approval_status', 'pending')),
+    countRows('clinics', (query) => query.eq('approval_status', 'pending')),
+    countRows('diagnostic_centers', (query) => query.eq('approval_status', 'pending')),
+    countRows('ambulance_operators', (query) => query.eq('approval_status', 'pending')),
+    countRows('doctors', (query) => query.eq('approval_status', 'approved')),
+    countRows('hospitals', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('pharmacies', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('clinics', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('diagnostic_centers', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('ambulance_operators', (query) => query.eq('approval_status', 'approved').eq('is_active', true)),
+    countRows('emergency_requests', (query) => query.in('status', ACTIVE_EMERGENCY_STATUSES)),
+    countRows('users', (query) => query.gte('last_login', dayStartIso)),
+    countRows('appointments', (query) => query.gte('created_at', dayStartIso)),
   ]);
 
   const [
@@ -641,8 +780,9 @@ const getDashboard = async () => {
     },
   };
 
-  // Cache for 60 seconds
-  await cacheSet('admin:dashboard', dashboard, 60);
+  // Cache for 3 minutes to smooth repeated dashboard visits without
+  // making approval/admin changes feel stale for too long.
+  await cacheSet('admin:dashboard', dashboard, 180);
   return dashboard;
 };
 
@@ -663,7 +803,7 @@ const getPendingApprovals = async (type = 'all', page = 1, limit = 20) => {
       .range(offset, offset + limit - 1);
     if (error) throw error;
 
-    const enriched = await Promise.all((data || []).map((provider) => enrichProviderForAdmin(providerType, provider)));
+    const enriched = await enrichProvidersForAdmin(providerType, data || []);
     return { data: enriched, total: count || 0 };
   };
 
@@ -713,6 +853,21 @@ const getProviderDetails = async (type, id) => {
 const getProviders = async (filters = {}, page = 1, limit = 20) => {
   const offset = (page - 1) * limit;
   const normalizedType = normalizeAdminProviderType(filters.type || 'all');
+  const normalizedStatus = filters.status ? String(filters.status).trim().toLowerCase() : '';
+  const normalizedSearch = sanitizeSearch(filters.search || '').toLowerCase();
+  const providerCacheVersion = String(await cacheGet(ADMIN_PROVIDERS_CACHE_VERSION_KEY) || '1');
+  const providersCacheKey = buildAdminProvidersCacheKey({
+    type: normalizedType,
+    status: normalizedStatus,
+    search: normalizedSearch,
+    page,
+    limit,
+    version: providerCacheVersion,
+  });
+
+  const cached = await cacheGet(providersCacheKey);
+  if (cached) return cached;
+
   const providerTypes = normalizedType === 'all'
     ? Object.keys(PROVIDER_TABLES)
     : [normalizedType];
@@ -721,23 +876,21 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
     const table = PROVIDER_TABLES[providerType];
     const { data, error } = await supabaseAdmin
       .from(table)
-      .select('*')
+      .select(getProviderListSelectFields(providerType))
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return Promise.all((data || []).map((provider) => enrichProviderForAdmin(providerType, provider)));
+    return enrichProvidersForAdmin(providerType, data || [], { includeCompliance: false });
   }));
 
-  const searchTerm = sanitizeSearch(filters.search || '').toLowerCase();
   let providers = providerGroups.flat();
 
-  if (filters.status) {
-    const expectedStatus = String(filters.status).trim().toLowerCase();
-    providers = providers.filter((provider) => normalizeProviderLifecycleStatus(provider) === expectedStatus);
+  if (normalizedStatus) {
+    providers = providers.filter((provider) => normalizeProviderLifecycleStatus(provider) === normalizedStatus);
   }
 
-  if (searchTerm) {
+  if (normalizedSearch) {
     providers = providers.filter((provider) => (
       [
         provider.name,
@@ -750,7 +903,7 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
         provider.contact_name,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(searchTerm))
+        .some((value) => String(value).toLowerCase().includes(normalizedSearch))
     ));
   }
 
@@ -762,7 +915,7 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
 
   const total = providers.length;
 
-  return {
+  const response = {
     data: providers.slice(offset, offset + limit),
     pagination: {
       page,
@@ -771,6 +924,9 @@ const getProviders = async (filters = {}, page = 1, limit = 20) => {
       totalPages: Math.max(1, Math.ceil((total || 0) / limit)),
     },
   };
+
+  await cacheSet(providersCacheKey, response, ADMIN_PROVIDERS_CACHE_TTL);
+  return response;
 };
 
 // Approve provider
@@ -1307,6 +1463,11 @@ const getExpiringDocuments = async (days = 30) => getComplianceDocuments({ days 
 
 // Analytics
 const getAnalytics = async (period = '30d') => {
+  const normalizedPeriod = String(period || '30d').trim().toLowerCase();
+  const cacheKey = buildAdminAnalyticsCacheKey(normalizedPeriod);
+  const cached = await cacheGet(cacheKey);
+  if (cached) return cached;
+
   const parsePeriodToDays = (value) => {
     const normalized = String(value || '30d').trim().toLowerCase();
     if (normalized === '1y') return 365;
@@ -1323,7 +1484,7 @@ const getAnalytics = async (period = '30d') => {
     return Number((((current - previous) / previous) * 100).toFixed(1));
   };
 
-  const days = parsePeriodToDays(period);
+  const days = parsePeriodToDays(normalizedPeriod);
   const now = new Date();
   const since = new Date(now);
   since.setDate(since.getDate() - days);
@@ -1336,23 +1497,23 @@ const getAnalytics = async (period = '30d') => {
 
   const [
     // Totals
-    { count: totalUsers },
-    { count: totalAppointments },
-    { count: totalDoctors },
+    totalUsersRes,
+    totalAppointmentsRes,
+    totalDoctorsRes,
 
     // Current period
-    { count: usersCurrent },
-    { count: appointmentsCurrent },
-    { count: doctorsCurrent },
+    usersCurrentRes,
+    appointmentsCurrentRes,
+    doctorsCurrentRes,
 
     // Previous period
-    { count: usersPrevious },
-    { count: appointmentsPrevious },
-    { count: doctorsPrevious },
+    usersPreviousRes,
+    appointmentsPreviousRes,
+    doctorsPreviousRes,
 
     // Supplemental
-    { count: completedConsultations },
-    { count: activeNow },
+    completedConsultationsRes,
+    activeNowRes,
     reviewsRes,
     doctorReviewsRes,
     specialtiesRes,
@@ -1360,20 +1521,20 @@ const getAnalytics = async (period = '30d') => {
     apptSeriesRes,
     waitSeriesRes,
   ] = await Promise.all([
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved'),
+    countRows('users'),
+    countRows('appointments'),
+    countRows('doctors', (query) => query.eq('approval_status', 'approved')),
 
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr).lte('created_at', nowStr),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', sinceStr).lte('created_at', nowStr),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').gte('created_at', sinceStr).lte('created_at', nowStr),
+    countRows('users', (query) => query.gte('created_at', sinceStr).lte('created_at', nowStr)),
+    countRows('appointments', (query) => query.gte('created_at', sinceStr).lte('created_at', nowStr)),
+    countRows('doctors', (query) => query.eq('approval_status', 'approved').gte('created_at', sinceStr).lte('created_at', nowStr)),
 
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).gte('created_at', prevSinceStr).lt('created_at', sinceStr),
-    supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).gte('created_at', prevSinceStr).lt('created_at', sinceStr),
-    supabaseAdmin.from('doctors').select('*', { count: 'exact', head: true }).eq('approval_status', 'approved').gte('created_at', prevSinceStr).lt('created_at', sinceStr),
+    countRows('users', (query) => query.gte('created_at', prevSinceStr).lt('created_at', sinceStr)),
+    countRows('appointments', (query) => query.gte('created_at', prevSinceStr).lt('created_at', sinceStr)),
+    countRows('doctors', (query) => query.eq('approval_status', 'approved').gte('created_at', prevSinceStr).lt('created_at', sinceStr)),
 
-    supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('status', 'completed').gte('created_at', sinceStr),
-    supabaseAdmin.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true).gte('last_login', new Date(Date.now() - 15 * 60 * 1000).toISOString()),
+    countRows('consultations', (query) => query.eq('status', 'completed').gte('created_at', sinceStr)),
+    countRows('users', (query) => query.eq('is_active', true).gte('last_login', new Date(Date.now() - 15 * 60 * 1000).toISOString())),
     supabaseAdmin.from('reviews').select('rating').eq('is_visible', true),
     supabaseAdmin.from('doctor_reviews').select('rating'),
     supabaseAdmin.from('doctors').select('specialization').eq('approval_status', 'approved'),
@@ -1381,6 +1542,18 @@ const getAnalytics = async (period = '30d') => {
     supabaseAdmin.from('appointments').select('created_at').gte('created_at', sinceStr),
     supabaseAdmin.from('consultations').select('created_at,started_at').not('started_at', 'is', null).gte('created_at', sinceStr),
   ]);
+
+  const totalUsers = totalUsersRes.count || 0;
+  const totalAppointments = totalAppointmentsRes.count || 0;
+  const totalDoctors = totalDoctorsRes.count || 0;
+  const usersCurrent = usersCurrentRes.count || 0;
+  const appointmentsCurrent = appointmentsCurrentRes.count || 0;
+  const doctorsCurrent = doctorsCurrentRes.count || 0;
+  const usersPrevious = usersPreviousRes.count || 0;
+  const appointmentsPrevious = appointmentsPreviousRes.count || 0;
+  const doctorsPrevious = doctorsPreviousRes.count || 0;
+  const completedConsultations = completedConsultationsRes.count || 0;
+  const activeNow = activeNowRes.count || 0;
 
   const dailyGranularity = days <= 31;
   const periodKey = (iso) => {
@@ -1459,12 +1632,12 @@ const getAnalytics = async (period = '30d') => {
   }
   const avgWaitMinutes = waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0;
 
-  return {
-    period,
+  const analytics = {
+    period: normalizedPeriod,
     // backward-compatible fields
-    newUsers: usersCurrent || 0,
-    newAppointments: appointmentsCurrent || 0,
-    completedConsultations: completedConsultations || 0,
+    newUsers: usersCurrent,
+    newAppointments: appointmentsCurrent,
+    completedConsultations,
 
     // UI contract expected by web analytics page
     stats: {
@@ -1485,6 +1658,9 @@ const getAnalytics = async (period = '30d') => {
       activeNow: activeNow || 0,
     },
   };
+
+  await cacheSet(cacheKey, analytics, ADMIN_ANALYTICS_CACHE_TTL);
+  return analytics;
 };
 
 // Audit logs (from MongoDB if available, else return empty)

@@ -27,15 +27,25 @@ class ChatbotRepository @Inject constructor(
     private val apiService: ApiService,
     @ApplicationContext private val context: Context
 ) {
-    
-    private var currentSessionId: String? = null
+    private val preferences = context.getSharedPreferences(CHATBOT_PREFS, Context.MODE_PRIVATE)
+    private var currentSessionId: String? = preferences.getString(KEY_CURRENT_SESSION_ID, null)
+
+    companion object {
+        private const val CHATBOT_PREFS = "swastik_chatbot_prefs"
+        private const val KEY_CURRENT_SESSION_ID = "current_session_id"
+    }
+
+    private fun persistCurrentSession(sessionId: String?) {
+        currentSessionId = sessionId
+        preferences.edit().putString(KEY_CURRENT_SESSION_ID, sessionId).apply()
+    }
 
     suspend fun startSession(): Result<ChatSession> {
         return try {
             val response = apiService.startChatSession()
             if (response.isSuccessful && response.body()?.success == true) {
                 val session = response.body()?.data ?: return Result.Error("Data was null")
-                currentSessionId = session.sessionId
+                persistCurrentSession(session.sessionId)
                 Result.Success(session)
             } else {
                 Result.Error("Failed to start session")
@@ -209,12 +219,16 @@ class ChatbotRepository @Inject constructor(
      */
     fun getCurrentSessionId(): String? = currentSessionId
 
+    fun setCurrentSession(sessionId: String?) {
+        persistCurrentSession(sessionId)
+    }
+
     /**
      * Clear the current session — must be called on logout so the next login
      * starts a fresh chat session instead of reusing the old one.
      */
     fun clearSession() {
-        currentSessionId = null
+        persistCurrentSession(null)
     }
 
     /**
@@ -259,7 +273,7 @@ class ChatbotRepository @Inject constructor(
         return try {
             val response = apiService.endChatSession(sessionId)
             if (response.isSuccessful && response.body()?.success == true) {
-                if (sessionId == currentSessionId) currentSessionId = null
+                if (sessionId == currentSessionId) persistCurrentSession(null)
                 Result.Success(Unit)
             } else {
                 Result.Error(response.body()?.message ?: "Failed to end session")

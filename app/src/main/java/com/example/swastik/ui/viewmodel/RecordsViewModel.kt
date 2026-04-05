@@ -181,15 +181,17 @@ class RecordsViewModel @Inject constructor(
                     recordsRepository.searchPharmacies(search = normalizedSearch)
                 } else {
                     val location = try { locationHelper.getLastLocation() } catch (_: Exception) { null }
-                    val nearbyPharmacies = if (location != null) {
-                        hospitalRepository.getNearbyPharmacies(
-                            latitude = location.latitude,
-                            longitude = location.longitude,
-                            radius = 15
-                        )
-                    } else {
-                        emptyList()
-                    }
+                    val nearbyPharmacies = runCatching {
+                        if (location != null) {
+                            hospitalRepository.getNearbyPharmacies(
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                radius = 15
+                            )
+                        } else {
+                            emptyList()
+                        }
+                    }.getOrElse { emptyList() }
                     val approvedPharmacies = recordsRepository.searchPharmacies(limit = 20)
                     mergePharmacies(nearbyPharmacies, approvedPharmacies)
                 }

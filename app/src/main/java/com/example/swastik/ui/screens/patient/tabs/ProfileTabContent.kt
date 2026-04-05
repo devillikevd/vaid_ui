@@ -294,10 +294,13 @@ fun ProfileTabContent(
 
     if (showChangePasswordDialog) {
         ChangePasswordDialog(
-            onDismiss = { showChangePasswordDialog = false },
+            saveState = viewModel?.changePasswordState?.collectAsState()?.value ?: ProfileUpdateState.Idle,
+            onDismiss = {
+                showChangePasswordDialog = false
+                viewModel?.resetChangePasswordState()
+            },
             onSubmit = { currentPwd, newPwd ->
                 viewModel?.changePassword(currentPwd, newPwd)
-                showChangePasswordDialog = false
             }
         )
     }
@@ -386,11 +389,11 @@ fun ProfileTabContent(
                     (changePwdState.value as ProfileUpdateState.Success).message,
                     Toast.LENGTH_SHORT
                 ).show()
+                showChangePasswordDialog = false
                 viewModel?.resetChangePasswordState()
             }
             is ProfileUpdateState.Error -> {
                 Toast.makeText(context, (changePwdState?.value as ProfileUpdateState.Error).message, Toast.LENGTH_SHORT).show()
-                viewModel?.resetChangePasswordState()
             }
             else -> {}
         }

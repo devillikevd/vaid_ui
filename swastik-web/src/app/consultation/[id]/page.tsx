@@ -51,7 +51,18 @@ const ICE_SERVERS: RTCConfiguration = {
 type ConnectionMode = ConsultationVideoMode;
 interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; quality: 'excellent' | 'good' | 'poor' | 'critical'; }
 
-function classifyQuality(rtt: number, lossRate: number, bitrate: number): NetworkStats['quality'] {
+function classifyQuality(
+    rtt: number,
+    lossRate: number,
+    bitrate: number,
+    mediaKind: 'video' | 'audio' = 'video'
+): NetworkStats['quality'] {
+    if (mediaKind === 'audio') {
+        if (rtt < 150 && lossRate < 2 && bitrate > 24) return 'excellent';
+        if (rtt < 300 && lossRate < 5 && bitrate > 12) return 'good';
+        if (rtt < 600 && lossRate < 15 && bitrate > 6) return 'poor';
+        return 'critical';
+    }
     if (rtt < 150 && lossRate < 2 && bitrate > 500) return 'excellent';
     if (rtt < 300 && lossRate < 5 && bitrate > 200) return 'good';
     if (rtt < 600 && lossRate < 15 && bitrate > 50) return 'poor';
@@ -95,6 +106,8 @@ export default function VideoConsultation() {
     const userMicEnabledRef = useRef(true);
     const userVideoEnabledRef = useRef(true);
     const previousRemoteModeRef = useRef<ConnectionMode>('video');
+    const previousSampleKindRef = useRef<'video' | 'audio' | null>(null);
+    const cameraUnavailableRef = useRef(false);
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -273,48 +286,16 @@ export default function VideoConsultation() {
         previousRemoteModeRef.current = remoteMode;
     }, [remoteMode]);
 
-    // ── Network quality monitoring ─────────────────────────────────
-    useEffect(() => {
-        if (!isConnected || !peerConnectionRef.current) return;
-        statsIntervalRef.current = setInterval(async () => {
-            const pc = peerConnectionRef.current;
-            if (!pc) return;
-            try {
-                const stats = await pc.getStats();
-                let totalPacketsLost = 0, totalPacketsReceived = 0, currentRtt = 0, bytesReceived = 0, timestamp = 0;
-                stats.forEach((report: any) => {
-                    if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                        currentRtt = report.currentRoundTripTime ? report.currentRoundTripTime * 1000 : 0;
-                    }
-                    if (report.type === 'inbound-rtp' && report.kind === 'video') {
-                        totalPacketsLost += report.packetsLost || 0;
-                        totalPacketsReceived += report.packetsReceived || 0;
-                        bytesReceived = report.bytesReceived || 0;
-                        timestamp = report.timestamp;
-                    }
-                });
-                const lossRate = totalPacketsReceived > 0 ? (totalPacketsLost / (totalPacketsReceived + totalPacketsLost)) * 100 : 0;
-                let bitrate = 0;
-                if (prevBytesRef.current > 0 && prevTimestampRef.current > 0) {
-                    const timeDiff = (timestamp - prevTimestampRef.current) / 1000;
-                    if (timeDiff > 0) bitrate = ((bytesReceived - prevBytesRef.current) * 8) / timeDiff / 1000;
-                }
-                prevBytesRef.current = bytesReceived;
-                prevTimestampRef.current = timestamp;
-                const quality = classifyQuality(currentRtt, lossRate, bitrate);
-                setNetworkStats({ rtt: Math.round(currentRtt), packetsLost: totalPacketsLost, bitrate: Math.round(bitrate), quality });
-                handleQualityChange(quality);
-            } catch { /* stats unavailable */ }
-        }, 3000);
-        return () => { if (statsIntervalRef.current) clearInterval(statsIntervalRef.current); };
-    }, [isConnected]);
-
     // ── Auto-degrade / upgrade mode based on quality ───────────────
     const handleQualityChange = useCallback((quality: NetworkStats['quality']) => {
-        const nextMode: ConnectionMode =
+        let nextMode: ConnectionMode =
             quality === 'critical' ? 'chat' :
                 quality === 'poor' ? 'audio' :
                     'video';
+
+        if (cameraUnavailableRef.current && nextMode === 'video') {
+            nextMode = 'audio';
+        }
 
         if (nextMode === localBandwidthMode) return;
 
@@ -336,6 +317,65 @@ export default function VideoConsultation() {
             setTimeout(() => setModeBanner(null), 3000);
         }
     }, [localBandwidthMode]);
+
+    // ── Network quality monitoring ─────────────────────────────────
+    useEffect(() => {
+        if (!isConnected || !peerConnectionRef.current) return;
+        statsIntervalRef.current = setInterval(async () => {
+            const pc = peerConnectionRef.current;
+            if (!pc) return;
+            try {
+                const stats = await pc.getStats();
+                let currentRtt = 0;
+                let videoSample: { kind: 'video'; packetsLost: number; packetsReceived: number; bytesReceived: number; timestamp: number } | null = null;
+                let audioSample: { kind: 'audio'; packetsLost: number; packetsReceived: number; bytesReceived: number; timestamp: number } | null = null;
+                stats.forEach((report: any) => {
+                    if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                        currentRtt = report.currentRoundTripTime ? report.currentRoundTripTime * 1000 : 0;
+                    }
+                    if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                        videoSample = {
+                            kind: 'video',
+                            packetsLost: report.packetsLost || 0,
+                            packetsReceived: report.packetsReceived || 0,
+                            bytesReceived: report.bytesReceived || 0,
+                            timestamp: report.timestamp || 0,
+                        };
+                    }
+                    if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                        audioSample = {
+                            kind: 'audio',
+                            packetsLost: report.packetsLost || 0,
+                            packetsReceived: report.packetsReceived || 0,
+                            bytesReceived: report.bytesReceived || 0,
+                            timestamp: report.timestamp || 0,
+                        };
+                    }
+                });
+                const activeSample = videoSample ?? audioSample;
+                if (!activeSample) return;
+
+                const { kind, packetsLost, packetsReceived, bytesReceived, timestamp } = activeSample;
+                if (previousSampleKindRef.current !== kind) {
+                    prevBytesRef.current = 0;
+                    prevTimestampRef.current = 0;
+                    previousSampleKindRef.current = kind;
+                }
+                const lossRate = packetsReceived > 0 ? (packetsLost / (packetsReceived + packetsLost)) * 100 : 0;
+                let bitrate = 0;
+                if (prevBytesRef.current > 0 && prevTimestampRef.current > 0) {
+                    const timeDiff = (timestamp - prevTimestampRef.current) / 1000;
+                    if (timeDiff > 0) bitrate = ((bytesReceived - prevBytesRef.current) * 8) / timeDiff / 1000;
+                }
+                prevBytesRef.current = bytesReceived;
+                prevTimestampRef.current = timestamp;
+                const quality = classifyQuality(currentRtt, lossRate, bitrate, kind);
+                setNetworkStats({ rtt: Math.round(currentRtt), packetsLost: packetsLost, bitrate: Math.round(bitrate), quality });
+                handleQualityChange(quality);
+            } catch { /* stats unavailable */ }
+        }, 3000);
+        return () => { if (statsIntervalRef.current) clearInterval(statsIntervalRef.current); };
+    }, [handleQualityChange, isConnected]);
 
     // ── Initialization: join API → media → peer connection ─────────
     const initializeCall = async () => {
@@ -379,6 +419,7 @@ export default function VideoConsultation() {
                 video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
                 audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             });
+            cameraUnavailableRef.current = false;
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
             applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
@@ -389,14 +430,17 @@ export default function VideoConsultation() {
             // Try audio-only if camera fails
             try {
                 const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                cameraUnavailableRef.current = true;
                 localStreamRef.current = audioStream;
                 userVideoEnabledRef.current = false;
-                applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
+                setLocalBandwidthMode('audio');
+                applyLocalMediaState(mostRestrictiveMode('audio', remoteMode));
                 setupPeerConnection();
                 setIsConnecting(false);
                 setModeBanner('📷 Camera unavailable — Audio-only mode');
                 setTimeout(() => setModeBanner(null), 4000);
             } catch {
+                cameraUnavailableRef.current = true;
                 setError('Failed to access camera and microphone. Please check permissions.');
                 setIsConnecting(false);
                 setConnectionMode('chat'); setShowChat(true);
@@ -537,6 +581,11 @@ export default function VideoConsultation() {
 
     const toggleVideo = () => {
         if (connectionMode === 'chat') return;
+        if (cameraUnavailableRef.current) {
+            setModeBanner('📷 Camera unavailable — staying in Audio-only mode');
+            setTimeout(() => setModeBanner(null), 4000);
+            return;
+        }
         userVideoEnabledRef.current = !userVideoEnabledRef.current;
         applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, remoteMode));
     };
@@ -588,6 +637,8 @@ export default function VideoConsultation() {
         hasRemoteDescriptionRef.current = false;
         pendingIceCandidatesRef.current = [];
         hasInitiatedOfferRef.current = false;
+        previousSampleKindRef.current = null;
+        cameraUnavailableRef.current = false;
         setIsPeerReady(false);
     };
 

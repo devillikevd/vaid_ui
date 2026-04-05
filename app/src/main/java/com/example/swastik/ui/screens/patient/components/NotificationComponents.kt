@@ -64,7 +64,7 @@ fun NotificationPanelDialog(
                         Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read", tint = SwastikPurple)
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = Color.Gray)
+                        Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.Gray)
                     }
                 }
             }
@@ -251,4 +251,3 @@ private fun getNotificationTypeColor(type: NotificationType) = when (type) {
     NotificationType.OFFER -> Color(0xFFE91E63)
     NotificationType.SYSTEM -> Color.Gray
 }
-

@@ -22,6 +22,21 @@ const { supabaseAdmin } = require('../../config/supabase');
 
 const router = express.Router();
 
+const normalizeEmergencyStatus = (request) => {
+  if (!request) return request;
+
+  const isLegacyBroadcasting =
+    request.status === 'pending' &&
+    request.dispatch_mode === 'sos_broadcast' &&
+    Array.isArray(request.broadcast_ambulance_ids) &&
+    request.broadcast_ambulance_ids.length > 0 &&
+    Number(request.broadcast_round || 0) > 0;
+
+  return isLegacyBroadcasting
+    ? { ...request, status: 'broadcasting' }
+    : request;
+};
+
 const getVehiclesForUser = async (user) => {
   let query = supabaseAdmin.from('ambulances').select('*').order('created_at', { ascending: false });
 
@@ -278,7 +293,9 @@ router.get('/dashboard', authenticate,
       }
     }
 
-    const activeEmergencies = allRequests.map(r => ({
+    const activeEmergencies = allRequests.map(rawRequest => {
+      const r = normalizeEmergencyStatus(rawRequest);
+      return ({
       id: r.id, requestNumber: r.request_number,
       priority: r.priority || (r.emergency_type === 'cardiac' || r.emergency_type === 'accident' ? 'critical' : r.emergency_type === 'pregnancy' ? 'high' : 'normal'),
       location: r.pickup_address || `${r.pickup_latitude}, ${r.pickup_longitude}`,
@@ -294,7 +311,7 @@ router.get('/dashboard', authenticate,
       dispatch_mode: r.dispatch_mode, broadcast_round: r.broadcast_round,
       created_at: r.created_at,
       vehicleId: r.vehicle_id, notes: r.notes,
-    }));
+    })});
 
     const vehicleList = (vehicles || []).map(v => ({
       id: v.id, vehicleNumber: v.vehicle_number, driver: v.driver_name || null,
@@ -411,8 +428,10 @@ router.get('/request/:id', authenticate,
     return res.status(403).json({ success: false, message: 'You do not have permission to view this request' });
   }
 
+  const normalized = normalizeEmergencyStatus(data);
+
   res.json({ success: true, data: {
-    ...data,
+    ...normalized,
     ambulance: data.vehicle ? { id: data.vehicle.id, vehicleNumber: data.vehicle.vehicle_number,
       driverName: data.vehicle.driver_name, driverPhone: data.vehicle.driver_phone,
       type: data.vehicle.vehicle_type, latitude: data.vehicle.current_latitude, longitude: data.vehicle.current_longitude } : null,

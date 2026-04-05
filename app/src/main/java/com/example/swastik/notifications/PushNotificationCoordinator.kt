@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.swastik.MainActivity
 import com.example.swastik.R
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.repository.PatientRepository
 import com.google.firebase.FirebaseApp
@@ -83,6 +84,9 @@ class PushNotificationCoordinator @Inject constructor(
         type: String,
         data: Map<String, String> = emptyMap()
     ) {
+        val preferences = AppSettingsStore.settings.value.notificationPreferences
+        if (!shouldDisplayNotification(type, preferences)) return
+
         ensureNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -102,6 +106,7 @@ class PushNotificationCoordinator @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setSilent(!preferences.sound)
             .build()
 
         NotificationManagerCompat.from(context).notify(
@@ -143,5 +148,44 @@ class PushNotificationCoordinator @Inject constructor(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+    }
+
+    private fun shouldDisplayNotification(
+        rawType: String,
+        preferences: com.example.swastik.data.local.NotificationPreferences
+    ): Boolean {
+        return when (rawType.lowercase()) {
+            "appointment",
+            "appointment_booked",
+            "appointment_confirmed",
+            "appointment_reminder",
+            "follow_up_reminder",
+            "appointment_status_changed",
+            "appointment_rescheduled",
+            "appointment_cancelled" -> preferences.appointments
+
+            "medicine",
+            "medicine_reminder",
+            "medicine_missed",
+            "health_task_reminder",
+            "care_plan_reminder" -> preferences.medicines
+
+            "report",
+            "report_ready",
+            "report_uploaded",
+            "diagnostic_result",
+            "diagnostic_test_reminder",
+            "report_review_reminder",
+            "prescription",
+            "prescription_created",
+            "prescription_expiry_reminder" -> preferences.reports
+
+            "offer",
+            "promotion",
+            "promo",
+            "discount" -> preferences.promotions
+
+            else -> true
+        }
     }
 }

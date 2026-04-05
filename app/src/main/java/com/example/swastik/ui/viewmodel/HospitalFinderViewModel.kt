@@ -21,6 +21,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private data class FacilityLoadResult(
+    val facilities: List<MedicalFacility> = emptyList(),
+    val errorMessage: String? = null
+)
+
 data class HospitalFinderUiState(
     val facilities: List<MedicalFacility> = emptyList(),
     val emergencyFacilities: List<MedicalFacility> = emptyList(),
@@ -208,31 +213,51 @@ class HospitalFinderViewModel @Inject constructor(
         val requests = buildList {
             if (facilityType == null || facilityType == FacilityType.HOSPITAL) {
                 add(async {
-                    try { hospitalRepository.getNearbyHospitals(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
+                    runCatching { hospitalRepository.getNearbyHospitals(latitude, longitude, radius) }
+                        .fold(
+                            onSuccess = { FacilityLoadResult(facilities = it) },
+                            onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Failed to load nearby hospitals") }
+                        )
                 })
             }
             if (facilityType == null || facilityType == FacilityType.MEDICAL_STORE) {
                 add(async {
-                    try { hospitalRepository.getNearbyPharmacies(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
+                    runCatching { hospitalRepository.getNearbyPharmacies(latitude, longitude, radius) }
+                        .fold(
+                            onSuccess = { FacilityLoadResult(facilities = it) },
+                            onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Failed to load nearby pharmacies") }
+                        )
                 })
             }
             if (facilityType == null || facilityType == FacilityType.CLINIC) {
                 add(async {
-                    try { hospitalRepository.getNearbyClinics(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
+                    runCatching { hospitalRepository.getNearbyClinics(latitude, longitude, radius) }
+                        .fold(
+                            onSuccess = { FacilityLoadResult(facilities = it) },
+                            onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Failed to load nearby clinics") }
+                        )
                 })
             }
             if (facilityType == null || facilityType == FacilityType.DIAGNOSTIC_CENTER) {
                 add(async {
-                    try { hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius) }
-                    catch (_: Exception) { emptyList() }
+                    runCatching { hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius) }
+                        .fold(
+                            onSuccess = { FacilityLoadResult(facilities = it) },
+                            onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Failed to load nearby diagnostic centers") }
+                        )
                 })
             }
         }
 
-        requests.awaitAll().flatten()
+        val results = requests.awaitAll()
+        val facilities = results.flatMap { it.facilities }
+        if (facilities.isNotEmpty()) {
+            facilities
+        } else {
+            val firstError = results.firstNotNullOfOrNull { it.errorMessage }
+            if (firstError != null) throw IllegalStateException(firstError)
+            emptyList()
+        }
     }
 
     fun searchFacilities(query: String, facilityType: FacilityType? = null) {
@@ -249,23 +274,55 @@ class HospitalFinderViewModel @Inject constructor(
 
                 val searches = buildList {
                     if (facilityType == null || facilityType == FacilityType.HOSPITAL) {
-                        add(async { hospitalRepository.searchHospitals(query, lat, lng) })
+                        add(async {
+                            runCatching { hospitalRepository.searchHospitals(query, lat, lng) }
+                                .fold(
+                                    onSuccess = { FacilityLoadResult(facilities = it) },
+                                    onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Hospital search failed") }
+                                )
+                        })
                     }
                     if (facilityType == null || facilityType == FacilityType.CLINIC) {
-                        add(async { hospitalRepository.searchClinics(query, lat, lng) })
+                        add(async {
+                            runCatching { hospitalRepository.searchClinics(query, lat, lng) }
+                                .fold(
+                                    onSuccess = { FacilityLoadResult(facilities = it) },
+                                    onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Clinic search failed") }
+                                )
+                        })
                     }
                     if (facilityType == null || facilityType == FacilityType.MEDICAL_STORE) {
-                        add(async { hospitalRepository.searchPharmacies(query, lat, lng) })
+                        add(async {
+                            runCatching { hospitalRepository.searchPharmacies(query, lat, lng) }
+                                .fold(
+                                    onSuccess = { FacilityLoadResult(facilities = it) },
+                                    onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Pharmacy search failed") }
+                                )
+                        })
                     }
                     if (facilityType == null || facilityType == FacilityType.DIAGNOSTIC_CENTER) {
-                        add(async { hospitalRepository.searchDiagnosticCenters(query, lat, lng) })
+                        add(async {
+                            runCatching { hospitalRepository.searchDiagnosticCenters(query, lat, lng) }
+                                .fold(
+                                    onSuccess = { FacilityLoadResult(facilities = it) },
+                                    onFailure = { FacilityLoadResult(errorMessage = it.message ?: "Diagnostic center search failed") }
+                                )
+                        })
                     }
                 }
 
-                val remoteResults = searches.awaitAll().flatten()
+                val searchResults = searches.awaitAll()
+                val remoteResults = searchResults.flatMap { it.facilities }
                 val seen = mutableSetOf<String>()
                 val dedupedResults = remoteResults.filter { facility ->
                     seen.add("${facility.type}:${facility.id}")
+                }
+
+                if (dedupedResults.isEmpty()) {
+                    val firstError = searchResults.firstNotNullOfOrNull { it.errorMessage }
+                    if (firstError != null) {
+                        throw IllegalStateException(firstError)
+                    }
                 }
 
                 _uiState.value = _uiState.value.copy(

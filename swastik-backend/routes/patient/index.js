@@ -16,6 +16,20 @@ const router = express.Router();
 
 const normalizeOrderStatus = (status) => (status === 'out_for_delivery' ? 'dispatched' : status);
 const normalizePatientOrder = (order) => (order ? { ...order, status: normalizeOrderStatus(order.status) } : order);
+const normalizeEmergencyStatus = (request) => {
+  if (!request) return request;
+
+  const isLegacyBroadcasting =
+    request.status === 'pending' &&
+    request.dispatch_mode === 'sos_broadcast' &&
+    Array.isArray(request.broadcast_ambulance_ids) &&
+    request.broadcast_ambulance_ids.length > 0 &&
+    Number(request.broadcast_round || 0) > 0;
+
+  return isLegacyBroadcasting
+    ? { ...request, status: 'broadcasting' }
+    : request;
+};
 const getOrderStatusFilters = (status) => {
   const normalizedStatus = normalizeOrderStatus(status);
   if (normalizedStatus === 'dispatched') {
@@ -776,7 +790,7 @@ router.get('/emergency/active',
       throw error;
     }
 
-    res.json({ success: true, data: data || null });
+    res.json({ success: true, data: normalizeEmergencyStatus(data || null) });
   })
 );
 

@@ -23,7 +23,7 @@ const auditLogSchema = new mongoose.Schema({
 const chatMessageSchema = new mongoose.Schema({
     sessionId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
-    role: { type: String, enum: ['user', 'assistant', 'system'], required: true },
+    role: { type: String, enum: ['user', 'assistant', 'system', 'doctor', 'patient'], required: true },
     content: { type: String, required: true },
     metadata: mongoose.Schema.Types.Mixed,
     createdAt: { type: Date, default: Date.now, index: true },

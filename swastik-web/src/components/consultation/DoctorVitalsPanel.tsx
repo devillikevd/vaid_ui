@@ -144,9 +144,9 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     const { latestVitals, vitalsHistory, alerts, criticalAlert } = useVitalsStream(consultationId, 'doctor', toggles);
 
     // AI Assistant
-    const [showAI, setShowAI] = useState(false);
     const [aiQuery, setAiQuery] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
     const [aiHistory, setAiHistory] = useState<{ query: string; response: AIConsultResponse }[]>([]);
     const [expandedAI, setExpandedAI] = useState<number | null>(null);
 
@@ -155,7 +155,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
 
     // HR history for sparkline
     const hrHistory = vitalsHistory.map(v => v.heart_rate).filter(Boolean) as number[];
-    const rrHistory = vitalsHistory.map(v => v.respiration_rate).filter(Boolean) as number[];
+    const aiAssistantEnabled = toggles?.ai_consultation_assistant !== false;
 
     // Load toggles
     useEffect(() => {
@@ -178,18 +178,27 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     // AI query handler
     const handleAIQuery = useCallback(async () => {
         if (!aiQuery.trim() || aiLoading) return;
+        if (!aiAssistantEnabled) {
+            setAiError('AI consultation assistant is turned off in feature toggles.');
+            return;
+        }
         const q = aiQuery.trim();
         setAiQuery('');
         setAiLoading(true);
+        setAiError(null);
         try {
             const res = await consultationsApi.aiAssist(consultationId, q);
             if (res.success && res.data) {
                 const resp = (res.data as any).response || res.data;
                 setAiHistory(prev => [...prev, { query: q, response: resp }]);
+            } else {
+                setAiError(res.error || 'AI assistant could not process this request right now.');
             }
-        } catch { }
+        } catch (error) {
+            setAiError(error instanceof Error ? error.message : 'AI assistant is temporarily unavailable.');
+        }
         setAiLoading(false);
-    }, [aiQuery, aiLoading, consultationId]);
+    }, [aiAssistantEnabled, aiLoading, aiQuery, consultationId]);
 
     if (!isDoctor) return null;
 
@@ -372,6 +381,16 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                 {activeTab === 'ai' && (
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                            {!aiAssistantEnabled && (
+                                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs text-amber-200">
+                                    AI consultation assistant is disabled in feature toggles. Re-enable it from the settings switch in this panel to use live clinical reasoning.
+                                </div>
+                            )}
+                            {aiError && (
+                                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-3 text-xs text-red-200">
+                                    {aiError}
+                                </div>
+                            )}
                             {aiHistory.length === 0 && !aiLoading && (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
                                     <Brain className="w-8 h-8 mb-3 opacity-30" />
@@ -380,7 +399,8 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     <div className="mt-4 space-y-1.5 w-full">
                                         {['Interpret current vitals', 'Suggest differential diagnosis', 'Any drug interactions?'].map(q => (
                                             <button key={q} onClick={() => { setAiQuery(q); }}
-                                                className="w-full text-left text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-800 px-3 py-2 rounded-lg border border-gray-700/50 transition-all">
+                                                disabled={!aiAssistantEnabled}
+                                                className="w-full text-left text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-800 px-3 py-2 rounded-lg border border-gray-700/50 transition-all disabled:cursor-not-allowed disabled:opacity-50">
                                                 {q}
                                             </button>
                                         ))}
@@ -483,8 +503,8 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     onKeyDown={e => e.key === 'Enter' && handleAIQuery()}
                                     placeholder="Ask about meds, interactions..."
                                     className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500"
-                                    disabled={aiLoading} />
-                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim()}
+                                    disabled={aiLoading || !aiAssistantEnabled} />
+                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim() || !aiAssistantEnabled}
                                     className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-40">
                                     {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>

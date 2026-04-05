@@ -1185,7 +1185,7 @@ RULES:
 
     # Load conversation memory from MongoDB
     conversation_history = []
-    if db:
+    if db is not None:
         try:
             cursor = db.doctor_ai_interactions.find(
                 {"consultationId": ctx.consultation_id, "doctorUserId": user.get("userId") or user.get("id")},
@@ -1242,7 +1242,7 @@ RULES:
     latency_ms = int((time.time() - start_time) * 1000)
 
     # Save to MongoDB audit trail
-    if db:
+    if db is not None:
         try:
             doctor_id = user.get("userId") or user.get("id")
             await db.doctor_ai_interactions.insert_one({
@@ -1324,7 +1324,7 @@ Respond with JSON:
     latency_ms = int((time.time() - start_time) * 1000)
 
     # Save summary to MongoDB
-    if db:
+    if db is not None:
         try:
             await db.consultation_summaries.insert_one({
                 "consultationId": req.consultation_id,

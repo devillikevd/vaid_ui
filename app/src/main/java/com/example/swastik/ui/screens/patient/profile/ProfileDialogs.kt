@@ -501,6 +501,7 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
 
 @Composable
 fun ChangePasswordDialog(
+    saveState: ProfileUpdateState = ProfileUpdateState.Idle,
     onDismiss: () -> Unit,
     onSubmit: (String, String) -> Unit
 ) {
@@ -510,6 +511,7 @@ fun ChangePasswordDialog(
     var showCurrentPwd by remember { mutableStateOf(false) }
     var showNewPwd by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    val isSaving = saveState is ProfileUpdateState.Loading
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -534,6 +536,18 @@ fun ChangePasswordDialog(
                         }
                     }
                 }
+                if (saveState is ProfileUpdateState.Error) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ErrorOutline, null, tint = Color(0xFFEF6C00), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(saveState.message, fontSize = 12.sp, color = Color(0xFFEF6C00))
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = currentPassword,
                     onValueChange = { currentPassword = it; validationError = null },
@@ -541,9 +555,10 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
+                    enabled = !isSaving,
                     visualTransformation = if (showCurrentPwd) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
-                        IconButton(onClick = { showCurrentPwd = !showCurrentPwd }) {
+                        IconButton(onClick = { showCurrentPwd = !showCurrentPwd }, enabled = !isSaving) {
                             Icon(if (showCurrentPwd) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, null, modifier = Modifier.size(20.dp))
                         }
                     }
@@ -555,9 +570,10 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
+                    enabled = !isSaving,
                     visualTransformation = if (showNewPwd) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
-                        IconButton(onClick = { showNewPwd = !showNewPwd }) {
+                        IconButton(onClick = { showNewPwd = !showNewPwd }, enabled = !isSaving) {
                             Icon(if (showNewPwd) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, null, modifier = Modifier.size(20.dp))
                         }
                     }
@@ -569,6 +585,7 @@ fun ChangePasswordDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
+                    enabled = !isSaving,
                     visualTransformation = PasswordVisualTransformation()
                 )
                 Text("Password must be at least 8 characters", fontSize = 11.sp, color = Color.Gray)
@@ -587,10 +604,20 @@ fun ChangePasswordDialog(
                 },
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
-                enabled = currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank()
-            ) { Text("Change Password") }
+                enabled = !isSaving && currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank()
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Change Password")
+                }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") } },
         shape = RoundedCornerShape(20.dp)
     )
 }

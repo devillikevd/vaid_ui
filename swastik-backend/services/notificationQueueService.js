@@ -20,7 +20,7 @@ const isQueueEnabled = () => String(process.env.NOTIFICATION_QUEUE_ENABLED || 't
 const getDeterministicJobId = (userId, notification) => {
   const key = notification?.data?.idempotencyKey;
   if (!key) return null;
-  return `notif:${userId}:${notification.type || 'info'}:${key}`;
+  return `notif_${userId}_${notification.type || 'info'}_${key}`.replace(/:/g, '_');
 };
 
 const initializeNotificationQueue = async () => {

@@ -65,6 +65,14 @@ const DISPATCH_MODES = {
   HOSPITAL_CONTROLLED: 'hospital_controlled',
 };
 
+const isLegacyBroadcastingRequest = (request = {}) => (
+  request?.status === 'pending' &&
+  request?.dispatch_mode === DISPATCH_MODES.SOS_BROADCAST &&
+  Number(request?.broadcast_round || 0) > 0 &&
+  Array.isArray(request?.broadcast_ambulance_ids) &&
+  request.broadcast_ambulance_ids.length > 0
+);
+
 // ── Priority from emergency type ─────────────────────────────────
 function derivePriority(emergencyType) {
   const critical = ['cardiac', 'accident', 'trauma'];
@@ -138,19 +146,23 @@ class DispatchService {
     try {
       const { data: stuckRequests } = await supabaseAdmin
         .from('emergency_requests')
-        .select('id, pickup_latitude, pickup_longitude, broadcast_round, timeout_at, status')
-        .in('status', ['broadcasting'])
+        .select('id, pickup_latitude, pickup_longitude, broadcast_round, timeout_at, status, dispatch_mode, broadcast_ambulance_ids')
+        .in('status', ['broadcasting', 'pending'])
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (!stuckRequests || stuckRequests.length === 0) {
+      const recoverableRequests = (stuckRequests || []).filter((request) =>
+        request.status === 'broadcasting' || isLegacyBroadcastingRequest(request)
+      );
+
+      if (recoverableRequests.length === 0) {
         console.log('🔄 No stuck broadcasts to recover');
         return;
       }
 
-      console.log(`🔄 Recovering ${stuckRequests.length} stuck broadcast(s)...`);
+      console.log(`🔄 Recovering ${recoverableRequests.length} stuck broadcast(s)...`);
 
-      for (const req of stuckRequests) {
+      for (const req of recoverableRequests) {
         const now = Date.now();
         const timeoutAt = req.timeout_at ? new Date(req.timeout_at).getTime() : 0;
         const remainingMs = timeoutAt - now;
@@ -162,7 +174,7 @@ class DispatchService {
             this.pendingTimeouts.delete(req.id);
             const { data: current } = await supabaseAdmin
               .from('emergency_requests').select('status').eq('id', req.id).single();
-            if (!current || current.status !== 'broadcasting') return;
+            if (!current || (current.status !== 'broadcasting' && !isLegacyBroadcastingRequest(current))) return;
 
             const nextRound = (req.broadcast_round || 1) + 1;
             if (nextRound <= this.MAX_BROADCAST_ROUNDS) {
@@ -366,16 +378,51 @@ class DispatchService {
 
     // Update request to broadcasting state
     const newBroadcastIds = [...alreadyBroadcasted, ...candidates.map(c => c.id)];
-    await supabaseAdmin
+    let { error: broadcastUpdateError } = await supabaseAdmin
       .from('emergency_requests')
       .update({
         status: 'broadcasting',
         broadcast_round: round,
         broadcast_ambulance_ids: newBroadcastIds,
         timeout_at: new Date(Date.now() + this.ACCEPT_TIMEOUT_MS).toISOString(),
-        status_history: supabaseAdmin.rpc ? undefined : undefined, // handled in _updateRequestStatus
       })
       .eq('id', requestId);
+
+    if (
+      broadcastUpdateError &&
+      String(broadcastUpdateError.code) === '23514' &&
+      String(broadcastUpdateError.message || '').includes('emergency_requests_status_check')
+    ) {
+      console.warn('[dispatch] broadcasting status rejected by DB constraint, falling back to pending', {
+        requestId,
+        round,
+        radiusKm,
+        candidateIds: candidates.map((candidate) => candidate.id),
+        code: broadcastUpdateError.code,
+        message: broadcastUpdateError.message,
+      });
+
+      ({ error: broadcastUpdateError } = await supabaseAdmin
+        .from('emergency_requests')
+        .update({
+          broadcast_round: round,
+          broadcast_ambulance_ids: newBroadcastIds,
+          timeout_at: new Date(Date.now() + this.ACCEPT_TIMEOUT_MS).toISOString(),
+        })
+        .eq('id', requestId));
+    }
+
+    if (broadcastUpdateError) {
+      console.error('[dispatch] failed to mark request as broadcasting', {
+        requestId,
+        round,
+        radiusKm,
+        candidateIds: candidates.map((candidate) => candidate.id),
+        code: broadcastUpdateError.code,
+        message: broadcastUpdateError.message,
+      });
+      throw new ApiError(500, 'Failed to start SOS broadcast');
+    }
 
     // Append to status_history
     await this._appendStatusHistory(requestId, 'broadcasting', {
@@ -456,7 +503,7 @@ class DispatchService {
         .eq('id', requestId)
         .single();
 
-      if (!request || request.status !== 'broadcasting') {
+      if (!request || (request.status !== 'broadcasting' && !isLegacyBroadcastingRequest(request))) {
         return; // Already accepted, cancelled, etc.
       }
 
