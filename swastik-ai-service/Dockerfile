@@ -13,9 +13,13 @@ COPY . .
 # Service port
 EXPOSE 8000
 
+ENV AI_SERVICE_PORT=8000
+ENV AI_SERVICE_WORKERS=2
+ENV AI_SERVICE_RELOAD=false
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
-# Start FastAPI service
-CMD ["python", "main.py"]
+# Start FastAPI service with production-safe worker defaults
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${AI_SERVICE_PORT:-8000} --workers ${AI_SERVICE_WORKERS:-2}"]

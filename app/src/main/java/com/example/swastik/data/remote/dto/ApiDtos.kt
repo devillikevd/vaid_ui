@@ -69,9 +69,18 @@ data class HealthTip(
 )
 
 data class UploadResponse(
-    val url: String,
-    @SerializedName("file_name") val fileName: String? = null
-)
+    val url: String? = null,
+    @SerializedName("file_name") val fileName: String? = null,
+    @SerializedName("fileUrl") val fileUrl: String? = null,
+    @SerializedName("objectName") val objectName: String? = null,
+    @SerializedName("storageUrl") val storageUrl: String? = null,
+    @SerializedName("storage_url") val storageUrlSnake: String? = null,
+    @SerializedName("resolvedUrl") val resolvedUrl: String? = null,
+    @SerializedName("resolved_url") val resolvedUrlSnake: String? = null
+) {
+    fun resolvedUrl(): String? = resolvedUrl ?: resolvedUrlSnake ?: url ?: fileUrl
+    fun storageUrl(): String? = storageUrl ?: storageUrlSnake ?: url ?: fileUrl
+}
 
 // ==================== HEALTH CARD DTOs ====================
 

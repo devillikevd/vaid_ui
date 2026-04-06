@@ -1352,4 +1352,12 @@ Respond with JSON:
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("AI_SERVICE_PORT", "8000"))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    reload_enabled = os.getenv("AI_SERVICE_RELOAD", "true" if os.getenv("NODE_ENV", "development") == "development" else "false").lower() == "true"
+    worker_count = max(1, int(os.getenv("AI_SERVICE_WORKERS", "1")))
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port,
+        reload=reload_enabled,
+        workers=1 if reload_enabled else worker_count,
+    )

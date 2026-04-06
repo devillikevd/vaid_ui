@@ -11,11 +11,12 @@ const crypto = require('crypto');
 
 const config = require('./config');
 const compression = require('compression');
-const { initializeBucket } = require('./config/minio');
+const { initializeBucket, storageProvider } = require('./config/minio');
 const { connectMongoDB } = require('./config/mongodb');
 const { connectRedis } = require('./config/redis');
 const { initializeNotificationQueue, shutdownNotificationQueue } = require('./services/notificationQueueService');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { signStorageUrlsMiddleware } = require('./middleware/signStorageUrls');
 const { initializeSocketIO } = require('./sockets');
 
 // Import routes
@@ -202,6 +203,9 @@ app.use('/api/auth/reset-password', authLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Resolve private object-storage URLs into signed read URLs for normal API responses.
+app.use(signStorageUrlsMiddleware);
+
 // Logging
 if (config.env === 'development') {
   app.use(morgan('dev'));
@@ -243,11 +247,14 @@ app.get('/health', async (req, res) => {
     checks.mongodb = 'unknown';
   }
 
-  // Check MinIO (uploads dependency)
+  // Check object storage (uploads dependency)
   try {
     const { isStorageAvailable } = require('./config/minio');
-    checks.minio = isStorageAvailable() ? 'ok' : 'down';
+    checks.storage = isStorageAvailable() ? 'ok' : 'down';
+    checks.storageProvider = storageProvider;
+    checks.minio = checks.storage;
   } catch {
+    checks.storage = 'unknown';
     checks.minio = 'unknown';
   }
 

@@ -4,7 +4,7 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
-const { deleteFile, isStorageAvailable } = require('../config/minio');
+const { deleteFile, isStorageAvailable, extractObjectNameFromUrl } = require('../config/minio');
 
 // Report types (sync)
 // Valid report types matching DB CHECK constraint:
@@ -246,15 +246,13 @@ const deleteReport = async (userId, reportId) => {
 
   if (error) throw error;
 
-  // M6: Clean up file from MinIO storage
+  // Clean up file from object storage
   if (report.file_url) {
     try {
-      // Extract object name from URL (path after bucket name)
-      const url = new URL(report.file_url);
-      const objectName = url.pathname.split('/').slice(2).join('/');
+      const objectName = extractObjectNameFromUrl(report.file_url);
       if (objectName) await deleteFile(objectName);
     } catch (cleanupErr) {
-      console.warn('MinIO cleanup failed (non-fatal):', cleanupErr.message);
+      console.warn('Storage cleanup failed (non-fatal):', cleanupErr.message);
     }
   }
 

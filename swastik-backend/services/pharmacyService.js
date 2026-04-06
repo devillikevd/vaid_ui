@@ -380,7 +380,11 @@ const getPharmacyByOwner = async (userId) => {
   }
 
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
-  return recordWithPhone || data;
+  const pharmacy = recordWithPhone || data;
+  return {
+    ...pharmacy,
+    profile_image_url: pharmacy.profile_image_url || pharmacy.image_url || null,
+  };
 };
 
 // Update pharmacy
@@ -406,6 +410,10 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   for (const key of allowedFields) {
     if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];
   }
+  if (safeUpdates.profile_image_url !== undefined) {
+    safeUpdates.image_url = safeUpdates.profile_image_url;
+    delete safeUpdates.profile_image_url;
+  }
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingPharmacy, safeUpdates));
   safeUpdates.updated_at = new Date().toISOString();
   Object.assign(safeUpdates, buildProviderResubmissionFields('pharmacy_owner', existingPharmacy.approval_status));
@@ -420,7 +428,10 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
 
   if (error) throw error;
   await cacheDel(`auth_user:${userId}`);
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // Get inventory

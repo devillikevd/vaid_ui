@@ -4,9 +4,11 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
+ENV NODE_ENV=production
+
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy application code
 COPY . .

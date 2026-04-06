@@ -34,6 +34,7 @@ export function ComplianceDocumentUpload({
     const inputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -60,13 +61,15 @@ export function ComplianceDocumentUpload({
             }
 
             const payload = response.data as Record<string, unknown>;
-            const url = String(payload.url || payload.fileUrl || payload.file_url || '');
-            if (!url) {
+            const storageUrl = String(payload.storageUrl || payload.storage_url || payload.objectUrl || payload.object_url || payload.url || payload.fileUrl || payload.file_url || '');
+            const resolvedUrl = String(payload.resolvedUrl || payload.resolved_url || payload.url || payload.fileUrl || payload.file_url || '');
+            if (!storageUrl) {
                 setError('Upload finished, but the file URL was missing.');
                 return;
             }
 
-            onChange(url);
+            onChange(storageUrl);
+            setPreviewUrl(resolvedUrl || storageUrl);
         } catch {
             setError('Upload failed. You can still paste a document URL manually.');
         } finally {
@@ -112,9 +115,9 @@ export function ComplianceDocumentUpload({
                 placeholder={placeholder}
             />
 
-            {value && (
+            {(previewUrl || value) && (
                 <a
-                    href={value}
+                    href={previewUrl || value || ''}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"

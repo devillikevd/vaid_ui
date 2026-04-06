@@ -43,7 +43,9 @@ class ProfileViewModel @Inject constructor(
                     _state.value = _state.value.copy(
                         isLoading = false,
                         user = user,
-                        error = null
+                        error = null,
+                        uploadedDocumentPersistentUrl = null,
+                        uploadedDocumentResolvedUrl = null
                     )
                 },
                 onFailure = { e ->
@@ -143,7 +145,9 @@ class ProfileViewModel @Inject constructor(
                     val currentUser = _state.value.user
                     _state.value = _state.value.copy(
                         isUploadingDocument = false,
-                        user = currentUser?.copy(licenseDocumentUrl = documentUrl)
+                        user = currentUser?.copy(licenseDocumentUrl = documentUrl.persistentUrl),
+                        uploadedDocumentPersistentUrl = documentUrl.persistentUrl,
+                        uploadedDocumentResolvedUrl = documentUrl.resolvedUrl
                     )
                     _userMessage.tryEmit("License document uploaded")
                 },

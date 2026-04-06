@@ -95,7 +95,9 @@ data class ProfileUiState(
     val profileSaveSuccess: Boolean = false,
     val profileSaveError: String? = null,
     val isUploadingDocument: Boolean = false,
-    val documentUploadError: String? = null
+    val documentUploadError: String? = null,
+    val uploadedDocumentPersistentUrl: String? = null,
+    val uploadedDocumentResolvedUrl: String? = null
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,6 +126,7 @@ fun ProfileScreen(
     var state by rememberSaveable { mutableStateOf("") }
     var alternatePhone by rememberSaveable { mutableStateOf("") }
     var licenseDocumentUrl by rememberSaveable { mutableStateOf("") }
+    var licenseDocumentOpenUrl by rememberSaveable { mutableStateOf("") }
     var licenseExpiry by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(profileState.user) {
@@ -137,7 +140,22 @@ fun ProfileScreen(
             state = user.state.orEmpty()
             alternatePhone = user.alternatePhone.orEmpty()
             licenseDocumentUrl = user.licenseDocumentUrl.orEmpty()
+            licenseDocumentOpenUrl = user.licenseDocumentUrl.orEmpty()
             licenseExpiry = user.licenseExpiry.orEmpty()
+        }
+    }
+
+    LaunchedEffect(
+        profileState.uploadedDocumentPersistentUrl,
+        profileState.uploadedDocumentResolvedUrl
+    ) {
+        val persistentUrl = profileState.uploadedDocumentPersistentUrl
+        if (!persistentUrl.isNullOrBlank()) {
+            licenseDocumentUrl = persistentUrl
+            licenseDocumentOpenUrl =
+                profileState.uploadedDocumentResolvedUrl
+                    ?.takeIf { it.isNotBlank() }
+                    ?: persistentUrl
         }
     }
 
@@ -437,7 +455,11 @@ fun ProfileScreen(
 
                                     if (licenseDocumentUrl.isNotBlank()) {
                                         OutlinedButton(
-                                            onClick = { uriHandler.openUri(licenseDocumentUrl) },
+                                            onClick = {
+                                                uriHandler.openUri(
+                                                    licenseDocumentOpenUrl.ifBlank { licenseDocumentUrl }
+                                                )
+                                            },
                                             modifier = Modifier.weight(1f)
                                         ) {
                                             Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))

@@ -79,6 +79,14 @@ const authenticate = async (req, res, next) => {
       approval_notes: user.approval_notes,
       provider_id: user.provider_id,
       company_name: user.company_name,
+      registration_number: user.registration_number,
+      address: user.address,
+      city: user.city,
+      state: user.state,
+      alternate_phone: user.alternate_phone,
+      provider_email: user.provider_email,
+      license_document_url: user.license_document_url,
+      license_expiry: user.license_expiry,
     };
 
     next();

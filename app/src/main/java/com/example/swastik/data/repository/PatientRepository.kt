@@ -453,7 +453,9 @@ class PatientRepository @Inject constructor(
         return try {
             val response = apiService.uploadProfileImage(imagePart)
             if (response.isSuccessful && response.body()?.success == true) {
-                val url = response.body()?.data?.url ?: ""
+                val url = response.body()?.data?.resolvedUrl()
+                    ?: response.body()?.data?.storageUrl()
+                    ?: ""
                 // Update local profile state with new image URL
                 _patientProfile.value = _patientProfile.value?.copy(profileImageUrl = url)
                 Result.Success(url)
@@ -584,7 +586,11 @@ class PatientRepository @Inject constructor(
         return try {
             val response = apiService.uploadMedicalReport(filePart)
             if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.data?.url ?: "")
+                Result.Success(
+                    response.body()?.data?.resolvedUrl()
+                        ?: response.body()?.data?.storageUrl()
+                        ?: ""
+                )
             } else {
                 Result.Error("Failed to upload report")
             }

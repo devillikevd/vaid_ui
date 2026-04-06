@@ -22,6 +22,56 @@ const normalizeFrontendUrl = (value, fallback) => {
   }
 };
 
+const parseBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  return String(value).toLowerCase() === 'true';
+};
+
+const buildDefaultStoragePublicUrl = ({ provider, bucketName, region, endpoint, port, useSSL }) => {
+  if (provider === 's3') {
+    return `https://${bucketName}.s3.${region}.amazonaws.com`;
+  }
+
+  const protocol = useSSL ? 'https' : 'http';
+  const normalizedPort = port && ![80, 443].includes(port) ? `:${port}` : '';
+  return `${protocol}://${endpoint}${normalizedPort}/${bucketName}`;
+};
+
+const storageProvider = process.env.STORAGE_PROVIDER
+  || process.env.FILE_STORAGE_PROVIDER
+  || (process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY || process.env.S3_BUCKET_NAME || process.env.BUCKET_NAME
+    ? 's3'
+    : 'minio');
+
+const storageRegion = process.env.AWS_REGION || process.env.S3_REGION || 'ap-south-1';
+const storageEndpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT || (storageProvider === 's3' ? `s3.${storageRegion}.amazonaws.com` : 'localhost');
+const storageUseSSL = parseBoolean(
+  process.env.STORAGE_USE_SSL ?? process.env.S3_USE_SSL ?? process.env.MINIO_USE_SSL,
+  storageProvider === 's3'
+);
+const storagePort = parseInt(process.env.STORAGE_PORT || process.env.MINIO_PORT || (storageUseSSL ? '443' : '9000'), 10);
+const storageBucketName = process.env.S3_BUCKET_NAME || process.env.BUCKET_NAME || process.env.MINIO_BUCKET_NAME || 'swastik-healthcare';
+const storagePublicUrl = (
+  process.env.STORAGE_PUBLIC_URL
+  || process.env.S3_PUBLIC_URL
+  || process.env.MINIO_PUBLIC_URL
+  || buildDefaultStoragePublicUrl({
+    provider: storageProvider,
+    bucketName: storageBucketName,
+    region: storageRegion,
+    endpoint: storageEndpoint,
+    port: storagePort,
+    useSSL: storageUseSSL,
+  })
+).replace(/\/$/, '');
+const storagePublicReadPrefixes = (
+  process.env.STORAGE_PUBLIC_READ_PREFIXES
+  || 'profiles/*,documents/*,reports/*,prescriptions/*,videos/*,licenses/*,entities/*,thumbnails/*,medium/*'
+)
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
 const config = {
   // Server
   env: process.env.NODE_ENV || 'development',
@@ -70,22 +120,36 @@ const config = {
     ioredisUrl: process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL,
   },
 
-  // MinIO (defaults are for local dev only — override in production!)
-  minio: {
-    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT, 10) || 9000,
-    accessKey: process.env.MINIO_ACCESS_KEY || (() => {
-      if (process.env.NODE_ENV === 'production') throw new Error('FATAL: MINIO_ACCESS_KEY required in production');
+  // Object storage (Amazon S3 in production, MinIO in local/dev by default)
+  storage: {
+    provider: storageProvider,
+    endpoint: storageEndpoint,
+    port: storagePort,
+    region: storageRegion,
+    accessKey: process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || (() => {
+      if (storageProvider === 's3' || process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL: storage access key is required in production');
+      }
       return 'minioadmin';
     })(),
-    secretKey: process.env.MINIO_SECRET_KEY || (() => {
-      if (process.env.NODE_ENV === 'production') throw new Error('FATAL: MINIO_SECRET_KEY required in production');
+    secretKey: process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_KEY || process.env.MINIO_SECRET_KEY || (() => {
+      if (storageProvider === 's3' || process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL: storage secret key is required in production');
+      }
       return 'minioadmin';
     })(),
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-    bucketName: process.env.MINIO_BUCKET_NAME || 'swastik-healthcare',
-    publicUrl: process.env.MINIO_PUBLIC_URL || 'http://localhost:9000',
+    useSSL: storageUseSSL,
+    bucketName: storageBucketName,
+    publicUrl: storagePublicUrl,
+    signedUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_URL_EXPIRY_SECONDS || '3600', 10),
+    signedReadUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_READ_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_READ_URL_EXPIRY_SECONDS || '86400', 10),
+    signedUploadUrlExpirySeconds: parseInt(process.env.STORAGE_SIGNED_UPLOAD_URL_EXPIRY_SECONDS || process.env.S3_SIGNED_UPLOAD_URL_EXPIRY_SECONDS || process.env.STORAGE_SIGNED_URL_EXPIRY_SECONDS || '3600', 10),
+    autoCreateBucket: parseBoolean(process.env.STORAGE_AUTO_CREATE_BUCKET, storageProvider !== 's3'),
+    forcePathStyle: parseBoolean(process.env.STORAGE_FORCE_PATH_STYLE || process.env.S3_FORCE_PATH_STYLE, storageProvider !== 's3'),
+    publicReadPrefixes: storagePublicReadPrefixes,
   },
+  // Backward-compatible alias for older imports / scripts
+  minio: null,
 
   // Frontend URLs
   frontendWebUrl: normalizeFrontendUrl(process.env.FRONTEND_WEB_URL, 'http://localhost:3000'),
@@ -141,5 +205,7 @@ const config = {
     fromEmail: process.env.EMAIL_FROM_ADDRESS || process.env.FROM_EMAIL || 'noreply@swastik.health',
   },
 };
+
+config.minio = config.storage;
 
 module.exports = config;

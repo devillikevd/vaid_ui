@@ -1,6 +1,6 @@
 /**
  * File Upload Routes
- * Handles file uploads to MinIO storage
+ * Handles file uploads to object storage (Amazon S3 / MinIO)
  * Security: magic byte validation on all file uploads
  */
 const express = require('express');
@@ -28,6 +28,8 @@ const {
     uploadEntityImage,
     getPresignedUrl,
     getPresignedUploadUrl,
+    getPublicObjectUrl,
+    signStorageUrl,
     deleteFile,
     listFiles,
     getImageVariants,
@@ -41,6 +43,32 @@ const upload = multer({
         fileSize: 50 * 1024 * 1024, // Fix #9: 50MB max (reduced from 500MB to prevent DoS)
     },
 });
+
+const buildSignedVariantMap = async (variants = {}) => {
+    const entries = await Promise.all(
+        Object.entries(variants).map(async ([key, value]) => [key, await signStorageUrl(value)])
+    );
+    return Object.fromEntries(entries);
+};
+
+const buildUploadResponseData = async (result, rawVariants = null) => {
+    const stableUrl = result.url || null;
+    const resolvedUrl = await signStorageUrl(stableUrl);
+    const payload = {
+        ...result,
+        url: resolvedUrl || stableUrl,
+        fileUrl: resolvedUrl || stableUrl,
+        resolvedUrl: resolvedUrl || stableUrl,
+        storageUrl: stableUrl,
+    };
+
+    if (rawVariants) {
+        payload.variants = await buildSignedVariantMap(rawVariants);
+        payload.storageVariants = rawVariants;
+    }
+
+    return payload;
+};
 
 // Global upload availability guard
 router.use((req, res, next) => {
@@ -74,7 +102,7 @@ router.post('/profile', authenticateToken, upload.single('file'), validateMagicB
 
         res.json({
             success: true,
-            data: { ...result, variants },
+            data: await buildUploadResponseData(result, variants),
         });
     } catch (error) {
         next(error);
@@ -99,7 +127,7 @@ router.post('/document', authenticateToken, upload.single('file'), validateMagic
 
         res.json({
             success: true,
-            data: result,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);
@@ -123,7 +151,7 @@ router.post('/report', authenticateToken, upload.single('file'), validateMagicBy
 
         res.json({
             success: true,
-            data: result,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);
@@ -149,7 +177,7 @@ router.post('/prescription', authenticateToken, requireRole(ROLES.DOCTOR), uploa
 
         res.json({
             success: true,
-            data: result,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);
@@ -173,7 +201,7 @@ router.post('/video', authenticateToken, upload.single('file'), validateMagicByt
 
         res.json({
             success: true,
-            data: result,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);
@@ -198,7 +226,7 @@ router.post('/license', authenticateToken, upload.single('file'), validateMagicB
 
         res.json({
             success: true,
-            data: result,
+            data: await buildUploadResponseData(result),
         });
     } catch (error) {
         next(error);
@@ -250,7 +278,7 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
 
         res.json({
             success: true,
-            data: { ...result, variants },
+            data: await buildUploadResponseData(result, variants),
         });
     } catch (error) {
         next(error);
@@ -275,10 +303,11 @@ router.post('/multiple', authenticateToken, upload.array('files', 10), validateM
             req.files.map(file => uploadDocument(file, req.user.id, folder))
         );
 
+        const payload = await Promise.all(results.map((result) => buildUploadResponseData(result)));
         res.json({
             success: true,
-            data: results,
-            count: results.length,
+            data: payload,
+            count: payload.length,
         });
     } catch (error) {
         next(error);
@@ -417,14 +446,14 @@ router.post('/presigned-upload', authenticateToken, async (req, res, next) => {
         const folderPath = folder || STORAGE_FOLDERS.DOCUMENTS;
         const objectName = `${folderPath}/${req.user.id}/${Date.now()}-${sanitizedFileName}`;
 
-        const url = await getPresignedUploadUrl(objectName);
+        const url = await getPresignedUploadUrl(objectName, undefined, mimeType);
 
         res.json({
             success: true,
             data: {
                 uploadUrl: url,
                 objectName,
-                publicUrl: `${process.env.MINIO_PUBLIC_URL}/${process.env.MINIO_BUCKET_NAME}/${objectName}`,
+                publicUrl: getPublicObjectUrl(objectName),
             },
         });
     } catch (error) {

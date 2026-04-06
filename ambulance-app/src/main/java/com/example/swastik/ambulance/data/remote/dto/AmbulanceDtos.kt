@@ -125,9 +125,14 @@ data class UpdateProfileRequest(
 data class UploadedFileDto(
     val url: String? = null,
     @SerializedName("fileUrl") val fileUrl: String? = null,
-    @SerializedName("objectName") val objectName: String? = null
+    @SerializedName("objectName") val objectName: String? = null,
+    @SerializedName("storageUrl") val storageUrl: String? = null,
+    @SerializedName("storage_url") val storageUrlSnake: String? = null,
+    @SerializedName("resolvedUrl") val resolvedUrlValue: String? = null,
+    @SerializedName("resolved_url") val resolvedUrlSnake: String? = null
 ) {
-    fun resolvedUrl(): String? = url ?: fileUrl
+    fun resolvedUrl(): String? = resolvedUrlValue ?: resolvedUrlSnake ?: url ?: fileUrl
+    fun persistentUrl(): String? = storageUrl ?: storageUrlSnake ?: url ?: fileUrl
 }
 
 // ==================== Ambulance DTOs ====================

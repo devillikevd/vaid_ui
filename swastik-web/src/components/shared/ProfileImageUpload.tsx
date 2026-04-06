@@ -68,9 +68,9 @@ export function ProfileImageUpload({
             const result = await uploadApi.uploadFile(file, 'profile');
             if (result.success && result.data) {
                 const data = result.data as Record<string, unknown>;
-                const url = (data.url || data.fileUrl || data.file_url || '') as string;
-                if (url) {
-                    onUploadComplete(url);
+                const storageUrl = (data.storageUrl || data.storage_url || data.objectUrl || data.object_url || data.url || data.fileUrl || data.file_url || '') as string;
+                if (storageUrl) {
+                    onUploadComplete(storageUrl);
                 } else {
                     setError('Upload succeeded but no URL returned.');
                 }

@@ -1,5 +1,5 @@
 const { supabaseAdmin } = require('../config/supabase');
-const { uploadProfileImage, deleteFile, getPresignedUrl } = require('../config/minio');
+const { uploadProfileImage, deleteFile, getPresignedUrl, extractObjectNameFromUrl } = require('../config/minio');
 const { ApiError } = require('../middleware/errorHandler');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
@@ -307,10 +307,7 @@ class PatientService {
     // Delete old image if exists
     if (patient.profile_image_url) {
       try {
-        // Extract object path after the bucket name in the URL
-        const urlParts = patient.profile_image_url.split('/');
-        const bucketIndex = urlParts.findIndex(p => p === 'swastik-uploads' || p === 'swastik');
-        const objectPath = bucketIndex >= 0 ? urlParts.slice(bucketIndex + 1).join('/') : urlParts.slice(-2).join('/');
+        const objectPath = extractObjectNameFromUrl(patient.profile_image_url);
         await deleteFile(objectPath);
       } catch (e) {
         console.log('Failed to delete old image:', e.message);

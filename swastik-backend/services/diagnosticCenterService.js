@@ -177,7 +177,10 @@ const getDiagnosticCenterByOwner = async (userId) => {
   if (error || !data) {
     throw new ApiError(404, 'Diagnostic center not found for this user');
   }
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // Get dashboard stats
@@ -295,7 +298,10 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
 
   if (error) throw error;
   await cacheDel(`auth_user:${userId}`);
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // ==================== Test Catalog Management ====================

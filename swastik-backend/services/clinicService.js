@@ -262,7 +262,10 @@ const getClinicByOwner = async (userId) => {
   if (error || !data) {
     throw new ApiError(404, 'Clinic not found for this user');
   }
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // Get dashboard stats
@@ -369,7 +372,10 @@ const updateClinic = async (clinicId, userId, updates) => {
     if (safeUpdates.image_url !== undefined) safeUpdates.profile_image_url = safeUpdates.image_url;
     else if (safeUpdates.profile_image !== undefined) safeUpdates.profile_image_url = safeUpdates.profile_image;
   }
-  delete safeUpdates.image_url;
+  if (safeUpdates.profile_image_url !== undefined) {
+    safeUpdates.image_url = safeUpdates.profile_image_url;
+    delete safeUpdates.profile_image_url;
+  }
   delete safeUpdates.profile_image;
 
   Object.assign(safeUpdates, await maybeGeocodeLocationUpdates(existingClinic, safeUpdates));
@@ -386,7 +392,10 @@ const updateClinic = async (clinicId, userId, updates) => {
 
   if (error) throw error;
   await cacheDel(`auth_user:${userId}`);
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // Get clinic operating schedule

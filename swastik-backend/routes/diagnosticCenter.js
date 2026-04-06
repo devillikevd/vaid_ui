@@ -153,7 +153,7 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHa
         'latitude', 'longitude', 'registration_number', 'license_number', 'license_document_url',
         'nabl_accreditation', 'accreditations',
         'sample_collection_available', 'home_collection_available',
-        'home_collection_fee', 'is_24_hours', 'profile_image',
+        'home_collection_fee', 'is_24_hours', 'profile_image', 'profile_image_url', 'image_url',
     ];
     const safeUpdates = {};
     for (const key of allowed) {

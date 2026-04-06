@@ -39,7 +39,10 @@ const getHospitalByOwner = async (userId) => {
     throw new ApiError(404, 'Hospital not found for this user');
   }
 
-  return hospital;
+  return {
+    ...hospital,
+    profile_image_url: hospital.profile_image_url || hospital.image_url || null,
+  };
 };
 
 const assertDoctorBelongsToHospital = async (hospitalId, doctorId) => {
@@ -310,6 +313,10 @@ const updateHospital = async (hospitalId, userId, updates) => {
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
   }
+  if (safeUpdates.profile_image_url !== undefined) {
+    safeUpdates.image_url = safeUpdates.profile_image_url;
+    delete safeUpdates.profile_image_url;
+  }
   if (updates.bed_capacity !== undefined && safeUpdates.total_beds === undefined) {
     safeUpdates.total_beds = updates.bed_capacity;
   }
@@ -326,7 +333,10 @@ const updateHospital = async (hospitalId, userId, updates) => {
 
   if (error) throw error;
   await cacheDel(`auth_user:${userId}`);
-  return data;
+  return {
+    ...data,
+    profile_image_url: data.profile_image_url || data.image_url || null,
+  };
 };
 
 // Get doctors

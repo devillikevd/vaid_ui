@@ -18,6 +18,11 @@ class AmbulanceRepository @Inject constructor(
     private val socketManager: SocketManager,
     private val offlineQueue: OfflineQueue
 ) {
+    data class UploadedDocumentRef(
+        val persistentUrl: String,
+        val resolvedUrl: String? = null
+    )
+
     init {
         // Register reconnect callback to replay queued offline actions
         socketManager.onConnectCallback = { replayOfflineQueue() }
@@ -244,14 +249,20 @@ class AmbulanceRepository @Inject constructor(
         }
     }
 
-    suspend fun uploadLicenseDocument(filePart: MultipartBody.Part): Result<String> {
+    suspend fun uploadLicenseDocument(filePart: MultipartBody.Part): Result<UploadedDocumentRef> {
         return try {
             val providerType = "ambulance".toRequestBody("text/plain".toMediaTypeOrNull())
             val response = apiService.uploadLicenseDocument(filePart, providerType)
             if (response.isSuccessful && response.body()?.data != null) {
-                val url = response.body()?.data?.resolvedUrl()
-                if (!url.isNullOrBlank()) {
-                    Result.success(url)
+                val persistentUrl = response.body()?.data?.persistentUrl()
+                val resolvedUrl = response.body()?.data?.resolvedUrl()
+                if (!persistentUrl.isNullOrBlank()) {
+                    Result.success(
+                        UploadedDocumentRef(
+                            persistentUrl = persistentUrl,
+                            resolvedUrl = resolvedUrl ?: persistentUrl
+                        )
+                    )
                 } else {
                     Result.failure(Exception("Upload succeeded but no document URL was returned"))
                 }
