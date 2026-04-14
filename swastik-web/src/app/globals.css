@@ -137,9 +137,10 @@ body {
    ===================================================== */
 
 /* --- Text colors auto-adapt in dark mode --- */
-.dark .text-gray-900 { color: #f3f4f6; }  /* gray-100 */
-.dark .text-gray-800 { color: #e5e7eb; }  /* gray-200 */
-.dark .text-gray-700 { color: #d1d5db; }  /* gray-300 */
+/* BUG-22 Fix: Use :where() to keep specificity low so component-level dark: classes win */
+.dark :where(main, [role="main"], .dashboard-content) .text-gray-900 { color: #f3f4f6; }  /* gray-100 */
+.dark :where(main, [role="main"], .dashboard-content) .text-gray-800 { color: #e5e7eb; }  /* gray-200 */
+.dark .text-gray-700 { color: #d1d5db; }  /* gray-300 — safe for global use */
 .dark .text-gray-600 { color: #9ca3af; }  /* gray-400 */
 .dark .text-gray-500 { color: #9ca3af; }  /* gray-400 */
 

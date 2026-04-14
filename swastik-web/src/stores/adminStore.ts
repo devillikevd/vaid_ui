@@ -197,10 +197,11 @@ export const useAdminStore = create<AdminState>((set, get) => ({
                     providers = rawData;
                 } else if (rawData && typeof rawData === 'object') {
                     // "all" type returns { doctors: {data: [...]}, hospitals: {data: [...]}, ... }
-                    // Flatten all provider arrays into one with providerType tag
+                    // OR flat arrays: { doctors: [...], hospitals: [...] }
+                    // BUG-07 Fix: Handle both shapes
                     for (const [providerType, group] of Object.entries(rawData)) {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const items = (group as any)?.data || [];
+                        const items = Array.isArray(group) ? group : (group as any)?.data || [];
                         if (Array.isArray(items)) {
                             providers.push(...items.map((item: PendingProvider) => ({
                                 ...item,

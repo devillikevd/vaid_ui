@@ -127,10 +127,22 @@ class SocketManager @Inject constructor() {
                 _requestUpdatedFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
-            // Listen for notifications (cancellations etc.)
+            // BUG-04 Fix: Parse notification type before routing — only cancellation/timeout
+            // notifications should go to requestCancelledFlow; others are just general notifications
             socket?.on("notification:new") { args ->
                 Log.d(TAG, "Notification received")
-                _requestCancelledFlow.tryEmit(args.firstOrNull()?.toString())
+                val payload = args.firstOrNull()?.toString()
+                try {
+                    val json = payload?.let { JSONObject(it) }
+                    val type = json?.optString("type", "") ?: ""
+                    if (type in listOf("emergency_cancelled", "emergency_timeout", "request_cancelled")) {
+                        _requestCancelledFlow.tryEmit(payload)
+                    } else {
+                        Log.d(TAG, "Non-cancellation notification (type=$type), ignoring for dispatch flow")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to parse notification payload", e)
+                }
             }
 
             // Listen for force-logout from backend (session ended)
@@ -249,7 +261,18 @@ class SocketManager @Inject constructor() {
      * Clear the active request ID when emergency is completed/cancelled.
      */
     fun clearActiveRequest() {
-        Log.d(TAG, "Active request cleared: $activeRequestId")
+        // BUG-16 Fix: Emit untrack before clearing so the server stops sending
+        // location broadcasts to this socket
+        val requestId = activeRequestId
+        if (requestId != null) {
+            try {
+                socket?.emit("ambulance:untrack", requestId)
+                Log.d(TAG, "Untracked request before clearing: $requestId")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to emit untrack", e)
+            }
+        }
+        Log.d(TAG, "Active request cleared: $requestId")
         activeRequestId = null
     }
 

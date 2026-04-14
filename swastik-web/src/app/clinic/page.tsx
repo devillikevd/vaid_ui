@@ -1,18 +1,38 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { Users, Calendar, Clock, TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useClinicStore, type ClinicAppointment } from '@/stores/clinicStore';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAppointmentUpdates } from '@/hooks/useSocket';
+import { usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function ClinicDashboard() {
     const { stats, todaysAppointments, isLoading, error, fetchDashboardData } = useClinicStore();
+    const router = useRouter();
 
-    // Real-time: refresh dashboard when appointments change
-    useAppointmentUpdates(useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]));
+    // UI-03 Fix: Keyboard shortcuts
+    const shortcuts = useMemo(() => [
+        { key: 'a', description: 'Go to Appointments', action: () => router.push('/clinic/appointments') },
+        { key: 'd', description: 'Go to Staff', action: () => router.push('/clinic/staff') },
+        { key: 'r', description: 'Refresh dashboard', action: () => fetchDashboardData() },
+    ], [router, fetchDashboardData]);
+    usePageShortcuts(shortcuts);
+
+    // BUG-01/BUG-12 Fix: Debounce socket-driven refetches (500ms)
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time: refresh dashboard when appointments change (debounced)
+    useAppointmentUpdates(useCallback(() => { debouncedFetch(); }, [debouncedFetch]));
 
     useEffect(() => {
         fetchDashboardData();
@@ -28,12 +48,9 @@ export default function ClinicDashboard() {
         { label: 'Repeat Patients', value: stats?.repeatPatients ?? '0%', icon: TrendingUp, color: 'text-yellow-600', bg: 'bg-yellow-100' },
     ];
 
+    // UI-05 Fix: Skeleton loading state
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error && !stats) {

@@ -200,9 +200,15 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
                 todaysAppointments: Number(rawStats.todaysAppointments || rawStats.todayAppointments || 0),
                 // if backend omits departments count, derive from list length
                 departments: Number(rawStats.departments || departments.length || 0),
-                bedCapacity: (rawStats.bedCapacity as string)
-                    || (rawStats.total_beds != null ? `${rawStats.total_beds} beds` : undefined)
-                    || (rawStats.bed_capacity != null ? `${rawStats.bed_capacity} beds` : undefined),
+                // BUG-15 Fix: Normalize bedCapacity consistently
+                // Backend may send: raw number, percentage string, or 'N beds' string
+                bedCapacity: (() => {
+                    const raw = rawStats.bedCapacity ?? rawStats.bed_capacity ?? rawStats.total_beds;
+                    if (raw == null) return 'N/A';
+                    if (typeof raw === 'string' && (raw.includes('beds') || raw.includes('%'))) return raw;
+                    const num = Number(raw);
+                    return isNaN(num) ? String(raw) : `${num} beds`;
+                })(),
             };
 
             set({

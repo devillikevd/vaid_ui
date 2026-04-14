@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     Calendar,
     Clock,
@@ -17,6 +17,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
@@ -41,17 +42,25 @@ export default function DoctorDashboard() {
 
     const { showHelp, setShowHelp, allShortcuts } = usePageShortcuts(shortcuts);
 
-    // Real-time Socket.IO — auto-refresh when patient books/cancels/updates
+    // BUG-01 Fix: Debounce socket-driven refetches (500ms)
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time Socket.IO — auto-refresh when patient books/cancels/updates (debounced)
     useAppointmentUpdates(
         useCallback((update: AppointmentUpdate) => {
-            fetchDashboardData();
+            debouncedFetch();
             const eventType = update.status === 'scheduled' ? 'New appointment booked!' :
                 update.status === 'cancelled' ? 'An appointment was cancelled' :
                 `Appointment status: ${update.status}`;
             setNewApptAlert(eventType);
             setTimeout(() => setNewApptAlert(null), 5000);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [])
+        }, [debouncedFetch])
     );
 
     useEffect(() => {
@@ -91,12 +100,9 @@ export default function DoctorDashboard() {
         { label: "Today's Earnings", value: `₹${(stats?.todaysEarnings ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, change: '', color: 'text-emerald-600', bg: 'bg-emerald-100' },
     ];
 
+    // UI-05 Fix: Skeleton loading state
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     return (

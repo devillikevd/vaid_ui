@@ -103,9 +103,26 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
         // Silently fallback to 0 if table/column doesn't exist yet
     }
 
+    // BUG-08 Fix: Count new prescriptions separately from pending orders
+    // New prescriptions = prescriptions assigned to this pharmacy that haven't been dispensed
+    let newPrescriptionsCount = 0;
+    try {
+        const { supabaseAdmin } = require('../config/supabase');
+        const { count: rxCount } = await supabaseAdmin
+            .from('prescriptions')
+            .select('id', { count: 'exact', head: true })
+            .eq('pharmacy_id', pharmacy.id)
+            .in('status', ['pending', 'new', 'created']);
+        newPrescriptionsCount = rxCount || 0;
+    } catch (e) {
+        // Fallback: if prescriptions table doesn't have pharmacy_id yet,
+        // use pending orders as proxy
+        newPrescriptionsCount = pendingOrders.length;
+    }
+
     // Build dashboard stats
     const stats = {
-        newPrescriptions: pendingOrders.length,
+        newPrescriptions: newPrescriptionsCount,
         pendingOrders: pendingOrders.length,
         lowStockItems: lowStockItems.length,
         todaysRevenue,

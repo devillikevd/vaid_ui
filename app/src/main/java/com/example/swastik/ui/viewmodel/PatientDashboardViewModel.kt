@@ -178,6 +178,13 @@ class PatientDashboardViewModel @Inject constructor(
                         isLoading = false,
                         activeEmergency = result.data
                     )
+                    // BUG-05 Fix: Start socket ambulance tracking so dashboard
+                    // quick-action SOS also receives real-time location updates
+                    val requestId = result.data.resolvedRequestId()
+                    if (requestId.isNotEmpty()) {
+                        socketManager.connect()
+                        socketManager.trackAmbulance(requestId)
+                    }
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(

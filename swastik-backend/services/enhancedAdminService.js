@@ -978,6 +978,8 @@ const approveProvider = async (type, id, adminId, notes) => {
     invalidateApprovalCaches(approvedProvider),
     notifyProviderStatusChange({ provider: approvedProvider, type, status: 'approved', notes }),
     broadcastProviderCatalogUpdate({ provider: approvedProvider, type, status: 'approved' }),
+    // SYNC-03 Fix: Push real-time Socket.IO notification to provider dashboard
+    Promise.resolve(eventEmitter.emitProviderApproved(approvedProvider, type, 'approved')),
     auditProviderTransition({
       adminId,
       type,

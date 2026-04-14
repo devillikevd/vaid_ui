@@ -189,6 +189,16 @@ export default function DashboardLayout({
         return () => document.removeEventListener('keydown', handler);
     }, [sidebarOpen]);
 
+    // BUG-20 Fix: Close user dropdown on Escape — global keyboard listener
+    useEffect(() => {
+        if (!dropdownOpen) return;
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setDropdownOpen(false);
+        };
+        document.addEventListener('keydown', handler);
+        return () => document.removeEventListener('keydown', handler);
+    }, [dropdownOpen]);
+
     // Focus trap inside mobile sidebar
     useEffect(() => {
         if (!sidebarOpen || !sidebarRef.current) return;
@@ -448,6 +458,7 @@ export default function DashboardLayout({
                                     <div
                                         className="fixed inset-0 z-10"
                                         onClick={() => setDropdownOpen(false)}
+                                        role="presentation"
                                     />
                                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
                                         {config.showFullDropdown && (

@@ -134,9 +134,10 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto text-center text-gray-500 dark:text-gray-400 text-sm">
           <p>© {new Date().getFullYear()} Swastik Healthcare. All rights reserved.</p>
           <p className="mt-2">
-            <span className="hover:text-gray-700 dark:text-gray-300 cursor-default">Privacy Policy</span>
+            {/* BUG-18 Fix: Make footer links interactive */}
+            <a href="/privacy-policy" className="hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline">Privacy Policy</a>
             {' · '}
-            <span className="hover:text-gray-700 dark:text-gray-300 cursor-default">Terms of Service</span>
+            <a href="/terms-of-service" className="hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline">Terms of Service</a>
             {' · '}
             <a href="mailto:support@swastik.health" className="hover:text-gray-700 dark:text-gray-300">Contact Support</a>
           </p>

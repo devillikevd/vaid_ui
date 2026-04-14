@@ -1,22 +1,43 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { FileText, Package, ShoppingCart, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePharmacyStore, type Prescription, type InventoryItem } from '@/stores/pharmacyStore';
 import { useOrderUpdates, usePrescriptionUpdates } from '@/hooks/useSocket';
+import { usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function PharmacyDashboard() {
     const { stats, pendingPrescriptions, lowStockItems, isLoading, error, fetchDashboardData } = usePharmacyStore();
+    const router = useRouter();
 
-    // Real-time: refresh dashboard on new orders or prescriptions
+    // UI-03 Fix: Keyboard shortcuts
+    const shortcuts = useMemo(() => [
+        { key: 'o', description: 'Go to Orders', action: () => router.push('/pharmacy/orders') },
+        { key: 'i', description: 'Go to Inventory', action: () => router.push('/pharmacy/inventory') },
+        { key: 'p', description: 'Go to Prescriptions', action: () => router.push('/pharmacy/prescriptions') },
+        { key: 'r', description: 'Refresh dashboard', action: () => fetchDashboardData() },
+    ], [router, fetchDashboardData]);
+    usePageShortcuts(shortcuts);
+
+    // BUG-01 Fix: Debounce socket-driven refetches (500ms)
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time: refresh dashboard on new orders or prescriptions (debounced)
     useOrderUpdates(
-        useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]),
-        useCallback(() => { fetchDashboardData(); }, [fetchDashboardData])
+        useCallback(() => { debouncedFetch(); }, [debouncedFetch]),
+        useCallback(() => { debouncedFetch(); }, [debouncedFetch])
     );
-    usePrescriptionUpdates(useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]));
+    usePrescriptionUpdates(useCallback(() => { debouncedFetch(); }, [debouncedFetch]));
 
     useEffect(() => {
         fetchDashboardData();
@@ -32,12 +53,9 @@ export default function PharmacyDashboard() {
         { label: "Today's Revenue", value: `₹${(stats?.todaysRevenue ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-100' },
     ];
 
+    // UI-05 Fix: Skeleton loading state
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error && !stats) {

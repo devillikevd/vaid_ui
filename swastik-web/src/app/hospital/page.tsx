@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { Users, Building2, Calendar, Bed, Plus } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useHospitalStore, type Department } from '@/stores/hospitalStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -16,8 +17,16 @@ export default function HospitalDashboard() {
     const { user } = useAuthStore();
     const router = useRouter();
 
-    // Real-time: refresh dashboard when appointments change
-    useAppointmentUpdates(useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]));
+    // BUG-01 Fix: Debounce socket-driven refetches (500ms) to prevent thundering herd
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time: refresh dashboard when appointments change (debounced)
+    useAppointmentUpdates(useCallback(() => { debouncedFetch(); }, [debouncedFetch]));
 
     const shortcuts = useMemo(() => [
         { key: 'd', description: 'Go to Departments', action: () => router.push('/hospital/departments') },
@@ -42,12 +51,9 @@ export default function HospitalDashboard() {
         { label: 'Bed Capacity', value: stats?.bedCapacity ?? '0%', icon: Bed, color: 'text-yellow-600', bg: 'bg-yellow-100' },
     ];
 
+    // UI-05 Fix: Skeleton loading state
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error && !stats) {

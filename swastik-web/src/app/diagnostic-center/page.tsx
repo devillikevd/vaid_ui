@@ -1,21 +1,41 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { FlaskConical, CalendarCheck, Clock, Users } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagnosticCenterStore';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useDiagnosticUpdates } from '@/hooks/useSocket';
+import { usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function DiagnosticCenterDashboard() {
     const { stats, todaysBookings, isLoading, error, fetchDashboardData } = useDiagnosticCenterStore();
+    const router = useRouter();
 
-    // Real-time: refresh dashboard when bookings or results change
+    // UI-03 Fix: Keyboard shortcuts
+    const shortcuts = useMemo(() => [
+        { key: 'b', description: 'Go to Bookings', action: () => router.push('/diagnostic-center/bookings') },
+        { key: 't', description: 'Go to Tests', action: () => router.push('/diagnostic-center/tests') },
+        { key: 'r', description: 'Refresh dashboard', action: () => fetchDashboardData() },
+    ], [router, fetchDashboardData]);
+    usePageShortcuts(shortcuts);
+
+    // BUG-01/BUG-11 Fix: Debounce socket-driven refetches (500ms)
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time: refresh dashboard when bookings or results change (debounced)
     useDiagnosticUpdates(
-        useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]),
-        useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]),
-        useCallback(() => { fetchDashboardData(); }, [fetchDashboardData])
+        useCallback(() => { debouncedFetch(); }, [debouncedFetch]),
+        useCallback(() => { debouncedFetch(); }, [debouncedFetch]),
+        useCallback(() => { debouncedFetch(); }, [debouncedFetch])
     );
 
     useEffect(() => {
@@ -31,12 +51,9 @@ export default function DiagnosticCenterDashboard() {
         { label: 'Total Patients', value: stats?.totalPatients ?? 0, icon: Users, color: 'text-green-600', bg: 'bg-green-100' },
     ];
 
+    // UI-05 Fix: Skeleton loading state
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error && !stats) {

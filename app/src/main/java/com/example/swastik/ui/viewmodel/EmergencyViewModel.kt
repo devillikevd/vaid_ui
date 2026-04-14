@@ -26,6 +26,8 @@ data class EmergencyUiState(
     val requestSent: Boolean = false,
     val activeEmergency: EmergencyResponse? = null,
     val error: String? = null,
+    // BUG-17 Fix: Separate success message field to avoid red error styling for positive actions
+    val successMessage: String? = null,
     val locationAvailable: Boolean = false,
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
@@ -60,10 +62,11 @@ class EmergencyViewModel @Inject constructor(
     /** Cancellable job that streams patient GPS to the backend during active emergency */
     private var locationStreamJob: Job? = null
 
-    private fun idleStatePreservingLocation(error: String? = null): EmergencyUiState {
+    private fun idleStatePreservingLocation(error: String? = null, successMessage: String? = null): EmergencyUiState {
         val current = _uiState.value
         return EmergencyUiState(
             error = error,
+            successMessage = successMessage,
             locationAvailable = current.locationAvailable,
             latitude = current.latitude,
             longitude = current.longitude
@@ -304,7 +307,8 @@ class EmergencyViewModel @Inject constructor(
                 is Result.Success -> {
                     socketManager.untrackAmbulance(emergencyId)
                     stopPatientLocationStream()
-                    _uiState.value = idleStatePreservingLocation("SOS request cancelled.")
+                    // BUG-17 Fix: Use successMessage instead of error for positive feedback
+                    _uiState.value = idleStatePreservingLocation(successMessage = "SOS request cancelled.")
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(

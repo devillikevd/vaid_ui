@@ -510,7 +510,9 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                 const data = response.data as any;
                 const consultationId = data?.id || data?.consultation?.id || data?.consultationId;
                 if (!consultationId) {
-                    set({ error: 'Consultation started, but the room could not be opened. Please refresh and try again.' });
+                    // BUG-09 Fix: Log full response for debugging and show actionable error
+                    console.error('startConsultation: No consultation ID in response:', JSON.stringify(data));
+                    set({ error: 'Consultation started but could not get the room ID. The server response was unexpected — please refresh and check your consultations list.' });
                     return false;
                 }
                 get().fetchDashboardData();
@@ -520,7 +522,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Error starting consultation:', error);
-            set({ error: 'Failed to start consultation.' });
+            set({ error: error instanceof Error ? error.message : 'Failed to start consultation.' });
             return false;
         }
     },

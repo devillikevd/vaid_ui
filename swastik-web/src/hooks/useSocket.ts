@@ -128,13 +128,15 @@ let globalSocketToken: string | null = null;
 let socketRefCount = 0;
 
 function getOrCreateSocket(token: string): Socket {
-    // Reuse existing socket if token hasn't changed
-    if (globalSocket && globalSocketToken === token && globalSocket.connected) {
+    // BUG-02 Fix: If token changed, disconnect old socket and create new one
+    // This handles token refresh — the socket must re-auth with the new JWT
+    if (globalSocket && globalSocketToken === token) {
         return globalSocket;
     }
 
     // Token changed or no socket — disconnect old and create new
     if (globalSocket) {
+        globalSocket.removeAllListeners();
         globalSocket.disconnect();
         globalSocket = null;
     }
@@ -209,10 +211,12 @@ export function useSocket() {
             socket.off('disconnect', onDisconnect);
             socket.off('connect_error', onConnectError);
             socket.off('pong', onPong);
+            // BUG-06 Fix: Only decrement if this cleanup corresponds to a real mount
+            // React Strict Mode double-invokes effects, so guard against going negative
             socketRefCount = Math.max(0, socketRefCount - 1);
 
-            // Only disconnect when last consumer unmounts
-            if (socketRefCount === 0) {
+            // Only disconnect when last consumer unmounts AND not in strict mode re-run
+            if (socketRefCount === 0 && globalSocket === socket) {
                 socket.disconnect();
                 globalSocket = null;
                 globalSocketToken = null;
@@ -353,6 +357,17 @@ export function useNotifications(onNotification?: (notification: Notification) =
         return on('notification:new', handleNotification);
     }, [on, onNotification, dedupeNotifications, user?.role]);
 
+    // BUG-14 Fix: Mark a notification as read
+    const markRead = useCallback((notificationId: string) => {
+        setNotifications((prev) =>
+            prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+        );
+    }, []);
+
+    const markAllRead = useCallback(() => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    }, []);
+
     const clearNotifications = useCallback(() => {
         setNotifications([]);
         if (typeof window !== 'undefined' && storageKey) {
@@ -360,9 +375,10 @@ export function useNotifications(onNotification?: (notification: Notification) =
         }
     }, [storageKey]);
 
-    const unreadCount = notifications.length;
+    // BUG-14 Fix: unreadCount now counts only notifications without read flag
+    const unreadCount = notifications.filter((n) => !(n as any).read).length;
 
-    return { notifications, unreadCount, clearNotifications };
+    return { notifications, unreadCount, clearNotifications, markRead, markAllRead };
 }
 
 /**
@@ -517,8 +533,12 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
             }
         };
 
+        // BUG-21 Fix: Only update state if the participant is actually new
         const handleUserJoined = (data: { userId: string }) => {
-            setParticipants((prev) => [...new Set([...prev, data.userId])]);
+            setParticipants((prev) => {
+                if (prev.includes(data.userId)) return prev;
+                return [...prev, data.userId];
+            });
         };
 
         const handleUserLeft = (data: { userId: string }) => {

@@ -224,8 +224,10 @@ class AppEventEmitter extends EventEmitter {
 
   emitConsultationStarted(consultation) {
     const normalized = this.normalizeConsultationEventPayload(consultation);
-    const { patient_id } = normalized;
-    this.notifyUser(patient_id, 'consultation:started', normalized);
+    const { doctor_id, patient_id } = normalized;
+    // BUG-13 Fix: Notify both doctor (multi-tab sync) and patient
+    if (doctor_id) this.notifyUser(doctor_id, 'consultation:started', normalized);
+    if (patient_id) this.notifyUser(patient_id, 'consultation:started', normalized);
     this.emitDistributed('consultation:started', normalized);
   }
 
@@ -257,9 +259,20 @@ class AppEventEmitter extends EventEmitter {
   }
 
   emitAmbulanceAssigned(data) {
-    const { patient_id, requestId } = data;
+    const { patient_id, requestId, hospital_owner_id } = data;
     this.notifyUser(patient_id, 'ambulance:assigned', data);
     this.notifyRoom(`ambulance:${requestId}`, 'ambulance:assigned', data);
+    // SYNC-01 Fix: Notify hospital owner so their dashboard can show dispatch/tracking status
+    if (hospital_owner_id) {
+      this.notifyUser(hospital_owner_id, 'ambulance:dispatched', data);
+      this.notifyUser(hospital_owner_id, 'notification:new', {
+        type: 'ambulance_dispatch',
+        title: 'Ambulance Dispatched',
+        message: `Ambulance dispatched for emergency request ${requestId?.slice(0, 8) || ''}`,
+        timestamp: new Date().toISOString(),
+        data: { requestId },
+      });
+    }
     this.emitDistributed('ambulance:assigned', data);
   }
 
@@ -290,6 +303,18 @@ class AppEventEmitter extends EventEmitter {
         consultationId: payload.consultationId,
       },
     });
+    // SYNC-04 Fix: If prescription has preferred pharmacy, notify them too
+    const pharmacyOwnerId = prescription.pharmacy_owner_id || prescription.pharmacyOwnerId;
+    if (pharmacyOwnerId) {
+      this.notifyUser(pharmacyOwnerId, 'prescription:new', payload);
+      this.notifyUser(pharmacyOwnerId, 'notification:new', {
+        type: 'prescription',
+        title: 'New Prescription Received',
+        message: `A new prescription has been assigned to your pharmacy by ${payload.doctorName}`,
+        timestamp: payload.timestamp,
+        data: { prescriptionId: payload.prescriptionId },
+      });
+    }
     this.emitDistributed('prescription:created', payload);
   }
 
@@ -502,6 +527,31 @@ class AppEventEmitter extends EventEmitter {
     } catch (err) {
       console.error('[EventEmitter] emitSystemAnnouncement error:', err.message);
     }
+  }
+
+  // SYNC-03 Fix: Real-time notification to provider on approval status change
+  emitProviderApproved(provider, type, status) {
+    const userId = provider.user_id || provider.owner_id;
+    if (!userId) return;
+    const statusMessages = {
+      approved: `Your ${type} registration has been approved! You can now access your dashboard.`,
+      rejected: `Your ${type} registration was not approved. Please check your notifications for details.`,
+      suspended: `Your ${type} account has been suspended. Please contact support.`,
+      reactivated: `Your ${type} account has been reactivated. You can access your dashboard again.`,
+    };
+    this.notifyUser(userId, 'provider:status-changed', {
+      providerId: provider.id,
+      providerType: type,
+      status,
+      timestamp: new Date().toISOString(),
+    });
+    this.notifyUser(userId, 'notification:new', {
+      type: 'provider_approval',
+      title: `Registration ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+      message: statusMessages[status] || `Your ${type} registration status changed to ${status}`,
+      timestamp: new Date().toISOString(),
+      data: { providerId: provider.id, providerType: type, status },
+    });
   }
 }
 

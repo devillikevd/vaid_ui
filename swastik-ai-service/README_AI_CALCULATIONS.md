@@ -200,7 +200,7 @@ Equivalent boolean logic:
 - `overall = critical if exists(alert.severity == critical) else warning if alerts>0 else info`
 
 ## 4.4 Active signal counting
-In `/api/ai/consult`, `active_signals` is built by checking non-null/non-empty signal fields.
+In `/api/ai/consult`, `active_signals` is built by checking non-null/non-empty signal fields. 
 
 Mathematically:
 - `total_signals_active = Σ I(signal_i_present)`

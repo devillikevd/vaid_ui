@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Users,
     Stethoscope,
@@ -19,9 +19,12 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAdminStore, type ProviderCategory, type RecentAction, type Alert } from '@/stores/adminStore';
 import { useAppointmentUpdates } from '@/hooks/useSocket';
+import { usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 // Icon mapping for provider categories
 const CATEGORY_ICONS: Record<string, typeof Stethoscope> = {
@@ -44,30 +47,34 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function AdminDashboard() {
     const { stats, providerCategories, recentActions, alerts, isLoading, error, fetchDashboardData } = useAdminStore();
+    const router = useRouter();
 
-    // Real-time: refresh dashboard when appointment events come in
-    useAppointmentUpdates(useCallback(() => { fetchDashboardData(); }, [fetchDashboardData]));
+    // UI-03 Fix: Keyboard shortcuts for admin dashboard
+    const shortcuts = useMemo(() => [
+        { key: 'a', description: 'Go to Approvals', action: () => router.push('/admin/approvals') },
+        { key: 'e', description: 'Go to Emergencies', action: () => router.push('/admin/emergencies') },
+        { key: 'r', description: 'Refresh dashboard', action: () => fetchDashboardData() },
+    ], [router, fetchDashboardData]);
+    usePageShortcuts(shortcuts);
+
+    // BUG-01 Fix: Debounce socket-driven refetches (500ms)
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedFetch = useCallback(() => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => { fetchDashboardData(); }, 500);
+    }, [fetchDashboardData]);
+    useEffect(() => () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); }, []);
+
+    // Real-time: refresh dashboard when appointment events come in (debounced)
+    useAppointmentUpdates(useCallback(() => { debouncedFetch(); }, [debouncedFetch]));
 
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    const currentTime = new Date();
-
-    // Stats configuration using real data
-    const STATS = [
-        { label: 'Total Providers', value: stats?.totalProviders ?? 0, icon: Users, change: '', color: 'text-blue-600', bg: 'bg-blue-100' },
-        { label: 'Active Today', value: stats?.activeToday ?? 0, icon: Activity, change: '', color: 'text-green-600', bg: 'bg-green-100' },
-        { label: 'Pending Approvals', value: stats?.pendingApprovals ?? 0, icon: Clock, change: '', color: 'text-yellow-600', bg: 'bg-yellow-100' },
-        { label: 'Active Emergencies', value: stats?.activeEmergencies ?? 0, icon: AlertTriangle, change: '', color: 'text-red-600', bg: 'bg-red-100' },
-    ];
-
+    // UI-05 Fix: Skeleton loading state instead of spinner
     if (isLoading && !stats) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     if (error && !stats) {
@@ -81,6 +88,16 @@ export default function AdminDashboard() {
             </div>
         );
     }
+
+    const currentTime = new Date();
+
+    // Stats configuration using real data
+    const STATS = [
+        { label: 'Total Providers', value: stats?.totalProviders ?? 0, icon: Users, change: '', color: 'text-blue-600', bg: 'bg-blue-100' },
+        { label: 'Active Today', value: stats?.activeToday ?? 0, icon: Activity, change: '', color: 'text-green-600', bg: 'bg-green-100' },
+        { label: 'Pending Approvals', value: stats?.pendingApprovals ?? 0, icon: Clock, change: '', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+        { label: 'Active Emergencies', value: stats?.activeEmergencies ?? 0, icon: AlertTriangle, change: '', color: 'text-red-600', bg: 'bg-red-100' },
+    ];
 
     return (
         <div className="space-y-6">

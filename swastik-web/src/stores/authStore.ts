@@ -254,6 +254,12 @@ export const useAuthStore = create<AuthState>()(
                             syncTokens(newAccessToken, newRefreshToken || refreshToken);
                         }
 
+                        // BUG-10 Fix: Update the cookie so Next.js middleware sees the
+                        // fresh token, preventing premature redirect to login
+                        if (typeof document !== 'undefined' && newAccessToken) {
+                            document.cookie = `swastik-token=${newAccessToken}; path=/; max-age=${60 * 60 * 24}; SameSite=Strict`;
+                        }
+
                         set({
                             accessToken: newAccessToken,
                             refreshToken: newRefreshToken || refreshToken,
