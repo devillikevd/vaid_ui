@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { API_BASE_URL, setTokens as syncTokens, clearTokens as syncClearTokens } from '@/lib/api';
+import { decodeJwtPayload } from '@/lib/jwt';
 import { useDoctorStore } from './doctorStore';
 import { useHospitalStore } from './hospitalStore';
 import { useClinicStore } from './clinicStore';
@@ -10,13 +11,13 @@ import { useAdminStore } from './adminStore';
 
 /** Decode JWT payload and check if it's expired (H12 fix) */
 function isJwtExpired(token: string): boolean {
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (!payload.exp) return false; // no exp claim → trust the server
-        return Date.now() >= payload.exp * 1000;
-    } catch {
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
         return true; // malformed token → treat as expired
     }
+
+    if (!payload.exp) return false; // no exp claim → trust the server
+    return Date.now() >= payload.exp * 1000;
 }
 
 // Web portal roles (ambulance_operator removed — uses separate Kotlin app)
@@ -145,18 +146,10 @@ export const useAuthStore = create<AuthState>()(
 
                     const accessTk = tokens.accessToken || tokens.token;
                     const refreshTk = tokens.refreshToken;
+                    const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 days vs 1 day
 
-                    // Set role cookie for middleware route protection
-                    // Set token cookie for middleware JWT expiry validation
-                    // Remember me: 30 days, otherwise: session only (browser close)
-                    if (typeof document !== 'undefined') {
-                        const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 days vs 1 day
-                        document.cookie = `swastik-role=${user.role}; path=/; max-age=${maxAge}; SameSite=Strict`;
-                        document.cookie = `swastik-token=${accessTk}; path=/; max-age=${maxAge}; SameSite=Strict`;
-                    }
-
-                    // Sync tokens to api.ts module + localStorage for fetchWithAuth
-                    syncTokens(accessTk, refreshTk);
+                    // Sync tokens/cookies to api.ts + localStorage for fetchWithAuth and route guards
+                    syncTokens(accessTk, refreshTk, { cookieMaxAge: maxAge, role: user.role });
 
                     set({
                         user,
@@ -249,15 +242,9 @@ export const useAuthStore = create<AuthState>()(
                         const newAccessToken = data.data?.accessToken || data.accessToken;
                         const newRefreshToken = data.data?.refreshToken || data.refreshToken || refreshToken;
 
-                        // Sync refreshed tokens to api.ts module + localStorage
+                        // Sync refreshed tokens to api.ts module + localStorage/cookies
                         if (newAccessToken) {
                             syncTokens(newAccessToken, newRefreshToken || refreshToken);
-                        }
-
-                        // BUG-10 Fix: Update the cookie so Next.js middleware sees the
-                        // fresh token, preventing premature redirect to login
-                        if (typeof document !== 'undefined' && newAccessToken) {
-                            document.cookie = `swastik-token=${newAccessToken}; path=/; max-age=${60 * 60 * 24}; SameSite=Strict`;
                         }
 
                         set({
@@ -364,7 +351,7 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
             // Another tab logged in — update this tab
             const { user, accessToken, refreshToken } = payload;
             if (accessToken && user) {
-                syncTokens(accessToken, refreshToken || '');
+                syncTokens(accessToken, refreshToken || '', { role: user.role });
                 useAuthStore.setState({
                     user,
                     accessToken,

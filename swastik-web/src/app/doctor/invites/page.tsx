@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, Clock3, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +38,7 @@ export default function DoctorInvitesPage() {
     const [invites, setInvites] = useState<ProviderInvite[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionId, setActionId] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
 
     const fetchInvites = useCallback(async () => {
         setLoading(true);
@@ -99,7 +100,11 @@ export default function DoctorInvitesPage() {
     }, [toast]);
 
     useEffect(() => {
-        fetchInvites();
+        if (hasLoadedRef.current) {
+            return;
+        }
+        hasLoadedRef.current = true;
+        void fetchInvites();
     }, [fetchInvites]);
 
     const pendingInvites = useMemo(

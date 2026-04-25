@@ -38,19 +38,55 @@ export interface PaginatedResponse<T> {
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 
-export const setTokens = (access: string, refresh: string) => {
-    accessToken = access;
-    refreshToken = refresh;
+const DEFAULT_AUTH_COOKIE_MAX_AGE = 60 * 60 * 24;
+
+function normalizeStoredToken(token: string | null | undefined): string | null {
+    if (!token || token === 'undefined' || token === 'null') {
+        return null;
+    }
+
+    return token;
+}
+
+function syncCookie(name: 'swastik-role' | 'swastik-token', value: string | null, maxAge: number = DEFAULT_AUTH_COOKIE_MAX_AGE) {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    if (!value) {
+        document.cookie = `${name}=; path=/; max-age=0`;
+        return;
+    }
+
+    document.cookie = `${name}=${value}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
+
+export const setTokens = (
+    access: string | null | undefined,
+    refresh: string | null | undefined,
+    options: { cookieMaxAge?: number; role?: string | null } = {}
+) => {
+    accessToken = normalizeStoredToken(access);
+    refreshToken = normalizeStoredToken(refresh);
+
     if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', access);
-        localStorage.setItem('refreshToken', refresh);
+        if (accessToken) localStorage.setItem('accessToken', accessToken);
+        else localStorage.removeItem('accessToken');
+
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+        else localStorage.removeItem('refreshToken');
+
+        syncCookie('swastik-token', accessToken, options.cookieMaxAge);
+        if (options.role) {
+            syncCookie('swastik-role', options.role, options.cookieMaxAge);
+        }
     }
 };
 
 export const getTokens = () => {
     if (typeof window !== 'undefined') {
-        accessToken = accessToken || localStorage.getItem('accessToken');
-        refreshToken = refreshToken || localStorage.getItem('refreshToken');
+        accessToken = normalizeStoredToken(accessToken) || normalizeStoredToken(localStorage.getItem('accessToken'));
+        refreshToken = normalizeStoredToken(refreshToken) || normalizeStoredToken(localStorage.getItem('refreshToken'));
     }
     return { accessToken, refreshToken };
 };
@@ -61,8 +97,8 @@ export const clearTokens = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        document.cookie = 'swastik-role=; path=/; max-age=0';
-        document.cookie = 'swastik-token=; path=/; max-age=0';
+        syncCookie('swastik-role', null);
+        syncCookie('swastik-token', null);
     }
 };
 
@@ -504,7 +540,7 @@ export const doctorApi = {
 
     getNotificationSettings: () => fetchWithAuth('/doctors/me/notification-settings'),
 
-    updateNotificationSettings: (settings: Record<string, boolean>) =>
+    updateNotificationSettings: (settings: { emailNotifications: boolean; smsNotifications: boolean }) =>
         fetchWithAuth('/doctors/me/notification-settings', {
             method: 'PUT',
             body: JSON.stringify(settings),

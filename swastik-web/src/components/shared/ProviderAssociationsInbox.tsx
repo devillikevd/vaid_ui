@@ -78,6 +78,7 @@ export default function ProviderAssociationsInbox({
     const [associations, setAssociations] = useState<AssociationRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionId, setActionId] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
 
     useEffect(() => {
         toastRef.current = toast;
@@ -113,6 +114,10 @@ export default function ProviderAssociationsInbox({
     }, [fetchAssociations, fetchInvites]);
 
     useEffect(() => {
+        if (hasLoadedRef.current) {
+            return;
+        }
+        hasLoadedRef.current = true;
         void loadData();
     }, [loadData]);
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { decodeJwtPayload } from './lib/jwt';
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || ''
@@ -9,13 +10,12 @@ const JWT_SECRET = new TextEncoder().encode(
 async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string; expired?: boolean }> {
     try {
         if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
-            const parts = token.split('.');
-            if (parts.length !== 3) return { valid: false };
-            const payload = JSON.parse(atob(parts[1]));
+            const payload = decodeJwtPayload(token);
+            if (!payload) return { valid: false };
             if (payload.exp && Date.now() >= payload.exp * 1000) {
                 return { valid: false, expired: true };
             }
-            return { valid: true, role: payload.role };
+            return { valid: true, role: typeof payload.role === 'string' ? payload.role : undefined };
         }
 
         const { payload } = await jwtVerify(token, JWT_SECRET);
@@ -33,7 +33,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
     '/clinic': ['clinic_owner'],
     '/diagnostic-center': ['diagnostic_center_owner'],
     '/pharmacy': ['pharmacy_owner'],
-    '/consultation': ['doctor'],
+    '/consultation': ['doctor', 'patient'],
 };
 
 const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {

@@ -69,6 +69,20 @@ const humanizeAction = (actionRaw: string) =>
         .replace(/[._]/g, ' ')
         .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const normalizeLogId = (id: unknown, fallback: string) => {
+    if (typeof id === 'string' || typeof id === 'number') return String(id);
+
+    if (id && typeof id === 'object') {
+        const objectId = id as { $oid?: unknown; toString?: () => string };
+        if (typeof objectId.$oid === 'string') return objectId.$oid;
+
+        const text = typeof objectId.toString === 'function' ? objectId.toString() : '';
+        if (text && text !== '[object Object]') return text;
+    }
+
+    return fallback;
+};
+
 export default function AuditPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -91,9 +105,10 @@ export default function AuditPage() {
             if (!result.success) throw new Error('Failed to fetch audit logs');
 
             const rows = Array.isArray(result.data) ? result.data : [];
-            const normalized: AuditLog[] = rows.map((row: any) => {
+            const normalized: AuditLog[] = rows.map((row: any, index: number) => {
                 const actionRaw = String(row.action || row.eventType || 'update');
                 const action = normalizeActionKey(actionRaw);
+                const timestamp = row.createdAt || row.timestamp || new Date().toISOString();
                 const user = row.user?.name || row.userName || row.actorName || row.user || row.userEmail || (row.userId ? `User ${String(row.userId).slice(0, 8)}` : 'System');
                 const userRole = row.userRole || row.actorRole || row.role || 'unknown';
                 const description = row.description
@@ -102,14 +117,14 @@ export default function AuditPage() {
                     || `${humanizeAction(actionRaw)} performed`;
 
                 return {
-                    id: row._id || row.id || `${actionRaw}-${row.createdAt || row.timestamp || Math.random()}`,
+                    id: normalizeLogId(row._id || row.id, `${actionRaw}-${timestamp}-${index}`),
                     action,
                     description,
                     user,
                     userEmail: row.user?.email || row.userEmail || null,
                     userRole,
                     target: row.entityId || row.resourceId || row.target,
-                    timestamp: row.createdAt || row.timestamp || new Date().toISOString(),
+                    timestamp,
                     ip: row.ipAddress || row.ip,
                     resourceType: row.resourceType || row.entityType || undefined,
                 };
