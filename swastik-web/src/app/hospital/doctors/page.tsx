@@ -171,8 +171,8 @@ export default function HospitalDoctorsPage() {
                             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                                 Use the email of an existing approved doctor account to send an invite. The doctor must accept it before they appear in your hospital roster or contribute to hospital appointments and consultations.
                             </div>
-                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Doctor Email *</label><Input value={inviteData.email} onChange={e => setInviteData(d => ({ ...d, email: e.target.value }))} placeholder="doctor@example.com" /></div>
-                            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label><Input value={inviteData.department} onChange={e => setInviteData(d => ({ ...d, department: e.target.value }))} placeholder="Cardiology, Emergency, Pediatrics..." /></div>
+                            <Input label="Doctor Email *" value={inviteData.email} onChange={e => setInviteData(d => ({ ...d, email: e.target.value }))} placeholder="doctor@example.com" />
+                            <Input label="Department" value={inviteData.department} onChange={e => setInviteData(d => ({ ...d, department: e.target.value }))} placeholder="Cardiology, Emergency, Pediatrics..." />
                         </div>
                         <div className="flex justify-end gap-2 p-4 border-t">
                             <Button variant="outline" onClick={() => setShowInviteModal(false)}>Cancel</Button>

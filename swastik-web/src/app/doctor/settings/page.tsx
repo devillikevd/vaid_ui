@@ -9,6 +9,7 @@ import { ProfileImageUpload } from '@/components/shared/ProfileImageUpload';
 import { ComplianceDocumentUpload } from '@/components/shared/ComplianceDocumentUpload';
 import { useAuthStore } from '@/stores/authStore';
 import { doctorApi, authApi } from '@/lib/api';
+import { loadDoctorNotificationSettings, saveDoctorNotificationSettings } from '@/lib/doctorNotificationSettings';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 
 export default function DoctorSettingsPage() {
@@ -39,7 +40,7 @@ export default function DoctorSettingsPage() {
             try {
                 const [profileRes, notifRes] = await Promise.all([
                     doctorApi.getProfile(),
-                    doctorApi.getNotificationSettings(),
+                    loadDoctorNotificationSettings(user?.id),
                 ]);
                 if (profileRes.success) {
                     const d = profileRes.data as any;
@@ -57,10 +58,10 @@ export default function DoctorSettingsPage() {
                     });
                 }
                 if (notifRes.success) {
-                    const n = (notifRes.data as any)?.data || notifRes.data || {};
+                    const n = notifRes.settings;
                     setSettings({
-                        emailNotifications: n.emailNotifications ?? n.email_notifications ?? true,
-                        smsNotifications: n.smsNotifications ?? n.sms_notifications ?? true,
+                        emailNotifications: n.emailNotifications,
+                        smsNotifications: n.smsNotifications,
                     });
                 }
             } catch { /* use defaults */ }
@@ -214,13 +215,16 @@ export default function DoctorSettingsPage() {
                                     setSettings(updated);
                                     setSavingNotifications(true);
                                     try {
-                                        const res = await doctorApi.updateNotificationSettings(updated);
+                                        const res = await saveDoctorNotificationSettings(user?.id, updated);
                                         if (res.success) {
-                                            setSaveStatus({ type: 'success', message: `${item.label} ${newVal ? 'enabled' : 'disabled'}` });
+                                            setSaveStatus({
+                                                type: 'success',
+                                                message: res.message || `${item.label} ${newVal ? 'enabled' : 'disabled'}`,
+                                            });
                                         } else {
                                             // Revert on failure
                                             setSettings(prev => ({ ...prev, [item.key]: !newVal }));
-                                            setSaveStatus({ type: 'error', message: 'Failed to update notification settings' });
+                                            setSaveStatus({ type: 'error', message: res.error || 'Failed to update notification settings' });
                                         }
                                     } catch {
                                         setSettings(prev => ({ ...prev, [item.key]: !newVal }));

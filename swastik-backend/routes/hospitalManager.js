@@ -64,11 +64,14 @@ router.use(requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApp
 router.get('/doctors', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     const { specialization, isAvailable, search, page = 1, limit = 20 } = req.query;
+    const availabilityFilter = typeof isAvailable === 'string'
+        ? isAvailable === 'true'
+        : undefined;
 
     const result = await hospitalManagerService.getDoctors(
         hospital.id,
         req.user.id,
-        { specialization, isAvailable: isAvailable === 'true', search },
+        { specialization, isAvailable: availabilityFilter, search },
         parseInt(page),
         parseInt(limit)
     );
