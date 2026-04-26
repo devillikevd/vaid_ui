@@ -9,6 +9,7 @@
     "setup:minio": "node scripts/setup-minio.js",
     "setup:storage": "node scripts/setup-minio.js",
     "test": "jest --passWithNoTests",
+    "test:access-policy": "jest --runInBand __tests__/access-policy.sync.test.js",
     "test:provider-discovery": "node scripts/verify-provider-discovery.js",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

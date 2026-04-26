@@ -26,8 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.*
-import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
+import com.example.swastik.ui.theme.SwastikGreen
+import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.utils.NavigationHelper
 import java.util.Locale
 
@@ -43,6 +45,7 @@ fun HospitalDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(facilityId, facilityType) {
         viewModel.loadFacilityDetails(facilityId, facilityType)
@@ -97,7 +100,7 @@ fun HospitalDetailScreen(
                     Icon(
                         Icons.Default.Error,
                         contentDescription = null,
-                        tint = Color(0xFFE53935),
+                        tint = colorScheme.error,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -170,7 +173,7 @@ fun HospitalDetailScreen(
                                         Icon(
                                             Icons.Default.Star,
                                             contentDescription = null,
-                                            tint = Color(0xFFFFC107),
+                                            tint = SwastikOrange,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
@@ -227,7 +230,7 @@ fun HospitalDetailScreen(
                                     onClick = { NavigationHelper.openDialer(context, "108") },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
+                                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.error)
                                 ) {
                                     Icon(Icons.Default.LocalHospital, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
@@ -321,13 +324,13 @@ fun HospitalDetailScreen(
                                 Card(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE53935).copy(alpha = 0.1f))
+                                    colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer.copy(alpha = 0.8f))
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(12.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFFE53935))
+                                        Icon(Icons.Default.LocalHospital, contentDescription = null, tint = colorScheme.error)
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text("Emergency\n24/7", fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
                                     }
@@ -337,13 +340,13 @@ fun HospitalDetailScreen(
                                 Card(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f))
+                                    colors = CardDefaults.cardColors(containerColor = colorScheme.secondaryContainer.copy(alpha = 0.65f))
                                 ) {
                                     Column(
                                         modifier = Modifier.padding(12.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SwastikGreen)
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text("Open Now", fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
                                     }
@@ -418,6 +421,7 @@ private fun HospitalReviewSection(
     var showReviewForm by remember { mutableStateOf(false) }
     var userRating by remember { mutableIntStateOf(0) }
     var userComment by remember { mutableStateOf("") }
+    val colorScheme = MaterialTheme.colorScheme
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -475,7 +479,7 @@ private fun HospitalReviewSection(
                             Icon(
                                 if (i <= userRating) Icons.Default.Star else Icons.Outlined.StarOutline,
                                 contentDescription = "Rate $i stars",
-                                tint = if (i <= userRating) Color(0xFFFFC107) else Color.Gray,
+                                tint = if (i <= userRating) SwastikOrange else colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -498,7 +502,7 @@ private fun HospitalReviewSection(
                 if (uiState.reviewError != null) {
                     Text(
                         uiState.reviewError!!,
-                        color = Color(0xFFE53935),
+                        color = colorScheme.error,
                         fontSize = 13.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -507,7 +511,7 @@ private fun HospitalReviewSection(
                 if (uiState.reviewSuccess) {
                     Text(
                         "✅ Review submitted successfully!",
-                        color = Color(0xFF4CAF50),
+                        color = SwastikGreen,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp
                     )
@@ -610,7 +614,7 @@ private fun HospitalReviewSection(
                                             Icon(
                                                 if (i < review.rating) Icons.Default.Star else Icons.Default.StarBorder,
                                                 contentDescription = null,
-                                                tint = Color(0xFFFFC107),
+                                                tint = SwastikOrange,
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
@@ -645,6 +649,7 @@ private fun DoctorDetailCard(
     doctor: HospitalDoctor,
     onBook: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
@@ -669,9 +674,9 @@ private fun DoctorDetailCard(
                 Text(doctor.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Text(doctor.specialization, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Star, contentDescription = null, tint = SwastikOrange, modifier = Modifier.size(14.dp))
                     Text(" ${doctor.rating}", fontSize = 12.sp)
-                    Text(" • ₹${doctor.consultationFee}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(" • ₹${doctor.consultationFee}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 }
             }
             Button(

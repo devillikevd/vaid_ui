@@ -1,5 +1,6 @@
 package com.example.swastik.ui.screens.patient.tabs
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,7 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*import androidx.compose.runtime.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.*
+import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
 
@@ -42,22 +45,59 @@ fun MedicineTabContent(
     profile: PatientProfile?,
     unreadNotificationsCount: Int,
     onMedicineClick: (String) -> Unit = {},
+    onPharmacyClick: (String?, String?) -> Unit = { _, _ -> },
     onNotificationClick: () -> Unit = {},
     onNavigateToCart: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val cartState by viewModel.cartState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-
+    val colorScheme = MaterialTheme.colorScheme
     val filteredMedicines = viewModel.getFilteredMedicines()
+    val nearbyHighlights = remember(state.nearbyMedicines) {
+        state.nearbyMedicines.filter { it.inStock }.take(6)
+    }
+    val showNearbyHighlights = searchQuery.isBlank() && state.selectedCategory == null && nearbyHighlights.isNotEmpty()
+
+    cartState.pharmacyConflict?.let { conflict ->
+        AlertDialog(
+            onDismissRequest = { viewModel.resolvePharmacyConflict(false) },
+            title = { Text("Change Pharmacy?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Your cart already has medicines from another pharmacy. Clear it and add this medicine from ${conflict.newPharmacyName ?: "the new pharmacy"}?"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.resolvePharmacyConflict(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                ) {
+                    Text("Clear & Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.resolvePharmacyConflict(false) }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(colorScheme.background)
     ) {
         // Header
-        MedicineFinderHeader(profile, unreadNotificationsCount, onNotificationClick)
+        MedicineFinderHeader(
+            profile = profile,
+            unreadCount = unreadNotificationsCount,
+            cartItemCount = cartState.totalItems,
+            onNotificationClick = onNotificationClick,
+            onCartClick = onNavigateToCart
+        )
 
         // Main Content Card
         Card(
@@ -65,7 +105,7 @@ fun MedicineTabContent(
                 .fillMaxSize()
                 .padding(top = 8.dp),
             shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -77,7 +117,7 @@ fun MedicineTabContent(
                     text = stringResource(R.string.medicine_finder),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
 
@@ -113,13 +153,13 @@ fun MedicineTabContent(
                                 Icons.Outlined.Warning,
                                 contentDescription = null,
                                 modifier = Modifier.size(48.dp),
-                                tint = Color.Gray
+                                tint = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = state.error ?: "Something went wrong",
                                 fontSize = 14.sp,
-                                color = Color.Gray
+                                color = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
@@ -133,18 +173,31 @@ fun MedicineTabContent(
                         }
                     }
                 } else if (filteredMedicines.isEmpty()) {
-                    EmptyMedicineState(
-                        onClearFilters = {
-                            searchQuery = ""
-                            viewModel.setCategory(null)
-                            viewModel.loadPopularMedicines()
-                        }
-                    )
+                    if (showNearbyHighlights) {
+                        MedicineDiscoveryContent(
+                            medicines = filteredMedicines,
+                            nearbyHighlights = nearbyHighlights,
+                            onMedicineClick = onMedicineClick,
+                            onPharmacyClick = onPharmacyClick
+                        )
+                    } else {
+                        EmptyMedicineState(
+                            searchQuery = searchQuery,
+                            selectedCategory = state.selectedCategory,
+                            onClearFilters = {
+                                searchQuery = ""
+                                viewModel.setCategory(null)
+                                viewModel.searchMedicines("")
+                            },
+                            onReloadCatalog = { viewModel.loadPopularMedicines() }
+                        )
+                    }
                 } else {
-                    MedicineList(
+                    MedicineDiscoveryContent(
                         medicines = filteredMedicines,
-                        onMedicineClick = { medicine -> onMedicineClick(medicine.id) },
-                        onPharmacyClick = { /* Open pharmacy info */ }
+                        nearbyHighlights = if (showNearbyHighlights) nearbyHighlights else emptyList(),
+                        onMedicineClick = onMedicineClick,
+                        onPharmacyClick = onPharmacyClick
                     )
                 }
             }
@@ -156,8 +209,11 @@ fun MedicineTabContent(
 private fun MedicineFinderHeader(
     profile: PatientProfile?,
     unreadCount: Int,
-    onNotificationClick: () -> Unit = {}
+    cartItemCount: Int,
+    onNotificationClick: () -> Unit = {},
+    onCartClick: () -> Unit = {}
 ) {
+    val colorScheme = MaterialTheme.colorScheme
 
     Row(
         modifier = Modifier
@@ -187,23 +243,39 @@ private fun MedicineFinderHeader(
                 text = profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { "User" } ?: "User",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = colorScheme.onSurface
             )
             Text(
                 text = "Patient",
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = colorScheme.onSurfaceVariant
             )
         }
 
         Spacer(modifier = Modifier.weight(1f))
+
+        BadgedBox(
+            badge = {
+                if (cartItemCount > 0) {
+                    Badge { Text(cartItemCount.toString()) }
+                }
+            }
+        ) {
+            IconButton(onClick = onCartClick) {
+                Icon(
+                    Icons.Outlined.ShoppingCart,
+                    contentDescription = "Cart",
+                    tint = colorScheme.onSurface
+                )
+            }
+        }
 
         Box {
             IconButton(onClick = onNotificationClick) {
                 Icon(
                     Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.Black
+                    tint = colorScheme.onSurface
                 )
             }
             if (unreadCount > 0) {
@@ -225,17 +297,18 @@ private fun MedicineSearchBar(
     onSearchChange: (String) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
     OutlinedTextField(
         value = searchQuery,
         onValueChange = onSearchChange,
-        placeholder = { Text("Search for medicines", color = Color.Gray) },
+        placeholder = { Text("Search for medicines", color = colorScheme.onSurfaceVariant) },
         leadingIcon = {
-            Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+            Icon(Icons.Default.Search, contentDescription = null, tint = colorScheme.onSurfaceVariant)
         },
         trailingIcon = {
             if (searchQuery.isNotEmpty()) {
                 IconButton(onClick = { onSearchChange("") }) {
-                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                    Icon(Icons.Default.Close, contentDescription = "Clear", tint = colorScheme.onSurfaceVariant)
                 }
             } else {
                 IconButton(onClick = {
@@ -251,10 +324,18 @@ private fun MedicineSearchBar(
             .shadow(2.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = Color.LightGray,
+            focusedTextColor = colorScheme.onSurface,
+            unfocusedTextColor = colorScheme.onSurface,
+            focusedPlaceholderColor = colorScheme.onSurfaceVariant,
+            unfocusedPlaceholderColor = colorScheme.onSurfaceVariant,
+            focusedLeadingIconColor = colorScheme.onSurfaceVariant,
+            unfocusedLeadingIconColor = colorScheme.onSurfaceVariant,
+            focusedTrailingIconColor = colorScheme.onSurfaceVariant,
+            unfocusedTrailingIconColor = colorScheme.onSurfaceVariant,
+            unfocusedBorderColor = colorScheme.outline.copy(alpha = 0.6f),
             focusedBorderColor = SwastikPurple,
-            unfocusedContainerColor = Color.White,
-            focusedContainerColor = Color.White
+            unfocusedContainerColor = colorScheme.surface,
+            focusedContainerColor = colorScheme.surface
         ),
         singleLine = true
     )
@@ -265,6 +346,7 @@ private fun MedicineCategoryFilter(
     selectedCategory: MedicineCategory?,
     onCategorySelected: (MedicineCategory?) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     LazyRow(
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -276,7 +358,9 @@ private fun MedicineCategoryFilter(
                 label = { Text("All", fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = Color.White,
+                    containerColor = colorScheme.surface,
+                    labelColor = colorScheme.onSurfaceVariant
                 )
             )
         }
@@ -292,7 +376,9 @@ private fun MedicineCategoryFilter(
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = Color.White,
+                    containerColor = colorScheme.surface,
+                    labelColor = colorScheme.onSurfaceVariant
                 )
             )
         }
@@ -300,7 +386,194 @@ private fun MedicineCategoryFilter(
 }
 
 @Composable
-private fun EmptyMedicineState(onClearFilters: () -> Unit) {
+private fun MedicineDiscoveryContent(
+    medicines: List<Medicine>,
+    nearbyHighlights: List<NearbyMedicineDto>,
+    onMedicineClick: (String) -> Unit,
+    onPharmacyClick: (String?, String?) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (nearbyHighlights.isNotEmpty()) {
+            item {
+                NearbyInventorySection(
+                    nearbyHighlights = nearbyHighlights,
+                    hasCatalogResults = medicines.isNotEmpty(),
+                    onMedicineClick = onMedicineClick,
+                    onPharmacyClick = onPharmacyClick
+                )
+            }
+        }
+
+        if (medicines.isNotEmpty()) {
+            item {
+                Text(
+                    text = if (nearbyHighlights.isNotEmpty()) "Popular catalog" else "Popular medicines",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = if (nearbyHighlights.isNotEmpty()) 8.dp else 0.dp, bottom = 8.dp)
+                )
+            }
+        }
+
+        items(items = medicines, key = { it.id }) { medicine ->
+            MedicineListItem(
+                medicine = medicine,
+                onClick = { onMedicineClick(medicine.id) },
+                onPharmacyClick = { onPharmacyClick(medicine.nearbyPharmacyId, medicine.nearbyPharmacy) }
+            )
+        }
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun NearbyInventorySection(
+    nearbyHighlights: List<NearbyMedicineDto>,
+    hasCatalogResults: Boolean,
+    onMedicineClick: (String) -> Unit,
+    onPharmacyClick: (String?, String?) -> Unit
+) {
+    Column {
+        Text(
+            "Nearby pharmacies with stock",
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            if (hasCatalogResults) {
+                "Live inventory from connected stores near the patient."
+            } else {
+                "Catalog results are light right now, but live pharmacy inventory is still available."
+            },
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(nearbyHighlights) { nearbyMed ->
+                NearbyMedicineCard(
+                    nearbyMed = nearbyMed,
+                    onClick = { onMedicineClick(nearbyMed.medicineId ?: nearbyMed.id) },
+                    onPharmacyClick = {
+                        onPharmacyClick(nearbyMed.pharmacyId, nearbyMed.pharmacyName)
+                    }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun NearbyMedicineCard(
+    nearbyMed: NearbyMedicineDto,
+    onClick: () -> Unit,
+    onPharmacyClick: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Card(
+        modifier = Modifier
+            .width(252.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+        border = BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.18f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = nearbyMed.name,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "₹${nearbyMed.price}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = SwastikPurple
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onPharmacyClick() }
+            ) {
+                Icon(
+                    Icons.Outlined.Store,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = nearbyMed.pharmacyName ?: "Linked pharmacy",
+                    fontSize = 13.sp,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                color = Color(0xFFE8F5E9),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = "${nearbyMed.quantity} left in stock",
+                    fontSize = 11.sp,
+                    color = Color(0xFF2E7D32),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+private fun MedicineCategory.displayLabel(): String =
+    name.lowercase().replaceFirstChar { it.uppercase() }
+
+@Composable
+private fun EmptyMedicineState(
+    searchQuery: String,
+    selectedCategory: MedicineCategory?,
+    onClearFilters: () -> Unit,
+    onReloadCatalog: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val hasActiveFilters = searchQuery.isNotBlank() || selectedCategory != null
+    val title = when {
+        searchQuery.isNotBlank() -> "No matches for \"$searchQuery\""
+        selectedCategory != null -> "No ${selectedCategory.displayLabel()} medicines found"
+        else -> "Medicine catalog is still syncing"
+    }
+    val supportingText = when {
+        searchQuery.isNotBlank() -> "Try a brand name, generic name, or reset the search."
+        selectedCategory != null -> "Clear the filter or try a broader category."
+        else -> "This environment has little or no seeded medicine catalog data yet. Refresh to check again."
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -311,43 +584,37 @@ private fun EmptyMedicineState(onClearFilters: () -> Unit) {
             Icon(
                 Icons.Outlined.SearchOff,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "No medicines found",
+                title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.Gray
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onClearFilters) {
-                Text("Clear filters", color = SwastikPurple)
+            Text(
+                supportingText,
+                fontSize = 13.sp,
+                color = colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            if (hasActiveFilters) {
+                TextButton(onClick = onClearFilters) {
+                    Text("Clear filters", color = SwastikPurple)
+                }
+            }
+            OutlinedButton(onClick = onReloadCatalog) {
+                Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPurple)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Refresh catalog", color = SwastikPurple)
             }
         }
-    }
-}
-
-@Composable
-private fun MedicineList(
-    medicines: List<Medicine>,
-    onMedicineClick: (Medicine) -> Unit,
-    onPharmacyClick: (Medicine) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        items(items = medicines, key = { it.id }) { medicine ->
-            MedicineListItem(
-                medicine = medicine,
-                onClick = { onMedicineClick(medicine) },
-                onPharmacyClick = { onPharmacyClick(medicine) }
-            )
-        }
-        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }
 
@@ -357,6 +624,7 @@ private fun MedicineListItem(
     onClick: () -> Unit,
     onPharmacyClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -369,22 +637,44 @@ private fun MedicineListItem(
             verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = medicine.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (medicine.requiresPrescription) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = Color(0xFFFFF3E0),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "Rx",
+                                fontSize = 10.sp,
+                                color = Color(0xFFE67E22),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
                 Text(
-                    text = medicine.name,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
-                )
-                Text(
-                    text = "₹${medicine.price}",
+                    text = medicine.price?.let { "₹$it" } ?: "Price pending",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = colorScheme.onSurface
                 )
                 Text(
-                    text = medicine.manufacturer ?: "",
+                    text = medicine.genericName ?: medicine.manufacturer ?: "Medicine details syncing",
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -408,7 +698,7 @@ private fun MedicineListItem(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = medicine.nearbyPharmacy ?: "",
+                        text = medicine.nearbyPharmacy ?: "Find pharmacy",
                         fontSize = 13.sp,
                         color = SwastikPurple,
                         fontWeight = FontWeight.Medium,
@@ -419,6 +709,6 @@ private fun MedicineListItem(
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+        HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.35f))
     }
 }

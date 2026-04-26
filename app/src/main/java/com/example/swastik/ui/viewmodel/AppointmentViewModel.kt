@@ -12,8 +12,15 @@ import com.example.swastik.data.model.TimeSlot
 import com.example.swastik.data.repository.AppointmentRepository
 import com.example.swastik.data.repository.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class NextAvailableSlotSuggestion(
+    val date: String,
+    val availableSlotCount: Int,
+    val firstAvailableSlot: String?
+)
 
 /**
  * Appointment ViewModel - handles appointment screen logic
@@ -25,6 +32,8 @@ class AppointmentViewModel @Inject constructor(
     
     var uiState by mutableStateOf(AppointmentUiState())
         private set
+
+    private var slotLookupJob: Job? = null
     
     init {
         loadAppointments()
@@ -82,24 +91,77 @@ class AppointmentViewModel @Inject constructor(
     /**
      * Get time slots for a doctor on a specific date
      */
-    fun loadTimeSlots(doctorId: String, date: String) {
-        viewModelScope.launch {
-            uiState = uiState.copy(isLoadingSlots = true)
-            
-            // repository.getDoctorTimeSlots needs to be implemented
-             when (val result = repository.getDoctorTimeSlots(doctorId, date)) {
-                 is Result.Success -> {
-                     uiState = uiState.copy(
-                         isLoadingSlots = false,
-                         timeSlots = result.data
-                     )
-                 }
-                 is Result.Error -> {
-                     uiState = uiState.copy(isLoadingSlots = false, error = result.message)
-                 }
-                 is Result.Loading -> {}
-             }
+    fun loadTimeSlots(
+        doctorId: String,
+        date: String,
+        fallbackDates: List<String> = emptyList()
+    ) {
+        slotLookupJob?.cancel()
+        slotLookupJob = viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoadingSlots = true,
+                timeSlots = emptyList(),
+                error = null,
+                nextAvailableSuggestion = null,
+                isSearchingNextAvailable = false
+            )
+
+            when (val result = repository.getDoctorTimeSlots(doctorId, date)) {
+                is Result.Success -> {
+                    val slots = result.data
+                    val hasAvailableSlots = slots.any { it.isAvailable }
+                    uiState = uiState.copy(
+                        isLoadingSlots = false,
+                        timeSlots = slots
+                    )
+                    if (!hasAvailableSlots && fallbackDates.isNotEmpty()) {
+                        scanNextAvailableDate(doctorId, fallbackDates)
+                    }
+                }
+                is Result.Error -> {
+                    uiState = uiState.copy(
+                        isLoadingSlots = false,
+                        timeSlots = emptyList(),
+                        error = result.message
+                    )
+                }
+                is Result.Loading -> {}
+            }
         }
+    }
+
+    private suspend fun scanNextAvailableDate(
+        doctorId: String,
+        fallbackDates: List<String>
+    ) {
+        uiState = uiState.copy(
+            isSearchingNextAvailable = true,
+            nextAvailableSuggestion = null
+        )
+
+        var suggestion: NextAvailableSlotSuggestion? = null
+        for (candidateDate in fallbackDates) {
+            when (val result = repository.getDoctorTimeSlots(doctorId, candidateDate)) {
+                is Result.Success -> {
+                    val availableSlots = result.data.filter { it.isAvailable }
+                    if (availableSlots.isNotEmpty()) {
+                        suggestion = NextAvailableSlotSuggestion(
+                            date = candidateDate,
+                            availableSlotCount = availableSlots.size,
+                            firstAvailableSlot = availableSlots.first().time
+                        )
+                        break
+                    }
+                }
+                is Result.Error -> {}
+                is Result.Loading -> {}
+            }
+        }
+
+        uiState = uiState.copy(
+            isSearchingNextAvailable = false,
+            nextAvailableSuggestion = suggestion
+        )
     }
     
     /**
@@ -162,6 +224,17 @@ class AppointmentViewModel @Inject constructor(
     fun clearError() {
         uiState = uiState.copy(error = null)
     }
+
+    fun resetSlotSelectionState() {
+        slotLookupJob?.cancel()
+        uiState = uiState.copy(
+            isLoadingSlots = false,
+            timeSlots = emptyList(),
+            error = null,
+            nextAvailableSuggestion = null,
+            isSearchingNextAvailable = false
+        )
+    }
     
     /**
      * Reset booking state
@@ -184,11 +257,13 @@ class AppointmentViewModel @Inject constructor(
 data class AppointmentUiState(
     val isLoading: Boolean = false,
     val isLoadingSlots: Boolean = false,
+    val isSearchingNextAvailable: Boolean = false,
     val isBooking: Boolean = false,
     val isCancelling: Boolean = false,
     val hasLoaded: Boolean = false,
     val appointments: List<Appointment> = emptyList(),
     val timeSlots: List<TimeSlot> = emptyList(),
+    val nextAvailableSuggestion: NextAvailableSlotSuggestion? = null,
     val bookingSuccess: Boolean = false,
     val cancelSuccess: Boolean = false,
     val newAppointment: Appointment? = null,

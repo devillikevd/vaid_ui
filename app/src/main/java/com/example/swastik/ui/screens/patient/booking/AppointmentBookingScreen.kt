@@ -32,6 +32,7 @@ import com.example.swastik.ui.viewmodel.AppointmentViewModel
 import com.example.swastik.ui.viewmodel.AppointmentUiState
 import com.example.swastik.ui.viewmodel.DoctorSearchViewModel
 import com.example.swastik.ui.viewmodel.DoctorSearchUiState
+import com.example.swastik.ui.viewmodel.NextAvailableSlotSuggestion
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -61,6 +62,7 @@ fun AppointmentBookingScreen(
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf("video") }
     var notes by remember { mutableStateOf("") }
+    val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId) {
         if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank()) {
@@ -127,6 +129,7 @@ fun AppointmentBookingScreen(
                                 currentStep = 1
                                 selectedDate = null
                                 selectedTimeSlot = null
+                                appointmentViewModel.resetSlotSelectionState()
                             }
                             3 -> currentStep = 2
                         }
@@ -185,23 +188,29 @@ fun AppointmentBookingScreen(
                         uiState = doctorState,
                         onDoctorSelected = { doctor ->
                             selectedDoctor = doctor
+                            selectedDate = null
+                            selectedTimeSlot = null
+                            appointmentViewModel.resetSlotSelectionState()
                             currentStep = 2
                         }
                     )
                     2 -> DateTimeSelectionStep(
                         doctor = selectedDoctor!!,
-                        appointmentViewModel = appointmentViewModel,
+                        availableDates = availableDates,
                         appointmentState = appointmentState,
                         selectedDate = selectedDate,
                         selectedTimeSlot = selectedTimeSlot,
                         onDateSelected = { date ->
                             selectedDate = date
                             selectedTimeSlot = null
-                            val formatted =
-                                date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                            val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                            val fallbackDates = availableDates
+                                .filter { it.isAfter(date) }
+                                .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
                             appointmentViewModel.loadTimeSlots(
                                 selectedDoctor!!.id,
-                                formatted
+                                formatted,
+                                fallbackDates
                             )
                         },
                         onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
@@ -365,10 +374,7 @@ private fun DoctorSelectionStep(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            uiState.error ?: "Error",
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Text(uiState.error, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
@@ -507,7 +513,7 @@ private fun DoctorBookingCard(
 @Composable
 private fun DateTimeSelectionStep(
     doctor: Doctor,
-    appointmentViewModel: AppointmentViewModel,
+    availableDates: List<LocalDate>,
     appointmentState: AppointmentUiState,
     selectedDate: LocalDate?,
     selectedTimeSlot: String?,
@@ -516,7 +522,9 @@ private fun DateTimeSelectionStep(
     onContinue: () -> Unit
 ) {
     val today = LocalDate.now()
-    val dates = remember { (0..13).map { today.plusDays(it.toLong()) } }
+    val hasAvailableSlots = appointmentState.timeSlots.any { it.isAvailable }
+    val availableSlotCount = appointmentState.timeSlots.count { it.isAvailable }
+    val bookedSlotCount = appointmentState.timeSlots.count { !it.isAvailable }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -571,7 +579,7 @@ private fun DateTimeSelectionStep(
             )
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(dates) { date ->
+                items(availableDates) { date ->
                     val isSelected = date == selectedDate
                     val isToday = date == today
                     Surface(
@@ -646,35 +654,33 @@ private fun DateTimeSelectionStep(
                         }
                     }
                     appointmentState.timeSlots.isEmpty() -> {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFFFF3E0)
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("😔", fontSize = 32.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    "No slots available",
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 15.sp
-                                )
-                                Text(
-                                    "Try another date",
-                                    fontSize = 13.sp,
-                                    color = Color.Gray
-                                )
+                        NoSlotsAvailableCard(
+                            selectedDate = selectedDate,
+                            bookedSlotCount = bookedSlotCount,
+                            suggestion = appointmentState.nextAvailableSuggestion,
+                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
+                            onJumpToSuggestedDate = { suggested ->
+                                onDateSelected(LocalDate.parse(suggested.date))
                             }
-                        }
+                        )
+                    }
+                    !hasAvailableSlots -> {
+                        NoSlotsAvailableCard(
+                            selectedDate = selectedDate,
+                            bookedSlotCount = bookedSlotCount,
+                            suggestion = appointmentState.nextAvailableSuggestion,
+                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
+                            onJumpToSuggestedDate = { suggested ->
+                                onDateSelected(LocalDate.parse(suggested.date))
+                            }
+                        )
                     }
                     else -> {
+                        SlotAvailabilitySummary(
+                            availableSlotCount = availableSlotCount,
+                            bookedSlotCount = bookedSlotCount
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         TimeSlotGrid(
                             slots = appointmentState.timeSlots,
                             selectedSlot = selectedTimeSlot,
@@ -727,6 +733,136 @@ private fun DateTimeSelectionStep(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlotAvailabilitySummary(
+    availableSlotCount: Int,
+    bookedSlotCount: Int
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Surface(
+            color = Color(0xFFE8F5E9),
+            shape = RoundedCornerShape(999.dp)
+        ) {
+            Text(
+                text = "$availableSlotCount open",
+                color = Color(0xFF2E7D32),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+            )
+        }
+        if (bookedSlotCount > 0) {
+            Surface(
+                color = Color(0xFFFFF3E0),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "$bookedSlotCount booked",
+                    color = Color(0xFFB26A00),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoSlotsAvailableCard(
+    selectedDate: LocalDate?,
+    bookedSlotCount: Int,
+    suggestion: NextAvailableSlotSuggestion?,
+    isSearchingNextAvailable: Boolean,
+    onJumpToSuggestedDate: (NextAvailableSlotSuggestion) -> Unit
+) {
+    val formattedDate = selectedDate?.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("😔", fontSize = 32.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (formattedDate != null) "No open slots on $formattedDate" else "No open slots available",
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = when {
+                    bookedSlotCount > 0 -> "All $bookedSlotCount published slots are already taken."
+                    else -> "This doctor has not published available times for the selected day."
+                },
+                fontSize = 13.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+
+            when {
+                isSearchingNextAvailable -> {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator(
+                        color = SwastikPurple,
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        "Checking the next available dates",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+                suggestion != null -> {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FilledTonalButton(
+                        onClick = { onJumpToSuggestedDate(suggestion) },
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = SwastikPurpleLight.copy(alpha = 0.5f),
+                            contentColor = SwastikPurple
+                        )
+                    ) {
+                        Text(
+                            "Jump to ${LocalDate.parse(suggestion.date).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}"
+                        )
+                    }
+                    suggestion.firstAvailableSlot?.let { firstSlot ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "${suggestion.availableSlotCount} open slots from $firstSlot",
+                            fontSize = 12.sp,
+                            color = SwastikPurple,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                else -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "No open slots found in the next two weeks. Try another doctor or facility.",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }

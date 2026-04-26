@@ -6,7 +6,7 @@ const express = require('express');
 const { param, query } = require('express-validator');
 const { validate } = require('../middleware/validate');
 const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
+const { VITALS_SESSION_ALLOWED_ROLES } = require('../config/accessPolicy');
 const vitalsService = require('../services/vitalsService');
 const { asyncHandler } = require('../middleware/errorHandler');
 
@@ -15,8 +15,8 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
-// Doctors, patients, hospital/clinic owners, and admins can view session vitals
-const allowedRoles = [ROLES.DOCTOR, ROLES.PATIENT, ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.HOSPITAL_OWNER, ROLES.CLINIC_OWNER];
+// Doctors, patients, hospital/clinic owners/managers, and admins can view session vitals
+const allowedRoles = VITALS_SESSION_ALLOWED_ROLES;
 
 /**
  * @route GET /api/vitals/session/:sessionId/latest

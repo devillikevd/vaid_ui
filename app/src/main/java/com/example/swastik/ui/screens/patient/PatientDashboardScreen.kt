@@ -44,15 +44,12 @@ import kotlinx.coroutines.delay
 fun PatientDashboardScreen(
     viewModel: PatientDashboardViewModel = hiltViewModel(),
     initialTab: Int = 0,
-    onNavigateToMedicine: () -> Unit = {},
-    onNavigateToRecords: () -> Unit = {},
-    onNavigateToProfile: () -> Unit = {},
     onLogout: () -> Unit = {},
-    onStartVideoConsultation: (appointmentId: String, doctorName: String) -> Unit = { _, _ -> },
     onNavigateToAppointments: () -> Unit = {},
     onNavigateToHospitals: () -> Unit = {},
     onNavigateToClinics: () -> Unit = {},
     onNavigateToPharmacies: () -> Unit = {},
+    onNavigateToPharmacy: (String?, String?) -> Unit = { _, _ -> },
     onNavigateToReports: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
@@ -99,10 +96,14 @@ fun PatientDashboardScreen(
     // Pull-to-refresh state
     val pullToRefreshState = rememberPullToRefreshState()
     if (pullToRefreshState.isRefreshing) {
-        LaunchedEffect(true) {
+        LaunchedEffect(pullToRefreshState) {
             viewModel.refresh()
-            // Wait a minimum of 500ms so the indicator is visible
-            delay(500)
+        }
+    }
+    LaunchedEffect(isRefreshing) {
+        if (!isRefreshing && pullToRefreshState.isRefreshing) {
+            // Keep the indicator visible briefly to avoid a flicker on fast refreshes.
+            delay(250)
             pullToRefreshState.endRefresh()
         }
     }
@@ -172,6 +173,7 @@ fun PatientDashboardScreen(
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
                             onMedicineClick = onNavigateToMedicineDetail,
+                            onPharmacyClick = onNavigateToPharmacy,
                             onNotificationClick = { showNotificationPanel = true },
                             onNavigateToCart = onNavigateToMedicineCart
                         )
@@ -180,7 +182,6 @@ fun PatientDashboardScreen(
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
                             onNotificationClick = { showNotificationPanel = true },
-                            onUploadClick = { /* Handled inside RecordsTabContent via UploadReportDialog */ },
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToReports = onNavigateToReports
                         )

@@ -4,11 +4,20 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const consultationService = require('../../services/consultationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { CONSULTATION_ROLE_POLICY } = require('../../config/accessPolicy');
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+const ensureRole = (req, res, role, message) => {
+  if (req.user.role !== role) {
+    res.status(403).json({ success: false, message });
+    return false;
+  }
+  return true;
+};
 
 // Get consultation history
 router.get('/',
@@ -27,8 +36,8 @@ router.get('/',
 // Start consultation (doctor only)
 router.post('/:appointmentId/start',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can start consultations' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.START, 'Only doctors can start consultations')) {
+      return;
     }
     const result = await consultationService.startConsultation(req.user.id, req.params.appointmentId);
     res.status(201).json({ success: true, data: result });
@@ -38,8 +47,8 @@ router.post('/:appointmentId/start',
 // Join consultation (patient only)
 router.post('/:id/join',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'patient') {
-      return res.status(403).json({ success: false, message: 'Only patients can join consultations' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.JOIN, 'Only patients can join consultations')) {
+      return;
     }
     const result = await consultationService.joinConsultation(req.user.id, req.params.id);
     res.json({ success: true, data: result });
@@ -67,8 +76,8 @@ router.put('/:id/end',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can end consultations' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.END, 'Only doctors can end consultations')) {
+      return;
     }
     const consultation = await consultationService.endConsultation(
       req.user.id,
@@ -82,8 +91,8 @@ router.put('/:id/end',
 // Leave consultation (patient only) — signal patient left the video call
 router.post('/:id/leave',
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'patient') {
-      return res.status(403).json({ success: false, message: 'Only patients can leave (doctors should end)' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.LEAVE, 'Only patients can leave (doctors should end)')) {
+      return;
     }
     const result = await consultationService.leaveConsultation(req.user.id, req.params.id);
     res.json({ success: true, ...result });
@@ -113,8 +122,8 @@ router.post('/:id/prescription',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can add prescriptions' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.ADD_PRESCRIPTION, 'Only doctors can add prescriptions')) {
+      return;
     }
     const prescription = await consultationService.addPrescription(
       req.user.id,
@@ -133,8 +142,8 @@ router.post('/:id/ai-assist',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'doctor') {
-      return res.status(403).json({ success: false, message: 'Only doctors can use AI assistant' });
+    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.AI_ASSIST, 'Only doctors can use AI assistant')) {
+      return;
     }
     const result = await consultationService.aiAssistDoctor(
       req.user.id,

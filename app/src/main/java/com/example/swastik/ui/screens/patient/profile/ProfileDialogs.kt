@@ -316,6 +316,7 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
     val appSettings by AppSettingsStore.settings.collectAsState()
     var selected by remember(appSettings.themePreference) { mutableStateOf(appSettings.themePreference) }
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -337,12 +338,16 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
                         modifier = Modifier.fillMaxWidth().clickable { selected = mode },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (selected == mode) SwastikPurple.copy(alpha = 0.1f) else Color(0xFFF5F5F5)
+                            containerColor = if (selected == mode) {
+                                SwastikPurple.copy(alpha = 0.1f)
+                            } else {
+                                colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                            }
                         ),
                         border = if (selected == mode) BorderStroke(1.5.dp, SwastikPurple) else null
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(icon, null, tint = if (selected == mode) SwastikPurple else Color.Gray)
+                            Icon(icon, null, tint = if (selected == mode) SwastikPurple else colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(label, fontWeight = if (selected == mode) FontWeight.SemiBold else FontWeight.Normal)
                             Spacer(Modifier.weight(1f))
@@ -428,12 +433,13 @@ fun NotificationSettingsDialog(onDismiss: () -> Unit) {
 
 @Composable
 fun NotifToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = 14.sp)
+        Text(label, fontSize = 14.sp, color = colorScheme.onSurface)
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -448,6 +454,7 @@ fun NotifToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -
 fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
     var biometrics by remember { mutableStateOf(false) }
     var twoFactor by remember { mutableStateOf(false) }
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -463,27 +470,27 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { onChangePassword() },
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.08f))
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.5f))
                 ) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Lock, null, tint = SwastikPurple, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Change Password", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text("Update your account password", fontSize = 12.sp, color = Color.Gray)
+                            Text("Update your account password", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.Default.KeyboardArrowRight, null, tint = SwastikPurple)
+                        Icon(Icons.Default.ChevronRight, null, tint = SwastikPurple)
                     }
                 }
                 Spacer(Modifier.height(4.dp))
                 NotifToggleRow("Biometric Login", biometrics) { biometrics = it }
                 NotifToggleRow("Two-Factor Auth (2FA)", twoFactor) { twoFactor = it }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text("Data & Privacy", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
+                Text("Data & Privacy", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text("Your health data is encrypted end-to-end", fontSize = 12.sp, color = Color.DarkGray)
-                Text("ABDM/ABHA compliant storage", fontSize = 12.sp, color = Color.DarkGray)
-                Text("Data is never shared without consent", fontSize = 12.sp, color = Color.DarkGray)
+                Text("Your health data is encrypted end-to-end", fontSize = 12.sp, color = colorScheme.onSurface)
+                Text("ABDM/ABHA compliant storage", fontSize = 12.sp, color = colorScheme.onSurface)
+                Text("Data is never shared without consent", fontSize = 12.sp, color = colorScheme.onSurface)
             }
         },
         confirmButton = {
@@ -512,6 +519,7 @@ fun ChangePasswordDialog(
     var showNewPwd by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     val isSaving = saveState is ProfileUpdateState.Loading
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -588,7 +596,7 @@ fun ChangePasswordDialog(
                     enabled = !isSaving,
                     visualTransformation = PasswordVisualTransformation()
                 )
-                Text("Password must be at least 8 characters", fontSize = 11.sp, color = Color.Gray)
+                Text("Password must be at least 8 characters", fontSize = 11.sp, color = colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {

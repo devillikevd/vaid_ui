@@ -24,8 +24,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Medicine
+import com.example.swastik.ui.theme.SwastikGreen
+import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikRed
 import java.util.Locale
 
 /**
@@ -47,6 +50,7 @@ fun MedicineDetailScreen(
 
     val detailState by viewModel.detailState.collectAsState()
     val medicine = detailState.medicine
+    val colorScheme = MaterialTheme.colorScheme
 
     // Map API availability to PharmacyInfo for display
     val pharmacies = detailState.availability.map { avail ->
@@ -70,10 +74,10 @@ fun MedicineDetailScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colorScheme.surface)
                 )
             },
-            containerColor = Color(0xFFF5F5F5)
+            containerColor = colorScheme.background
         ) { paddingValues ->
             Box(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
@@ -82,7 +86,7 @@ fun MedicineDetailScreen(
                 if (detailState.isLoading) {
                     CircularProgressIndicator(color = SwastikPurple)
                 } else {
-                    Text(stringResource(R.string.medicine_not_found), color = Color.Gray)
+                    Text(stringResource(R.string.medicine_not_found), color = colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -107,7 +111,7 @@ fun MedicineDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White
+                    containerColor = colorScheme.surface
                 )
             )
         },
@@ -118,7 +122,7 @@ fun MedicineDetailScreen(
                 onViewCart = onNavigateToCart
             )
         },
-        containerColor = Color(0xFFF5F5F5)
+        containerColor = colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -132,7 +136,7 @@ fun MedicineDetailScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
@@ -163,14 +167,14 @@ fun MedicineDetailScreen(
                             text = medicine.name,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = colorScheme.onSurface
                         )
                         if (medicine.requiresPrescription) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
                                     .background(
-                                        Color(0xFFFF9800).copy(alpha = 0.1f),
+                                        SwastikOrange.copy(alpha = 0.14f),
                                         RoundedCornerShape(6.dp)
                                     )
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -178,7 +182,7 @@ fun MedicineDetailScreen(
                                 Text(
                                     "Rx Required",
                                     fontSize = 12.sp,
-                                    color = Color(0xFFFF9800),
+                                    color = SwastikOrange,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -191,7 +195,7 @@ fun MedicineDetailScreen(
                     Text(
                         text = "by ${medicine.manufacturer}",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -209,7 +213,7 @@ fun MedicineDetailScreen(
                         InfoChip(
                             icon = if (medicine.inStock) Icons.Default.CheckCircle else Icons.Default.Cancel,
                             label = if (medicine.inStock) "In Stock" else "Out of Stock",
-                            color = if (medicine.inStock) Color(0xFF4CAF50) else Color(0xFFE53935)
+                            color = if (medicine.inStock) SwastikGreen else SwastikRed
                         )
                     }
                 }
@@ -221,7 +225,7 @@ fun MedicineDetailScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -229,13 +233,13 @@ fun MedicineDetailScreen(
                         stringResource(R.string.description),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         medicine.description ?: stringResource(R.string.no_description),
                         fontSize = 14.sp,
-                        color = Color.DarkGray,
+                        color = colorScheme.onSurfaceVariant,
                         lineHeight = 22.sp
                     )
                 }
@@ -269,7 +273,7 @@ fun MedicineDetailScreen(
                     stringResource(R.string.no_pharmacy_data),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant
                 )
             } else {
                 pharmacies.forEach { pharmacy ->
@@ -323,13 +327,14 @@ private fun PharmacyAvailabilityCard(
     pharmacy: PharmacyInfo,
     onClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -342,13 +347,13 @@ private fun PharmacyAvailabilityCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(Color(0xFF4CAF50).copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                    .background(SwastikGreen.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.LocalPharmacy,
                     contentDescription = null,
-                    tint = Color(0xFF4CAF50),
+                    tint = SwastikGreen,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -361,26 +366,26 @@ private fun PharmacyAvailabilityCard(
                     pharmacy.name,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = Color.Black
+                    color = colorScheme.onSurface
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         " ${pharmacy.distance}",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Box(
                         modifier = Modifier
                             .size(6.dp)
                             .background(
-                                if (pharmacy.available) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                if (pharmacy.available) SwastikGreen else SwastikRed,
                                 CircleShape
                             )
                     )
@@ -388,7 +393,7 @@ private fun PharmacyAvailabilityCard(
                     Text(
                         if (pharmacy.available) "Available" else "Out of Stock",
                         fontSize = 12.sp,
-                        color = if (pharmacy.available) Color(0xFF4CAF50) else Color(0xFFE53935)
+                        color = if (pharmacy.available) SwastikGreen else SwastikRed
                     )
                 }
             }
@@ -404,7 +409,7 @@ private fun PharmacyAvailabilityCard(
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = Color.Gray
+                    tint = colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -417,9 +422,10 @@ private fun MedicineDetailBottomBar(
     inStock: Boolean,
     onViewCart: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
+        color = colorScheme.surface,
         shadowElevation = 16.dp
     ) {
         Row(
@@ -432,7 +438,7 @@ private fun MedicineDetailBottomBar(
                 Text(
                     stringResource(R.string.price),
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant
                 )
                 Text(
                     price?.let { "₹$it" } ?: stringResource(R.string.price_unavailable),
@@ -452,7 +458,7 @@ private fun MedicineDetailBottomBar(
                     .width(180.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (inStock) SwastikPurple else Color.Gray
+                    containerColor = if (inStock) SwastikPurple else colorScheme.outline
                 )
             ) {
                 Icon(

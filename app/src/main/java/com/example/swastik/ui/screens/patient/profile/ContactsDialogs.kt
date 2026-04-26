@@ -37,12 +37,13 @@ fun EmergencyContactsDialog(
     var newPhone by remember { mutableStateOf("") }
     var newRelation by remember { mutableStateOf("") }
     var contactToDelete by remember { mutableStateOf<EmergencyContact?>(null) }
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.ContactEmergency, null, tint = Color(0xFFE53935))
+                Icon(Icons.Outlined.ContactEmergency, null, tint = colorScheme.error)
                 Spacer(Modifier.width(8.dp))
                 Text("Emergency Contacts", fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
@@ -105,31 +106,31 @@ fun EmergencyContactsDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Outlined.ContactEmergency, null, tint = Color.LightGray, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Outlined.ContactEmergency, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No emergency contacts added", fontSize = 14.sp, color = Color.Gray)
-                        Text("Tap + to add contacts for emergencies", fontSize = 12.sp, color = Color.LightGray)
+                        Text("No emergency contacts added", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text("Tap + to add contacts for emergencies", fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     contacts.forEach { contact ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer.copy(alpha = 0.8f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Person, null, tint = Color(0xFFE53935))
+                                Icon(Icons.Default.Person, null, tint = colorScheme.error)
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(contact.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Text(contact.phone, fontSize = 12.sp, color = Color.Gray)
-                                    Text(contact.relationship, fontSize = 11.sp, color = Color(0xFFE53935))
+                                    Text(contact.phone, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                    Text(contact.relationship, fontSize = 11.sp, color = colorScheme.error)
                                 }
                                 IconButton(onClick = { contactToDelete = contact }) {
-                                    Icon(Icons.Outlined.Delete, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Outlined.Delete, null, tint = colorScheme.error, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -149,13 +150,15 @@ fun EmergencyContactsDialog(
 
     // Delete confirmation dialog
     contactToDelete?.let { contact ->
+        val dialogColorScheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = { contactToDelete = null },
             title = { Text("Delete Contact?", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     "Are you sure you want to remove ${contact.name} from your emergency contacts? This action cannot be undone.",
-                    fontSize = 14.sp, color = Color.DarkGray
+                    fontSize = 14.sp,
+                    color = dialogColorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -165,7 +168,7 @@ fun EmergencyContactsDialog(
                         contactToDelete = null
                     },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(containerColor = dialogColorScheme.error)
                 ) { Text("Delete") }
             },
             dismissButton = {
@@ -190,6 +193,7 @@ fun FamilyMembersDialog(
     var newRelation by remember { mutableStateOf("") }
     var newPhone by remember { mutableStateOf("") }
     var memberToDelete by remember { mutableStateOf<FamilyMember?>(null) }
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -258,10 +262,10 @@ fun FamilyMembersDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Outlined.FamilyRestroom, null, tint = Color.LightGray, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Outlined.FamilyRestroom, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No family members linked", fontSize = 14.sp, color = Color.Gray)
-                        Text("Tap + to link family profiles", fontSize = 12.sp, color = Color.LightGray)
+                        Text("No family members linked", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text("Tap + to link family profiles", fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     members.forEach { member ->
@@ -284,10 +288,10 @@ fun FamilyMembersDialog(
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(member.name, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Text(member.relationship, fontSize = 12.sp, color = Color.Gray)
+                                    Text(member.relationship, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                                 }
                                 IconButton(onClick = { memberToDelete = member }) {
-                                    Icon(Icons.Outlined.Delete, null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Outlined.Delete, null, tint = colorScheme.error, modifier = Modifier.size(20.dp))
                                 }
                             }
                         }
@@ -307,13 +311,15 @@ fun FamilyMembersDialog(
 
     // Delete confirmation dialog
     memberToDelete?.let { member ->
+        val dialogColorScheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = { memberToDelete = null },
             title = { Text("Remove Member?", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     "Are you sure you want to remove ${member.name} from your family members? This action cannot be undone.",
-                    fontSize = 14.sp, color = Color.DarkGray
+                    fontSize = 14.sp,
+                    color = dialogColorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -323,7 +329,7 @@ fun FamilyMembersDialog(
                         memberToDelete = null
                     },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(containerColor = dialogColorScheme.error)
                 ) { Text("Remove") }
             },
             dismissButton = {
@@ -344,6 +350,7 @@ fun SavedAddressesDialog(
     var showAddForm by remember { mutableStateOf(false) }
     var newLabel by remember { mutableStateOf("") }
     var newAddress by remember { mutableStateOf("") }
+    val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -407,17 +414,17 @@ fun SavedAddressesDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Outlined.LocationOn, null, tint = Color.LightGray, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Outlined.LocationOn, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No addresses saved", fontSize = 14.sp, color = Color.Gray)
-                        Text("Save your home, office, etc. for quick access", fontSize = 12.sp, color = Color.LightGray)
+                        Text("No addresses saved", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text("Save your home, office, etc. for quick access", fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     addresses.forEach { address ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                            colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant.copy(alpha = 0.55f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -431,7 +438,7 @@ fun SavedAddressesDialog(
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(address.label, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Text(address.address, fontSize = 12.sp, color = Color.Gray)
+                                    Text(address.address, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                                 }
                             }
                         }

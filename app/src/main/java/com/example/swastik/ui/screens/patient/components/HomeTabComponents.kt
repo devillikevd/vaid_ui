@@ -1,5 +1,6 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
@@ -354,85 +356,100 @@ private fun CareDirectoryCard(
     container: Color,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = modifier
-            .height(164.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Column(
+    BoxWithConstraints(modifier = modifier) {
+        val isCompactWidth = maxWidth < 170.dp
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp)
+                .fillMaxWidth()
+                .heightIn(min = if (isCompactWidth) 180.dp else 164.dp)
+                .animateContentSize()
+                .clickable { onClick() },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isCompactWidth) 12.dp else 14.dp)
             ) {
-                Surface(
-                    color = container,
-                    shape = RoundedCornerShape(14.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Icon(
-                        icon,
-                        contentDescription = title,
-                        tint = accent,
-                        modifier = Modifier.padding(12.dp).size(24.dp)
-                    )
+                    Surface(
+                        color = container,
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = title,
+                            tint = accent,
+                            modifier = Modifier
+                                .padding(if (isCompactWidth) 10.dp else 12.dp)
+                                .size(if (isCompactWidth) 22.dp else 24.dp)
+                        )
+                    }
+
+                    Surface(
+                        color = accent.copy(alpha = 0.10f),
+                        shape = RoundedCornerShape(999.dp)
+                    ) {
+                        Text(
+                            text = tag,
+                            color = accent,
+                            fontSize = if (isCompactWidth) 9.sp else 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .widthIn(max = if (isCompactWidth) 88.dp else 108.dp)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                Surface(
-                    color = accent.copy(alpha = 0.10f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text(
-                        text = tag,
-                        color = accent,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
+                Spacer(modifier = Modifier.height(14.dp))
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = title,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF101418)
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = subtitle,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                color = Color(0xFF5F6B7A)
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Open",
+                    text = title,
+                    fontSize = if (isCompactWidth) 16.sp else 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF101418),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = subtitle,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = accent
+                    lineHeight = 17.sp,
+                    color = Color(0xFF5F6B7A),
+                    maxLines = if (isCompactWidth) 3 else 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(16.dp)
-                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Open",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accent
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

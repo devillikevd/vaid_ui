@@ -44,7 +44,6 @@ fun RecordsTabContent(
     profile: PatientProfile? = null,
     unreadNotificationsCount: Int = 0,
     onNotificationClick: () -> Unit = {},
-    onUploadClick: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     viewModel: RecordsViewModel = hiltViewModel()
@@ -57,6 +56,7 @@ fun RecordsTabContent(
     val prescriptions = state.prescriptions
     val documents = state.documents
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
 
     // Handle upload state changes
     LaunchedEffect(state.uploadState) {
@@ -76,7 +76,7 @@ fun RecordsTabContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(colorScheme.background)
     ) {
         RecordsHeader(
             profile,
@@ -90,7 +90,7 @@ fun RecordsTabContent(
                 .fillMaxSize()
                 .padding(top = 8.dp),
             shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
@@ -104,14 +104,14 @@ fun RecordsTabContent(
                     text = "Medical Records",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = colorScheme.onSurface,
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
 
                 Text(
                     text = "Your complete health history",
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                 )
 
@@ -137,13 +137,13 @@ fun RecordsTabContent(
                                 Icons.Outlined.Warning,
                                 contentDescription = null,
                                 modifier = Modifier.size(48.dp),
-                                tint = Color.Gray
+                                tint = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = state.error ?: "Failed to load records",
                                 fontSize = 14.sp,
-                                color = Color.Gray
+                                color = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
@@ -167,20 +167,20 @@ fun RecordsTabContent(
                                 Icons.Outlined.FolderOpen,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = Color.LightGray
+                                tint = colorScheme.outline
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = "No medical records yet",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color.Gray
+                                color = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "Upload reports or consult a doctor to get started",
                                 fontSize = 13.sp,
-                                color = Color.LightGray
+                                color = colorScheme.outline
                             )
                             Spacer(modifier = Modifier.height(20.dp))
                             OutlinedButton(
@@ -274,6 +274,7 @@ private fun RecordsHeader(
     onNotificationClick: () -> Unit = {},
     onUploadClick: () -> Unit = {}
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -302,9 +303,9 @@ private fun RecordsHeader(
                 profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { "User" } ?: "User",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = colorScheme.onSurface
             )
-            Text("Patient", fontSize = 13.sp, color = Color.Gray)
+            Text("Patient", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -315,7 +316,7 @@ private fun RecordsHeader(
 
         Box {
             IconButton(onClick = onNotificationClick) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = Color.Black)
+                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = colorScheme.onSurface)
             }
             if (unreadCount > 0) {
                 Box(
@@ -335,6 +336,7 @@ private fun RecordsFilterRow(
     selectedFilter: RecordFilter,
     onFilterSelected: (RecordFilter) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val filters = listOf(
         RecordFilter.ALL to "All",
         RecordFilter.CONSULTATIONS to "Consultations",
@@ -353,7 +355,9 @@ private fun RecordsFilterRow(
                 label = { Text(label, fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = Color.White,
+                    containerColor = colorScheme.surface,
+                    labelColor = colorScheme.onSurfaceVariant
                 )
             )
         }
@@ -362,12 +366,13 @@ private fun RecordsFilterRow(
 
 @Composable
 private fun SectionHeader(title: String, actionText: String?, onAction: (() -> Unit)? = null) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
         if (actionText != null) {
             TextButton(onClick = { onAction?.invoke() }) {
                 Text(actionText, color = SwastikPurple, fontSize = 13.sp)
@@ -378,9 +383,10 @@ private fun SectionHeader(title: String, actionText: String?, onAction: (() -> U
 
 @Composable
 private fun EmptySectionMessage(message: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF8F9FA)
+        color = colorScheme.surfaceVariant.copy(alpha = 0.65f)
     ) {
         Text(
             text = message,
@@ -388,17 +394,18 @@ private fun EmptySectionMessage(message: String) {
                 .fillMaxWidth()
                 .padding(16.dp),
             fontSize = 13.sp,
-            color = Color.Gray
+            color = colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
 private fun ConsultationCard(consultation: ConsultationRecord) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant.copy(alpha = 0.55f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -419,11 +426,11 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(consultation.doctorName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                        Text(consultation.doctorSpecialty, fontSize = 13.sp, color = Color.Gray)
+                        Text(consultation.doctorName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+                        Text(consultation.doctorSpecialty, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                     }
                 }
-                Text(consultation.date, fontSize = 12.sp, color = Color.Gray)
+                Text(consultation.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -431,15 +438,15 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(consultation.diagnosis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.Black)
+                Text(consultation.diagnosis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
             }
 
             if (consultation.notes.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Outlined.Notes, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Outlined.Notes, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(consultation.notes, fontSize = 12.sp, color = Color.Gray)
+                    Text(consultation.notes, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -448,10 +455,11 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
 
 @Composable
 private fun PrescriptionSummaryCard(prescription: Prescription) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -480,7 +488,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     Text(
                         prescription.createdAt.take(10),
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
@@ -506,13 +514,13 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color.LightGray.copy(alpha = 0.5f))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = colorScheme.outline.copy(alpha = 0.35f))
 
             Text(
                 text = prescription.diagnosis.ifBlank { "Prescription details" },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.Black
+                color = colorScheme.onSurface
             )
 
             if (!prescription.medicines.isNullOrEmpty()) {
@@ -539,7 +547,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 Text(
                     text = prescription.instructions,
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -548,6 +556,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
 
 @Composable
 private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.Top) {
         Box(
             modifier = Modifier
@@ -562,7 +571,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(prescription.medicineName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+            Text(prescription.medicineName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(color = Color(0xFFE3F2FD), shape = RoundedCornerShape(6.dp)) {
@@ -582,9 +591,9 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
             }
             Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.DateRange, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                Icon(Icons.Outlined.DateRange, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Duration: ${prescription.duration}", fontSize = 12.sp, color = Color.Gray)
+                Text("Duration: ${prescription.duration}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -593,6 +602,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
 @Composable
 private fun DocumentItem(document: MedicalDocument) {
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -610,7 +620,7 @@ private fun DocumentItem(document: MedicalDocument) {
                 }
             },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
@@ -636,11 +646,11 @@ private fun DocumentItem(document: MedicalDocument) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(document.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Black)
+                Text(document.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
                 Row {
-                    Text(document.date, fontSize = 12.sp, color = Color.Gray)
+                    Text(document.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                     if (!document.size.isNullOrBlank()) {
-                        Text(" • ${document.size}", fontSize = 12.sp, color = Color.Gray)
+                        Text(" • ${document.size}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                     }
                 }
             }

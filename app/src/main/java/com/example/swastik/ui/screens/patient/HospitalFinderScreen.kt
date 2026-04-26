@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.ClinicDoctorDto
@@ -93,6 +94,7 @@ fun HospitalFinderScreen(
     val hospitalState by viewModel.uiState.collectAsState()
     val facilities = hospitalState.facilities
     val selectedFacilityType = initialFacilityType ?: selectedFacilityTypeOverride
+    val resolvedDarkMode = isDarkMode || isSystemInDarkTheme()
     val screenTitle = when (initialFacilityType) {
         FacilityType.HOSPITAL -> "Hospitals"
         FacilityType.CLINIC -> "Clinics"
@@ -176,9 +178,9 @@ fun HospitalFinderScreen(
     val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Colors based on mode
-    val backgroundColor = if (isDarkMode) Color(0xFF121212) else Color.White
-    val surfaceColor = if (isDarkMode) Color(0xFF1E1E1E) else Color.White
-    val textColor = if (isDarkMode) Color.White else Color.Black
+    val backgroundColor = if (resolvedDarkMode) Color(0xFF121212) else Color.White
+    val surfaceColor = if (resolvedDarkMode) Color(0xFF1E1E1E) else Color.White
+    val textColor = if (resolvedDarkMode) Color.White else Color.Black
     val resetFilters = {
         selectedFacilityTypeOverride = null
         searchQuery = ""
@@ -318,7 +320,7 @@ fun HospitalFinderScreen(
                         }
                     },
                     onFilterClick = { showFilterSheet = true },
-                    isDarkMode = isDarkMode
+                    isDarkMode = resolvedDarkMode
                 )
 
                 // Debounce search: wait 400ms after last keystroke before firing API call
@@ -333,7 +335,7 @@ fun HospitalFinderScreen(
                     FilterChipsSection(
                         selectedType = selectedFacilityType,
                         onTypeSelected = { selectedFacilityTypeOverride = it },
-                        isDarkMode = isDarkMode
+                        isDarkMode = resolvedDarkMode
                     )
                 }
 
@@ -435,7 +437,7 @@ fun HospitalFinderScreen(
                                             selectedFacility = facility
                                             showBottomSheet = true
                                         },
-                                        isDarkMode = isDarkMode
+                                        isDarkMode = resolvedDarkMode
                                     )
                                 }
                             }
@@ -460,7 +462,7 @@ fun HospitalFinderScreen(
                                     selectedFacility = facility
                                     showBottomSheet = true
                                 },
-                                isDarkMode = isDarkMode
+                                isDarkMode = resolvedDarkMode
                             )
                         }
                     }
@@ -514,7 +516,7 @@ fun HospitalFinderScreen(
                 if (isEmergencyMode && facility.isEmergencyAvailable) {
                     EmergencyFacilityDetailSheet(
                         facility = facility,
-                        isDarkMode = isDarkMode
+                        isDarkMode = resolvedDarkMode
                     )
                 } else when (facility.type) {
                     FacilityType.MEDICAL_STORE -> {
@@ -558,7 +560,7 @@ fun HospitalFinderScreen(
                                 showBottomSheet = false
                                 onNavigateToOrders()
                             },
-                            isDarkMode = isDarkMode
+                            isDarkMode = resolvedDarkMode
                         )
                     }
                     FacilityType.HOSPITAL -> {
@@ -600,7 +602,7 @@ fun HospitalFinderScreen(
                                 showBottomSheet = false
                                 onHospitalClick(facility.id)
                             },
-                            isDarkMode = isDarkMode
+                            isDarkMode = resolvedDarkMode
                         )
                     }
                     FacilityType.CLINIC -> {
@@ -643,7 +645,7 @@ fun HospitalFinderScreen(
                                     ).show()
                                 }
                             },
-                            isDarkMode = isDarkMode
+                            isDarkMode = resolvedDarkMode
                         )
                     }
                     FacilityType.DIAGNOSTIC_CENTER -> {
@@ -653,7 +655,7 @@ fun HospitalFinderScreen(
                                 showBottomSheet = false
                                 onNavigateToDiagnosticBooking(facility.id)
                             },
-                            isDarkMode = isDarkMode
+                            isDarkMode = resolvedDarkMode
                         )
                     }
                 }
@@ -680,7 +682,7 @@ fun HospitalFinderScreen(
                     onEmergencyServicesChange = { emergencyServicesOnly = it },
                     showHospitalTypeFilter = selectedFacilityType == null || selectedFacilityType == FacilityType.HOSPITAL,
                     onApplyFilters = { showFilterSheet = false },
-                    isDarkMode = isDarkMode
+                    isDarkMode = resolvedDarkMode
                 )
             }
         }
@@ -2135,7 +2137,7 @@ private fun ClinicDetailSheet(
                 .padding(horizontal = 20.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text("Open Clinic Details")
         }
@@ -2980,12 +2982,12 @@ private fun EmptyStateView(
 
 @Composable
 private fun MapEmptyStateCard(
-    selectedFacilityType: FacilityType? = null,
     activeRadiusKm: Int,
+    modifier: Modifier = Modifier,
+    selectedFacilityType: FacilityType? = null,
     facilitiesMissingMapCoordinates: Int = 0,
     onResetFilters: () -> Unit,
-    onRefreshNearby: () -> Unit,
-    modifier: Modifier = Modifier
+    onRefreshNearby: () -> Unit
 ) {
     val emptyLabel = when (selectedFacilityType) {
         FacilityType.HOSPITAL -> "hospitals"

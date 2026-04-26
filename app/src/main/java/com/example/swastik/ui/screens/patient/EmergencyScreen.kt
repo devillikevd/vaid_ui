@@ -148,6 +148,7 @@ private fun EmergencyTypeSelection(
     var description by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(Unit) { onCheckActive() }
 
@@ -192,7 +193,7 @@ private fun EmergencyTypeSelection(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(EmergencyCanvas)
+            .background(colorScheme.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -259,7 +260,11 @@ private fun EmergencyTypeSelection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (uiState.locationAvailable) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)
+                    containerColor = if (uiState.locationAvailable) {
+                        colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                    } else {
+                        colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                    }
                 ),
                 shape = RoundedCornerShape(18.dp)
             ) {
@@ -280,7 +285,7 @@ private fun EmergencyTypeSelection(
                         Text(
                             if (uiState.locationAvailable) "Location locked for dispatch" else "Live location still needed",
                             fontWeight = FontWeight.SemiBold,
-                            color = if (uiState.locationAvailable) Color(0xFF166534) else Color(0xFF9A3412)
+                            color = if (uiState.locationAvailable) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
                         )
                         Text(
                             if (uiState.locationAvailable) {
@@ -289,7 +294,7 @@ private fun EmergencyTypeSelection(
                                 "Enable GPS so dispatch and the nearest driver can navigate to you accurately."
                             },
                             fontSize = 12.sp,
-                            color = EmergencyMuted
+                            color = colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -336,12 +341,12 @@ private fun EmergencyTypeSelection(
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EmergencyAlertStrong,
-                    unfocusedBorderColor = Color(0xFFE5D8CC),
-                    focusedTextColor = EmergencyInk,
-                    unfocusedTextColor = EmergencyInk,
+                    unfocusedBorderColor = colorScheme.outline.copy(alpha = 0.6f),
+                    focusedTextColor = colorScheme.onSurface,
+                    unfocusedTextColor = colorScheme.onSurface,
                     cursorColor = EmergencyAlertStrong,
-                    focusedContainerColor = EmergencySurface,
-                    unfocusedContainerColor = EmergencySurface
+                    focusedContainerColor = colorScheme.surface,
+                    unfocusedContainerColor = colorScheme.surface
                 )
             )
         }
@@ -349,12 +354,12 @@ private fun EmergencyTypeSelection(
         if (uiState.error != null) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer.copy(alpha = 0.85f)),
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Text(
                         uiState.error,
-                        color = EmergencyAlertStrong,
+                        color = colorScheme.onErrorContainer,
                         modifier = Modifier.padding(14.dp),
                         fontSize = 14.sp
                     )
@@ -704,6 +709,7 @@ private fun ActiveEmergencyView(
     val resolvedDriverName = uiState.driverName ?: emergency?.resolvedDriverName()
     val resolvedDriverPhone = uiState.driverPhone ?: emergency?.resolvedDriverPhone()
     val resolvedVehicleNumber = uiState.vehicleNumber ?: emergency?.resolvedVehicleNumber()
+    val colorScheme = MaterialTheme.colorScheme
 
     val statusText = when (resolvedStatus) {
         "pending" -> "Finding Ambulance..."
@@ -735,7 +741,7 @@ private fun ActiveEmergencyView(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(EmergencyCanvas),
+            .background(colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -770,7 +776,7 @@ private fun ActiveEmergencyView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.secondaryContainer.copy(alpha = 0.72f))
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -788,12 +794,12 @@ private fun ActiveEmergencyView(
                                 "Live response tracking is active",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF166534)
+                                color = colorScheme.onSecondaryContainer
                             )
                             Text(
                                 "Dispatch, driver movement, and your pickup location will keep syncing here.",
                                 fontSize = 12.sp,
-                                color = EmergencyMuted
+                                color = colorScheme.onSurfaceVariant
                             )
                         }
                         if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
@@ -848,7 +854,7 @@ private fun ActiveEmergencyView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column {
@@ -861,8 +867,8 @@ private fun ActiveEmergencyView(
                             Icon(Icons.Outlined.Map, contentDescription = null, tint = EmergencyRoute)
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text("Live route view", fontWeight = FontWeight.Bold, color = EmergencyInk)
-                                Text("Your location and the ambulance are shown together.", fontSize = 12.sp, color = EmergencyMuted)
+                                Text("Live route view", fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                Text("Your location and the ambulance are shown together.", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                             }
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
@@ -882,7 +888,7 @@ private fun ActiveEmergencyView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column {
@@ -895,8 +901,8 @@ private fun ActiveEmergencyView(
                             Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = EmergencyRoute)
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text("Pickup point ready", fontWeight = FontWeight.Bold, color = EmergencyInk)
-                                Text("We have your current location while the ambulance GPS connects.", fontSize = 12.sp, color = EmergencyMuted)
+                                Text("Pickup point ready", fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                Text("We have your current location while the ambulance GPS connects.", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                             }
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
@@ -920,11 +926,11 @@ private fun ActiveEmergencyView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Dispatch details", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmergencyInk)
+                        Text("Dispatch details", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         InfoRow("Request #", emergency.resolvedRequestId())
                         InfoRow("Status", resolvedStatus)
@@ -967,7 +973,7 @@ private fun ActiveEmergencyView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF2FF)),
+                    colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.55f)),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -980,7 +986,7 @@ private fun ActiveEmergencyView(
                         Text(
                             "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
                             fontSize = 14.sp,
-                            color = Color(0xFF4338CA)
+                            color = colorScheme.onPrimaryContainer
                         )
                         Button(
                             onClick = {
@@ -1046,10 +1052,11 @@ private fun PatientEmergencyOverviewCard(
     resolvedVehicleNumber: String?,
     resolvedDriverPhone: String?
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1057,7 +1064,7 @@ private fun PatientEmergencyOverviewCard(
                 text = "Emergency response in progress",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = EmergencyInk
+                color = colorScheme.onSurface
             )
 
             Text(
@@ -1072,7 +1079,7 @@ private fun PatientEmergencyOverviewCard(
             Text(
                 text = statusSubtext,
                 fontSize = 13.sp,
-                color = EmergencyMuted
+                color = colorScheme.onSurfaceVariant
             )
 
             Row(
@@ -1124,6 +1131,7 @@ private fun SummaryPill(
     value: String,
     accent: Color
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.1f)),
@@ -1131,13 +1139,14 @@ private fun SummaryPill(
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, fontSize = 11.sp, color = accent, fontWeight = FontWeight.SemiBold)
-            Text(value, fontSize = 13.sp, color = EmergencyInk, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(value, fontSize = 13.sp, color = colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable
 private fun PatientResponseJourneyCard(currentStatus: String) {
+    val colorScheme = MaterialTheme.colorScheme
     val stages = listOf(
         "pending" to "Request created",
         "broadcasting" to "Nearby ambulances alerted",
@@ -1160,11 +1169,11 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = EmergencySurface),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = EmergencyInk)
+            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
 
             stages.forEachIndexed { index, (_, label) ->
                 val active = index <= currentIndex
@@ -1173,12 +1182,12 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
                         modifier = Modifier
                             .size(12.dp)
                             .clip(CircleShape)
-                            .background(if (active) EmergencyAlertStrong else Color(0xFFE5E7EB))
+                            .background(if (active) EmergencyAlertStrong else colorScheme.outline.copy(alpha = 0.35f))
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         label,
-                        color = if (active) EmergencyInk else EmergencyMuted,
+                        color = if (active) colorScheme.onSurface else colorScheme.onSurfaceVariant,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         fontSize = 14.sp
                     )
@@ -1194,10 +1203,11 @@ private fun EmergencyConfirmation(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(EmergencyCanvas)
+            .background(colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -1227,12 +1237,12 @@ private fun EmergencyConfirmation(
             "Emergency Request Sent!",
             fontWeight = FontWeight.Bold,
             fontSize = 22.sp,
-            color = EmergencyInk
+            color = colorScheme.onSurface
         )
         Text(
             "An ambulance is being dispatched to your location",
             textAlign = TextAlign.Center,
-            color = EmergencyMuted,
+            color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
         )
 
@@ -1252,14 +1262,15 @@ private fun EmergencyConfirmation(
 
 @Composable
 private fun InfoRow(label: String, value: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = EmergencyMuted, fontSize = 14.sp)
-        Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = EmergencyInk)
+        Text(label, color = colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colorScheme.onSurface)
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -33,10 +34,11 @@ import com.example.swastik.ui.theme.*
 
 @Composable
 fun ProfileHeader(onQrClick: () -> Unit, onSettingsClick: () -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.linearGradient(colors = listOf(SwastikPurple, SwastikPurpleLight)))
+            .background(Brush.linearGradient(colors = listOf(colorScheme.primary, colorScheme.primaryContainer)))
     ) {
         Row(
             modifier = Modifier
@@ -67,10 +69,11 @@ fun ProfileInfoCard(
     onShareClick: () -> Unit,
     onCameraClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box {
@@ -129,8 +132,8 @@ fun ProfileInfoCard(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF4CAF50))
-                                .border(2.dp, Color.White, CircleShape)
+                                .background(SwastikGreen)
+                                .border(2.dp, colorScheme.surface, CircleShape)
                                 .align(Alignment.BottomEnd),
                             contentAlignment = Alignment.Center
                         ) {
@@ -142,13 +145,18 @@ fun ProfileInfoCard(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Color.White)
-                            .border(1.dp, Color.LightGray, CircleShape)
+                            .background(colorScheme.surface)
+                            .border(1.dp, colorScheme.outline.copy(alpha = 0.45f), CircleShape)
                             .align(Alignment.TopEnd)
                             .clickable { onCameraClick() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.CameraAlt, contentDescription = "Change Photo", tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Icon(
+                            Icons.Outlined.CameraAlt,
+                            contentDescription = "Change Photo",
+                            tint = colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
                 }
 
@@ -157,11 +165,11 @@ fun ProfileInfoCard(
                     profile?.name?.ifEmpty { "Add Your Name" } ?: "Add Your Name",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = colorScheme.onSurface
                 )
-                Text(profile?.phoneNumber ?: "", fontSize = 14.sp, color = Color.Gray)
+                Text(profile?.phoneNumber ?: "", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
                 if (profile?.email?.isNotEmpty() == true) {
-                    Text(profile.email, fontSize = 13.sp, color = Color.Gray)
+                    Text(profile.email, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -169,7 +177,7 @@ fun ProfileInfoCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFFF8F9FA), RoundedCornerShape(12.dp))
+                        .background(colorScheme.surfaceVariant.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
@@ -216,24 +224,31 @@ fun ProfileInfoCard(
 
 @Composable
 private fun ProfileStat(value: String, label: String, unit: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SwastikPurple)
             if (unit != "Type") {
-                Text(unit, fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 2.dp, start = 2.dp))
+                Text(
+                    unit,
+                    fontSize = 10.sp,
+                    color = colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp, start = 2.dp)
+                )
             }
         }
-        Text(label, fontSize = 11.sp, color = Color.Gray)
+        Text(label, fontSize = 11.sp, color = colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun VerticalDivider() {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .width(1.dp)
             .height(36.dp)
-            .background(Color.LightGray.copy(alpha = 0.5f))
+            .background(colorScheme.outline.copy(alpha = 0.35f))
     )
 }
 
@@ -241,6 +256,7 @@ private fun VerticalDivider() {
 
 @Composable
 fun ProfileCompletionCard(profile: PatientProfile?) {
+    val colorScheme = MaterialTheme.colorScheme
     val completedFields = listOf(
         profile?.name?.isNotEmpty() == true,
         (profile?.age ?: 0) > 0,
@@ -259,13 +275,15 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
 
     if (percentage >= 1f) return
 
-    val missingField = when {
-        profile?.name?.isNotEmpty() != true -> "Add your name"
-        (profile?.age ?: 0) <= 0 -> "Add your age"
-        profile?.gender?.isNotEmpty() != true -> "Set your gender"
-        profile?.bloodGroup?.isNotEmpty() != true -> "Add blood group"
-        profile?.profileImageUrl?.isNotEmpty() != true -> "Upload a profile photo"
-        profile?.emergencyContacts?.isNotEmpty() != true -> "Add an emergency contact"
+    val missingField = if (profile == null) {
+        "Add your name"
+    } else when {
+        profile.name.isEmpty() -> "Add your name"
+        profile.age <= 0 -> "Add your age"
+        profile.gender.isEmpty() -> "Set your gender"
+        profile.bloodGroup.isEmpty() -> "Add blood group"
+        profile.profileImageUrl.isEmpty() -> "Upload a profile photo"
+        profile.emergencyContacts.isEmpty() -> "Add an emergency contact"
         else -> "Complete your profile"
     }
 
@@ -291,7 +309,7 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
                 trackColor = SwastikPurple.copy(alpha = 0.15f),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text("💡 Next step: $missingField", fontSize = 12.sp, color = Color.DarkGray)
+            Text("💡 Next step: $missingField", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -312,6 +330,7 @@ fun QuickStatsSection(stats: PatientStats) {
 
 @Composable
 private fun QuickStatCard(icon: ImageVector, value: String, label: String, color: Color, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
@@ -324,7 +343,7 @@ private fun QuickStatCard(icon: ImageVector, value: String, label: String, color
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(4.dp))
             Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
-            Text(label, fontSize = 10.sp, color = Color.Gray)
+            Text(label, fontSize = 10.sp, color = colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -333,12 +352,13 @@ private fun QuickStatCard(icon: ImageVector, value: String, label: String, color
 
 @Composable
 fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
         Surface(color = badgeColor.copy(alpha = 0.15f), shape = RoundedCornerShape(6.dp)) {
             Text(badge, fontSize = 11.sp, color = badgeColor, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
         }
@@ -349,13 +369,20 @@ fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
 
 @Composable
 fun HealthIdCard(profile: PatientProfile?) {
+    val colorScheme = MaterialTheme.colorScheme
     val hasAbha = profile?.abhaNumber?.isNotEmpty() == true
+    val accentColor = if (hasAbha) SwastikGreen else SwastikOrange
+    val accentTextColor = if (hasAbha) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (hasAbha) Color(0xFFF0FFF4) else Color(0xFFFFF8E1)
+            containerColor = if (hasAbha) {
+                colorScheme.secondaryContainer.copy(alpha = 0.55f)
+            } else {
+                colorScheme.tertiaryContainer.copy(alpha = 0.55f)
+            }
         )
     ) {
         Row(
@@ -367,14 +394,14 @@ fun HealthIdCard(profile: PatientProfile?) {
                     .size(50.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(
-                        if (hasAbha) Color(0xFF4CAF50).copy(alpha = 0.2f) else Color(0xFFFF9800).copy(alpha = 0.2f)
+                        accentColor.copy(alpha = 0.18f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     if (hasAbha) Icons.Outlined.Verified else Icons.Outlined.AddCard,
                     contentDescription = null,
-                    tint = if (hasAbha) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                    tint = accentColor,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -382,24 +409,24 @@ fun HealthIdCard(profile: PatientProfile?) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text("ABHA Number", fontSize = 12.sp, color = Color.Gray)
+                Text("ABHA Number", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 Text(
                     if (hasAbha) profile?.abhaNumber ?: "" else "Not Linked",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (hasAbha) Color(0xFF2E7D32) else Color(0xFFE65100)
+                    color = accentTextColor
                 )
                 Text(
                     if (hasAbha) "Linked: ${profile?.linkedHospitals ?: 0} hospitals" else "Tap to link your ABHA",
                     fontSize = 11.sp,
-                    color = if (hasAbha) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    color = accentColor
                 )
             }
 
             Icon(
-                Icons.Default.KeyboardArrowRight,
+                Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = if (hasAbha) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                tint = accentColor
             )
         }
     }
@@ -414,18 +441,19 @@ fun SettingsCard(
     onFamilyClick: () -> Unit,
     onEmergencyClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
             SettingsMenuItem(Icons.Outlined.Person, "Personal Information", "Name, DOB, Gender", onClick = onPersonalInfoClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.LocationOn, "Saved Addresses", "Home, Office", onClick = onAddressesClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.FamilyRestroom, "Family Members", "Manage linked profiles", onClick = onFamilyClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.ContactEmergency, "Emergency Contacts", "Quick access in emergencies", onClick = onEmergencyClick)
         }
     }
@@ -439,6 +467,7 @@ fun PreferencesCard(
     onPrivacyClick: () -> Unit
 ) {
     val appSettings by AppSettingsStore.settings.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
     val currentLang = appSettings.language
     val currentTheme = when (appSettings.themePreference) {
         ThemePreference.LIGHT -> "Light Mode"
@@ -449,17 +478,17 @@ fun PreferencesCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
             SettingsMenuItem(Icons.Outlined.Notifications, "Notifications", "Manage alerts and reminders", onClick = onNotificationsClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Language, "Language", currentLang, onClick = onLanguageClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.DarkMode, "Appearance", currentTheme, onClick = onAppearanceClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Security, "Privacy & Security", "Password, Biometrics, 2FA", onClick = onPrivacyClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.CloudSync, "Data & Sync", "Auto-backup enabled", onClick = {})
         }
     }
@@ -473,20 +502,21 @@ fun SupportCard(
     onTermsClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Headphones, "24/7 Support", "Chat with us anytime", badgeText = "Online", badgeColor = Color(0xFF4CAF50), onClick = onSupportClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.HelpOutline, "Help Center", "FAQs & Tutorials", onClick = onHelpClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            SettingsMenuItem(Icons.Outlined.Headphones, "24/7 Support", "Chat with us anytime", badgeText = "Online", badgeColor = SwastikGreen, onClick = onSupportClick)
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+            SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, "Help Center", "FAQs & Tutorials", onClick = onHelpClick)
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Feedback, "Send Feedback", "Help us improve", onClick = onFeedbackClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Description, "Terms of Service", "", onClick = onTermsClick)
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.PrivacyTip, "Privacy Policy", "", onClick = onPrivacyPolicyClick)
         }
     }
@@ -501,6 +531,7 @@ fun SettingsMenuItem(
     badgeColor: Color = SwastikPurple,
     onClick: () -> Unit = {}
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -521,9 +552,9 @@ fun SettingsMenuItem(
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Black)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
             if (subtitle.isNotEmpty()) {
-                Text(subtitle, fontSize = 12.sp, color = Color.Gray)
+                Text(subtitle, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
             }
         }
 
@@ -534,6 +565,6 @@ fun SettingsMenuItem(
             Spacer(modifier = Modifier.width(8.dp))
         }
 
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color.Gray)
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colorScheme.onSurfaceVariant)
     }
 }
