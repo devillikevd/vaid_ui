@@ -16,6 +16,10 @@ const router = express.Router();
 
 const normalizeOrderStatus = (status) => (status === 'out_for_delivery' ? 'dispatched' : status);
 const normalizePatientOrder = (order) => (order ? { ...order, status: normalizeOrderStatus(order.status) } : order);
+const normalizeDiagnosticBookingStatus = (status) => (status === 'booked' ? 'pending' : status);
+const normalizePatientDiagnosticBooking = (booking) => (
+  booking ? { ...booking, status: normalizeDiagnosticBookingStatus(booking.status) } : booking
+);
 const normalizeEmergencyStatus = (request) => {
   if (!request) return request;
 
@@ -34,6 +38,13 @@ const getOrderStatusFilters = (status) => {
   const normalizedStatus = normalizeOrderStatus(status);
   if (normalizedStatus === 'dispatched') {
     return ['dispatched', 'out_for_delivery'];
+  }
+  return [normalizedStatus];
+};
+const getDiagnosticBookingStatusFilters = (status) => {
+  const normalizedStatus = normalizeDiagnosticBookingStatus(status);
+  if (normalizedStatus === 'pending') {
+    return ['pending', 'booked'];
   }
   return [normalizedStatus];
 };
@@ -1042,7 +1053,12 @@ router.get('/diagnostic-bookings',
       `, { count: 'exact' })
       .eq('patient_id', patient.id);
 
-    if (status) query = query.eq('status', status);
+    if (status) {
+      const statusFilters = getDiagnosticBookingStatusFilters(status);
+      query = statusFilters.length > 1
+        ? query.in('status', statusFilters)
+        : query.eq('status', statusFilters[0]);
+    }
 
     const { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -1052,7 +1068,7 @@ router.get('/diagnostic-bookings',
 
     res.json({
       success: true,
-      data: data || [],
+      data: (data || []).map(normalizePatientDiagnosticBooking),
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -1092,7 +1108,7 @@ router.get('/diagnostic-bookings/:id',
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: normalizePatientDiagnosticBooking(data) });
   })
 );
 
@@ -1121,7 +1137,8 @@ router.patch('/diagnostic-bookings/:id/cancel',
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    if (!['booked'].includes(booking.status)) {
+    const normalizedStatus = normalizeDiagnosticBookingStatus(booking.status);
+    if (!['pending', 'confirmed'].includes(normalizedStatus)) {
       return res.status(400).json({ success: false, message: 'Cannot cancel booking in current status' });
     }
 
@@ -1139,7 +1156,7 @@ router.patch('/diagnostic-bookings/:id/cancel',
       patient_id: req.user.id,
     });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: normalizePatientDiagnosticBooking(data) });
   })
 );
 

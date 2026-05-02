@@ -52,6 +52,11 @@ class LocationTrackingService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { location ->
+                    if (tokenManager.getAccessToken().isNullOrBlank()) {
+                        Log.w(TAG, "Stopping tracking: access token missing during updates")
+                        stopSelf()
+                        return
+                    }
                     // Fix #27: Skip low-accuracy GPS fixes to avoid showing wrong ambulance position
                     if (location.accuracy > 100f) {
                         Log.d(TAG, "Skipping low-accuracy fix: ${location.accuracy}m")
@@ -124,7 +129,13 @@ class LocationTrackingService : Service() {
         // Ensure socket is connected before starting location updates
         val token = tokenManager.getAccessToken()
         val userId = tokenManager.getUserId()
-        if (token != null && userId != null && !socketManager.isConnected) {
+        if (token == null || userId == null) {
+            Log.w(TAG, "Tracking stopped: missing auth token/user ID")
+            stopSelf()
+            return
+        }
+
+        if (!socketManager.isConnected) {
             socketManager.connect(token, userId)
         }
 

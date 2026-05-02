@@ -261,19 +261,34 @@ router.get('/owner/bookings/:bookingId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWN
     res.json({ success: true, data: booking });
 }));
 
-router.patch('/owner/bookings/:bookingId/status', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.patch('/owner/bookings/:bookingId/status',
+  requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER),
+  requireApproval,
+  [
+    body('status')
+      .isIn(['confirmed', 'dispatched', 'sample_collected', 'processing', 'completed', 'cancelled'])
+      .withMessage('Invalid booking status'),
+    body('reason')
+      .optional()
+      .isString()
+      .isLength({ max: 500 })
+      .withMessage('Cancellation reason must be under 500 characters'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const updated = await diagnosticCenterService.updateBookingStatus(
-        center.id,
-        req.params.bookingId,
-        req.body.status,
-        { cancelledBy: req.user.id, reason: req.body.reason }
+      center.id,
+      req.params.bookingId,
+      req.body.status,
+      { cancelledBy: req.user.id, reason: req.body.reason }
     );
 
     // Fix #29: Removed duplicate notification — updateBookingStatus() already emits via eventEmitter
 
     res.json({ success: true, data: updated });
-}));
+  })
+);
 
 router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);

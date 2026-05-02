@@ -174,7 +174,7 @@ router.post('/request/hospital', authenticate,
 );
 
 router.post('/:requestId/assign', authenticate,
-  requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER, ROLES.AMBULANCE_OPERATOR),
+  requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER),
   [
     validateUUID('requestId'),
     body('ambulanceId')
@@ -346,34 +346,11 @@ router.get('/vehicles', authenticate,
 router.get('/track/:requestId', authenticate,
   [validateUUID('requestId')], validate,
   asyncHandler(async (req, res) => {
-  const { data: reqData, error: reqError } = await supabaseAdmin
-    .from('emergency_requests')
-    .select('id, patient_id, vehicle:ambulances(id, operator_id), patient:patients(id, user_id)')
-    .eq('id', req.params.requestId)
-    .maybeSingle();
-
-  if (reqError || !reqData) {
-    return res.status(404).json({ success: false, message: 'Emergency request not found' });
-  }
-
-  let isPatient = reqData.patient?.user_id === req.user.id;
-  if (!isPatient && req.user.role === 'patient' && reqData.patient_id) {
-    const { data: mePatient } = await supabaseAdmin
-      .from('patients')
-      .select('id')
-      .eq('user_id', req.user.id)
-      .maybeSingle();
-    isPatient = mePatient?.id === reqData.patient_id;
-  }
-
-  const isOperator = reqData.vehicle?.operator_id === req.user.id;
-  const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
-  const isHospitalOwner = ['hospital_owner', 'hospital_manager'].includes(req.user.role);
-  const isAmbulanceRole = ['ambulance_operator', 'ambulance_driver'].includes(req.user.role);
-
-  if (!isPatient && !isOperator && !isAdmin && !isHospitalOwner && !isAmbulanceRole) {
-    return res.status(403).json({ success: false, message: 'You do not have permission to track this request' });
-  }
+  await dispatchService.assertEmergencyAccess(
+    { id: req.user.id, role: req.user.role },
+    req.params.requestId,
+    { allowBroadcastAccess: true, action: 'track' }
+  );
 
   const data = await ambulanceService.getAmbulanceLocation(req.params.requestId);
   res.json({ success: true, data });
@@ -382,51 +359,16 @@ router.get('/track/:requestId', authenticate,
 router.get('/request/:id', authenticate,
   [validateUUID('id')], validate,
   asyncHandler(async (req, res) => {
+  await dispatchService.assertEmergencyAccess(
+    { id: req.user.id, role: req.user.role },
+    req.params.id,
+    { allowBroadcastAccess: true, action: 'view' }
+  );
+
   const { data, error } = await supabaseAdmin.from('emergency_requests')
     .select('*, vehicle:ambulances(id, vehicle_number, driver_name, driver_phone, vehicle_type, current_latitude, current_longitude, operator_id), patient:patients(id, name, user_id)')
     .eq('id', req.params.id).single();
   if (error || !data) return res.status(404).json({ success: false, message: 'Emergency request not found' });
-
-  // SECURITY FIX: Ownership check — only the patient, the assigned driver/operator, or admin can view
-  let isPatient = data.patient?.user_id === req.user.id;
-  if (!isPatient && req.user.role === 'patient') {
-    // Fallback 1: match via patients table (patient_id → patients.id → user_id)
-    if (data.patient_id) {
-      const { data: mePatient } = await supabaseAdmin
-        .from('patients')
-        .select('id')
-        .eq('user_id', req.user.id)
-        .maybeSingle();
-      if (mePatient?.id === data.patient_id) isPatient = true;
-    }
-    // Fallback 2: match by user_id stored directly on the request
-    if (!isPatient && data.user_id === req.user.id) isPatient = true;
-    // Fallback 3: look up the patient row for this user and compare
-    if (!isPatient) {
-      const { data: mePatient2 } = await supabaseAdmin
-        .from('patients')
-        .select('id')
-        .eq('user_id', req.user.id)
-        .maybeSingle();
-      if (mePatient2) {
-        const { data: reqCheck } = await supabaseAdmin
-          .from('emergency_requests')
-          .select('id')
-          .eq('id', req.params.id)
-          .eq('patient_id', mePatient2.id)
-          .maybeSingle();
-        if (reqCheck) isPatient = true;
-      }
-    }
-  }
-  const isOperator = data.vehicle?.operator_id === req.user.id;
-  const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
-  const isHospitalOwner = ['hospital_owner', 'hospital_manager'].includes(req.user.role);
-  const isAmbulanceRole = ['ambulance_operator', 'ambulance_driver'].includes(req.user.role);
-
-  if (!isPatient && !isOperator && !isAdmin && !isHospitalOwner && !isAmbulanceRole) {
-    return res.status(403).json({ success: false, message: 'You do not have permission to view this request' });
-  }
 
   const normalized = normalizeEmergencyStatus(data);
 

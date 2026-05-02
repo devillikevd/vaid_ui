@@ -36,7 +36,7 @@ export interface DiagnosticBooking {
     collection_type: 'walk_in' | 'home_collection';
     collection_address?: string;
     notes?: string;
-    status: 'booked' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
+    status: 'pending' | 'confirmed' | 'dispatched' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
     result_status: 'pending' | 'processing' | 'completed' | 'delivered';
     result_url?: string;
     result_notes?: string;
@@ -60,6 +60,7 @@ export interface DiagnosticBookingSummary {
 function normalizeDiagnosticBooking(raw: Record<string, any>): DiagnosticBooking {
     return {
         ...raw,
+        status: raw.status === 'booked' ? 'pending' : raw.status,
         patient_name: raw.patient_name || raw.patient?.name,
         patient_email: raw.patient_email || raw.patient?.email,
         test_name: raw.test_name || raw.test?.name,

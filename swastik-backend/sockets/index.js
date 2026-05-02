@@ -12,6 +12,9 @@ const config = require('../config');
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { calculateDistance, calculateETA } = require('../utils/geo');
+const dispatchService = require('../services/dispatchService');
+const eventEmitter = require('../services/eventEmitter');
+const hospitalManagerService = require('../services/hospitalManagerService');
 
 // Redis-backed connected users tracking (Bug 3 fix)
 const CONNECTED_PREFIX = 'socket:connected:';
@@ -23,7 +26,9 @@ const TOKEN_REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
 
 // Allowed roles for each action
 const AMBULANCE_ROLES = ['ambulance_operator', 'ambulance_driver', 'admin'];
-const DISPATCH_ROLES = ['hospital_owner', 'admin', 'ambulance_operator', 'ambulance_driver'];
+const GLOBAL_DISPATCH_ROLES = ['admin', 'super_admin', 'ambulance_operator', 'ambulance_driver'];
+const HOSPITAL_DISPATCH_ROLES = ['hospital_owner', 'hospital_manager'];
+const DISPATCH_ROLES = [...new Set([...GLOBAL_DISPATCH_ROLES, ...HOSPITAL_DISPATCH_ROLES])];
 const TRACKING_ROLES = ['patient', 'ambulance_operator', 'ambulance_driver', 'hospital_owner', 'hospital_manager', 'admin', 'super_admin'];
 const VIDEO_ROLES = ['doctor', 'patient'];
 const CHAT_ROLES = ['doctor', 'patient'];
@@ -92,6 +97,9 @@ const initializeSocketIO = (io) => {
   // Authentication middleware for Socket.IO
   io.use(async (socket, next) => {
     try {
+      if (socket.handshake.query?.token) {
+        return next(new Error('Query token authentication is not allowed'));
+      }
       const token = socket.handshake.auth?.token;
       if (!token) {
         return next(new Error('Authentication required'));
@@ -183,16 +191,43 @@ const initializeSocketIO = (io) => {
 
     // ==================== AMBULANCE DISPATCH & TRACKING ====================
 
-    // Join the global dispatch room (hospitals/admins/ambulance operators only)
-    socket.on('ambulance:join-dispatch', safeHandler(socket, () => {
+    // Join dispatch room(s) appropriate for the current role.
+    socket.on('ambulance:join-dispatch', safeHandler(socket, async () => {
       if (!hasRole(socket, DISPATCH_ROLES)) {
         return socket.emit('error', { message: 'Unauthorized: dispatch access denied' });
       }
-      socket.join('ambulance:dispatch');
+
+      if (GLOBAL_DISPATCH_ROLES.includes(socket.userRole)) {
+        socket.join('ambulance:dispatch');
+      }
+
+      if (HOSPITAL_DISPATCH_ROLES.includes(socket.userRole)) {
+        let hospital = null;
+        try {
+          hospital = await hospitalManagerService.getHospitalByOwner(userId);
+        } catch (err) {
+          if (err?.statusCode === 404) {
+            return socket.emit('error', { message: 'Hospital profile not found for dispatch access' });
+          }
+          throw err;
+        }
+
+        const hospitalRoom = eventEmitter.getHospitalDispatchRoom(hospital?.id);
+        if (!hospitalRoom) {
+          return socket.emit('error', { message: 'Hospital dispatch room unavailable' });
+        }
+
+        socket.join(hospitalRoom);
+        socket.hospitalDispatchRoom = hospitalRoom;
+      }
     }));
 
     socket.on('ambulance:leave-dispatch', safeHandler(socket, () => {
       socket.leave('ambulance:dispatch');
+      if (socket.hospitalDispatchRoom) {
+        socket.leave(socket.hospitalDispatchRoom);
+        socket.hospitalDispatchRoom = null;
+      }
     }));
 
     // Track a specific emergency request — with ownership verification
@@ -202,58 +237,18 @@ const initializeSocketIO = (io) => {
         return socket.emit('error', { message: 'Unauthorized: tracking access denied' });
       }
 
-      // Fix #2: Verify the user has a relationship to this request for ALL roles
-      if (socket.userRole === 'patient') {
-        const { data: patient } = await supabaseAdmin
-          .from('patients').select('id').eq('user_id', userId).single();
-        if (!patient) {
-          return socket.emit('error', { message: 'Patient profile not found' });
+      try {
+        await dispatchService.assertEmergencyAccess(
+          { id: userId, role: socket.userRole },
+          requestId,
+          { allowBroadcastAccess: true, action: 'track' }
+        );
+      } catch (err) {
+        if (err?.statusCode === 404 || err?.statusCode === 403) {
+          return socket.emit('error', { message: err.message });
         }
-        const { data: request } = await supabaseAdmin
-          .from('emergency_requests').select('id').eq('id', requestId)
-          .eq('patient_id', patient.id).single();
-        if (!request) {
-          return socket.emit('error', { message: 'Request not found or access denied' });
-        }
-      } else if (['ambulance_operator', 'ambulance_driver'].includes(socket.userRole)) {
-        // Verify the ambulance operator/driver is assigned to this request
-        let operatorId = null;
-        if (socket.userRole === 'ambulance_operator') {
-          const { data: operator } = await supabaseAdmin
-            .from('ambulance_operators').select('id').eq('user_id', userId).maybeSingle();
-          operatorId = operator?.id || null;
-        }
-
-        const { data: ambulance } = await supabaseAdmin
-          .from('ambulances')
-          .select('id')
-          .or(`operator_id.eq.${operatorId || '00000000-0000-0000-0000-000000000000'},driver_user_id.eq.${userId}`)
-          .limit(1)
-          .maybeSingle();
-        if (ambulance) {
-          const { data: request } = await supabaseAdmin
-            .from('emergency_requests').select('id').eq('id', requestId)
-            .eq('vehicle_id', ambulance.id).maybeSingle();
-          // Allow if assigned OR if request is in broadcasting state (so driver can see before accepting)
-          if (!request) {
-            const { data: broadcasting } = await supabaseAdmin
-              .from('emergency_requests').select('id').eq('id', requestId)
-              .in('status', ['broadcasting', 'pending']).maybeSingle();
-            if (!broadcasting) {
-              return socket.emit('error', { message: 'Request not found or access denied' });
-            }
-          }
-        }
-      } else if (['hospital_owner', 'hospital_manager'].includes(socket.userRole)) {
-        // Hospital staff can track requests dispatched from their hospital
-        const { data: request } = await supabaseAdmin
-          .from('emergency_requests').select('id')
-          .eq('id', requestId).maybeSingle();
-        if (!request) {
-          return socket.emit('error', { message: 'Request not found' });
-        }
+        throw err;
       }
-      // admin/super_admin can track any request
 
       socket.join(`ambulance:${requestId}`);
       // Remember for reconnect in Redis (Bug 3 fix)
@@ -316,12 +311,14 @@ const initializeSocketIO = (io) => {
       if (data.requestId) {
         // Non-blocking ETA computation — look up pickup coords from cache or DB
         (async () => {
+          let requestMeta = null;
           try {
             const { data: req } = await supabaseAdmin
               .from('emergency_requests')
-              .select('pickup_latitude, pickup_longitude')
+              .select('pickup_latitude, pickup_longitude, hospital_id, destination_hospital_id')
               .eq('id', data.requestId)
               .single();
+            requestMeta = req || null;
             if (req?.pickup_latitude && req?.pickup_longitude) {
               const distKm = calculateDistance(
                 { latitude: locationPayload.latitude, longitude: locationPayload.longitude },
@@ -331,12 +328,17 @@ const initializeSocketIO = (io) => {
               locationPayload.eta = calculateETA(distKm, 40);
             }
           } catch { /* ETA is best-effort */ }
+          eventEmitter.emitEmergencyDispatch('ambulance:location-update', {
+            ...locationPayload,
+            hospitalId: requestMeta?.hospital_id || null,
+            destinationHospitalId: requestMeta?.destination_hospital_id || null,
+          });
           io.to(`ambulance:${data.requestId}`).emit('ambulance:location-update', locationPayload);
         })();
       } else {
-        // No requestId, just broadcast to dispatch room
+        // No requestId, only admins/operators need the general fleet location stream.
+        eventEmitter.emitEmergencyDispatch('ambulance:location-update', locationPayload);
       }
-      io.to('ambulance:dispatch').emit('ambulance:location-update', locationPayload);
     }));
 
     // Patient sends updated GPS location during active emergency
@@ -595,7 +597,11 @@ const initializeSocketIO = (io) => {
           timestamp: new Date().toISOString(),
         };
 
-        io.to(chatRoom).emit('chat:message', chatPayload);
+        // BUG-A7 Fix: Use socket.to() instead of io.to() so the sender doesn't
+        // receive their own message back (prevents duplicates on both Web and Android).
+        // The sender gets a separate 'chat:message:sent' ack for delivery confirmation.
+        socket.to(chatRoom).emit('chat:message', chatPayload);
+        socket.emit('chat:message:sent', chatPayload);
 
         // Persist chat message to MongoDB
         try {

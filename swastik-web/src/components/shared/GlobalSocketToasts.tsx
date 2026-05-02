@@ -24,9 +24,11 @@ export default function GlobalSocketToasts() {
     const toast = useToast();
     const toastRef = useRef(toast);
     toastRef.current = toast;
+    const userRole = user?.role;
 
     // I4: Consultation started (patient gets notified doctor is ready)
     const onConsultationStarted = useCallback((data: { consultationId: string; doctorName: string }) => {
+        if (userRole !== 'patient') return;
         toastRef.current.info(
             '📹 Consultation Ready',
             `Dr. ${data.doctorName || 'Your doctor'} is ready for the video consultation`,
@@ -38,7 +40,7 @@ export default function GlobalSocketToasts() {
                 },
             }
         );
-    }, [router]);
+    }, [router, userRole]);
 
     // I4: Consultation ended
     const onConsultationEnded = useCallback((data: { consultationId: string; duration?: number }) => {
@@ -59,20 +61,39 @@ export default function GlobalSocketToasts() {
 
     // Appointment update
     const onAppointmentUpdate = useCallback((data: { status: string; doctorName?: string }) => {
-        const statusMessages: Record<string, string> = {
-            confirmed: `Your appointment${data.doctorName ? ` with Dr. ${data.doctorName}` : ''} is confirmed`,
-            cancelled: 'Your appointment has been cancelled',
-            rescheduled: 'Your appointment has been rescheduled',
-            completed: 'Your appointment has been completed',
-        };
-        const message = statusMessages[data.status];
-        if (message) {
-            toastRef.current.info('📅 Appointment Update', message);
+        if (userRole === 'patient') {
+            const statusMessages: Record<string, string> = {
+                confirmed: `Your appointment${data.doctorName ? ` with Dr. ${data.doctorName}` : ''} is confirmed`,
+                cancelled: 'Your appointment has been cancelled',
+                rescheduled: 'Your appointment has been rescheduled',
+                completed: 'Your appointment has been completed',
+            };
+            const message = statusMessages[data.status];
+            if (message) {
+                toastRef.current.info('📅 Appointment Update', message);
+            }
+            return;
         }
-    }, []);
+
+        const statusMessages: Record<string, string> = {
+            scheduled: 'A new appointment has been booked',
+            confirmed: 'A new appointment has been booked',
+            cancelled: 'An appointment has been cancelled',
+            rescheduled: 'An appointment has been rescheduled',
+            completed: 'An appointment has been completed',
+        };
+        const message = statusMessages[data.status] || `Appointment status changed to ${data.status}`;
+        toastRef.current.info('📅 Appointment Update', message);
+    }, [userRole]);
 
     // Order update (for patients and pharmacies)
     const onOrderUpdate = useCallback((data: { status: string; orderNumber?: string }) => {
+        if (userRole === 'pharmacy_owner') {
+            const orderLabel = data.orderNumber ? `Order ${data.orderNumber}` : 'An order';
+            toastRef.current.info('📦 Order Update', `${orderLabel} is now ${data.status}`);
+            return;
+        }
+
         const statusMessages: Record<string, string> = {
             confirmed: 'Your order has been confirmed',
             shipped: 'Your order is on the way',
@@ -82,7 +103,7 @@ export default function GlobalSocketToasts() {
         };
         const message = statusMessages[data.status] || `Order status: ${data.status}`;
         toastRef.current.info('📦 Order Update', message);
-    }, []);
+    }, [userRole]);
 
     // New order (for pharmacy owners)
     const onNewOrder = useCallback(() => {
@@ -91,11 +112,19 @@ export default function GlobalSocketToasts() {
 
     // Diagnostic updates
     const onDiagnosticNew = useCallback(() => {
-        toastRef.current.info('🔬 New Booking', 'A new diagnostic test has been booked');
+        toastRef.current.info('🔬 New Booking', 'A new diagnostic booking request has been received');
     }, []);
 
     const onDiagnosticStatus = useCallback((data: { status: string }) => {
-        toastRef.current.info('🔬 Booking Update', `Diagnostic booking status: ${data.status}`);
+        const statusMessages: Record<string, string> = {
+            confirmed: 'A diagnostic booking has been confirmed',
+            dispatched: 'A home collection team has been dispatched',
+            sample_collected: 'A diagnostic sample has been collected',
+            processing: 'A diagnostic booking is now processing',
+            completed: 'A diagnostic booking has been completed',
+            cancelled: 'A diagnostic booking has been cancelled',
+        };
+        toastRef.current.info('🔬 Booking Update', statusMessages[data.status] || `Diagnostic booking status: ${data.status}`);
     }, []);
 
     const onDiagnosticResult = useCallback(() => {

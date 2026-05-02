@@ -93,6 +93,8 @@ fun EmergencyDetailScreen(
             // Status Badge
             StatusBadge(emergency.status)
 
+            val canNavigate = emergency.latitude != null && emergency.longitude != null
+
             OperationalOverviewCard(
                 emergency = emergency,
                 patientName = patientName,
@@ -103,20 +105,24 @@ fun EmergencyDetailScreen(
                         context.startActivity(intent)
                     }
                 },
-                onNavigate = {
-                    val geoUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
-                    val geoIntent = Intent(Intent.ACTION_VIEW, geoUri)
-                    try {
-                        if (geoIntent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(geoIntent)
-                        } else {
-                            val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
+                onNavigate = if (canNavigate) {
+                    {
+                        val geoUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                        val geoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+                        try {
+                            if (geoIntent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(geoIntent)
+                            } else {
+                                val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
+                                context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                            }
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}")
                             context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
                         }
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}")
-                        context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
                     }
+                } else {
+                    null
                 }
             )
 
@@ -501,8 +507,8 @@ private fun StatusActionButtons(
 ) {
     // Full dispatch lifecycle statuses
     val nextStatuses = when (currentStatus.lowercase()) {
-        "pending", "broadcasting", "requested" -> listOf("accept" to "Accept Emergency")
-        "assigned", "accepted", "dispatched" -> listOf("en_route" to "Start Route to Patient")
+        "pending", "broadcasting", "requested", "assigned" -> listOf("accept" to "Accept Emergency")
+        "accepted", "dispatched" -> listOf("en_route" to "Start Route to Patient")
         "en_route", "enroute" -> listOf("arrived" to "Arrived at Pickup")
         "arrived" -> listOf("picked_up" to "Patient Picked Up")
         "picked_up" -> listOf("en_route_hospital" to "En Route to Hospital")

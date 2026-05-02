@@ -1,6 +1,7 @@
 package com.example.swastik.ambulance.data.remote
 
 import com.example.swastik.ambulance.data.local.TokenManager
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -10,6 +11,7 @@ import java.util.concurrent.locks.ReentrantLock
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.concurrent.withLock
+import com.example.swastik.ambulance.utils.CrashReporter
 
 /**
  * OkHttp interceptor that attaches JWT Bearer token and handles
@@ -86,6 +88,7 @@ class AuthInterceptor @Inject constructor(
         val refreshToken = tokenManager.getRefreshToken()
         if (refreshToken.isNullOrEmpty()) {
             tokenManager.clearAll()
+            socketManager.notifySessionExpired()
             return null
         }
 
@@ -94,10 +97,13 @@ class AuthInterceptor @Inject constructor(
                 put("refreshToken", refreshToken)
             }.toString()
 
+            val refreshUrl = ApiConfig.BASE_URL.toHttpUrl()
+                .newBuilder()
+                .addPathSegments("auth/refresh-token")
+                .build()
+
             val refreshRequest = originalRequest.newBuilder()
-                .url(originalRequest.url.newBuilder()
-                    .encodedPath("/api/auth/refresh-token")
-                    .build())
+                .url(refreshUrl)
                 .post(
                     refreshBody.toRequestBody("application/json".toMediaTypeOrNull())
                 )
@@ -124,15 +130,19 @@ class AuthInterceptor @Inject constructor(
                     newAccessToken
                 } else {
                     tokenManager.clearAll()
+                    socketManager.notifySessionExpired()
                     null
                 }
             } else {
                 refreshResponse.close()
                 tokenManager.clearAll()
+                socketManager.notifySessionExpired()
                 null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             tokenManager.clearAll()
+            socketManager.notifySessionExpired()
+            CrashReporter.recordException(e, "Token refresh failed")
             null
         }
     }

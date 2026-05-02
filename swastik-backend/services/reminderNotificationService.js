@@ -547,7 +547,7 @@ const sendDiagnosticTestReminders = async (now) => {
       patient:patients!inner(user_id)
     `)
     .eq('booking_date', targetDate)
-    .in('status', ['booked', 'confirmed']);
+    .in('status', ['confirmed', 'dispatched']);
 
   if (error) throw error;
 

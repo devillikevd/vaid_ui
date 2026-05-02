@@ -63,6 +63,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         val spineAngle: Double? = null,
         val pallorScore: Double? = null,
         val hemoglobinEstimate: Double? = null,
+        val stressLevel: Double? = null,
+        val skinCondition: String? = null,
         val isFaceDetected: Boolean = false,
         val signalQuality: Double? = null,
         val capturedAtMs: Long = 0L
@@ -259,6 +261,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             spineAngle = postureEstimate?.second?.round(1),
             pallorScore = pallorScore,
             hemoglobinEstimate = null,
+            stressLevel = null, // Placeholder for future stress level model
+            skinCondition = null, // Placeholder for future skin condition model
             isFaceDetected = true,
             signalQuality = signalQuality.round(3),
             capturedAtMs = currentTimeMs

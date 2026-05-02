@@ -23,6 +23,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -58,6 +59,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5001/api/\"")
+        buildConfigField("String", "DEVICE_API_BASE_URL", "\"\"")
+        buildConfigField("String", "CERT_PINS", "\"\"")
 
 
     }
@@ -67,13 +70,22 @@ android {
             localBuildProperty("API_BASE_URL")?.let { apiUrl ->
                 buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
             }
+            localBuildProperty("API_BASE_URL_DEVICE")?.let { deviceApiUrl ->
+                buildConfigField("String", "DEVICE_API_BASE_URL", "\"$deviceApiUrl\"")
+            }
+            localBuildProperty("CERT_PINS")?.let { pins ->
+                buildConfigField("String", "CERT_PINS", "\"$pins\"")
+            }
         }
         release {
-            val useDebugSigningForRelease = localOrEnvBoolean("USE_DEBUG_SIGNING_FOR_RELEASE", true)
+            val useDebugSigningForRelease = localOrEnvBoolean("USE_DEBUG_SIGNING_FOR_RELEASE", false)
             isMinifyEnabled = !useDebugSigningForRelease
             isShrinkResources = !useDebugSigningForRelease
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "API_BASE_URL", "\"https://api.swastik.health/api/\"")
+            localBuildProperty("CERT_PINS")?.let { pins ->
+                buildConfigField("String", "CERT_PINS", "\"$pins\"")
+            }
 
             if (useDebugSigningForRelease) {
                 // Local QA release build (installable quickly on test devices)
@@ -155,13 +167,15 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
-    // Socket.IO
+    // Socket.IO client (official Maven Central)
     implementation("io.socket:socket.io-client:2.1.0") {
         exclude(group = "org.json", module = "json")
     }
 
     // Firebase Cloud Messaging
-    implementation("com.google.firebase:firebase-messaging:24.1.0")
+    implementation(platform(libs.firebase.bom))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -235,6 +235,22 @@ class SocketManager @Inject constructor(
         return optString(key)
     }
 
+    private fun emitChatMessage(data: JSONObject, forceIsMe: Boolean? = null) {
+        val senderId = data.optString("userId", "")
+        scope.launch {
+            val currentUserId = tokenManager.userId
+            _chatMessages.emit(
+                SocketChatMessage(
+                    senderId = senderId,
+                    role = data.optString("role", ""),
+                    message = data.optString("message", ""),
+                    timestamp = data.optString("timestamp", ""),
+                    isMe = forceIsMe ?: (senderId == currentUserId)
+                )
+            )
+        }
+    }
+
     /**
      * Connect to Socket.IO server with authentication
      */
@@ -424,19 +440,16 @@ class SocketManager @Inject constructor(
             try {
                 val data = args[0] as JSONObject
                 Log.d(TAG, "Chat Message: $data")
-                val senderId = data.optString("userId", "")
-                scope.launch {
-                    // Resolve current user ID to determine if this message is from us
-                    val currentUserId = tokenManager.userId
-                    _chatMessages.emit(SocketChatMessage(
-                        senderId = senderId,
-                        role = data.optString("role", ""),
-                        message = data.optString("message", ""),
-                        timestamp = data.optString("timestamp", ""),
-                        isMe = senderId == currentUserId
-                    ))
-                }
+                emitChatMessage(data)
             } catch (e: Exception) { Log.e(TAG, "Error parsing chat:message", e) }
+        }
+
+        socket?.on("chat:message:sent") { args ->
+            try {
+                val data = args[0] as JSONObject
+                Log.d(TAG, "Chat Message Ack: $data")
+                emitChatMessage(data, forceIsMe = true)
+            } catch (e: Exception) { Log.e(TAG, "Error parsing chat:message:sent", e) }
         }
 
         // --- Real-time Updates ---
@@ -711,6 +724,9 @@ class SocketManager @Inject constructor(
         socket?.off()
         socket = null
         activeTrackingRequestId = null
+        activeVideoRoomId = null
+        activeVideoMode = null
+        activeChatConsultationId = null
         scope.cancel()
         // Recreate scope so singleton can be reused after re-login
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -855,21 +871,4 @@ class SocketManager @Inject constructor(
         }
     }
 
-    /**
-     * Vitals stream emission for edge CV metrics.
-     * Extracts HealthMetrics payloads computed by MediaPipe and emits via WebSocket
-     */
-    fun sendVitalsStream(sessionId: String, data: JSONObject) {
-        if (socket?.connected() != true) return
-        try {
-            val payload = JSONObject().apply {
-                put("session_id", sessionId)
-                put("data", data)
-            }
-            // Backend gateway typically expects 'vitals:stream' event
-            socket?.emit("vitals:stream", payload)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send vitals stream", e)
-        }
-    }
 }

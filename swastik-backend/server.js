@@ -75,6 +75,8 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  // Allow legacy Engine.IO v3 clients (Android socket.io-client 2.x)
+  allowEIO3: true,
 });
 
 // I7: Socket.IO Redis adapter for horizontal scaling

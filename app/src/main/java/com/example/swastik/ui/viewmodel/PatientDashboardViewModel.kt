@@ -61,6 +61,7 @@ class PatientDashboardViewModel @Inject constructor(
         loadDashboard()
         collectRealtimeNotifications()
         collectProviderCatalogUpdates()
+        collectPrescriptionUpdates()
         observeSocketReconnects()
     }
 
@@ -85,6 +86,16 @@ class PatientDashboardViewModel @Inject constructor(
     private fun collectProviderCatalogUpdates() {
         viewModelScope.launch {
             socketManager.providerCatalogUpdates.collect {
+                refresh()
+            }
+        }
+    }
+
+    private fun collectPrescriptionUpdates() {
+        viewModelScope.launch {
+            socketManager.prescriptionNew.collect {
+                // BUG-06 Fix: Refresh dashboard to update recent prescriptions list in Room DB
+                // when a doctor creates a new prescription
                 refresh()
             }
         }

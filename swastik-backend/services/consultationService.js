@@ -96,6 +96,21 @@ const syncConsultationSessionState = async (consultationId, fields = {}) => {
   return data;
 };
 
+const emitConsultationStartedSync = async (consultation, doctorUserId, doctorName) => {
+  const { data: patient } = await supabaseAdmin
+    .from('patients')
+    .select('user_id')
+    .eq('id', consultation.patient_id)
+    .single();
+
+  eventEmitter.emitConsultationStarted({
+    ...consultation,
+    doctor_id: doctorUserId,
+    patient_id: patient?.user_id,
+    doctor_name: doctorName,
+  });
+};
+
 // Get consultation history
 const getConsultationHistory = async (userId, role, page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
@@ -193,10 +208,15 @@ const startConsultation = async (doctorUserId, appointmentId) => {
 
   if (existingConsultation) {
     const nowIso = new Date().toISOString();
-    return await syncConsultationSessionState(existingConsultation.id, {
+    const consultation = await syncConsultationSessionState(existingConsultation.id, {
       roomId: existingConsultation.room_id || existingConsultation.id,
       doctorJoinedAt: existingConsultation.doctor_joined_at || nowIso,
     }) || existingConsultation;
+
+    // Re-emit the start event so waiting patients recover if they missed the
+    // original notification and the doctor retries opening the same session.
+    await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
+    return consultation;
   }
 
   // C7: Atomic start — creates consultation + updates appointment in one transaction
@@ -222,19 +242,7 @@ const startConsultation = async (doctorUserId, appointmentId) => {
     doctorJoinedAt: consultation.doctor_joined_at || nowIso,
   }) || consultation;
 
-  // Get patient's user_id for notification
-  const { data: patient } = await supabaseAdmin
-    .from('patients')
-    .select('user_id')
-    .eq('id', consultation.patient_id)
-    .single();
-
-  eventEmitter.emitConsultationStarted({
-    ...consultation,
-    doctor_id: doctorUserId,
-    patient_id: patient?.user_id,
-    doctor_name: doctor.name,
-  });
+  await emitConsultationStartedSync(consultation, doctorUserId, doctor.name);
 
   return consultation;
 };

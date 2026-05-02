@@ -108,6 +108,9 @@ export default function VideoConsultation() {
     const previousRemoteModeRef = useRef<ConnectionMode>('video');
     const previousSampleKindRef = useRef<'video' | 'audio' | null>(null);
     const cameraUnavailableRef = useRef(false);
+    const bannerTimerRef = useRef<NodeJS.Timeout | null>(null); // BUG-A3: track banner timeout
+    const localBandwidthModeRef = useRef<ConnectionMode>('video'); // BUG-A2: stable ref for quality handler
+    const chatEndRef = useRef<HTMLDivElement>(null); // MOD-1: auto-scroll chat
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -123,9 +126,24 @@ export default function VideoConsultation() {
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
-    const [localBandwidthMode, setLocalBandwidthMode] = useState<ConnectionMode>('video');
+    const [localBandwidthMode, _setLocalBandwidthMode] = useState<ConnectionMode>('video');
     const [networkStats, setNetworkStats] = useState<NetworkStats>({ rtt: 0, packetsLost: 0, bitrate: 0, quality: 'good' });
-    const [modeBanner, setModeBanner] = useState<string | null>(null);
+
+    // BUG-A2: keep ref in sync so handleQualityChange never reads a stale closure
+    const setLocalBandwidthMode = useCallback((mode: ConnectionMode) => {
+        localBandwidthModeRef.current = mode;
+        _setLocalBandwidthMode(mode);
+    }, []);
+    const [modeBanner, _setModeBanner] = useState<string | null>(null);
+
+    // BUG-A3: wrap setModeBanner to clear any pending timer before setting a new one
+    const setModeBannerSafe = useCallback((banner: string | null, autoClearMs?: number) => {
+        if (bannerTimerRef.current) { clearTimeout(bannerTimerRef.current); bannerTimerRef.current = null; }
+        _setModeBanner(banner);
+        if (banner && autoClearMs) {
+            bannerTimerRef.current = setTimeout(() => _setModeBanner(null), autoClearMs);
+        }
+    }, []);
 
     // ── Doctor side panel state ────────────────────────────────────
     const [showAIPanel, setShowAIPanel] = useState(false);
@@ -175,6 +193,31 @@ export default function VideoConsultation() {
         }
     }, []);
 
+    // MOD-1: Auto-scroll chat to bottom when new messages arrive
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages.length]);
+
+    // BUG-A1: Wrap cleanup in useCallback for stable reference in useConsultationEnded
+    const cleanup = useCallback(() => {
+        if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+        if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+        if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach((track) => track.stop());
+            localStreamRef.current = null;
+        }
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+        }
+        hasRemoteDescriptionRef.current = false;
+        pendingIceCandidatesRef.current = [];
+        hasInitiatedOfferRef.current = false;
+        previousSampleKindRef.current = null;
+        cameraUnavailableRef.current = false;
+        setIsPeerReady(false);
+    }, []);
+
     // ── Remote call-ended detection ────────────────────────────────
     const [callEndedByRemote, setCallEndedByRemote] = useState(false);
     useConsultationEnded(
@@ -182,12 +225,11 @@ export default function VideoConsultation() {
             if (data.consultationId === consultationId) {
                 setCallEndedByRemote(true);
                 cleanup();
-                // Auto-redirect after 4 seconds
                 setTimeout(() => {
                     router.push(user?.role === 'doctor' ? '/doctor/consultations' : '/');
                 }, 4000);
             }
-        }, [consultationId, router, user?.role])
+        }, [consultationId, router, user?.role, cleanup])
     );
 
     useConsultationPatientLeft(
@@ -204,10 +246,9 @@ export default function VideoConsultation() {
             setConnectionMode('chat');
             setShowChat(true);
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
-            setModeBanner('Patient left the consultation');
-            setTimeout(() => setModeBanner(null), 5000);
+            setModeBannerSafe('Patient left the consultation', 5000);
             hasInitiatedOfferRef.current = false;
-        }, [applyLocalMediaState, consultationId, isDoctor])
+        }, [applyLocalMediaState, consultationId, isDoctor, setLocalBandwidthMode, setModeBannerSafe])
     );
 
     // Timer for call duration
@@ -273,20 +314,18 @@ export default function VideoConsultation() {
         if (remoteMode === previousRemoteModeRef.current) return;
 
         if (remoteMode === 'chat') {
-            setModeBanner('Peer switched to Chat mode for network stability');
-            setTimeout(() => setModeBanner(null), 5000);
+            setModeBannerSafe('Peer switched to Chat mode for network stability', 5000);
         } else if (remoteMode === 'audio') {
-            setModeBanner('Peer switched to Audio-only mode for network stability');
-            setTimeout(() => setModeBanner(null), 5000);
+            setModeBannerSafe('Peer switched to Audio-only mode for network stability', 5000);
         } else if (previousRemoteModeRef.current !== 'video') {
-            setModeBanner('Peer network recovered');
-            setTimeout(() => setModeBanner(null), 3000);
+            setModeBannerSafe('Peer network recovered', 3000);
         }
 
         previousRemoteModeRef.current = remoteMode;
-    }, [remoteMode]);
+    }, [remoteMode, setModeBannerSafe]);
 
     // ── Auto-degrade / upgrade mode based on quality ───────────────
+    // BUG-A2: Read from ref instead of closure to avoid stale localBandwidthMode
     const handleQualityChange = useCallback((quality: NetworkStats['quality']) => {
         let nextMode: ConnectionMode =
             quality === 'critical' ? 'chat' :
@@ -297,26 +336,22 @@ export default function VideoConsultation() {
             nextMode = 'audio';
         }
 
-        if (nextMode === localBandwidthMode) return;
+        const currentMode = localBandwidthModeRef.current;
+        if (nextMode === currentMode) return;
 
         setLocalBandwidthMode(nextMode);
         if (nextMode === 'chat') {
-            setModeBanner('⚠️ Very poor network — switched to Chat mode');
-            setTimeout(() => setModeBanner(null), 5000);
-        } else if (nextMode === 'audio' && localBandwidthMode === 'video') {
-            setModeBanner('📶 Low bandwidth — switched to Audio-only mode');
-            setTimeout(() => setModeBanner(null), 5000);
-        } else if (nextMode === 'audio' && localBandwidthMode === 'chat') {
-            setModeBanner('📶 Connection stabilizing — switched to Audio-only mode');
-            setTimeout(() => setModeBanner(null), 5000);
-        } else if (nextMode === 'video' && localBandwidthMode === 'chat') {
-            setModeBanner('✅ Network recovered — Video restored');
-            setTimeout(() => setModeBanner(null), 3000);
-        } else if (nextMode === 'video' && localBandwidthMode === 'audio') {
-            setModeBanner('✅ Network improved — Video restored');
-            setTimeout(() => setModeBanner(null), 3000);
+            setModeBannerSafe('⚠️ Very poor network — switched to Chat mode', 5000);
+        } else if (nextMode === 'audio' && currentMode === 'video') {
+            setModeBannerSafe('📶 Low bandwidth — switched to Audio-only mode', 5000);
+        } else if (nextMode === 'audio' && currentMode === 'chat') {
+            setModeBannerSafe('📶 Connection stabilizing — switched to Audio-only mode', 5000);
+        } else if (nextMode === 'video' && currentMode === 'chat') {
+            setModeBannerSafe('✅ Network recovered — Video restored', 3000);
+        } else if (nextMode === 'video' && currentMode === 'audio') {
+            setModeBannerSafe('✅ Network improved — Video restored', 3000);
         }
-    }, [localBandwidthMode]);
+    }, [setLocalBandwidthMode, setModeBannerSafe]);
 
     // ── Network quality monitoring ─────────────────────────────────
     useEffect(() => {
@@ -437,8 +472,7 @@ export default function VideoConsultation() {
                 applyLocalMediaState(mostRestrictiveMode('audio', remoteMode));
                 setupPeerConnection();
                 setIsConnecting(false);
-                setModeBanner('📷 Camera unavailable — Audio-only mode');
-                setTimeout(() => setModeBanner(null), 4000);
+                setModeBannerSafe('📷 Camera unavailable — Audio-only mode', 4000);
             } catch {
                 cameraUnavailableRef.current = true;
                 setError('Failed to access camera and microphone. Please check permissions.');
@@ -481,13 +515,12 @@ export default function VideoConsultation() {
             if (state === 'connected') {
                 setIsConnected(true);
             } else if (state === 'disconnected') {
-                setModeBanner('⚠️ Connection interrupted — reconnecting...');
-                setTimeout(() => setModeBanner(null), 5000);
+                setModeBannerSafe('⚠️ Connection interrupted — reconnecting...', 5000);
             } else if (state === 'failed') {
                 setIsConnected(false);
                 setLocalBandwidthMode('chat');
                 applyLocalMediaState('chat');
-                setModeBanner('❌ Connection lost — switched to Chat mode');
+                setModeBannerSafe('❌ Connection lost — switched to Chat mode');
             }
         };
 
@@ -582,8 +615,7 @@ export default function VideoConsultation() {
     const toggleVideo = () => {
         if (connectionMode === 'chat') return;
         if (cameraUnavailableRef.current) {
-            setModeBanner('📷 Camera unavailable — staying in Audio-only mode');
-            setTimeout(() => setModeBanner(null), 4000);
+            setModeBannerSafe('📷 Camera unavailable — staying in Audio-only mode', 4000);
             return;
         }
         userVideoEnabledRef.current = !userVideoEnabledRef.current;
@@ -619,28 +651,7 @@ export default function VideoConsultation() {
         }
     };
 
-    const cleanup = () => {
-        if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
-        // Stop all local tracks
-        if (localStreamRef.current) {
-            localStreamRef.current.getTracks().forEach((track) => track.stop());
-            localStreamRef.current = null;
-        }
-
-        // Close peer connection
-        if (peerConnectionRef.current) {
-            peerConnectionRef.current.close();
-            peerConnectionRef.current = null;
-        }
-
-        // Reset ICE buffer
-        hasRemoteDescriptionRef.current = false;
-        pendingIceCandidatesRef.current = [];
-        hasInitiatedOfferRef.current = false;
-        previousSampleKindRef.current = null;
-        cameraUnavailableRef.current = false;
-        setIsPeerReady(false);
-    };
+    // BUG-A1: cleanup is now declared above via useCallback for stable reference
 
     const handleSendMessage = () => {
         if (chatInput.trim()) {
@@ -699,7 +710,10 @@ export default function VideoConsultation() {
                             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${connectionMode === 'video' ? 'bg-emerald-500/15 text-emerald-300' : connectionMode === 'audio' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-blue-300'}`}>
                                 {connectionMode === 'video' ? 'Video' : connectionMode === 'audio' ? 'Voice' : 'Chat'}
                             </span>
-                            <span className={`text-xs ${networkStats.quality === 'excellent' || networkStats.quality === 'good' ? 'text-green-400' : networkStats.quality === 'poor' ? 'text-yellow-400' : 'text-red-400'}`}>
+                            <span
+                                className={`text-xs ${networkStats.quality === 'excellent' || networkStats.quality === 'good' ? 'text-green-400' : networkStats.quality === 'poor' ? 'text-yellow-400' : 'text-red-400'}`}
+                                title={`RTT: ${networkStats.rtt}ms | Bitrate: ${networkStats.bitrate}kbps | Loss: ${networkStats.packetsLost} pkts | Quality: ${networkStats.quality}`}
+                            >
                                 {networkStats.quality === 'critical' ? <WifiOff className="w-4 h-4 inline" /> : <Wifi className="w-4 h-4 inline" />}
                             </span>
                         </>
@@ -751,11 +765,12 @@ export default function VideoConsultation() {
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {messages.length === 0 && <p className="text-center text-gray-500 mt-8">Send a message to continue the consultation</p>}
                             {messages.map((msg, index) => (
-                                <div key={index} className={`max-w-[80%] p-3 rounded-xl ${msg.userId === user?.id ? 'ml-auto bg-blue-500 text-white' : 'bg-gray-700 text-white'}`}>
+                                <div key={`${msg.userId}-${msg.timestamp}-${index}`} className={`max-w-[80%] p-3 rounded-xl ${msg.userId === user?.id ? 'ml-auto bg-blue-500 text-white' : 'bg-gray-700 text-white'}`}>
                                     <p className="text-sm">{msg.message}</p>
                                     <p className="text-xs opacity-60 mt-1">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                                 </div>
                             ))}
+                            <div ref={chatEndRef} />
                         </div>
                         {typingUsers.length > 0 && (
                             <div className="px-4 py-2 border-t border-gray-700/50">
@@ -854,15 +869,17 @@ export default function VideoConsultation() {
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {messages.map((msg, index) => (
                                 <div
-                                    key={index}
+                                    key={`${msg.userId}-${msg.timestamp}-${index}`}
                                     className={`max-w-[80%] p-3 rounded-xl ${msg.userId === user?.id
                                             ? 'ml-auto bg-blue-500 text-white'
                                             : 'bg-gray-700 text-white'
                                         }`}
                                 >
                                     <p className="text-sm">{msg.message}</p>
+                                    <p className="text-xs opacity-60 mt-1">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                                 </div>
                             ))}
+                            <div ref={chatEndRef} />
                         </div>
 
                         {typingUsers.length > 0 && (

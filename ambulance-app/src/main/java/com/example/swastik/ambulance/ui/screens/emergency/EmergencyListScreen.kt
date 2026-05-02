@@ -90,6 +90,30 @@ fun EmergencyListScreen(
                 ) {
                     CircularProgressIndicator(color = Color(0xFFD32F2F))
                 }
+            } else if (state.error != null) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.ErrorOutline,
+                            null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(state.error ?: "Failed to load emergencies", color = Color.Gray)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(onClick = {
+                            viewModel.loadEmergencyHistory(if (selectedFilter == "all") null else selectedFilter)
+                        }) {
+                            Icon(Icons.Default.Refresh, null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Retry")
+                        }
+                    }
+                }
             } else if (state.emergencies.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),

@@ -1,6 +1,7 @@
 package com.example.swastik.ambulance
 
 import android.app.Application
+import android.os.StrictMode
 import com.example.swastik.ambulance.notifications.AmbulancePushNotificationCoordinator
 import dagger.hilt.android.HiltAndroidApp
 import org.osmdroid.config.Configuration
@@ -13,6 +14,20 @@ class AmbulanceApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+        }
         // Initialize osmdroid map configuration
         Configuration.getInstance().apply {
             userAgentValue = packageName

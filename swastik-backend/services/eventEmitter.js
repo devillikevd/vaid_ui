@@ -6,6 +6,10 @@ const EventEmitter = require('events');
 const crypto = require('crypto');
 const config = require('../config');
 
+const normalizeDiagnosticBookingStatus = (status) => (
+  status === 'booked' ? 'pending' : status
+);
+
 class AppEventEmitter extends EventEmitter {
   constructor() {
     super();
@@ -148,6 +152,47 @@ class AppEventEmitter extends EventEmitter {
     }
   }
 
+  getHospitalDispatchRoom(hospitalId) {
+    return hospitalId ? `hospital:dispatch:${hospitalId}` : null;
+  }
+
+  getEmergencyDispatchRooms(payload = {}, { includeGlobal = true } = {}) {
+    const rooms = new Set();
+    if (includeGlobal) {
+      rooms.add('ambulance:dispatch');
+    }
+
+    const hospitalIds = [
+      payload.hospitalId,
+      payload.hospital_id,
+      payload.destinationHospitalId,
+      payload.destination_hospital_id,
+    ].filter(Boolean);
+
+    hospitalIds.forEach((hospitalId) => {
+      const room = this.getHospitalDispatchRoom(hospitalId);
+      if (room) {
+        rooms.add(room);
+      }
+    });
+
+    return [...rooms];
+  }
+
+  emitEmergencyDispatch(event, payload = {}, options = {}) {
+    try {
+      const rooms = this.getEmergencyDispatchRooms(payload, options);
+      if (this.io) {
+        rooms.forEach((room) => {
+          this.io.to(room).emit(event, payload);
+        });
+      }
+      this.emitDistributed(event, payload);
+    } catch (err) {
+      console.error(`[EventEmitter] emitEmergencyDispatch error (${event}):`, err.message);
+    }
+  }
+
   // ── Domain events ────────────────────────────────────────────────
   emitAppointmentBooked(appointment) {
     const { doctor_id, patient_id, hospital_owner_id, clinic_owner_id } = appointment;
@@ -253,9 +298,7 @@ class AppEventEmitter extends EventEmitter {
   }
 
   emitEmergencyRequest(emergency) {
-    // Broadcast to all ambulance rooms
-    this.notifyRoom('ambulance:dispatch', 'emergency:new', emergency);
-    this.emitDistributed('emergency:new', emergency);
+    this.emitEmergencyDispatch('emergency:new', emergency);
   }
 
   emitAmbulanceAssigned(data) {
@@ -347,11 +390,16 @@ class AppEventEmitter extends EventEmitter {
 
   emitDiagnosticBookingCreated(booking) {
     const { patient_id, center_id, center_owner_id } = booking;
-    this.notifyUser(patient_id, 'diagnostic:booking-confirmed', booking);
+    const normalizedBooking = {
+      ...booking,
+      status: normalizeDiagnosticBookingStatus(booking.status),
+      center_id: booking.center_id || center_id,
+    };
     const patientNotif = {
-      title: 'Booking Confirmed',
-      message: 'Your diagnostic test booking has been confirmed',
+      title: 'Booking Request Received',
+      message: 'Your diagnostic booking request has been sent to the center for confirmation',
       type: 'diagnostic_booking',
+      timestamp: new Date().toISOString(),
     };
     this.notifyUser(patient_id, 'notification:new', patientNotif);
     try {
@@ -360,31 +408,48 @@ class AppEventEmitter extends EventEmitter {
     } catch {}
     // Notify the diagnostic center owner for real-time dashboard updates
     if (center_owner_id) {
-      this.notifyUser(center_owner_id, 'diagnostic:new-booking', booking);
+      this.notifyUser(center_owner_id, 'diagnostic:new-booking', normalizedBooking);
       this.notifyUser(center_owner_id, 'notification:new', {
         title: 'New Booking',
-        message: 'A new diagnostic test booking has been received',
+        message: 'A new diagnostic booking request has been received',
         type: 'diagnostic_booking',
         timestamp: new Date().toISOString(),
       });
     }
-    this.emitDistributed('diagnostic:booked', booking);
+    this.emitDistributed('diagnostic:booked', normalizedBooking);
   }
 
   emitDiagnosticBookingStatusUpdated(booking) {
     const { patient_id } = booking;
-    this.notifyUser(patient_id, 'diagnostic:booking-updated', booking);
+    const normalizedStatus = normalizeDiagnosticBookingStatus(booking.status);
+    const normalizedBooking = {
+      ...booking,
+      status: normalizedStatus,
+    };
+    const statusMessages = {
+      pending: 'Your diagnostic booking request is pending confirmation',
+      confirmed: 'Your diagnostic booking has been confirmed',
+      dispatched: 'Your home sample collection team has been dispatched',
+      sample_collected: 'Your sample has been collected',
+      processing: 'Your diagnostic test is being processed',
+      completed: 'Your diagnostic booking is completed',
+      cancelled: 'Your diagnostic booking has been cancelled',
+    };
+    const eventName = normalizedStatus === 'confirmed'
+      ? 'diagnostic:booking-confirmed'
+      : 'diagnostic:booking-updated';
+    this.notifyUser(patient_id, eventName, normalizedBooking);
     const patientNotif = {
-      title: 'Booking Updated',
-      message: `Your diagnostic booking status changed to ${booking.status}`,
-      type: 'diagnostic_update',
+      title: normalizedStatus === 'confirmed' ? 'Booking Confirmed' : 'Booking Updated',
+      message: statusMessages[normalizedStatus] || `Your diagnostic booking status changed to ${normalizedStatus}`,
+      type: normalizedStatus === 'confirmed' ? 'diagnostic_booking' : 'diagnostic_update',
     };
     this.notifyUser(patient_id, 'notification:new', patientNotif);
     try {
       const notificationService = require('./notificationService');
       notificationService.sendNotification(patient_id, patientNotif).catch(() => {});
     } catch {}
-    this.emitDistributed('diagnostic:status-updated', booking);
+    this.emitDistributed('diagnostic:status-updated', normalizedBooking);
   }
 
   emitDiagnosticResultUploaded(booking) {

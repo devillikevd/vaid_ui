@@ -140,6 +140,17 @@ class DashboardViewModel @Inject constructor(
                 _userMessage.tryEmit("📍 Patient location updated")
             }
         }
+
+        // Socket reconnected — force sync to recover missed events
+        viewModelScope.launch {
+            socketManager.connectedFlow.collect {
+                _userMessage.tryEmit("🔄 Reconnected — syncing latest data")
+                loadDashboard()
+                _emergencyDetailState.value.emergency?.id?.let { requestId ->
+                    loadEmergencyDetail(requestId)
+                }
+            }
+        }
     }
 
     // ── Dashboard ────────────────────────────────────────────

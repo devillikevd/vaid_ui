@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { vitalsApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -121,11 +121,52 @@ export interface PrescriptionUpdate {
 
 // Socket connection options
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SocketListener = (...args: any[]) => void;
 
 // ── Singleton socket instance (shared across all useSocket() calls) ──
 let globalSocket: Socket | null = null;
 let globalSocketToken: string | null = null;
 let socketRefCount = 0;
+const globalEventListeners = new Map<string, Set<SocketListener>>();
+
+function attachGlobalEventListeners(socket: Socket) {
+    for (const [event, listeners] of globalEventListeners.entries()) {
+        listeners.forEach((listener) => {
+            socket.on(event, listener);
+        });
+    }
+}
+
+function addGlobalEventListener(event: string, listener: SocketListener) {
+    let listeners = globalEventListeners.get(event);
+    if (!listeners) {
+        listeners = new Set<SocketListener>();
+        globalEventListeners.set(event, listeners);
+    }
+    if (listeners.has(listener)) return;
+    listeners.add(listener);
+    globalSocket?.on(event, listener);
+}
+
+function removeGlobalEventListener(event: string, listener?: SocketListener) {
+    const listeners = globalEventListeners.get(event);
+    if (!listeners) return;
+
+    if (listener) {
+        listeners.delete(listener);
+        globalSocket?.off(event, listener);
+        if (listeners.size === 0) {
+            globalEventListeners.delete(event);
+        }
+        return;
+    }
+
+    listeners.forEach((registeredListener) => {
+        globalSocket?.off(event, registeredListener);
+    });
+    globalEventListeners.delete(event);
+}
 
 function getOrCreateSocket(token: string): Socket {
     // BUG-02 Fix: If token changed, disconnect old socket and create new one
@@ -151,6 +192,8 @@ function getOrCreateSocket(token: string): Socket {
         reconnectionDelayMax: 30000,
         randomizationFactor: 0.5,
     });
+
+    attachGlobalEventListeners(globalSocket);
 
     globalSocket.on('connect', () => {
         console.log('Socket connected:', globalSocket?.id);
@@ -236,22 +279,16 @@ export function useSocket() {
     }, []);
 
     // Subscribe to event
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const on = useCallback((event: string, callback: (...args: any[]) => void) => {
-        socketRef.current?.on(event, callback);
+    const on = useCallback((event: string, callback: SocketListener) => {
+        addGlobalEventListener(event, callback);
         return () => {
-            socketRef.current?.off(event, callback);
+            removeGlobalEventListener(event, callback);
         };
     }, []);
 
     // Unsubscribe from event
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const off = useCallback((event: string, callback?: (...args: any[]) => void) => {
-        if (callback) {
-            socketRef.current?.off(event, callback);
-        } else {
-            socketRef.current?.removeAllListeners(event);
-        }
+    const off = useCallback((event: string, callback?: SocketListener) => {
+        removeGlobalEventListener(event, callback);
     }, []);
 
     return {
@@ -715,6 +752,7 @@ export function usePrescriptionUpdates(onPrescription?: (data: PrescriptionUpdat
  */
 export function useConsultationChat(consultationId: string | null) {
     const { emit, on } = useSocket();
+    const { user } = useAuthStore();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
@@ -723,8 +761,16 @@ export function useConsultationChat(consultationId: string | null) {
 
         const joinChat = () => emit('chat:join', consultationId);
 
+        // BUG-A7 Fix: Deduplicate incoming messages by userId+timestamp+message
         const handleMessage = (message: ChatMessage) => {
-            setMessages((prev) => [...prev, message]);
+            setMessages((prev) => {
+                // Skip if this exact message already exists (optimistic append collision)
+                const isDupe = prev.some(
+                    (m) => m.userId === message.userId && m.timestamp === message.timestamp && m.message === message.message
+                );
+                if (isDupe) return prev;
+                return [...prev, message];
+            });
         };
 
         const handleTyping = (data: { userId: string; isTyping: boolean }) => {
@@ -749,11 +795,20 @@ export function useConsultationChat(consultationId: string | null) {
         };
     }, [consultationId, emit, on]);
 
+    // BUG-A7 Fix: Sender optimistically appends their own message since
+    // the server no longer echoes it back via socket.to().
     const sendMessage = useCallback(
         (message: string) => {
+            const ts = new Date().toISOString();
+            const optimisticMsg: ChatMessage = {
+                userId: user?.id || '',
+                message,
+                timestamp: ts,
+            };
+            setMessages((prev) => [...prev, optimisticMsg]);
             emit('chat:message', { consultationId, message });
         },
-        [consultationId, emit]
+        [consultationId, emit, user?.id]
     );
 
     const setTyping = useCallback(
@@ -1099,6 +1154,9 @@ export function useVitalsStream(
         ws.onerror = () => ws.close();
     }, [applyIncomingVitals, role, sessionId]);
 
+    // BUG-A8 Fix: stable dependency for signalToggles to avoid reconnection storms
+    const signalTogglesStr = useMemo(() => JSON.stringify(signalToggles || {}), [signalToggles]);
+
     useEffect(() => {
         isUnmountedRef.current = false;
         connectRef.current = connect;
@@ -1122,7 +1180,7 @@ export function useVitalsStream(
             wsRef.current?.close();
             wsRef.current = null;
         };
-    }, [bootstrapFromBackend, connect, role, signalToggles]);
+    }, [bootstrapFromBackend, connect, role, signalTogglesStr]);
 
     const sendVitals = useCallback((vitals: Partial<VitalsStreamData>) => {
         if (!sessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;

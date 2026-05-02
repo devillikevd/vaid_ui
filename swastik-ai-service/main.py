@@ -418,6 +418,10 @@ async def vitals_websocket(
                 if payload.get("type") == "ping":
                     await websocket.send_text(json.dumps({"type": "pong", "ts": time.time()}))
                     continue
+                if payload.get("type") == "pong":
+                    # Clients echo keepalive pongs back to us; they are transport
+                    # control frames, not clinical data, so never persist them.
+                    continue
 
                 if role != "patient":
                     continue

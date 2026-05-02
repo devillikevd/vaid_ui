@@ -1,16 +1,21 @@
 package com.example.swastik.ambulance.data.repository
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.example.swastik.ambulance.data.local.TokenManager
 import com.example.swastik.ambulance.notifications.AmbulancePushNotificationCoordinator
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
 import com.example.swastik.ambulance.data.remote.dto.*
+import com.example.swastik.ambulance.service.LocationTrackingService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val apiService: ApiService,
     private val tokenManager: TokenManager,
     private val socketManager: SocketManager,
@@ -212,8 +217,16 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("AuthRepo", "Logout API error", e)
         }
+        stopTrackingService()
         socketManager.disconnect()
         tokenManager.clearAll()
+    }
+
+    private fun stopTrackingService() {
+        val intent = Intent(appContext, LocationTrackingService::class.java).apply {
+            action = LocationTrackingService.ACTION_STOP
+        }
+        appContext.startService(intent)
     }
 
     suspend fun refreshToken(): Boolean {

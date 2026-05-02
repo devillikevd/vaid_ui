@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS diagnostic_bookings (
     )),
     collection_address TEXT,
     notes TEXT,
-    status TEXT DEFAULT 'booked' CHECK (status IN (
-        'booked', 'sample_collected', 'processing', 'completed', 'cancelled'
+    status TEXT DEFAULT 'pending' CHECK (status IN (
+        'pending', 'confirmed', 'dispatched', 'sample_collected', 'processing', 'completed', 'cancelled'
     )),
     result_status TEXT DEFAULT 'pending' CHECK (result_status IN (
         'pending', 'processing', 'completed', 'delivered'

@@ -141,6 +141,118 @@ class DispatchService {
     return Array.from(recipients);
   }
 
+  _canAmbulanceAccessBroadcastRequest(request, ambulanceId) {
+    return Boolean(
+      ambulanceId &&
+      request?.dispatch_mode === DISPATCH_MODES.SOS_BROADCAST &&
+      ['pending', 'broadcasting'].includes(request?.status) &&
+      Array.isArray(request?.broadcast_ambulance_ids) &&
+      request.broadcast_ambulance_ids.includes(ambulanceId)
+    );
+  }
+
+  async getEmergencyAccessContext(user, requestId, { allowBroadcastAccess = false } = {}) {
+    const { data: request, error } = await supabaseAdmin
+      .from('emergency_requests')
+      .select(`
+        id,
+        patient_id,
+        vehicle_id,
+        hospital_id,
+        destination_hospital_id,
+        dispatch_mode,
+        status,
+        broadcast_ambulance_ids
+      `)
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (error) {
+      throw new ApiError(400, 'Failed to load emergency request');
+    }
+
+    if (!request) {
+      return { allowed: false, notFound: true, request: null };
+    }
+
+    if (['admin', 'super_admin'].includes(user.role)) {
+      return { allowed: true, request, scope: 'admin' };
+    }
+
+    if (user.role === 'patient') {
+      const { data: patient } = await supabaseAdmin
+        .from('patients')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      return {
+        allowed: Boolean(patient?.id && patient.id === request.patient_id),
+        request,
+        scope: 'patient',
+      };
+    }
+
+    if (['hospital_owner', 'hospital_manager'].includes(user.role)) {
+      let hospital = null;
+      try {
+        hospital = await hospitalManagerService.getHospitalByOwner(user.id);
+      } catch (err) {
+        if (err?.statusCode !== 404) {
+          throw err;
+        }
+      }
+
+      const hospitalId = hospital?.id || null;
+      const allowed = Boolean(
+        hospitalId &&
+        (request.hospital_id === hospitalId || request.destination_hospital_id === hospitalId)
+      );
+
+      return {
+        allowed,
+        request,
+        scope: 'hospital',
+        hospitalId,
+      };
+    }
+
+    if (['ambulance_operator', 'ambulance_driver'].includes(user.role)) {
+      const ambulance = await this._resolveAmbulanceForUser(user.id, { requireAvailable: false });
+      const ambulanceId = ambulance?.id || null;
+      const isAssigned = Boolean(ambulanceId && request.vehicle_id === ambulanceId);
+      const isBroadcastRecipient = allowBroadcastAccess &&
+        this._canAmbulanceAccessBroadcastRequest(request, ambulanceId);
+
+      return {
+        allowed: isAssigned || isBroadcastRecipient,
+        request,
+        scope: 'ambulance',
+        ambulanceId,
+      };
+    }
+
+    return { allowed: false, request, scope: 'other' };
+  }
+
+  async assertEmergencyAccess(user, requestId, options = {}) {
+    const { action = 'view' } = options;
+    const context = await this.getEmergencyAccessContext(user, requestId, options);
+
+    if (context.notFound) {
+      throw new ApiError(404, 'Emergency request not found');
+    }
+
+    if (!context.allowed) {
+      const message = action === 'track'
+        ? 'You do not have permission to track this request'
+        : 'You do not have permission to view this request';
+      throw new ApiError(403, message);
+    }
+
+    return context;
+  }
+
   // ── Startup recovery: re-arm timeouts for stuck broadcasting requests ──
   async recoverBroadcasts() {
     try {
@@ -607,6 +719,7 @@ class DispatchService {
       priority,
       status: 'pending',
       dispatchMode: DISPATCH_MODES.HOSPITAL_CONTROLLED,
+      hospitalId: resolvedHospitalId,
     });
 
     return {
@@ -622,6 +735,22 @@ class DispatchService {
       ambulanceId,
       assignedByUserId,
     });
+
+    const hospital = await hospitalManagerService.getHospitalByOwner(assignedByUserId);
+
+    const { data: scopedRequest } = await supabaseAdmin
+      .from('emergency_requests')
+      .select('id, hospital_id')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (!scopedRequest) {
+      throw new ApiError(404, 'Emergency request not found');
+    }
+
+    if (scopedRequest.hospital_id !== hospital.id) {
+      throw new ApiError(403, 'You can only assign ambulances for your hospital requests');
+    }
 
     // Use the atomic PostgreSQL function for concurrency safety
     const { data, error } = await supabaseAdmin.rpc('hospital_assign_ambulance', {
@@ -667,7 +796,7 @@ class DispatchService {
     // Get request details for the notification
     const { data: request } = await supabaseAdmin
       .from('emergency_requests')
-      .select('pickup_latitude, pickup_longitude, emergency_type, requester_name, patient_id')
+      .select('pickup_latitude, pickup_longitude, emergency_type, requester_name, patient_id, hospital_id, destination_hospital_id')
       .eq('id', requestId)
       .single();
 
@@ -714,13 +843,15 @@ class DispatchService {
       }
     }
 
-    // Emit to all dashboards
-    eventEmitter.notifyRoom('ambulance:dispatch', 'emergency:updated', {
+    // Emit to the ambulance/admin dashboards and the owning hospital room
+    eventEmitter.emitEmergencyDispatch('emergency:updated', {
       requestId,
       status: 'assigned',
       ambulanceId,
       vehicleNumber: ambulance?.vehicle_number,
       driverName: ambulance?.driver_name,
+      hospitalId: request?.hospital_id || hospital.id,
+      destinationHospitalId: request?.destination_hospital_id || null,
     });
 
     return {
@@ -947,7 +1078,7 @@ class DispatchService {
     // Get request details for notifications
     const { data: request } = await supabaseAdmin
       .from('emergency_requests')
-      .select('patient_id, pickup_latitude, pickup_longitude, requester_name')
+      .select('patient_id, pickup_latitude, pickup_longitude, requester_name, hospital_id, destination_hospital_id')
       .eq('id', requestId)
       .single();
 
@@ -1002,13 +1133,15 @@ class DispatchService {
       }
     }
 
-    // Emit to dashboards
-    eventEmitter.notifyRoom('ambulance:dispatch', 'emergency:updated', {
+    // Emit to dashboards scoped by emergency ownership
+    eventEmitter.emitEmergencyDispatch('emergency:updated', {
       requestId,
       status: data?.status || 'accepted',
       ambulanceId: ambulance.id,
       vehicleNumber: ambulance.vehicle_number,
       driverName: ambulance.driver_name,
+      hospitalId: request?.hospital_id || null,
+      destinationHospitalId: request?.destination_hospital_id || null,
     });
 
     return {
@@ -1198,11 +1331,13 @@ class DispatchService {
       });
     }
 
-    // Emit to dashboards
-    eventEmitter.notifyRoom('ambulance:dispatch', 'emergency:updated', {
+    // Emit to dashboards scoped by emergency ownership
+    eventEmitter.emitEmergencyDispatch('emergency:updated', {
       requestId,
       status: newStatus,
       ambulanceId: ambulance.id,
+      hospitalId: request.hospital_id || null,
+      destinationHospitalId: updateData.destination_hospital_id || request.destination_hospital_id || null,
     });
 
     return { success: true, status: newStatus };
@@ -1267,9 +1402,11 @@ class DispatchService {
       eventEmitter.notifyUser(driverUserId, 'ambulance:request-cancelled', { requestId });
     }
 
-    eventEmitter.notifyRoom('ambulance:dispatch', 'emergency:updated', {
+    eventEmitter.emitEmergencyDispatch('emergency:updated', {
       requestId,
       status: 'cancelled',
+      hospitalId: request.hospital_id || null,
+      destinationHospitalId: request.destination_hospital_id || null,
     });
 
     return {

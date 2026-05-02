@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CalendarCheck, Search, Loader2, Upload, Eye, Clock, CheckCircle2, XCircle, Bell, RefreshCw, User, FlaskConical } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { CalendarCheck, Search, Loader2, Upload, Eye, Clock, CheckCircle2, XCircle, Bell, RefreshCw, FlaskConical, Send } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -13,25 +13,54 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDial
 
 const STATUS_FILTERS = [
     { label: 'All', value: '' },
-    { label: 'Booked', value: 'booked' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Confirmed', value: 'confirmed' },
+    { label: 'Dispatched', value: 'dispatched' },
     { label: 'Sample Collected', value: 'sample_collected' },
     { label: 'Processing', value: 'processing' },
     { label: 'Completed', value: 'completed' },
     { label: 'Cancelled', value: 'cancelled' },
 ];
 
-const NEXT_STATUS: Record<string, { label: string; value: string; icon: typeof CheckCircle2 }[]> = {
-    booked: [
-        { label: 'Collect Sample', value: 'sample_collected', icon: CheckCircle2 },
-        { label: 'Cancel', value: 'cancelled', icon: XCircle },
-    ],
-    sample_collected: [
-        { label: 'Start Processing', value: 'processing', icon: Clock },
-    ],
-    processing: [
-        { label: 'Mark Completed', value: 'completed', icon: CheckCircle2 },
-    ],
+type BookingAction = {
+    label: string;
+    value: string;
+    icon: typeof CheckCircle2;
+    variant?: 'primary' | 'outline';
 };
+
+function getNextStatusActions(booking: DiagnosticBooking): BookingAction[] {
+    switch (booking.status) {
+        case 'pending':
+            return [
+                { label: 'Confirm', value: 'confirmed', icon: CheckCircle2 },
+                { label: 'Cancel', value: 'cancelled', icon: XCircle, variant: 'outline' },
+            ];
+        case 'confirmed':
+            return [
+                ...(booking.collection_type === 'home_collection'
+                    ? [{ label: 'Dispatch Team', value: 'dispatched', icon: Send } as BookingAction]
+                    : []),
+                { label: 'Collect Sample', value: 'sample_collected', icon: FlaskConical },
+                { label: 'Cancel', value: 'cancelled', icon: XCircle, variant: 'outline' },
+            ];
+        case 'dispatched':
+            return [
+                { label: 'Collect Sample', value: 'sample_collected', icon: FlaskConical },
+                { label: 'Cancel', value: 'cancelled', icon: XCircle, variant: 'outline' },
+            ];
+        case 'sample_collected':
+            return [
+                { label: 'Start Processing', value: 'processing', icon: Clock },
+            ];
+        case 'processing':
+            return [
+                { label: 'Mark Completed', value: 'completed', icon: CheckCircle2 },
+            ];
+        default:
+            return [];
+    }
+}
 
 export default function BookingsPage() {
     const {
@@ -121,14 +150,16 @@ export default function BookingsPage() {
                 <div className="bg-purple-50 border border-purple-200 text-purple-700 px-4 py-3 rounded-lg flex items-center gap-3 animate-pulse">
                     <Bell className="h-5 w-5 text-purple-600" />
                     <span className="font-medium">🔔 New test booking received!</span>
-                    <button onClick={() => { setNewBookingAlert(false); setStatusFilter('booked'); }} className="ml-auto text-purple-800 underline text-sm">View New</button>
+                    <button onClick={() => { setNewBookingAlert(false); setStatusFilter('pending'); }} className="ml-auto text-purple-800 underline text-sm">View New</button>
                 </div>
             )}
 
             {/* Summary Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-purple-100 rounded-lg"><CalendarCheck className="h-5 w-5 text-purple-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.total}</p><p className="text-xs text-gray-500 dark:text-gray-400">Total</p></div></div></Card>
-                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><Clock className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.booked || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Booked</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-amber-100 rounded-lg"><Clock className="h-5 w-5 text-amber-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.pending || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Pending</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-blue-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-blue-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.confirmed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Confirmed</p></div></div></Card>
+                <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-cyan-100 rounded-lg"><Send className="h-5 w-5 text-cyan-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.dispatched || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Dispatched</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-yellow-100 rounded-lg"><FlaskConical className="h-5 w-5 text-yellow-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.sample_collected || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Samples</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-orange-100 rounded-lg"><Loader2 className="h-5 w-5 text-orange-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.processing || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Processing</p></div></div></Card>
                 <Card padding="md"><div className="flex items-center gap-3"><div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="h-5 w-5 text-green-600" /></div><div><p className="text-xl font-bold">{bookingsSummary.status.completed || 0}</p><p className="text-xs text-gray-500 dark:text-gray-400">Completed</p></div></div></Card>
@@ -213,14 +244,13 @@ export default function BookingsPage() {
 
                                 {/* Actions */}
                                 <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                                    {/* Status transition buttons */}
-                                    {NEXT_STATUS[booking.status]?.map(action => {
+                                    {getNextStatusActions(booking).map(action => {
                                         const Icon = action.icon;
                                         return (
                                             <Button
                                                 key={action.value}
                                                 size="sm"
-                                                variant={action.value === 'cancelled' ? 'outline' : 'primary'}
+                                                variant={action.variant || 'primary'}
                                                 onClick={() => handleStatusChange(booking.id, action.value)}
                                                 leftIcon={<Icon className="h-3 w-3" />}
                                             >

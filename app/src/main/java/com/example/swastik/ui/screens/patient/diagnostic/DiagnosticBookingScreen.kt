@@ -94,8 +94,8 @@ fun DiagnosticBookingScreen(
                 onBackClick()
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(48.dp)) },
-            title = { Text("Booking Confirmed!", fontWeight = FontWeight.Bold) },
-            text = { Text("Your diagnostic test has been booked successfully. You'll receive a confirmation notification.") },
+            title = { Text("Request Submitted", fontWeight = FontWeight.Bold) },
+            text = { Text("Your diagnostic test booking request was sent successfully. The center will confirm it soon.") },
             confirmButton = {
                 Button(
                     onClick = {

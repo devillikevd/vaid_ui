@@ -121,6 +121,7 @@ class VideoConsultationViewModel @Inject constructor(
     private var networkMonitorJob: kotlinx.coroutines.Job? = null
     private var cvAnalyzer: ComputerVisionAnalyzer? = null
     private var userPreferredMode = ConsultationMode.VIDEO
+    private var bannerJob: kotlinx.coroutines.Job? = null
     private var localBandwidthMode = ConsultationMode.VIDEO
     private var remoteRequestedMode = ConsultationMode.VIDEO
     private var userMicPreference = true
@@ -399,7 +400,8 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun clearBannerAfterDelay(delayMs: Long) {
-        viewModelScope.launch {
+        bannerJob?.cancel()
+        bannerJob = viewModelScope.launch {
             kotlinx.coroutines.delay(delayMs)
             _uiState.value = _uiState.value.copy(modeBanner = null)
         }
@@ -766,8 +768,7 @@ class VideoConsultationViewModel @Inject constructor(
     fun sendChatMessage(message: String) {
         val consultationId = _uiState.value.session?.sessionId ?: return
         appointmentRepository.sendChatMessage(consultationId, message)
-        // Note: The message will come back via socket echo with isMe=true,
-        // so we DON'T add it locally here to avoid duplicates.
+        // Delivery is confirmed asynchronously via the socket ack flow.
     }
 
     /**
@@ -896,7 +897,9 @@ class VideoConsultationViewModel @Inject constructor(
                 while (coroutineContext.isActive) {
                     kotlinx.coroutines.delay(1500) // 1.5 Hz — 666ms per frame, low-bandwidth
                     if (!_uiState.value.isConnected) continue
-                    if (_uiState.value.connectionMode != ConsultationMode.VIDEO || !_uiState.value.isCameraEnabled) continue
+                    // Stream CV vitals only while the consultation camera is actively enabled.
+                    val cameraActivelyEnabled = _uiState.value.isCameraEnabled && _localVideoTrack.value != null
+                    if (!cameraActivelyEnabled) continue
                     
                     val cvMetrics = cvAnalyzer?.vitalsData?.value ?: ComputerVisionAnalyzer.CVMetrics()
                     val metricsAgeMs = System.currentTimeMillis() - cvMetrics.capturedAtMs
@@ -918,6 +921,9 @@ class VideoConsultationViewModel @Inject constructor(
                         putIfNotNull("pallor_score", cvMetrics.pallorScore)
                         putIfNotNull("hemoglobin_estimate", cvMetrics.hemoglobinEstimate)
                         putIfNotNull("spo2", cvMetrics.spo2)
+                        // MOD-2: Add missing CV signals that the AI service expects
+                        putIfNotNull("stress_level", cvMetrics.stressLevel)
+                        putIfNotNull("skin_condition", cvMetrics.skinCondition)
                         put("processed_at", java.time.Instant.now().toString())
                     }.toString()
 

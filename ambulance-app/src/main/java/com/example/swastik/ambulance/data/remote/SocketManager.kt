@@ -6,9 +6,12 @@ import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import okhttp3.OkHttpClient
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.inject.Named
+import com.example.swastik.ambulance.utils.CrashReporter
 
 /**
  * Socket.IO manager for ambulance real-time events.
@@ -18,7 +21,9 @@ import javax.inject.Singleton
  * Exposes [SharedFlow]s so ViewModels can observe events reactively.
  */
 @Singleton
-class SocketManager @Inject constructor() {
+class SocketManager @Inject constructor(
+    @Named("socket") private val okHttpClient: OkHttpClient
+) {
 
     private var socket: Socket? = null
     private var userId: String? = null
@@ -56,8 +61,16 @@ class SocketManager @Inject constructor() {
     private val _patientLocationFlow = MutableSharedFlow<String?>(extraBufferCapacity = 10)
     val patientLocationFlow: SharedFlow<String?> = _patientLocationFlow.asSharedFlow()
 
+    /** Emits on successful socket connection to trigger forced sync. */
+    private val _connectedFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val connectedFlow: SharedFlow<Unit> = _connectedFlow.asSharedFlow()
+
     /** Callback invoked on (re)connect — allows replaying queued actions */
     var onConnectCallback: (() -> Unit)? = null
+
+    fun notifySessionExpired() {
+        _sessionExpiredFlow.tryEmit(Unit)
+    }
 
     fun connect(token: String, id: String) {
         if (isConnected) return
@@ -72,12 +85,15 @@ class SocketManager @Inject constructor() {
                 reconnectionDelayMax = 30000 // Exponential backoff up to 30s
                 timeout = 10000
                 auth = mapOf("token" to token)
+                callFactory = okHttpClient
+                webSocketFactory = okHttpClient
             }
 
             socket = IO.socket(ApiConfig.SOCKET_URL, options)
 
             socket?.on(Socket.EVENT_CONNECT) {
                 Log.d(TAG, "Socket connected")
+                CrashReporter.log("Socket connected")
                 socket?.emit("subscribe:notifications", JSONObject().put("userId", userId))
                 // Re-join dispatch room on reconnect so driver keeps getting broadcasts
                 socket?.emit("ambulance:join-dispatch", JSONObject())
@@ -85,14 +101,17 @@ class SocketManager @Inject constructor() {
                 activeRequestId?.let { reqId -> joinTrackingRoom(reqId) }
                 // Replay any queued offline actions
                 onConnectCallback?.invoke()
+                _connectedFlow.tryEmit(Unit)
             }
 
             socket?.on(Socket.EVENT_DISCONNECT) { args ->
                 Log.d(TAG, "Socket disconnected: ${args.firstOrNull()}")
+                CrashReporter.log("Socket disconnected: ${args.firstOrNull()}")
             }
 
             socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
                 Log.e(TAG, "Socket connection error: ${args.firstOrNull()}")
+                CrashReporter.log("Socket connect error: ${args.firstOrNull()}")
                 // If connect error is auth-related, emit session expired
                 val errorMsg = args.firstOrNull()?.toString() ?: ""
                 if (errorMsg.contains("unauthorized", ignoreCase = true)
@@ -166,6 +185,7 @@ class SocketManager @Inject constructor() {
             socket?.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Socket connection failed", e)
+            CrashReporter.recordException(e, "Socket connection failed")
         }
     }
 
@@ -211,6 +231,7 @@ class SocketManager @Inject constructor() {
             socket?.emit("ambulance:location", data)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send location update", e)
+            CrashReporter.recordException(e, "Socket send location failed")
         }
     }
 
@@ -228,6 +249,7 @@ class SocketManager @Inject constructor() {
             socket?.emit("ambulance:status-update", data)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to emit status update", e)
+            CrashReporter.recordException(e, "Socket emit status failed")
         }
     }
 
@@ -254,6 +276,7 @@ class SocketManager @Inject constructor() {
             Log.d(TAG, "Joined tracking room for request: $requestId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to join tracking room", e)
+            CrashReporter.recordException(e, "Socket join tracking failed")
         }
     }
 

@@ -6,11 +6,13 @@ import com.example.swastik.ambulance.data.remote.ApiErrorParser
 import com.example.swastik.ambulance.data.remote.ApiService
 import com.example.swastik.ambulance.data.remote.SocketManager
 import com.example.swastik.ambulance.data.remote.dto.*
+import com.example.swastik.ambulance.utils.CrashReporter
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.delay
 
 @Singleton
 class AmbulanceRepository @Inject constructor(
@@ -61,16 +63,18 @@ class AmbulanceRepository @Inject constructor(
     suspend fun getDashboard(): Result<DashboardResponse> {
         return try {
             Log.d(TAG, "Fetching ambulance dashboard")
-            val response = apiService.getDashboard()
+            val response = retryWithBackoff { apiService.getDashboard() }
             if (response.isSuccessful && response.body() != null) {
                 Log.d(TAG, "Dashboard loaded with ${response.body()?.activeEmergencies?.size ?: 0} active emergencies")
                 response.body()?.let { Result.success(it) }
                     ?: Result.failure(Exception("Dashboard data was null"))
             } else {
+                CrashReporter.log("Dashboard API failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to load dashboard")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getDashboard error", e)
+            CrashReporter.recordException(e, "Dashboard fetch failed")
             Result.failure(e)
         }
     }
@@ -79,14 +83,16 @@ class AmbulanceRepository @Inject constructor(
 
     suspend fun getVehicles(): Result<List<VehicleDto>> {
         return try {
-            val response = apiService.getVehicles()
+            val response = retryWithBackoff { apiService.getVehicles() }
             if (response.isSuccessful) {
                 Result.success(response.body()?.vehicles ?: emptyList())
             } else {
+                CrashReporter.log("Vehicles API failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to load vehicles")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getVehicles error", e)
+            CrashReporter.recordException(e, "Vehicles fetch failed")
             Result.failure(e)
         }
     }
@@ -99,25 +105,29 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()?.data ?: emptyList())
             } else {
+                CrashReporter.log("History API failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to load history")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getHistory error", e)
+            CrashReporter.recordException(e, "History fetch failed")
             Result.failure(e)
         }
     }
 
     suspend fun getEmergencyById(requestId: String): Result<EmergencyDto> {
         return try {
-            val response = apiService.getRequestById(requestId)
+            val response = retryWithBackoff { apiService.getRequestById(requestId) }
             if (response.isSuccessful && response.body()?.data != null) {
                 response.body()?.data?.let { Result.success(it) }
                     ?: Result.failure(Exception("Emergency data was null"))
             } else {
+                CrashReporter.log("Emergency detail API failure: ${response.code()} request=$requestId")
                 Result.failure(Exception(ApiErrorParser.from(response, "Emergency not found")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getRequestById error", e)
+            CrashReporter.recordException(e, "Emergency detail fetch failed")
             Result.failure(e)
         }
     }
@@ -132,11 +142,13 @@ class AmbulanceRepository @Inject constructor(
                 Log.d(TAG, "Accept request succeeded request=$requestId")
                 Result.success(Unit)
             } else {
+                CrashReporter.log("Accept request failure: ${response.code()} request=$requestId")
                 val errorMsg = ApiErrorParser.from(response, "Failed to accept request")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
             Log.e(TAG, "acceptRequest error", e)
+            CrashReporter.recordException(e, "Accept request failed")
             Result.failure(e)
         }
     }
@@ -147,10 +159,12 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
+                CrashReporter.log("Reject request failure: ${response.code()} request=$requestId")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to reject request")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "rejectRequest error", e)
+            CrashReporter.recordException(e, "Reject request failed")
             Result.failure(e)
         }
     }
@@ -182,10 +196,12 @@ class AmbulanceRepository @Inject constructor(
                 Log.d(TAG, "Update request status succeeded request=$requestId status=$status")
                 Result.success(Unit)
             } else {
+                CrashReporter.log("Update status failure: ${response.code()} request=$requestId status=$status")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to update status")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "updateStatus error", e)
+            CrashReporter.recordException(e, "Update status failed")
             Result.failure(e)
         }
     }
@@ -200,10 +216,12 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
+                CrashReporter.log("Location API failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to update location")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "updateLocation API error", e)
+            CrashReporter.recordException(e, "Location update failed")
             Result.failure(e)
         }
     }
@@ -227,10 +245,12 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!)
             } else {
+                CrashReporter.log("Profile API failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to load profile")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "getProfile error", e)
+            CrashReporter.recordException(e, "Profile fetch failed")
             Result.failure(e)
         }
     }
@@ -241,10 +261,12 @@ class AmbulanceRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
+                CrashReporter.log("Profile update failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to update profile")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "updateProfile error", e)
+            CrashReporter.recordException(e, "Profile update failed")
             Result.failure(e)
         }
     }
@@ -267,10 +289,12 @@ class AmbulanceRepository @Inject constructor(
                     Result.failure(Exception("Upload succeeded but no document URL was returned"))
                 }
             } else {
+                CrashReporter.log("Upload document failure: ${response.code()}")
                 Result.failure(Exception(ApiErrorParser.from(response, "Failed to upload document")))
             }
         } catch (e: Exception) {
             Log.e(TAG, "uploadLicenseDocument error", e)
+            CrashReporter.recordException(e, "Document upload failed")
             Result.failure(e)
         }
     }
@@ -284,12 +308,37 @@ class AmbulanceRepository @Inject constructor(
                 Result.success(Unit)
             } else {
                 val msg = ApiErrorParser.from(response, "Failed to change password")
+                CrashReporter.log("Change password failure: ${response.code()}")
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {
             Log.e(TAG, "changePassword error", e)
+            CrashReporter.recordException(e, "Change password failed")
             Result.failure(e)
         }
+    }
+
+    private suspend fun <T> retryWithBackoff(
+        maxAttempts: Int = 3,
+        initialDelayMs: Long = 500,
+        factor: Double = 2.0,
+        block: suspend () -> T
+    ): T {
+        var attempt = 0
+        var delayMs = initialDelayMs
+        var lastError: Throwable? = null
+        while (attempt < maxAttempts) {
+            try {
+                return block()
+            } catch (e: Exception) {
+                lastError = e
+                attempt++
+                if (attempt >= maxAttempts) break
+                delay(delayMs)
+                delayMs = (delayMs * factor).toLong().coerceAtMost(5000L)
+            }
+        }
+        throw lastError ?: IllegalStateException("Unknown retry error")
     }
 
     companion object {

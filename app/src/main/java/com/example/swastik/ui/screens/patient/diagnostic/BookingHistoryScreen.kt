@@ -36,8 +36,8 @@ fun BookingHistoryScreen(
 ) {
     val historyState by viewModel.bookingHistoryState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Booked", "Sample Collected", "Processing", "Completed", "Cancelled")
-    val statusFilters = listOf(null, "booked", "sample_collected", "processing", "completed", "cancelled")
+    val tabs = listOf("All", "Pending", "Confirmed", "Dispatched", "Sample Collected", "Processing", "Completed", "Cancelled")
+    val statusFilters = listOf(null, "pending", "confirmed", "dispatched", "sample_collected", "processing", "completed", "cancelled")
 
     LaunchedEffect(Unit) {
         viewModel.loadBookingHistory()
@@ -182,7 +182,9 @@ private fun BookingHistoryCard(
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     val statusColor = when (booking.status) {
-        "booked" -> Color(0xFF1976D2)
+        "pending", "booked" -> Color(0xFFFB8C00)
+        "confirmed" -> Color(0xFF1976D2)
+        "dispatched" -> Color(0xFF00838F)
         "sample_collected" -> Color(0xFFFFA000)
         "processing" -> Color(0xFF7B1FA2)
         "completed" -> Color(0xFF4CAF50)
@@ -190,7 +192,9 @@ private fun BookingHistoryCard(
         else -> Color.Gray
     }
     val statusLabel = when (booking.status) {
-        "booked" -> "Booked"
+        "pending", "booked" -> "Pending"
+        "confirmed" -> "Confirmed"
+        "dispatched" -> "Dispatched"
         "sample_collected" -> "Sample Collected"
         "processing" -> "Processing"
         "completed" -> "Completed"
@@ -383,8 +387,8 @@ private fun BookingHistoryCard(
                         }
                     }
 
-                    // Cancel button (only for booked status)
-                    if (booking.status == "booked") {
+                    // Cancel button (only before collection begins)
+                    if (booking.status in setOf("pending", "booked", "confirmed")) {
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = onCancel,

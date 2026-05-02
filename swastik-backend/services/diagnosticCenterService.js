@@ -11,6 +11,26 @@ const { sanitizeSearch } = require('../utils/sanitize');
 const eventEmitter = require('./eventEmitter');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 
+const normalizeDiagnosticBookingStatus = (status) => (
+  status === 'booked' ? 'pending' : status
+);
+
+const getDiagnosticBookingStatusesForFilter = (status) => {
+  const normalizedStatus = normalizeDiagnosticBookingStatus(status);
+  if (normalizedStatus === 'pending') {
+    return ['pending', 'booked'];
+  }
+  return [normalizedStatus];
+};
+
+const normalizeDiagnosticBookingRecord = (booking) => (
+  booking ? { ...booking, status: normalizeDiagnosticBookingStatus(booking.status) } : booking
+);
+
+const normalizeDiagnosticBookingRecords = (bookings = []) => (
+  bookings.map(normalizeDiagnosticBookingRecord)
+);
+
 const buildPagination = (page, limit, total) => ({
   page,
   limit,
@@ -425,15 +445,21 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
     })
     .eq('center_id', centerId);
 
-  if (filters.status) query = query.eq('status', filters.status);
+  if (filters.status) {
+    const statusFilters = getDiagnosticBookingStatusesForFilter(filters.status);
+    query = statusFilters.length > 1
+      ? query.in('status', statusFilters)
+      : query.eq('status', statusFilters[0]);
+  }
   if (filters.resultStatus && filters.resultStatus !== 'all') query = query.eq('result_status', filters.resultStatus);
   if (filters.date) query = query.eq('booking_date', filters.date);
 
   const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) throw error;
+  const normalizedRows = normalizeDiagnosticBookingRecords(data || []);
   const searchTerm = sanitizeSearch(filters.search || '').toLowerCase();
-  const filteredData = (data || []).filter((booking) => {
+  const filteredData = normalizedRows.filter((booking) => {
     if (!searchTerm) return true;
     const patientName = String(booking?.patient?.name || booking?.patient_name || '').toLowerCase();
     const testName = String(booking?.test?.name || booking?.test_name || '').toLowerCase();
@@ -468,36 +494,46 @@ const getBookingById = async (centerId, bookingId) => {
   if (error || !data) {
     throw new ApiError(404, 'Booking not found');
   }
-  return data;
+  return normalizeDiagnosticBookingRecord(data);
 };
 
 // Valid status transitions
 const VALID_STATUS_TRANSITIONS = {
-  booked: ['sample_collected', 'cancelled'],
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['dispatched', 'sample_collected', 'cancelled'],
+  dispatched: ['sample_collected', 'cancelled'],
   sample_collected: ['processing', 'cancelled'],
   processing: ['completed', 'cancelled'],
   completed: [],
   cancelled: [],
 };
 
-// Update booking status (sample collected, completed, cancelled)
+// Update booking status (confirm, dispatch, collect sample, complete, cancel)
 const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   // Validate status transition
   const { data: current } = await supabaseAdmin
     .from('diagnostic_bookings')
-    .select('status')
+    .select('status, collection_type')
     .eq('id', bookingId)
     .eq('center_id', centerId)
     .single();
 
   if (current) {
-    const allowed = VALID_STATUS_TRANSITIONS[current.status] || [];
-    if (!allowed.includes(status)) {
-      throw new ApiError(400, `Cannot transition from '${current.status}' to '${status}'`);
+    const currentStatus = normalizeDiagnosticBookingStatus(current.status);
+    const nextStatus = normalizeDiagnosticBookingStatus(status);
+    const allowed = VALID_STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowed.includes(nextStatus)) {
+      throw new ApiError(400, `Cannot transition from '${currentStatus}' to '${nextStatus}'`);
+    }
+    if (nextStatus === 'dispatched' && current.collection_type !== 'home_collection') {
+      throw new ApiError(400, 'Only home collection bookings can be dispatched');
     }
   }
 
-  const updatePayload = { status, updated_at: new Date().toISOString() };
+  const updatePayload = {
+    status: normalizeDiagnosticBookingStatus(status),
+    updated_at: new Date().toISOString(),
+  };
 
   // Track cancellation details
   if (status === 'cancelled') {
@@ -515,16 +551,20 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
     .single();
 
   if (error) throw error;
+  const normalizedBooking = normalizeDiagnosticBookingRecord(data);
 
   // Notify patient about booking status change — resolve user_id from patients table
-  if (data.patient_id) {
-    const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
+  if (normalizedBooking.patient_id) {
+    const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', normalizedBooking.patient_id).single();
     if (patient) {
-      eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id });
+      eventEmitter.emitDiagnosticBookingStatusUpdated({
+        ...normalizedBooking,
+        patient_id: patient.user_id,
+      });
     }
   }
 
-  return data;
+  return normalizedBooking;
 };
 
 // Upload test result
@@ -656,7 +696,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
       collection_type: bookingData.collectionType || bookingData.collection_type || 'walk_in',
       collection_address: bookingData.collectionAddress || bookingData.collection_address || null,
       notes: bookingData.notes || null,
-      status: 'booked',
+      status: 'pending',
       result_status: 'pending',
     })
     .select('*, test:diagnostic_tests(name, category, price)')
@@ -665,7 +705,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
   if (error) throw error;
 
   // Note: Socket event emission is handled by the route (which has user_id context)
-  return data;
+  return normalizeDiagnosticBookingRecord(data);
 };
 
 // DC5: Resolve patient ID from user ID (extracted from route handler)
