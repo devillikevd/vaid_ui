@@ -40,6 +40,7 @@ import com.example.swastik.ui.screens.patient.vitals.VitalsRemindersScreen
 import com.example.swastik.ui.theme.SwastikTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.flow.collectLatest
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -96,6 +97,15 @@ fun SwastikApp(tokenManager: TokenManager) {
             else -> "en"
         }
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
+    }
+
+    LaunchedEffect(tokenManager, navController) {
+        tokenManager.sessionExpired.collectLatest {
+            navController.navigate(Screen.PatientLogin.route) {
+                launchSingleTop = true
+                popUpTo(0) { inclusive = true }
+            }
+        }
     }
 
     SwastikTheme(darkTheme = darkTheme) {

@@ -571,20 +571,20 @@ const notifyProviderStatusChange = async ({ provider, type, status, notes = '' }
   const cfg = statusConfig[status];
   if (!cfg) return;
 
-  try {
-    await notificationService.sendNotification(userId, {
-      title: cfg.title,
-      message: cfg.message,
-      type: 'system',
-      data: { providerId: provider.id, providerType: type, action: status },
-    });
-  } catch (err) {
+  // Keep provider approval transitions responsive even when downstream
+  // notification/email providers are slow or degraded.
+  void notificationService.sendNotification(userId, {
+    title: cfg.title,
+    message: cfg.message,
+    type: 'system',
+    data: { providerId: provider.id, providerType: type, action: status },
+  }).catch((err) => {
     console.warn(`[Admin] Failed to send ${status} notification:`, err.message);
-  }
+  });
 
   if (!cfg.emailStatus) return;
 
-  try {
+  void (async () => {
     const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('email, name, role')
@@ -601,9 +601,9 @@ const notifyProviderStatusChange = async ({ provider, type, status, notes = '' }
       cfg.emailStatus,
       notes
     );
-  } catch (err) {
+  })().catch((err) => {
     console.warn(`[Admin] Failed to send ${status} email:`, err.message);
-  }
+  });
 };
 
 const auditProviderTransition = async ({ adminId, type, providerId, action, before, after, notes }) => {

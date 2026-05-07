@@ -21,7 +21,8 @@ import kotlin.concurrent.withLock
  */
 @Singleton
 class AuthInterceptor @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val socketManager: SocketManager
 ) : Interceptor {
 
     private val refreshLock = ReentrantLock()
@@ -92,6 +93,7 @@ class AuthInterceptor @Inject constructor(
     private fun performTokenRefresh(chain: Interceptor.Chain, originalRequest: okhttp3.Request): String? {
         val refreshToken = tokenManager.refreshToken
         if (refreshToken.isNullOrEmpty()) {
+            socketManager.disconnect()
             tokenManager.clearAll(emitSessionExpired = true)
             return null
         }
@@ -125,17 +127,23 @@ class AuthInterceptor @Inject constructor(
 
                 if (newAccessToken.isNotEmpty()) {
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
+                    if (socketManager.isConnected) {
+                        socketManager.reconnect()
+                    }
                     newAccessToken
                 } else {
+                    socketManager.disconnect()
                     tokenManager.clearAll(emitSessionExpired = true)
                     null
                 }
             } else {
                 refreshResponse.close()
+                socketManager.disconnect()
                 tokenManager.clearAll(emitSessionExpired = true)
                 null
             }
         } catch (_: Exception) {
+            socketManager.disconnect()
             tokenManager.clearAll(emitSessionExpired = true)
             null
         }

@@ -159,6 +159,7 @@ class SocketManager @Inject constructor(
     private var socket: Socket? = null
     // Use centrally-derived socket URL (safe URI parsing in ApiConfig)
     private val SOCKET_URL = ApiConfig.SOCKET_URL
+    val isConnected: Boolean get() = socket?.connected() == true
 
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -233,6 +234,21 @@ class SocketManager @Inject constructor(
     private fun JSONObject.optNullableString(key: String): String? {
         if (!has(key) || isNull(key)) return null
         return optString(key)
+    }
+
+    private fun extractSocketErrorMessage(payload: Any?): String {
+        return when (payload) {
+            null -> ""
+            is JSONObject -> payload.optString("message", payload.toString())
+            is Throwable -> payload.message ?: payload.toString()
+            else -> payload.toString()
+        }
+    }
+
+    private fun invalidateSession(reason: String) {
+        Log.w(TAG, reason)
+        disconnect()
+        tokenManager.clearAll(emitSessionExpired = true)
     }
 
     private fun emitChatMessage(data: JSONObject, forceIsMe: Boolean? = null) {
@@ -324,19 +340,21 @@ class SocketManager @Inject constructor(
         }
 
         socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            val errorMsg = args.firstOrNull()?.toString() ?: ""
+            val errorMsg = extractSocketErrorMessage(args.firstOrNull())
             Log.e(TAG, "Socket connect error: $errorMsg")
             // If connect error is auth-related, treat as session expired
             if (errorMsg.contains("token", ignoreCase = true) ||
                 errorMsg.contains("unauthorized", ignoreCase = true) ||
-                errorMsg.contains("jwt", ignoreCase = true)) {
-                Log.w(TAG, "Auth-related socket error — session may be expired")
+                errorMsg.contains("jwt", ignoreCase = true) ||
+                errorMsg.contains("authentication", ignoreCase = true) ||
+                errorMsg.contains("expired", ignoreCase = true)) {
+                invalidateSession("Auth-related socket error — clearing patient session")
             }
         }
 
         // Listen for force-logout from backend (session ended / user deactivated)
         socket?.on("auth:force-logout") { _ ->
-            Log.w(TAG, "Force logout received from server — session invalidated")
+            invalidateSession("Force logout received from server — session invalidated")
         }
 
         // Listen for token expired error from backend
@@ -345,8 +363,14 @@ class SocketManager @Inject constructor(
                 val data = args.firstOrNull()
                 if (data is JSONObject) {
                     val code = data.optString("code", "")
-                    if (code == "TOKEN_EXPIRED" || code == "ACCOUNT_REMOVED") {
-                        Log.w(TAG, "Token expired/account removed — need to re-authenticate")
+                    if (code == "TOKEN_EXPIRED" || code == "ACCOUNT_REMOVED" || code == "ACCOUNT_DEACTIVATED") {
+                        invalidateSession("Realtime session rejected by backend ($code)")
+                    }
+                } else {
+                    val errorMsg = extractSocketErrorMessage(data)
+                    if (errorMsg.contains("token", ignoreCase = true) ||
+                        errorMsg.contains("expired", ignoreCase = true)) {
+                        invalidateSession("Realtime session rejected by backend: $errorMsg")
                     }
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing socket error event", e) }
@@ -730,6 +754,13 @@ class SocketManager @Inject constructor(
         scope.cancel()
         // Recreate scope so singleton can be reused after re-login
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
+    fun reconnect() {
+        socket?.off()
+        socket?.disconnect()
+        socket = null
+        connect()
     }
     
     fun getSocket(): Socket? = socket // Added back for legacy support if needed

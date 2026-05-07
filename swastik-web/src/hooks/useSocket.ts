@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { vitalsApi } from '@/lib/api';
+import { PUBLIC_AI_WS_URL, PUBLIC_SOCKET_URL } from '@/lib/env';
 import { useAuthStore } from '@/stores/authStore';
 
 // Socket.IO event types
@@ -120,7 +121,7 @@ export interface PrescriptionUpdate {
 }
 
 // Socket connection options
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001';
+const SOCKET_URL = PUBLIC_SOCKET_URL;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SocketListener = (...args: any[]) => void;
 
@@ -1100,7 +1101,7 @@ export function useVitalsStream(
             params.set('last_id', lastMessageIdRef.current);
         }
         const query = params.toString();
-        const baseUrl = (process.env.NEXT_PUBLIC_AI_WS_URL || 'ws://localhost:8000').replace(/^http/, 'ws').replace(/\/$/, '');
+        const baseUrl = PUBLIC_AI_WS_URL.replace(/^http/, 'ws').replace(/\/$/, '');
         const wsUrl = `${baseUrl}/ws/vitals/${sessionId}/${role}${query ? `?${query}` : ''}`;
 
         const ws = new WebSocket(wsUrl);

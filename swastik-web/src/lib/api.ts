@@ -1,10 +1,12 @@
+import { PUBLIC_API_URL } from './env';
+
 /**
  * Swastik Healthcare Platform - Centralized API Client
  * All web portal API communication goes through this module.
  * Every store MUST use these functions instead of raw fetch().
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+export const API_BASE_URL = PUBLIC_API_URL;
 
 // ==================== Types ====================
 
@@ -251,8 +253,9 @@ export const authApi = {
         const data = await response.json();
         const token = data.data?.accessToken || data.accessToken;
         const rToken = data.data?.refreshToken || data.refreshToken;
+        const userRole = data.data?.user?.role || data.user?.role || role || null;
         if (response.ok && token) {
-            setTokens(token, rToken);
+            setTokens(token, rToken, { role: userRole });
         }
         return data;
     },

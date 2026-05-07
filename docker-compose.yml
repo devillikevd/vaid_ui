@@ -1,10 +1,22 @@
-# Docker Compose for SWASTIK Healthcare Platform
-# Usage: docker-compose up -d
-
-version: '3.8'
+# ═══════════════════════════════════════════════════════════════════
+# SWASTIK Healthcare Platform — Docker Compose
+# ═══════════════════════════════════════════════════════════════════
+#
+# Profiles:
+#   default  → backend + ai-service + web + redis + minio  (local dev)
+#   full     → adds MongoDB (if not using Atlas)
+#   production → adds Nginx reverse proxy with SSL
+#
+# Usage:
+#   docker compose up -d                        # local dev stack
+#   docker compose --profile full up -d         # + local MongoDB
+#   docker compose --profile production up -d   # + Nginx SSL proxy
+#
+# ═══════════════════════════════════════════════════════════════════
 
 services:
-  # ==================== BACKEND API ====================
+
+  # ==================== NODE.JS BACKEND API ====================
   backend:
     build:
       context: ./swastik-backend
@@ -13,52 +25,30 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=5001
       - AI_SERVICE_URL=http://ai-service:8000
       - REDIS_URL=redis://redis:6379
     env_file:
       - ./swastik-backend/.env
     depends_on:
-      - minio
-      - redis
-      - ai-service
-    volumes:
-      - ./swastik-backend:/app
-      - /app/node_modules
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
     networks:
       - swastik-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
-  # ==================== WEB PORTAL ====================
-  web:
-    build:
-      context: ./swastik-web
-      dockerfile: Dockerfile
-    container_name: swastik-web
-    ports:
-      - "3000:3000"
-    environment:
-      # NEXT_PUBLIC_ vars are baked into client bundle → must be browser-accessible
-      - NEXT_PUBLIC_API_URL=http://localhost:5001/api
-      - NEXT_PUBLIC_SOCKET_URL=http://localhost:5001
-      - NEXT_PUBLIC_AI_WS_URL=ws://localhost:8000
-      # Internal URL for server-side rendering (SSR) inside Docker network
-      - API_URL_INTERNAL=http://backend:5001/api
-    env_file:
-      - ./swastik-web/.env.local
-    depends_on:
-      - backend
-      - ai-service
-    volumes:
-      - ./swastik-web:/app
-      - /app/node_modules
-      - /app/.next
-    networks:
-      - swastik-network
-    restart: unless-stopped
-
-  # ==================== AI SERVICE (FastAPI) ====================
+  # ==================== PYTHON AI SERVICE (FastAPI) ====================
   ai-service:
     build:
       context: ./swastik-ai-service
@@ -68,6 +58,7 @@ services:
       - "8000:8000"
     environment:
       - AI_SERVICE_PORT=8000
+      - AI_SERVICE_WORKERS=2
       - BACKEND_URL=http://backend:5001
       - REDIS_URL=redis://redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-}
@@ -77,11 +68,61 @@ services:
       - MONGODB_URI=${MONGODB_URI:-}
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-swastik_healthcare}
     depends_on:
-      - redis
-    volumes:
-      - ./swastik-ai-service:/app
+      redis:
+        condition: service_healthy
     networks:
       - swastik-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # ==================== NEXT.JS WEB PORTAL ====================
+  web:
+    build:
+      context: ./swastik-web
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5001/api
+        - NEXT_PUBLIC_SOCKET_URL=http://localhost:5001
+    container_name: swastik-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - swastik-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+
+  # ==================== REDIS ====================
+  redis:
+    image: redis:7-alpine
+    container_name: swastik-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - swastik-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # ==================== MINIO (Object Storage) ====================
@@ -100,32 +141,14 @@ services:
     networks:
       - swastik-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
-      timeout: 20s
+      timeout: 10s
       retries: 3
     restart: unless-stopped
 
-  # ==================== REDIS (Caching/Sessions) ====================
-  # Used by backend + AI service for shared live vitals streams
-  redis:
-    image: redis:7-alpine
-    container_name: swastik-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - swastik-network
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # ==================== MONGODB (High-volume data) ====================
-  # Optional: Use if not using MongoDB Atlas
+  # ==================== MONGODB (Optional) ====================
+  # Use only if NOT using MongoDB Atlas
   mongodb:
     image: mongo:7
     container_name: swastik-mongodb
@@ -148,7 +171,8 @@ services:
     profiles:
       - full
 
-  # ==================== NGINX (Reverse Proxy) ====================
+  # ==================== NGINX (Reverse Proxy + SSL) ====================
+  # Used in production for HTTPS termination
   nginx:
     image: nginx:alpine
     container_name: swastik-nginx
@@ -159,8 +183,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
-      - web
+      backend:
+        condition: service_healthy
+      web:
+        condition: service_healthy
     networks:
       - swastik-network
     restart: unless-stopped
@@ -172,9 +198,9 @@ networks:
     driver: bridge
 
 volumes:
-  minio_data:
-    driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local
   mongodb_data:
     driver: local

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
+import { API_BASE_URL } from '@/lib/api';
 import {
   Activity,
   AlertTriangle,
@@ -18,8 +19,6 @@ import {
   Stethoscope,
   User,
 } from 'lucide-react';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 interface DoctorSummary {
   name: string;
