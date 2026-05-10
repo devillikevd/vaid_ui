@@ -52,9 +52,12 @@ interface HealthAlertsViewProps {
     title: string;
     subtitle: string;
     accentColor: string;
-    fetchAlerts: (city?: string) => Promise<{ success: boolean; alerts?: OutbreakAlert[]; summary?: Record<string, number> }>;
-    fetchHeatmap: () => Promise<{ success: boolean; data?: HeatmapPoint[] }>;
-    fetchStats: (days: number) => Promise<{ success: boolean; data?: OutbreakStats }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchAlerts: (city?: string) => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchHeatmap: () => Promise<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fetchStats: (days: number) => Promise<any>;
 }
 
 export default function HealthAlertsView({ title, subtitle, accentColor, fetchAlerts, fetchHeatmap, fetchStats }: HealthAlertsViewProps) {

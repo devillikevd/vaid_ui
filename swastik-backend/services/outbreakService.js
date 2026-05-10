@@ -184,14 +184,17 @@ async function runOutbreakAnalysis() {
         currentGroups[key] = {
           city: e.city, state: e.state, eventType: e.event_type,
           count: 0, ageGroups: {}, genderDist: {},
-          latSum: 0, lonSum: 0, coordCount: 0,
+          latSum: 0, lonSum: 0, coordCount: 0, coords: [],
         };
       }
       const g = currentGroups[key];
       g.count++;
       g.ageGroups[e.patient_age_group || 'unknown'] = (g.ageGroups[e.patient_age_group || 'unknown'] || 0) + 1;
       g.genderDist[e.patient_gender || 'unknown'] = (g.genderDist[e.patient_gender || 'unknown'] || 0) + 1;
-      if (e.latitude && e.longitude) { g.latSum += e.latitude; g.lonSum += e.longitude; g.coordCount++; }
+      if (e.latitude && e.longitude) { 
+        g.latSum += e.latitude; g.lonSum += e.longitude; g.coordCount++; 
+        g.coords.push({ lat: e.latitude, lon: e.longitude });
+      }
     }
 
     // 2. Get baseline events for same groupings
@@ -237,10 +240,36 @@ async function runOutbreakAnalysis() {
       // Z-score (prevent division by zero — use 1 if stddev is 0)
       const z = stddev > 0 ? (dailyCurrent - mean) / stddev : (dailyCurrent > mean ? dailyCurrent - mean : 0);
 
+      // Check for Geographic Clustering (Hotspots)
+      // If all cases are tightly clustered within a small radius, it's a stronger outbreak signal
+      let spatialMultiplier = 1.0;
+      let clusterRadiusKm = null;
+      
+      const avgLat = group.coordCount > 0 ? group.latSum / group.coordCount : null;
+      const avgLon = group.coordCount > 0 ? group.lonSum / group.coordCount : null;
+
+      if (group.coordCount > 2) {
+        let maxDist = 0;
+        for (const coord of group.coords) {
+          const dLat = (coord.lat - avgLat) * 111; // 1 degree latitude = ~111km
+          const dLon = (coord.lon - avgLon) * 111 * Math.cos(avgLat * (Math.PI / 180));
+          const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+          if (dist > maxDist) maxDist = dist;
+        }
+        clusterRadiusKm = maxDist;
+        
+        // If tightly clustered within a 5km radius, boost the z-score by 50%
+        if (clusterRadiusKm < 5.0) spatialMultiplier = 1.5;
+        // If within 10km radius, boost by 20%
+        else if (clusterRadiusKm < 10.0) spatialMultiplier = 1.2;
+      }
+
+      const finalZScore = z * spatialMultiplier;
+
       let severity = null;
-      if (z >= 4.0 || group.count >= 30) severity = 'critical';
-      else if (z >= 3.0 || group.count >= 15) severity = 'warning';
-      else if (z >= 2.0 || group.count >= 8) severity = 'watch';
+      if (finalZScore >= 4.0 || group.count >= 30) severity = 'critical';
+      else if (finalZScore >= 3.0 || group.count >= 15) severity = 'warning';
+      else if (finalZScore >= 2.0 || group.count >= 8) severity = 'watch';
 
       if (!severity) continue;
 
@@ -253,9 +282,6 @@ async function runOutbreakAnalysis() {
         .in('status', ['active', 'monitoring'])
         .single();
 
-      const avgLat = group.coordCount > 0 ? group.latSum / group.coordCount : null;
-      const avgLon = group.coordCount > 0 ? group.lonSum / group.coordCount : null;
-
       // Generate recommendation
       const recommendations = generateRecommendation(group.eventType, severity, group.city, group.count);
 
@@ -264,7 +290,7 @@ async function runOutbreakAnalysis() {
         const updates = {
           event_count: group.count,
           baseline_count: Math.round(mean * windowDays),
-          deviation_score: Math.round(z * 100) / 100,
+          deviation_score: Math.round(finalZScore * 100) / 100,
           age_groups: group.ageGroups,
           gender_distribution: group.genderDist,
           recommendations,

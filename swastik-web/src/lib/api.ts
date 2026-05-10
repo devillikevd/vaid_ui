@@ -896,6 +896,15 @@ export const clinicApi = {
             method: 'PUT',
             body: JSON.stringify(schedule),
         }),
+
+    // ── Outbreak Alerts (read-only) ──
+    getOutbreakAlerts: (city?: string) => {
+        const params = new URLSearchParams();
+        if (city) params.set('city', city);
+        return fetchWithAuth(`/admin/outbreaks/public/alerts?${params}`);
+    },
+    getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
+    getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
 };
 
 // ==================== DIAGNOSTIC CENTER API ====================
