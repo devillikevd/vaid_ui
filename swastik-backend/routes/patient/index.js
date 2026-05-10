@@ -99,6 +99,15 @@ router.get('/dashboard',
   })
 );
 
+// Get health alerts for patient's area (outbreak warnings)
+router.get('/health-alerts',
+  asyncHandler(async (req, res) => {
+    const { getPatientHealthAlerts } = require('../../services/outbreakService');
+    const alerts = await getPatientHealthAlerts(req.user.id, req.query.city, req.query.latitude, req.query.longitude);
+    res.json({ success: true, data: alerts });
+  })
+);
+
 // ============ VITALS ============
 
 // Get own vitals history

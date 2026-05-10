@@ -40,6 +40,8 @@ const diagnosticCenterRoutes = require('./routes/diagnosticCenter');
 const uploadRoutes = require('./routes/uploads');
 const healthCardRoutes = require('./routes/healthCard');
 const vitalsRoutes = require('./routes/vitals');
+const outbreakRoutes = require('./routes/outbreak');
+const { startOutbreakCron } = require('./services/outbreakService');
 
 // Create Express app
 const app = express();
@@ -302,6 +304,7 @@ app.use('/api/diagnostic-centers', diagnosticCenterRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/health-card', healthCardRoutes);
 app.use('/api/vitals', vitalsRoutes);
+app.use('/api/admin/outbreaks', outbreakRoutes);
 
 // Error handling
 app.use(notFound);
@@ -337,6 +340,8 @@ const startServer = async () => {
       startConsultationTimeoutCron();
       // Start patient reminder notification cron
       startReminderNotificationCron();
+      // Start disease outbreak detection cron (runs every 6 hours)
+      startOutbreakCron(6);
       console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║

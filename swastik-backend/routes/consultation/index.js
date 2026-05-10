@@ -4,6 +4,7 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const consultationService = require('../../services/consultationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { recordHealthEvent } = require('../../services/outbreakService');
 const { CONSULTATION_ROLE_POLICY } = require('../../config/accessPolicy');
 
 const router = express.Router();
@@ -130,6 +131,17 @@ router.post('/:id/prescription',
       req.params.id,
       req.body
     );
+
+    // Fire-and-forget: record health signal for outbreak detection
+    if (prescription.diagnosis || req.body.diagnosis) {
+      recordHealthEvent({
+        source: 'prescription', sourceId: prescription.id,
+        diagnosisText: prescription.diagnosis || req.body.diagnosis,
+        rawText: [prescription.diagnosis, req.body.diagnosis, req.body.notes].filter(Boolean).join(' '),
+        patientId: prescription.patient_id,
+      }).catch(() => {});
+    }
+
     res.status(201).json({ success: true, data: prescription });
   })
 );

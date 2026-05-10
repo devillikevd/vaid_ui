@@ -4,6 +4,7 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const appointmentService = require('../../services/appointmentService');
 const { asyncHandler } = require('../../middleware/errorHandler');
+const { recordHealthEvent } = require('../../services/outbreakService');
 
 const router = express.Router();
 
@@ -54,6 +55,17 @@ router.post('/',
     // Normalize: 'in_person' is an alias for 'clinic' — store consistently
     if (req.body.type === 'in_person') req.body.type = 'clinic';
     const appointment = await appointmentService.bookAppointment(req.user.id, req.body);
+
+    // Fire-and-forget: record health signal for outbreak detection
+    if (appointment.symptoms || appointment.reason) {
+      recordHealthEvent({
+        source: 'appointment', sourceId: appointment.id,
+        rawText: [appointment.symptoms, appointment.reason, appointment.reason_for_visit].filter(Boolean).join(' '),
+        patientId: appointment.patient_id,
+        city: req.body.city, state: req.body.state, pincode: req.body.pincode,
+      }).catch(() => {});
+    }
+
     res.status(201).json({ success: true, data: appointment });
   })
 );

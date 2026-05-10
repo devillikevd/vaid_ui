@@ -12,6 +12,7 @@ import {
     ClipboardList,
     Activity,
     MailCheck,
+    Radar,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -34,6 +35,7 @@ const DOCTOR_CONFIG: DashboardConfig = {
         { name: 'Patients', href: '/doctor/patients', icon: Users },
         { name: 'Invites', href: '/doctor/invites', icon: MailCheck },
         { name: 'Vitals', href: '/doctor/vitals', icon: Activity },
+        { name: 'Health Alerts', href: '/doctor/health-alerts', icon: Radar },
         { name: 'Schedule', href: '/doctor/schedule', icon: Clock },
         { name: 'Settings', href: '/doctor/settings', icon: Settings },
     ],

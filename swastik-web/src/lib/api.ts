@@ -460,6 +460,36 @@ export const adminApi = {
         if (filters.search?.trim()) params.set('search', filters.search.trim());
         return fetchWithAuth(`/admin/compliance/documents?${params}`);
     },
+
+    // ── Outbreak Detection ──
+
+    getOutbreaks: (filters?: { status?: string; severity?: string; city?: string; page?: number; limit?: number }) => {
+        const params = new URLSearchParams({
+            page: String(filters?.page ?? 1),
+            limit: String(filters?.limit ?? 20),
+        });
+        if (filters?.status) params.set('status', filters.status);
+        if (filters?.severity) params.set('severity', filters.severity);
+        if (filters?.city) params.set('city', filters.city);
+        return fetchWithAuth(`/admin/outbreaks?${params}`);
+    },
+
+    getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/heatmap'),
+
+    getOutbreakStats: (days: number = 30) =>
+        fetchWithAuth(`/admin/outbreaks/stats?days=${days}`),
+
+    getOutbreakDetails: (id: string) =>
+        fetchWithAuth(`/admin/outbreaks/${id}`),
+
+    updateOutbreakStatus: (id: string, status: string, notes?: string) =>
+        fetchWithAuth(`/admin/outbreaks/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, notes }),
+        }),
+
+    triggerOutbreakAnalysis: () =>
+        fetchWithAuth('/admin/outbreaks/analyze', { method: 'POST' }),
 };
 
 // ==================== DOCTOR API ====================
@@ -548,6 +578,15 @@ export const doctorApi = {
             method: 'PUT',
             body: JSON.stringify(settings),
         }),
+
+    // ── Outbreak Alerts (read-only) ──
+    getOutbreakAlerts: (city?: string) => {
+        const params = new URLSearchParams();
+        if (city) params.set('city', city);
+        return fetchWithAuth(`/admin/outbreaks/public/alerts?${params}`);
+    },
+    getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
+    getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
 };
 
 // ==================== HOSPITAL API ====================
@@ -678,6 +717,15 @@ export const hospitalApi = {
 
     deleteDepartment: (departmentId: string) =>
         fetchWithAuth(`/hospital-manager/departments/${departmentId}`, { method: 'DELETE' }),
+
+    // ── Outbreak Alerts (read-only) ──
+    getOutbreakAlerts: (city?: string) => {
+        const params = new URLSearchParams();
+        if (city) params.set('city', city);
+        return fetchWithAuth(`/admin/outbreaks/public/alerts?${params}`);
+    },
+    getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
+    getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
 };
 
 // ==================== PHARMACY API ====================

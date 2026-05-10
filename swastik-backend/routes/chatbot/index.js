@@ -20,6 +20,7 @@ const { authenticate } = require('../../middleware/auth');
 const chatbotService = require('../../services/chatbotServiceV2');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { uploadAny } = require('../../middleware/upload');
+const { recordHealthEvent } = require('../../services/outbreakService');
 
 const router = express.Router();
 
@@ -58,6 +59,13 @@ router.post('/message',
       message,
       { messageType, language }
     );
+
+    // Fire-and-forget: record health signal for outbreak detection
+    recordHealthEvent({
+      source: 'chatbot', sourceId: sessionId,
+      rawText: message,
+      patientId: req.user.id,
+    }).catch(() => {});
 
     res.json({ success: true, data: result });
   })
@@ -176,6 +184,13 @@ router.post('/analyze-symptoms',
         seek_immediate_care: urgency === 'emergency' || urgency === 'urgent',
       },
     });
+
+    // Fire-and-forget: record health signal for outbreak detection
+    recordHealthEvent({
+      source: 'chatbot',
+      rawText: rawSymptoms,
+      patientId: req.user.id,
+    }).catch(() => {});
   })
 );
 

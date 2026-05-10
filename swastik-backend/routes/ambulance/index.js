@@ -19,6 +19,7 @@ const ambulanceService = require('../../services/ambulanceService');
 const dispatchService = require('../../services/dispatchService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
+const { recordHealthEvent } = require('../../services/outbreakService');
 
 const router = express.Router();
 
@@ -84,6 +85,15 @@ router.post('/request/sos', authenticate,
   validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.requestSOS(req.user.id, req.body);
+
+    // Fire-and-forget: record health signal for outbreak detection
+    recordHealthEvent({
+      source: 'emergency', sourceId: result.id || result.requestId,
+      rawText: [req.body.emergencyType, req.body.symptoms, req.body.description, req.body.patientCondition].filter(Boolean).join(' '),
+      patientId: result.patient_id,
+      latitude: req.body.latitude, longitude: req.body.longitude,
+    }).catch(() => {});
+
     res.status(201).json({ success: true, data: result });
   })
 );

@@ -13,6 +13,7 @@ import {
     UserCog,
     Pill,
     Microscope,
+    Radar,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -38,6 +39,7 @@ const HOSPITAL_CONFIG: DashboardConfig = {
         { name: 'Emergency', href: '/hospital/emergency', icon: AlertTriangle },
         { name: 'Managers', href: '/hospital/managers', icon: UserCog },
         { name: 'Reports', href: '/hospital/reports', icon: BarChart3 },
+        { name: 'Health Alerts', href: '/hospital/health-alerts', icon: Radar },
         { name: 'Settings', href: '/hospital/settings', icon: Settings },
     ],
 };
