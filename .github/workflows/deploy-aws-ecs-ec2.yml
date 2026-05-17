@@ -102,7 +102,28 @@ jobs:
             ${{ steps.names.outputs.ai_image }}
             ${{ steps.names.outputs.ai_latest }}
 
+      - name: Check ECS service
+        id: service
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status="$(aws ecs describe-services \
+            --cluster "${{ steps.names.outputs.cluster }}" \
+            --services "${{ steps.names.outputs.service }}" \
+            --query 'services[0].status' \
+            --output text 2>/dev/null || true)"
+
+          if [[ "${status}" == "ACTIVE" ]]; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "ECS service exists; continuing with deployment."
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "ECS service does not exist yet; images were pushed and service update is skipped."
+          fi
+
       - name: Register new ECS task definition
+        if: steps.service.outputs.exists == 'true'
         id: taskdef
         shell: bash
         env:
@@ -149,6 +170,7 @@ jobs:
           echo "task_definition=${new_task_def}" >> "${GITHUB_OUTPUT}"
 
       - name: Update ECS service
+        if: steps.service.outputs.exists == 'true'
         shell: bash
         run: |
           aws ecs update-service \
