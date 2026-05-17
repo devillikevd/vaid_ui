@@ -77,6 +77,9 @@ jobs:
           JWT_SECRET: ci-test-jwt-secret
           JWT_ACCESS_SECRET: ci-test-access-secret
           JWT_REFRESH_SECRET: ci-test-refresh-secret
+          SUPABASE_URL: https://ci-test.supabase.co
+          SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
         run: |
           npm ci
           npm test -- --runInBand
