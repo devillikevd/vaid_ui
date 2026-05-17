@@ -123,10 +123,10 @@ android {
             // Keep release APKs on the production API. Debug/staging can still
             // use API_BASE_URL from local.properties for local device testing.
             val releaseApiUrl = localOrEnvProperty("RELEASE_API_BASE_URL") ?: "https://api.vaididea.in/api/"
-            val releaseAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
-            val releaseTurnUrl = localBuildProperty("TURN_URL") ?: ""
-            val releaseTurnUsername = localBuildProperty("TURN_USERNAME") ?: ""
-            val releaseTurnCredential = localBuildProperty("TURN_CREDENTIAL") ?: ""
+            val releaseAiWsUrl = localOrEnvProperty("AI_WS_BASE_URL") ?: ""
+            val releaseTurnUrl = localOrEnvProperty("TURN_URL") ?: ""
+            val releaseTurnUsername = localOrEnvProperty("TURN_USERNAME") ?: ""
+            val releaseTurnCredential = localOrEnvProperty("TURN_CREDENTIAL") ?: ""
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiUrl\"")
             buildConfigField("String", "AI_WS_BASE_URL", "\"$releaseAiWsUrl\"")
             buildConfigField("String", "TURN_URL", "\"$releaseTurnUrl\"")
