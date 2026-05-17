@@ -72,6 +72,11 @@ jobs:
 
       - name: Backend tests
         working-directory: swastik-backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-jwt-secret
+          JWT_ACCESS_SECRET: ci-test-access-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret
         run: |
           npm ci
           npm test -- --runInBand
