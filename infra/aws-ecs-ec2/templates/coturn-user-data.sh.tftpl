@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable --now docker
+
+mkdir -p /opt/coturn
+
+cat > /opt/coturn/turnserver.conf <<'EOF'
+listening-port=3478
+min-port=${turn_min_port}
+max-port=${turn_max_port}
+fingerprint
+lt-cred-mech
+realm=${turn_realm}
+server-name=${turn_realm}
+user=${turn_username}:${turn_password}
+total-quota=${turn_total_quota}
+stale-nonce=600
+no-cli
+no-tls
+no-dtls
+no-multicast-peers
+no-loopback-peers
+log-file=stdout
+simple-log
+EOF
+
+PUBLIC_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+if [ -n "$PUBLIC_IP" ]; then
+  echo "external-ip=$PUBLIC_IP" >> /opt/coturn/turnserver.conf
+fi
+
+docker rm -f coturn || true
+docker run -d \
+  --name coturn \
+  --network host \
+  --restart unless-stopped \
+  -v /opt/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
+  coturn/coturn:4.6 \
+  -c /etc/coturn/turnserver.conf

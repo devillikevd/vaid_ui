@@ -78,7 +78,7 @@ export default function HomePage() {
               <Heart className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">SWASTIK</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">VAIDIDEA</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">Healthcare Platform</p>
             </div>
           </div>
@@ -132,14 +132,14 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="py-8 px-4 mt-12 border-t border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto text-center text-gray-500 dark:text-gray-400 text-sm">
-          <p>© {new Date().getFullYear()} Swastik Healthcare. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} VAIDIDEA Healthcare. All rights reserved.</p>
           <p className="mt-2">
             {/* BUG-18 Fix: Make footer links interactive */}
             <a href="/privacy-policy" className="hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline">Privacy Policy</a>
             {' · '}
             <a href="/terms-of-service" className="hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline">Terms of Service</a>
             {' · '}
-            <a href="mailto:support@swastik.health" className="hover:text-gray-700 dark:text-gray-300">Contact Support</a>
+            <a href="mailto:support@vaididea.in" className="hover:text-gray-700 dark:text-gray-300">Contact Support</a>
           </p>
         </div>
       </footer>

@@ -8,6 +8,6 @@
     </domain-config>
     <!-- Production -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">swastik.health</domain>
+        <domain includeSubdomains="true">vaididea.in</domain>
     </domain-config>
 </network-security-config>

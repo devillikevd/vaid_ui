@@ -188,8 +188,8 @@ fun SwastikApp(tokenManager: TokenManager) {
                 }
             ),
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://dashboard" },
-                navDeepLink { uriPattern = "https://swastik.health/dashboard" }
+                navDeepLink { uriPattern = "vaididea://dashboard" },
+                navDeepLink { uriPattern = "https://vaididea.in/dashboard" }
             )
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
@@ -273,8 +273,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.AppointmentHistory.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://appointments" },
-                navDeepLink { uriPattern = "https://swastik.health/appointments" }
+                navDeepLink { uriPattern = "vaididea://appointments" },
+                navDeepLink { uriPattern = "https://vaididea.in/appointments" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -442,8 +442,8 @@ fun SwastikApp(tokenManager: TokenManager) {
                 navArgument("medicineId") { type = NavType.StringType }
             ),
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://medicine/{medicineId}" },
-                navDeepLink { uriPattern = "https://swastik.health/medicine/{medicineId}" }
+                navDeepLink { uriPattern = "vaididea://medicine/{medicineId}" },
+                navDeepLink { uriPattern = "https://vaididea.in/medicine/{medicineId}" }
             )
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
@@ -480,8 +480,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.Reports.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://reports" },
-                navDeepLink { uriPattern = "https://swastik.health/reports" }
+                navDeepLink { uriPattern = "vaididea://reports" },
+                navDeepLink { uriPattern = "https://vaididea.in/reports" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -494,8 +494,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.Prescriptions.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://prescriptions" },
-                navDeepLink { uriPattern = "https://swastik.health/prescriptions" }
+                navDeepLink { uriPattern = "vaididea://prescriptions" },
+                navDeepLink { uriPattern = "https://vaididea.in/prescriptions" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -509,8 +509,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.Chatbot.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://chatbot" },
-                navDeepLink { uriPattern = "https://swastik.health/chatbot" }
+                navDeepLink { uriPattern = "vaididea://chatbot" },
+                navDeepLink { uriPattern = "https://vaididea.in/chatbot" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -524,8 +524,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.Emergency.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://emergency" },
-                navDeepLink { uriPattern = "https://swastik.health/emergency" }
+                navDeepLink { uriPattern = "vaididea://emergency" },
+                navDeepLink { uriPattern = "https://vaididea.in/emergency" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -559,8 +559,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.VitalsReminders.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://vitals" },
-                navDeepLink { uriPattern = "https://swastik.health/vitals" }
+                navDeepLink { uriPattern = "vaididea://vitals" },
+                navDeepLink { uriPattern = "https://vaididea.in/vitals" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -583,8 +583,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.OrderHistory.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://orders" },
-                navDeepLink { uriPattern = "https://swastik.health/orders" }
+                navDeepLink { uriPattern = "vaididea://orders" },
+                navDeepLink { uriPattern = "https://vaididea.in/orders" }
             )
         ) {
             AuthGuard(navController, tokenManager) {
@@ -597,8 +597,8 @@ fun SwastikApp(tokenManager: TokenManager) {
         composable(
             route = Screen.BookingHistory.route,
             deepLinks = listOf(
-                navDeepLink { uriPattern = "swastik://tests" },
-                navDeepLink { uriPattern = "https://swastik.health/tests" }
+                navDeepLink { uriPattern = "vaididea://tests" },
+                navDeepLink { uriPattern = "https://vaididea.in/tests" }
             )
         ) {
             AuthGuard(navController, tokenManager) {

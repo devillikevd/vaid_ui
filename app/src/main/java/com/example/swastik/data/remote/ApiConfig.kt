@@ -9,11 +9,14 @@ import com.example.swastik.BuildConfig
  *
  * Base URL is set via build.gradle buildConfigField:
  *   - debug:   http://10.0.2.2:5001/api/  (Android Emulator → host localhost)
- *   - release: https://api.swastik.health/api/  (production default)
+ *   - release: https://api.vaididea.in/api/  (production default)
  *
  * To test on a physical device from a locally built APK, override in local.properties:
  *   API_BASE_URL=http://192.168.x.x:5001/api/
  *   AI_WS_BASE_URL=ws://192.168.x.x:8000   // optional; derived automatically if omitted
+ *   TURN_URL=turn:x.x.x.x:3478?transport=udp
+ *   TURN_USERNAME=your_turn_username
+ *   TURN_CREDENTIAL=your_turn_password
  */
 object ApiConfig {
     private const val EMULATOR_BASE_URL = "http://10.0.2.2:5001/api/"
@@ -65,6 +68,10 @@ object ApiConfig {
         val portPart = derivedPort?.let { ":$it" } ?: ""
         "$wsScheme://${apiUri.host}$portPart"
     }
+
+    val TURN_URL: String = BuildConfig.TURN_URL.trim()
+    val TURN_USERNAME: String = BuildConfig.TURN_USERNAME.trim()
+    val TURN_CREDENTIAL: String = BuildConfig.TURN_CREDENTIAL.trim()
 
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L

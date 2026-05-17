@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import '@/lib/env'; // Validates env vars on server startup
 
 export const metadata: Metadata = {
-  title: "SWASTIK Healthcare Platform",
+  title: "VAIDIDEA Healthcare Platform",
   description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
 };
 

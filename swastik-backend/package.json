@@ -1,7 +1,7 @@
 {
   "name": "swastik-backend",
   "version": "1.0.0",
-  "description": "Swastik Healthcare Backend API - Complete healthcare platform for patients and doctors",
+  "description": "VAIDIDEA Healthcare Backend API - Complete healthcare platform for patients and doctors",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -24,7 +24,7 @@
     "ambulance",
     "hospital"
   ],
-  "author": "Swastik Healthcare",
+  "author": "VAIDIDEA Healthcare",
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1024.0",

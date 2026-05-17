@@ -84,7 +84,7 @@ class ChatbotViewModel @Inject constructor(
 
     private fun buildWelcomeMessage(isConnected: Boolean): ChatUiMessage {
         val content = if (isConnected) {
-            "Namaste! I'm your Swastik Health Assistant.\n\nI can help you with:\n• Understanding your symptoms\n• Finding the right specialist\n• Health & wellness tips\n• First aid guidance\n• Analyzing a medical photo\n\nHow can I help you today?\n\nFor emergencies, call 102/108 immediately."
+            "Namaste! I'm your VAIDIDEA Health Assistant.\n\nI can help you with:\n• Understanding your symptoms\n• Finding the right specialist\n• Health & wellness tips\n• First aid guidance\n• Analyzing a medical photo\n\nHow can I help you today?\n\nFor emergencies, call 102/108 immediately."
         } else {
             "Hello! I'm your health assistant. I'm having trouble connecting right now, but feel free to try sending a message."
         }

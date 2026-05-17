@@ -1,5 +1,5 @@
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = process.env.GEOCODER_USER_AGENT || 'SwastikHealthApp/1.0 (global-geocoding)';
+const USER_AGENT = process.env.GEOCODER_USER_AGENT || 'VaidideaHealthApp/1.0 (global-geocoding)';
 
 const buildAddressParts = (value) => {
   if (!value || typeof value !== 'string') return null;

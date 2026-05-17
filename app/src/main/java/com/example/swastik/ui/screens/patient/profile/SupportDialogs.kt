@@ -295,11 +295,11 @@ fun QrCodeDialog(
                             onClick = {
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
-                                    putExtra(Intent.EXTRA_SUBJECT, "My Swastik Health Card")
+                                    putExtra(Intent.EXTRA_SUBJECT, "My VAIDIDEA Health Card")
                                     putExtra(
                                         Intent.EXTRA_TEXT,
                                         buildString {
-                                            append("Swastik Health Card (time-limited clinical summary)")
+                                            append("VAIDIDEA Health Card (time-limited clinical summary)")
                                             append("\n")
                                             append("Valid until: ${formattedExpiry ?: "revoked or expired soon"}")
                                             append("\n")

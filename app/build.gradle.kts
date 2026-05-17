@@ -67,6 +67,9 @@ android {
         // Default API base URL (Android Emulator → host localhost)
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5001/api/\"")
         buildConfigField("String", "AI_WS_BASE_URL", "\"\"")
+        buildConfigField("String", "TURN_URL", "\"\"")
+        buildConfigField("String", "TURN_USERNAME", "\"\"")
+        buildConfigField("String", "TURN_CREDENTIAL", "\"\"")
 
 
     }
@@ -80,6 +83,15 @@ android {
             localBuildProperty("AI_WS_BASE_URL")?.let { aiWsUrl ->
                 buildConfigField("String", "AI_WS_BASE_URL", "\"$aiWsUrl\"")
             }
+            localBuildProperty("TURN_URL")?.let { turnUrl ->
+                buildConfigField("String", "TURN_URL", "\"$turnUrl\"")
+            }
+            localBuildProperty("TURN_USERNAME")?.let { turnUsername ->
+                buildConfigField("String", "TURN_USERNAME", "\"$turnUsername\"")
+            }
+            localBuildProperty("TURN_CREDENTIAL")?.let { turnCredential ->
+                buildConfigField("String", "TURN_CREDENTIAL", "\"$turnCredential\"")
+            }
         }
         create("staging") {
             initWith(getByName("debug"))
@@ -91,11 +103,17 @@ android {
             // Production-like build with debug signing for easy local installs
             val stagingApiUrl = localBuildProperty("API_BASE_URL") ?: "http://10.0.2.2:5001/api/"
             val stagingAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
+            val stagingTurnUrl = localBuildProperty("TURN_URL") ?: ""
+            val stagingTurnUsername = localBuildProperty("TURN_USERNAME") ?: ""
+            val stagingTurnCredential = localBuildProperty("TURN_CREDENTIAL") ?: ""
             buildConfigField("String", "API_BASE_URL", "\"$stagingApiUrl\"")
             buildConfigField("String", "AI_WS_BASE_URL", "\"$stagingAiWsUrl\"")
+            buildConfigField("String", "TURN_URL", "\"$stagingTurnUrl\"")
+            buildConfigField("String", "TURN_USERNAME", "\"$stagingTurnUsername\"")
+            buildConfigField("String", "TURN_CREDENTIAL", "\"$stagingTurnCredential\"")
         }
         release {
-            val useDebugSigningForRelease = localOrEnvBoolean("USE_DEBUG_SIGNING_FOR_RELEASE", true)
+            val useDebugSigningForRelease = localOrEnvBoolean("USE_DEBUG_SIGNING_FOR_RELEASE", false)
             isMinifyEnabled = !useDebugSigningForRelease
             isShrinkResources = !useDebugSigningForRelease
             proguardFiles(
@@ -103,10 +121,16 @@ android {
                 "proguard-rules.pro"
             )
             // Allow locally built release APKs to target a LAN backend for real-phone testing.
-            val releaseApiUrl = localBuildProperty("API_BASE_URL") ?: "https://api.swastik.health/api/"
+            val releaseApiUrl = localBuildProperty("API_BASE_URL") ?: "https://api.vaididea.in/api/"
             val releaseAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
+            val releaseTurnUrl = localBuildProperty("TURN_URL") ?: ""
+            val releaseTurnUsername = localBuildProperty("TURN_USERNAME") ?: ""
+            val releaseTurnCredential = localBuildProperty("TURN_CREDENTIAL") ?: ""
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiUrl\"")
             buildConfigField("String", "AI_WS_BASE_URL", "\"$releaseAiWsUrl\"")
+            buildConfigField("String", "TURN_URL", "\"$releaseTurnUrl\"")
+            buildConfigField("String", "TURN_USERNAME", "\"$releaseTurnUsername\"")
+            buildConfigField("String", "TURN_CREDENTIAL", "\"$releaseTurnCredential\"")
 
             if (useDebugSigningForRelease) {
                 // Local QA release build (installable quickly on test devices)

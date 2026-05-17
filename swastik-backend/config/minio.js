@@ -247,15 +247,20 @@ try {
       ? `${storageConfig.useSSL ? 'https' : 'http'}://${storageConfig.endpoint}${storageConfig.port && ![80, 443].includes(storageConfig.port) ? `:${storageConfig.port}` : ''}`
       : undefined;
 
-    s3Client = new S3Client({
+    const s3ClientOptions = {
       region: storageConfig.region,
       endpoint,
       forcePathStyle: storageConfig.forcePathStyle,
-      credentials: {
+    };
+
+    if (storageConfig.accessKey && storageConfig.secretKey) {
+      s3ClientOptions.credentials = {
         accessKeyId: storageConfig.accessKey,
         secretAccessKey: storageConfig.secretKey,
-      },
-    });
+      };
+    }
+
+    s3Client = new S3Client(s3ClientOptions);
   } else {
     minioClient = new Minio.Client({
       endPoint: storageConfig.endpoint,

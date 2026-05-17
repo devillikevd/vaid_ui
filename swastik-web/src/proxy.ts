@@ -10,6 +10,11 @@ const JWT_SECRET = new TextEncoder().encode(
 async function verifyJwt(token: string): Promise<{ valid: boolean; role?: string; expired?: boolean }> {
     try {
         if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+            if (process.env.NODE_ENV === 'production') {
+                console.error('[swastik-web] JWT_ACCESS_SECRET or JWT_SECRET is required for production route protection.');
+                return { valid: false };
+            }
+
             const payload = decodeJwtPayload(token);
             if (!payload) return { valid: false };
             if (payload.exp && Date.now() >= payload.exp * 1000) {

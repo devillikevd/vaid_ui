@@ -1,4 +1,4 @@
-# Swastik Healthcare Platform - Robots.txt
+# VAIDIDEA Healthcare Platform - Robots.txt
 User-agent: *
 Allow: /
 
@@ -13,4 +13,4 @@ Disallow: /diagnostic-center/*
 # API routes
 Disallow: /api/*
 
-Sitemap: https://swastik.health/sitemap.xml
+Sitemap: https://vaididea.in/sitemap.xml

@@ -271,7 +271,7 @@ private fun SessionGateScreen(isLoading: Boolean) {
                 CircularProgressIndicator(color = Color.White)
             }
             Text(
-                text = "SWASTIK Ambulance",
+                text = "VAIDIDEA AMBULANCE",
                 color = Color.White,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold

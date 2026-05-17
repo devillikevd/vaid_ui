@@ -101,7 +101,7 @@ fun HomeScreen(
 
             // App Name with unique styling
             Text(
-                text = "स्वस्तिक",
+                text = "VAIDIDEA",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.White.copy(alpha = 0.9f),
@@ -109,7 +109,7 @@ fun HomeScreen(
             )
 
             Text(
-                text = "SWASTIK",
+                text = "VAIDIDEA",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,

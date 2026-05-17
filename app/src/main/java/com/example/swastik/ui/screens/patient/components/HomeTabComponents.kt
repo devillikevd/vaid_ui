@@ -955,7 +955,7 @@ fun EmergencyDialog(
                     onClick = {
                         val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(android.content.Intent.EXTRA_TEXT, "🚨 EMERGENCY SOS! I need help. Please contact emergency services. - Sent from Swastik Health")
+                            putExtra(android.content.Intent.EXTRA_TEXT, "🚨 EMERGENCY SOS! I need help. Please contact emergency services. - Sent from VAIDIDEA Health")
                         }
                         context.startActivity(android.content.Intent.createChooser(shareIntent, "Alert Contacts"))
                         onDismiss()

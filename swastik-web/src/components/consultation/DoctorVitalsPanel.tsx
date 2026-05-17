@@ -509,7 +509,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>
                             </div>
-                            <p className="text-[9px] text-gray-600 mt-1.5 text-center">Powered by Swastik AI • Verify before prescribing</p>
+                            <p className="text-[9px] text-gray-600 mt-1.5 text-center">Powered by VAIDIDEA AI • Verify before prescribing</p>
                         </div>
                     </div>
                 )}

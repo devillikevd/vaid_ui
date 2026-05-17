@@ -135,7 +135,7 @@ fun ApprovalStatusScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "SWASTIK Ambulance",
+                text = "VAIDIDEA AMBULANCE",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White

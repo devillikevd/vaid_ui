@@ -230,7 +230,7 @@ export default function LocationPicker({
             const encoded = encodeURIComponent(query);
             const res = await fetch(
                 `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&countrycodes=in`,
-                { headers: { 'User-Agent': 'SwastikHealthApp/1.0' } }
+                { headers: { 'User-Agent': 'VaidideaHealthApp/1.0' } }
             );
             const data = await res.json();
             if (data && data.length > 0) {
@@ -256,7 +256,7 @@ export default function LocationPicker({
             const encoded = encodeURIComponent(searchQuery);
             const res = await fetch(
                 `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&countrycodes=in`,
-                { headers: { 'User-Agent': 'SwastikHealthApp/1.0' } }
+                { headers: { 'User-Agent': 'VaidideaHealthApp/1.0' } }
             );
             const data = await res.json();
             if (data && data.length > 0) {

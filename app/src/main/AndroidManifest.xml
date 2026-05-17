@@ -49,20 +49,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link: swastik://appointments, swastik://medicine/{id}, etc. -->
+            <!-- Deep link: vaididea://appointments, vaididea://medicine/{id}, etc. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="swastik" />
+                <data android:scheme="vaididea" />
             </intent-filter>
 
-            <!-- Web deep links: https://swastik.health/appointments etc. -->
+            <!-- Web deep links: https://vaididea.in/appointments etc. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="swastik.health" />
+                <data android:scheme="https" android:host="vaididea.in" />
             </intent-filter>
         </activity>
 

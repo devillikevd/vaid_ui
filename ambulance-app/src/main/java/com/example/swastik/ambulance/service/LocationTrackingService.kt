@@ -241,7 +241,7 @@ class LocationTrackingService : Service() {
         val builder = Notification.Builder(this, CHANNEL_ID)
 
         return builder
-            .setContentTitle("Swastik Ambulance")
+            .setContentTitle("VAIDIDEA AMBULANCE")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)

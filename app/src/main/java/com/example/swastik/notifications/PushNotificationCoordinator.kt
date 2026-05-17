@@ -49,7 +49,7 @@ class PushNotificationCoordinator @Inject constructor(
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "SWASTIK Alerts",
+                "VAIDIDEA Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Consultations, reminders, prescriptions, and emergency alerts"

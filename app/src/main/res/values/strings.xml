@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Swastik</string>
+    <string name="app_name">VAIDIDEA</string>
 
     <!-- ─── Medicine Screen ─── -->
     <string name="medicine_finder">Medicine Finder</string>

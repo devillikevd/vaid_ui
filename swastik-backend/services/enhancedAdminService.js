@@ -130,8 +130,8 @@ const ADMIN_SETTINGS_DEFAULTS = {
   twoFactorAuth: false,
   sessionTimeout: '30',
   maintenanceMode: false,
-  platformName: 'Swastik Healthcare',
-  supportEmail: 'support@swastik.health',
+  platformName: 'VAIDIDEA Healthcare',
+  supportEmail: 'support@vaididea.in',
 };
 
 const normalizeAdminProviderType = (rawType = 'all') => {

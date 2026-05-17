@@ -1,7 +1,7 @@
 import { PUBLIC_API_URL } from './env';
 
 /**
- * Swastik Healthcare Platform - Centralized API Client
+ * VAIDIDEA Healthcare Platform - Centralized API Client
  * All web portal API communication goes through this module.
  * Every store MUST use these functions instead of raw fetch().
  */

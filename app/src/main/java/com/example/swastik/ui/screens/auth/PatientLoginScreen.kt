@@ -439,7 +439,7 @@ fun PatientLoginScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("New to SWASTIK?", color = Color(0xFF6B7280))
+                    Text("New to VAIDIDEA?", color = Color(0xFF6B7280))
                     TextButton(onClick = onRegisterClick, enabled = !uiState.isLoading) {
                         Text("Create account", fontWeight = FontWeight.Bold)
                     }

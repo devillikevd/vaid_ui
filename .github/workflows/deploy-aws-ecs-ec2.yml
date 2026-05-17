@@ -1,0 +1,162 @@
+name: Deploy Backend and AI to ECS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "swastik-backend/**"
+      - "swastik-ai-service/**"
+      - ".github/workflows/deploy-aws-ecs-ec2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ecs-prod-deploy
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'swastik' }}
+  ENVIRONMENT: ${{ vars.ENVIRONMENT || 'prod' }}
+  PLATFORM: linux/arm64
+
+jobs:
+  deploy:
+    name: Build, Push, Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve deployment names
+        id: names
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_id="$(aws sts get-caller-identity --query Account --output text)"
+          registry="${account_id}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          cluster="${PROJECT_NAME}-${ENVIRONMENT}-cluster"
+          service="${PROJECT_NAME}-${ENVIRONMENT}-app"
+          backend_repo="${PROJECT_NAME}-${ENVIRONMENT}-backend"
+          ai_repo="${PROJECT_NAME}-${ENVIRONMENT}-ai-service"
+
+          echo "account_id=${account_id}" >> "${GITHUB_OUTPUT}"
+          echo "registry=${registry}" >> "${GITHUB_OUTPUT}"
+          echo "cluster=${cluster}" >> "${GITHUB_OUTPUT}"
+          echo "service=${service}" >> "${GITHUB_OUTPUT}"
+          echo "backend_image=${registry}/${backend_repo}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "backend_latest=${registry}/${backend_repo}:latest" >> "${GITHUB_OUTPUT}"
+          echo "ai_image=${registry}/${ai_repo}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "ai_latest=${registry}/${ai_repo}:latest" >> "${GITHUB_OUTPUT}"
+
+      - name: Backend tests
+        working-directory: swastik-backend
+        run: |
+          npm ci
+          npm test -- --runInBand
+
+      - name: AI syntax check
+        working-directory: swastik-ai-service
+        run: python -m py_compile main.py
+
+      - name: Login to ECR
+        shell: bash
+        run: |
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${{ steps.names.outputs.registry }}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./swastik-backend
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          tags: |
+            ${{ steps.names.outputs.backend_image }}
+            ${{ steps.names.outputs.backend_latest }}
+
+      - name: Build and push AI service
+        uses: docker/build-push-action@v6
+        with:
+          context: ./swastik-ai-service
+          platforms: ${{ env.PLATFORM }}
+          push: true
+          tags: |
+            ${{ steps.names.outputs.ai_image }}
+            ${{ steps.names.outputs.ai_latest }}
+
+      - name: Register new ECS task definition
+        id: taskdef
+        shell: bash
+        env:
+          CLUSTER_NAME: ${{ steps.names.outputs.cluster }}
+          SERVICE_NAME: ${{ steps.names.outputs.service }}
+          BACKEND_IMAGE: ${{ steps.names.outputs.backend_image }}
+          AI_IMAGE: ${{ steps.names.outputs.ai_image }}
+        run: |
+          set -euo pipefail
+
+          current_task_def="$(aws ecs describe-services \
+            --cluster "${CLUSTER_NAME}" \
+            --services "${SERVICE_NAME}" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          aws ecs describe-task-definition \
+            --task-definition "${current_task_def}" \
+            --query 'taskDefinition' > task-definition.json
+
+          jq '
+            del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy
+            )
+            | .containerDefinitions |= map(
+                if .name == "backend" then .image = env.BACKEND_IMAGE
+                elif .name == "ai-service" then .image = env.AI_IMAGE
+                else .
+                end
+              )
+          ' task-definition.json > new-task-definition.json
+
+          new_task_def="$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          echo "task_definition=${new_task_def}" >> "${GITHUB_OUTPUT}"
+
+      - name: Update ECS service
+        shell: bash
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.names.outputs.cluster }}" \
+            --service "${{ steps.names.outputs.service }}" \
+            --task-definition "${{ steps.taskdef.outputs.task_definition }}" \
+            --force-new-deployment
+
+          aws ecs wait services-stable \
+            --cluster "${{ steps.names.outputs.cluster }}" \
+            --services "${{ steps.names.outputs.service }}"

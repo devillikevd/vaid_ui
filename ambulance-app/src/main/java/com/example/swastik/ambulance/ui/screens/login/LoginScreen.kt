@@ -100,7 +100,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "SWASTIK",
+                text = "VAIDIDEA",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White

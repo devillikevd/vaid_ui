@@ -90,14 +90,14 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 Swastik Healthcare</h1>
+        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 VAIDIDEA Healthcare</h1>
         <p style="color: rgba(255,255,255,0.85); margin: 5px 0 0; font-size: 14px;">Healthcare Reimagined</p>
       </div>
       
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
         <h2 style="color: #1f2937; margin-top: 0;">Welcome, ${escapeHtml(name)}! 👋</h2>
         <p style="color: #4b5563; line-height: 1.6;">
-          Thank you for joining Swastik Healthcare. To get started, please verify your email address by clicking the button below:
+          Thank you for joining VAIDIDEA Healthcare. To get started, please verify your email address by clicking the button below:
         </p>
         
         <div style="text-align: center; margin: 30px 0;">
@@ -116,7 +116,7 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
         
         <p style="color: #9ca3af; font-size: 12px; text-align: center;">
           This link expires in 24 hours. If you didn't create an account, please ignore this email.<br>
-          © ${new Date().getFullYear()} Swastik Healthcare
+          © ${new Date().getFullYear()} VAIDIDEA Healthcare
         </p>
       </div>
     </div>
@@ -124,9 +124,9 @@ const sendVerificationEmail = async (email, name, verificationToken) => {
 
   return sendEmail({
     to: email,
-    subject: 'Verify Your Email — Swastik Healthcare',
+    subject: 'Verify Your Email — VAIDIDEA Healthcare',
     html,
-    text: `Welcome to Swastik Healthcare, ${escapeHtml(name)}! Verify your email by visiting: ${verifyUrl}`,
+    text: `Welcome to VAIDIDEA Healthcare, ${escapeHtml(name)}! Verify your email by visiting: ${verifyUrl}`,
   });
 };
 
@@ -143,7 +143,7 @@ const sendOtpEmail = async ({
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 Swastik Healthcare</h1>
+        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 VAIDIDEA Healthcare</h1>
         <p style="color: rgba(255,255,255,0.85); margin: 5px 0 0; font-size: 14px;">Healthcare Reimagined</p>
       </div>
 
@@ -160,14 +160,14 @@ const sendOtpEmail = async ({
         </div>
 
         <p style="color: #4b5563; line-height: 1.6;">
-          Enter this 6-digit code in the Swastik app or web portal to continue.
+          Enter this 6-digit code in the VAIDIDEA app or web portal to continue.
         </p>
 
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
 
         <p style="color: #9ca3af; font-size: 12px; text-align: center;">
           This code expires in ${expiryMinutes} minutes. If you didn't request it, you can ignore this email.<br>
-          © ${new Date().getFullYear()} Swastik Healthcare
+          © ${new Date().getFullYear()} VAIDIDEA Healthcare
         </p>
       </div>
     </div>
@@ -177,7 +177,7 @@ const sendOtpEmail = async ({
     to: email,
     subject,
     html,
-    text: `${title}: Your Swastik code is ${otp}. It expires in ${expiryMinutes} minutes.`,
+    text: `${title}: Your VAIDIDEA code is ${otp}. It expires in ${expiryMinutes} minutes.`,
   });
 };
 
@@ -188,7 +188,7 @@ const sendVerificationOtpEmail = async (email, name, otp) => {
     otp,
     title: 'Verify Your Email',
     intro: 'use the verification code below to activate your account.',
-    subject: 'Your Email Verification Code — Swastik Healthcare',
+    subject: 'Your Email Verification Code — VAIDIDEA Healthcare',
     accentColor: '#059669',
     expiryMinutes: 10,
   });
@@ -201,7 +201,7 @@ const sendPasswordResetOtpEmail = async (email, name, otp) => {
     otp,
     title: 'Reset Your Password',
     intro: 'use the reset code below to set a new password.',
-    subject: 'Your Password Reset Code — Swastik Healthcare',
+    subject: 'Your Password Reset Code — VAIDIDEA Healthcare',
     accentColor: '#DC2626',
     expiryMinutes: 10,
   });
@@ -216,7 +216,7 @@ const sendPasswordResetEmail = async (email, name, resetToken) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 Swastik Healthcare</h1>
+        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 VAIDIDEA Healthcare</h1>
       </div>
       
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
@@ -241,7 +241,7 @@ const sendPasswordResetEmail = async (email, name, resetToken) => {
         
         <p style="color: #9ca3af; font-size: 12px; text-align: center;">
           This link expires in 1 hour. If you didn't request a reset, ignore this email — your password won't change.<br>
-          © ${new Date().getFullYear()} Swastik Healthcare
+          © ${new Date().getFullYear()} VAIDIDEA Healthcare
         </p>
       </div>
     </div>
@@ -249,9 +249,9 @@ const sendPasswordResetEmail = async (email, name, resetToken) => {
 
   return sendEmail({
     to: email,
-    subject: 'Reset Your Password — Swastik Healthcare',
+    subject: 'Reset Your Password — VAIDIDEA Healthcare',
     html,
-    text: `Reset your Swastik Healthcare password: ${resetUrl} (expires in 1 hour)`,
+    text: `Reset your VAIDIDEA Healthcare password: ${resetUrl} (expires in 1 hour)`,
   });
 };
 
@@ -262,7 +262,7 @@ const sendNotificationEmail = async (email, name, notification) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 22px;">🏥 Swastik Healthcare</h1>
+        <h1 style="color: white; margin: 0; font-size: 22px;">🏥 VAIDIDEA Healthcare</h1>
       </div>
       
       <div style="background: #ffffff; padding: 25px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
@@ -272,12 +272,12 @@ const sendNotificationEmail = async (email, name, notification) => {
         <div style="text-align: center; margin: 25px 0;">
           <a href="${config.frontendWebUrl}" 
              style="display: inline-block; padding: 12px 28px; background: #7C3AED; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
-            Open Swastik
+            Open VAIDIDEA
           </a>
         </div>
         
         <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-          © ${new Date().getFullYear()} Swastik Healthcare
+          © ${new Date().getFullYear()} VAIDIDEA Healthcare
         </p>
       </div>
     </div>
@@ -285,7 +285,7 @@ const sendNotificationEmail = async (email, name, notification) => {
 
   return sendEmail({
     to: email,
-    subject: `${notification.title} — Swastik Healthcare`,
+    subject: `${notification.title} — VAIDIDEA Healthcare`,
     html,
     text: `${notification.title}: ${notification.message}`,
   });
@@ -342,7 +342,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #7C3AED, #5B21B6); border-radius: 12px 12px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 Swastik Healthcare</h1>
+        <h1 style="color: white; margin: 0; font-size: 28px;">🏥 VAIDIDEA Healthcare</h1>
       </div>
       
       <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
@@ -365,7 +365,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
         
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
         <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-          © ${new Date().getFullYear()} Swastik Healthcare
+          © ${new Date().getFullYear()} VAIDIDEA Healthcare
         </p>
       </div>
     </div>
@@ -373,7 +373,7 @@ const sendApprovalEmail = async (email, name, role, status, notes = '') => {
 
   return sendEmail({
     to: email,
-    subject: `${cfg.title} — Swastik Healthcare`,
+    subject: `${cfg.title} — VAIDIDEA Healthcare`,
     html,
     text: `Hi ${name}, ${cfg.message}`,
   });

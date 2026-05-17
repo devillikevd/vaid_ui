@@ -50,8 +50,8 @@ export default function SettingsPage() {
         twoFactorAuth: false,
         sessionTimeout: '30',
         maintenanceMode: false,
-        platformName: 'Swastik Healthcare',
-        supportEmail: 'support@swastik.health',
+        platformName: 'VAIDIDEA Healthcare',
+        supportEmail: 'support@vaididea.in',
     });
 
     const handleToggle = (key: keyof typeof settings) => {

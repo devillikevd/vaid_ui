@@ -315,7 +315,7 @@ function getSystemPrompt(language = 'en') {
     ? `\n\nLANGUAGE: You MUST respond in Hindi (Devanagari script). The patient speaks Hindi. Write the "summary" and "follow_up_question" fields entirely in Hindi using Devanagari script (e.g. "आपको बुखार है..."). Keep medical terms in English where helpful but wrap them with Hindi explanation. Specialist names should be in English.`
     : `\n\nLANGUAGE: Respond in simple, clear English. The patient may be from India, so use culturally appropriate context.`;
 
-  return `You are Swastik Health Assistant, an AI-powered healthcare advisor for the Swastik Healthcare Platform serving patients across India.
+  return `You are VAIDIDEA Health Assistant, an AI-powered healthcare advisor for the VAIDIDEA Healthcare Platform serving patients across India.
 
 ROLE & CAPABILITIES:
 - Provide general health information, first aid guidance, and wellness advice

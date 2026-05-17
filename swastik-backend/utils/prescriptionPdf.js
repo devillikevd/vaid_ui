@@ -32,8 +32,8 @@ const generatePrescriptionPdf = async (prescription) => {
         bufferPages: false,    // Stream pages instead of buffering all (memory-efficient)
         info: {
           Title: 'Prescription',
-          Author: 'Swastik Healthcare',
-          Creator: 'Swastik Healthcare Platform',
+          Author: 'VAIDIDEA Healthcare',
+          Creator: 'VAIDIDEA Healthcare Platform',
         },
       });
       const chunks = [];
@@ -45,7 +45,7 @@ const generatePrescriptionPdf = async (prescription) => {
       const pageWidth = doc.page.width - 100; // 50px margins on each side
 
       // ==================== Header ====================
-      doc.fontSize(20).font('Helvetica-Bold').text('SWASTIK HEALTHCARE', { align: 'center' });
+      doc.fontSize(20).font('Helvetica-Bold').text('VAIDIDEA HEALTHCARE', { align: 'center' });
       doc.fontSize(9).font('Helvetica').text('Digital Prescription', { align: 'center' });
       doc.moveDown(0.5);
 
@@ -175,7 +175,7 @@ const generatePrescriptionPdf = async (prescription) => {
       doc.moveTo(50, doc.y).lineTo(50 + pageWidth, doc.y).stroke('#d1d5db');
       doc.moveDown(0.3);
       doc.fontSize(8).font('Helvetica').fillColor('#9ca3af')
-        .text('This is a digitally generated prescription from Swastik Healthcare.', { align: 'center' })
+        .text('This is a digitally generated prescription from VAIDIDEA Healthcare.', { align: 'center' })
         .text('Please verify with your doctor before use.', { align: 'center' });
 
       doc.end();

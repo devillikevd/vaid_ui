@@ -457,7 +457,7 @@ async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jp
     ? `The patient has shared an image and says: "${description}". Please analyze the image for any visible medical conditions.`
     : 'The patient has shared an image for medical analysis. Please analyze it for any visible medical conditions, skin issues, wounds, or abnormalities.';
 
-  const systemPrompt = `You are Swastik Health Assistant, a medical image analysis AI. Analyze the provided image and respond ONLY with valid JSON in this exact format:
+  const systemPrompt = `You are VAIDIDEA Health Assistant, a medical image analysis AI. Analyze the provided image and respond ONLY with valid JSON in this exact format:
 {
   "summary": "Brief description of what you see and your assessment",
   "possible_conditions": ["condition1", "condition2"],

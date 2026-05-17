@@ -1,7 +1,7 @@
 /**
  * Disease Outbreak Detection Service
  *
- * Collects anonymized health signals from across the Swastik ecosystem
+ * Collects anonymized health signals from across the VAIDIDEA ecosystem
  * (appointments, prescriptions, emergency requests, chatbot interactions)
  * and runs periodic anomaly detection to identify potential disease outbreaks.
  *
@@ -701,6 +701,19 @@ async function notifyPatientsInArea(disease, severity, city, count) {
 
 let cronInterval = null;
 
+async function runOutbreakAnalysisWithLock(intervalHours) {
+  try {
+    const { cacheSetIfNotExists } = require('../config/redis');
+    const lockTtlSec = Math.max(60, Math.floor(intervalHours * 60 * 60) - 60);
+    const lockAcquired = await cacheSetIfNotExists('cron:outbreak-analysis:lock', process.pid, lockTtlSec);
+    if (!lockAcquired) return;
+  } catch (err) {
+    console.warn('[OutbreakService] Cron lock unavailable; running analysis without lock:', err.message);
+  }
+
+  await runOutbreakAnalysis();
+}
+
 function startOutbreakCron(intervalHours = 6) {
   if (cronInterval) clearInterval(cronInterval);
 
@@ -708,10 +721,10 @@ function startOutbreakCron(intervalHours = 6) {
   console.log(`[OutbreakService] Cron started — running analysis every ${intervalHours}h`);
 
   // Run immediately on startup
-  setTimeout(() => runOutbreakAnalysis(), 5000);
+  setTimeout(() => runOutbreakAnalysisWithLock(intervalHours), 5000);
 
   // Then on schedule
-  cronInterval = setInterval(() => runOutbreakAnalysis(), ms);
+  cronInterval = setInterval(() => runOutbreakAnalysisWithLock(intervalHours), ms);
 }
 
 function stopOutbreakCron() {

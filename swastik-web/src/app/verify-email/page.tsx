@@ -122,7 +122,7 @@ function VerifyEmailContent() {
                 </Card>
 
                 <p className="text-center text-gray-500 dark:text-gray-500 text-sm mt-6">
-                    © {new Date().getFullYear()} Swastik Healthcare. All rights reserved.
+                    © {new Date().getFullYear()} VAIDIDEA Healthcare. All rights reserved.
                 </p>
             </div>
         </div>

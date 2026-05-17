@@ -119,7 +119,7 @@ fun ProfileTabContent(
                                 if (profile?.phoneNumber?.isNotEmpty() == true) append("Phone: ${profile.phoneNumber}\n")
                                 if (profile?.email?.isNotEmpty() == true) append("Email: ${profile.email}\n")
                                 if (profile?.bloodGroup?.isNotEmpty() == true) append("Blood: ${profile.bloodGroup}\n")
-                                append("\nShared via Swastik Health App")
+                                append("\nShared via VAIDIDEA Health App")
                             }
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
@@ -167,11 +167,11 @@ fun ProfileTabContent(
                         onHelpClick = { showHelpCenterDialog = true },
                         onFeedbackClick = { showFeedbackDialog = true },
                         onTermsClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://swastik.health/terms"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://vaididea.in/terms"))
                             context.startActivity(intent)
                         },
                         onPrivacyPolicyClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://swastik.health/privacy"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://vaididea.in/privacy"))
                             context.startActivity(intent)
                         }
                     )

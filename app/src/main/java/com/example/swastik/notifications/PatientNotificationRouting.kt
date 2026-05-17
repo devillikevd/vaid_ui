@@ -52,7 +52,7 @@ fun resolvePatientNotificationDestination(
         return PatientNotificationDestination(
             actionLabel = "View Medicine",
             route = Screen.MedicineDetail.createRoute(medicineId),
-            deepLink = "swastik://medicine/$medicineId"
+            deepLink = "vaididea://medicine/$medicineId"
         )
     }
 
@@ -61,7 +61,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View SOS",
                 route = Screen.Emergency.route,
-                deepLink = "swastik://emergency"
+                deepLink = "vaididea://emergency"
             )
         }
 
@@ -69,7 +69,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Orders",
                 route = Screen.OrderHistory.route,
-                deepLink = "swastik://orders"
+                deepLink = "vaididea://orders"
             )
         }
 
@@ -77,7 +77,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View My Tests",
                 route = Screen.BookingHistory.route,
-                deepLink = "swastik://tests"
+                deepLink = "vaididea://tests"
             )
         }
 
@@ -85,7 +85,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Reports",
                 route = Screen.Reports.route,
-                deepLink = "swastik://reports"
+                deepLink = "vaididea://reports"
             )
         }
 
@@ -93,7 +93,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Prescription",
                 route = Screen.Prescriptions.route,
-                deepLink = "swastik://prescriptions"
+                deepLink = "vaididea://prescriptions"
             )
         }
 
@@ -101,7 +101,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Reminders",
                 route = Screen.VitalsReminders.route,
-                deepLink = "swastik://vitals"
+                deepLink = "vaididea://vitals"
             )
         }
 
@@ -109,7 +109,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Appointments",
                 route = Screen.AppointmentHistory.route,
-                deepLink = "swastik://appointments"
+                deepLink = "vaididea://appointments"
             )
         }
 

@@ -82,7 +82,7 @@ android {
             isMinifyEnabled = !useDebugSigningForRelease
             isShrinkResources = !useDebugSigningForRelease
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "API_BASE_URL", "\"https://api.swastik.health/api/\"")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.vaididea.in/api/\"")
             localBuildProperty("CERT_PINS")?.let { pins ->
                 buildConfigField("String", "CERT_PINS", "\"$pins\"")
             }

@@ -43,6 +43,12 @@ const vitalsRoutes = require('./routes/vitals');
 const outbreakRoutes = require('./routes/outbreak');
 const { startOutbreakCron } = require('./services/outbreakService');
 
+const isEnvEnabled = (name, fallback = true) => {
+  const value = process.env[name];
+  if (value === undefined || value === null || value === '') return fallback;
+  return String(value).toLowerCase() !== 'false';
+};
+
 // Create Express app
 const app = express();
 const server = http.createServer(app);
@@ -275,7 +281,7 @@ app.get('/health', async (req, res) => {
 // API info
 app.get('/api', (req, res) => {
   res.json({
-    name: 'Swastik Healthcare API',
+    name: 'VAIDIDEA Healthcare API',
     version: '1.0.0',
     description: 'Complete healthcare platform for patients and doctors',
     documentation: '/api/docs',
@@ -336,16 +342,24 @@ const startServer = async () => {
     // Start server
     const PORT = config.port;
     server.listen(PORT, () => {
-      // Start consultation timeout cron
-      startConsultationTimeoutCron();
-      // Start patient reminder notification cron
-      startReminderNotificationCron();
-      // Start disease outbreak detection cron (runs every 6 hours)
-      startOutbreakCron(6);
+      if (isEnvEnabled('BACKGROUND_JOBS_ENABLED', true)) {
+        // Start consultation timeout cron
+        startConsultationTimeoutCron();
+        // Start patient reminder notification cron
+        startReminderNotificationCron();
+        // Start disease outbreak detection cron (runs every 6 hours)
+        if (isEnvEnabled('OUTBREAK_CRON_ENABLED', true)) {
+          startOutbreakCron(6);
+        } else {
+          console.log('[Cron] Outbreak scheduler is disabled by OUTBREAK_CRON_ENABLED=false');
+        }
+      } else {
+        console.log('[Cron] Background job schedulers are disabled by BACKGROUND_JOBS_ENABLED=false');
+      }
       console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║   🏥 SWASTIK Healthcare API Server                               ║
+║   🏥 VAIDIDEA Healthcare API Server                              ║
 ║                                                                  ║
 ║   Environment: ${config.env.padEnd(47)}║
 ║   Port: ${PORT.toString().padEnd(55)}║
@@ -384,8 +398,25 @@ const startServer = async () => {
 let consultationTimeoutInterval;
 let reminderNotificationInterval;
 const startConsultationTimeoutCron = () => {
+  if (isEnvEnabled('CONSULTATION_TIMEOUT_CRON_ENABLED', true) === false) {
+    console.log('[Cron] Consultation timeout scheduler is disabled by CONSULTATION_TIMEOUT_CRON_ENABLED=false');
+    return;
+  }
+
+  const intervalMs = Number(process.env.CONSULTATION_TIMEOUT_CRON_INTERVAL_MS || 10 * 60 * 1000);
+  const lockTtlSec = Math.max(30, Math.ceil(intervalMs / 1000) - 5);
+
   consultationTimeoutInterval = setInterval(async () => {
     try {
+      // Multi-instance safety: only one instance should run this scan per interval.
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:consultation-timeout:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {
+        console.warn('[Cron] Consultation timeout lock unavailable; running without lock:', lockErr.message);
+      }
+
       const { supabaseAdmin } = require('./config/supabase');
       const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours
       const { data, error } = await supabaseAdmin
@@ -401,7 +432,7 @@ const startConsultationTimeoutCron = () => {
     } catch (err) {
       console.error('[Cron] Consultation timeout error:', err.message);
     }
-  }, 10 * 60 * 1000); // Every 10 minutes
+  }, intervalMs);
 };
 
 const startReminderNotificationCron = () => {

@@ -127,13 +127,21 @@ const config = {
     port: storagePort,
     region: storageRegion,
     accessKey: process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || (() => {
-      if (storageProvider === 's3' || process.env.NODE_ENV === 'production') {
+      if (storageProvider === 's3') {
+        // In AWS runtimes, prefer the task/instance IAM role via the SDK default
+        // credential provider chain instead of long-lived access keys.
+        return undefined;
+      }
+      if (process.env.NODE_ENV === 'production') {
         throw new Error('FATAL: storage access key is required in production');
       }
       return 'minioadmin';
     })(),
     secretKey: process.env.AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_KEY || process.env.MINIO_SECRET_KEY || (() => {
-      if (storageProvider === 's3' || process.env.NODE_ENV === 'production') {
+      if (storageProvider === 's3') {
+        return undefined;
+      }
+      if (process.env.NODE_ENV === 'production') {
         throw new Error('FATAL: storage secret key is required in production');
       }
       return 'minioadmin';
@@ -201,8 +209,8 @@ const config = {
   email: {
     gmailUser: process.env.GMAIL_USER,
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD,
-    fromName: process.env.EMAIL_FROM_NAME || 'Swastik Healthcare',
-    fromEmail: process.env.EMAIL_FROM_ADDRESS || process.env.FROM_EMAIL || 'noreply@swastik.health',
+    fromName: process.env.EMAIL_FROM_NAME || 'VAIDIDEA Healthcare',
+    fromEmail: process.env.EMAIL_FROM_ADDRESS || process.env.FROM_EMAIL || 'noreply@vaididea.in',
   },
 };
 

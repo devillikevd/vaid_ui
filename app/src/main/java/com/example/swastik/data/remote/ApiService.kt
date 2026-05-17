@@ -10,7 +10,7 @@ import retrofit2.Response
 import retrofit2.http.*
 
 /**
- * Retrofit API Service for Swastik Healthcare Platform
+ * Retrofit API Service for VAIDIDEA Healthcare Platform
  */
 interface ApiService {
 

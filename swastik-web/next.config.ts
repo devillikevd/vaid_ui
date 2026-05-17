@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
       {
         // Production MinIO custom domain
         protocol: 'https',
-        hostname: '*.swastik.health',
+        hostname: '*.vaididea.in',
       },
     ],
   },

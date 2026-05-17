@@ -221,7 +221,7 @@ export default function ScanPatientQRPage() {
                         </p>
                         <div className="flex gap-2">
                             <input type="text" value={manualToken} onChange={e => setManualToken(e.target.value)}
-                                placeholder="https://swastik.health/health-card/abc123... or token"
+                                placeholder="https://vaididea.in/health-card/abc123... or token"
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
                             />
@@ -282,7 +282,7 @@ export default function ScanPatientQRPage() {
                 <CardContent>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">How it works</h3>
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>1️⃣ Patient opens the Swastik app → Profile → taps <strong>&quot;Health QR Code&quot;</strong></p>
+                        <p>1️⃣ Patient opens the VAIDIDEA app → Profile → taps <strong>&quot;Health QR Code&quot;</strong></p>
                         <p>2️⃣ Patient shows the QR code on their phone screen</p>
                         <p>3️⃣ You scan it here or use any phone camera to scan the QR</p>
                         <p>4️⃣ Complete medical records open instantly — prescriptions, reports, vitals, allergies</p>
