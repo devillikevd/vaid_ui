@@ -53,9 +53,9 @@ variable "public_subnet_cidrs" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type for ECS capacity. t4g.* is cheap ARM/Graviton."
+  description = "EC2 instance type for ECS capacity. t4g.small keeps ARM images and fits AWS accounts restricted to Free Tier eligible instance types."
   type        = string
-  default     = "t4g.medium"
+  default     = "t4g.small"
 }
 
 variable "ecs_ami_id" {
@@ -208,9 +208,9 @@ variable "turn_enabled" {
 }
 
 variable "turn_instance_type" {
-  description = "EC2 instance type for coturn. Keep small for cost."
+  description = "EC2 instance type for coturn. t4g.micro is Free Tier eligible in ap-south-1 and sufficient for MVP fallback relay."
   type        = string
-  default     = "t4g.nano"
+  default     = "t4g.micro"
 }
 
 variable "turn_allocate_eip" {
