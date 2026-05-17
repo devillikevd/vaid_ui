@@ -21,7 +21,7 @@ object ApiConfig {
     }
 
     val BASE_URL: String = normalizeBaseUrl(
-        if (isProbablyEmulator()) {
+        if (BuildConfig.DEBUG && isProbablyEmulator()) {
             EMULATOR_BASE_URL
         } else {
             val deviceOverride = if (BuildConfig.DEBUG) BuildConfig.DEVICE_API_BASE_URL else ""

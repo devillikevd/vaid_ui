@@ -8,7 +8,7 @@ import com.example.swastik.BuildConfig
  * API Configuration constants
  *
  * Base URL is set via build.gradle buildConfigField:
- *   - debug:   http://10.0.2.2:5001/api/  (Android Emulator → host localhost)
+ *   - debug:   http://10.0.2.2:5001/api/  (Android Emulator -> host localhost)
  *   - release: https://api.vaididea.in/api/  (production default)
  *
  * To test on a physical device from a locally built APK, override in local.properties:
@@ -33,7 +33,11 @@ object ApiConfig {
             Build.PRODUCT.contains("sdk")
     }
 
-    val BASE_URL: String = if (isProbablyEmulator()) EMULATOR_BASE_URL else BuildConfig.API_BASE_URL
+    val BASE_URL: String = if (BuildConfig.DEBUG && isProbablyEmulator()) {
+        EMULATOR_BASE_URL
+    } else {
+        BuildConfig.API_BASE_URL
+    }
 
     /** Socket URL is the server root (scheme + host + port, without /api path). */
     val SOCKET_URL: String = run {
@@ -53,7 +57,7 @@ object ApiConfig {
      *    - prod HTTPS API -> same host over WSS
      */
     val AI_WS_URL: String = run {
-        if (isProbablyEmulator()) return@run EMULATOR_AI_WS_URL
+        if (BuildConfig.DEBUG && isProbablyEmulator()) return@run EMULATOR_AI_WS_URL
 
         val configured = BuildConfig.AI_WS_BASE_URL.trim().removeSuffix("/")
         if (configured.isNotEmpty()) return@run configured
