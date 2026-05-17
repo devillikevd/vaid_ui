@@ -120,8 +120,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Allow locally built release APKs to target a LAN backend for real-phone testing.
-            val releaseApiUrl = localBuildProperty("API_BASE_URL") ?: "https://api.vaididea.in/api/"
+            // Keep release APKs on the production API. Debug/staging can still
+            // use API_BASE_URL from local.properties for local device testing.
+            val releaseApiUrl = localOrEnvProperty("RELEASE_API_BASE_URL") ?: "https://api.vaididea.in/api/"
             val releaseAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
             val releaseTurnUrl = localBuildProperty("TURN_URL") ?: ""
             val releaseTurnUsername = localBuildProperty("TURN_USERNAME") ?: ""

@@ -53,17 +53,40 @@ const isEnvEnabled = (name, fallback = true) => {
 const app = express();
 const server = http.createServer(app);
 
-// Shared CORS allowlist for both HTTP and WebSocket
-const allowedOrigins = [
-  config.frontendWebUrl,
-  config.frontendDoctorWebUrl,
+const withApexAndWww = (value) => {
+  if (!value || !/^https?:\/\//i.test(value)) return [value].filter(Boolean);
+
+  try {
+    const url = new URL(value);
+    const variants = [url.toString().replace(/\/$/, '')];
+
+    if (url.hostname.startsWith('www.')) {
+      url.hostname = url.hostname.slice(4);
+      variants.push(url.toString().replace(/\/$/, ''));
+    } else {
+      url.hostname = `www.${url.hostname}`;
+      variants.push(url.toString().replace(/\/$/, ''));
+    }
+
+    return variants;
+  } catch {
+    return [value];
+  }
+};
+
+// Shared CORS allowlist for both HTTP and WebSocket.
+// Include apex/www variants so the selected Vercel primary domain does not
+// break browser requests when the other form is configured in env.
+const allowedOrigins = Array.from(new Set([
+  ...withApexAndWww(config.frontendWebUrl),
+  ...withApexAndWww(config.frontendDoctorWebUrl),
   config.frontendAppUrl,
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:3002',
   'http://10.0.2.2:3000', // Android Emulator (Docker/Standard)
   'http://10.0.2.2:5001', // Android Emulator (Local Fallback)
-];
+].filter(Boolean)));
 
 const isOriginAllowed = (origin) => {
   if (!origin) return true; // mobile apps / curl / server-to-server
