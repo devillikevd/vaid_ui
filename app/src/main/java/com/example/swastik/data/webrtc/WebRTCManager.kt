@@ -318,8 +318,18 @@ class WebRTCManager(
      * Handle a remote offer (callee side) — set remote SDP and create answer.
      */
     fun handleRemoteOffer(sdp: String, type: String = "offer") {
+        if (sdp.isBlank()) {
+            Log.w(TAG, "Ignoring blank remote offer")
+            return
+        }
+        val sdpType = runCatching {
+            SessionDescription.Type.fromCanonicalForm(type)
+        }.getOrElse {
+            Log.w(TAG, "Ignoring remote offer with invalid type: $type")
+            return
+        }
         val sessionDescription = SessionDescription(
-            SessionDescription.Type.fromCanonicalForm(type),
+            sdpType,
             sdp
         )
 
@@ -360,8 +370,18 @@ class WebRTCManager(
      * Handle a remote answer (caller side).
      */
     fun handleRemoteAnswer(sdp: String, type: String = "answer") {
+        if (sdp.isBlank()) {
+            Log.w(TAG, "Ignoring blank remote answer")
+            return
+        }
+        val sdpType = runCatching {
+            SessionDescription.Type.fromCanonicalForm(type)
+        }.getOrElse {
+            Log.w(TAG, "Ignoring remote answer with invalid type: $type")
+            return
+        }
         val sessionDescription = SessionDescription(
-            SessionDescription.Type.fromCanonicalForm(type),
+            sdpType,
             sdp
         )
         peerConnection?.setRemoteDescription(object : SdpObserver {
@@ -380,9 +400,17 @@ class WebRTCManager(
      * If remote description hasn't been set yet, buffer the candidate.
      */
     fun addIceCandidate(sdpMid: String, sdpMLineIndex: Int, candidate: String) {
+        if (candidate.isBlank()) {
+            Log.w(TAG, "Ignoring blank ICE candidate")
+            return
+        }
         val iceCandidate = IceCandidate(sdpMid, sdpMLineIndex, candidate)
         if (hasRemoteDescription) {
-            peerConnection?.addIceCandidate(iceCandidate)
+            runCatching {
+                peerConnection?.addIceCandidate(iceCandidate)
+            }.onFailure {
+                Log.w(TAG, "Failed to add ICE candidate: ${it.message}")
+            }
         } else {
             Log.d(TAG, "Buffering ICE candidate (no remote description yet)")
             pendingIceCandidates.add(iceCandidate)
@@ -397,7 +425,11 @@ class WebRTCManager(
         if (pendingIceCandidates.isNotEmpty()) {
             Log.d(TAG, "Draining ${pendingIceCandidates.size} buffered ICE candidates")
             for (candidate in pendingIceCandidates) {
-                peerConnection?.addIceCandidate(candidate)
+                runCatching {
+                    peerConnection?.addIceCandidate(candidate)
+                }.onFailure {
+                    Log.w(TAG, "Failed to drain ICE candidate: ${it.message}")
+                }
             }
             pendingIceCandidates.clear()
         }
@@ -435,27 +467,29 @@ class WebRTCManager(
             videoCapturer?.stopCapture()
         } catch (e: InterruptedException) {
             Log.e(TAG, "Error stopping capturer", e)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Error stopping capturer", e)
         }
-        videoCapturer?.dispose()
+        runCatching { videoCapturer?.dispose() }
         videoCapturer = null
 
-        surfaceTextureHelper?.dispose()
+        runCatching { surfaceTextureHelper?.dispose() }
         surfaceTextureHelper = null
 
-        localVideoTrack?.dispose()
+        runCatching { localVideoTrack?.dispose() }
         localVideoTrack = null
 
-        localAudioTrack?.dispose()
+        runCatching { localAudioTrack?.dispose() }
         localAudioTrack = null
 
         // dispose() internally calls close() — calling both separately can crash
-        peerConnection?.dispose()
+        runCatching { peerConnection?.dispose() }
         peerConnection = null
 
-        peerConnectionFactory?.dispose()
+        runCatching { peerConnectionFactory?.dispose() }
         peerConnectionFactory = null
 
-        eglBase.release()
+        runCatching { eglBase.release() }
 
         Log.d(TAG, "WebRTC resources released")
     }

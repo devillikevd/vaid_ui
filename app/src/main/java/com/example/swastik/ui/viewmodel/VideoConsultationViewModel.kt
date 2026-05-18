@@ -198,114 +198,141 @@ class VideoConsultationViewModel @Inject constructor(
         if (isWebRTCInitialized) return
         isWebRTCInitialized = true
 
-        webRTCManager = WebRTCManager(appContext).apply {
-            cvAnalyzer = ComputerVisionAnalyzer(appContext)
-            applySpeakerRoute(_uiState.value.isSpeakerOn)
-            
-            // Set up callbacks
-            onLocalVideoTrack = { track ->
-                _localVideoTrack.value = track
-                cvAnalyzer?.let { track.addSink(it) } // Intercept frames for MediaPipe CV Vitals
-            }
-            onRemoteVideoTrack = { track ->
-                _remoteVideoTrack.value = track
-                _uiState.value = _uiState.value.copy(hasRemoteVideo = true)
-            }
-            onIceCandidateGenerated = { candidate ->
-                // Send ICE candidate to remote peer via Socket.IO
-                val roomId = _uiState.value.session?.sessionId
-                if (roomId != null) {
-                    appointmentRepository.sendIceCandidate(
-                        roomId,
-                        candidate.sdpMid ?: "",
-                        candidate.sdpMLineIndex,
-                        candidate.sdp
+        try {
+            webRTCManager = WebRTCManager(appContext).apply {
+                cvAnalyzer = try {
+                    ComputerVisionAnalyzer(appContext)
+                } catch (error: Throwable) {
+                    android.util.Log.e("VideoConsultationVM", "CV analyzer disabled: ${error.message}", error)
+                    null
+                }
+                applySpeakerRoute(_uiState.value.isSpeakerOn)
+
+                // Set up callbacks
+                onLocalVideoTrack = { track ->
+                    _localVideoTrack.value = track
+                    cvAnalyzer?.let { analyzer ->
+                        try {
+                            track.addSink(analyzer) // Intercept frames for MediaPipe CV Vitals
+                        } catch (error: Throwable) {
+                            android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
+                        }
+                    }
+                }
+                onRemoteVideoTrack = { track ->
+                    _remoteVideoTrack.value = track
+                    _uiState.value = _uiState.value.copy(hasRemoteVideo = true)
+                }
+                onIceCandidateGenerated = { candidate ->
+                    // Send ICE candidate to remote peer via Socket.IO
+                    val roomId = _uiState.value.session?.sessionId
+                    if (roomId != null) {
+                        appointmentRepository.sendIceCandidate(
+                            roomId,
+                            candidate.sdpMid ?: "",
+                            candidate.sdpMLineIndex,
+                            candidate.sdp
+                        )
+                    }
+                }
+                onOfferCreated = { sdp ->
+                    val roomId = _uiState.value.session?.sessionId
+                    if (roomId != null) {
+                        hasSentLocalOffer = true
+                        appointmentRepository.sendOffer(roomId, sdp.description, sdp.type.canonicalForm())
+                    }
+                }
+                onAnswerCreated = { sdp ->
+                    val roomId = _uiState.value.session?.sessionId
+                    if (roomId != null) {
+                        appointmentRepository.sendAnswer(roomId, sdp.description, sdp.type.canonicalForm())
+                    }
+                }
+                onConnectionStateChanged = { state ->
+                    when (state) {
+                        PeerConnection.IceConnectionState.CONNECTED,
+                        PeerConnection.IceConnectionState.COMPLETED -> {
+                            localBandwidthMode = ConsultationMode.VIDEO
+                            _uiState.value = _uiState.value.copy(
+                                isConnected = true,
+                                isConnecting = false,
+                                consultationCompleted = false
+                            )
+                            startCallDurationTimer()
+                            publishModeConstraintIfNeeded()
+                            applyEffectiveMediaState()
+                            startNetworkQualityMonitor()
+                            startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
+                        }
+                        PeerConnection.IceConnectionState.DISCONNECTED -> {
+                            _uiState.value = _uiState.value.copy(
+                                modeBanner = "Connection interrupted - reconnecting..."
+                            )
+                            viewModelScope.launch {
+                                kotlinx.coroutines.delay(5000)
+                                if (_uiState.value.modeBanner?.contains("reconnecting") == true) {
+                                    _uiState.value = _uiState.value.copy(modeBanner = null)
+                                }
+                            }
+                        }
+                        PeerConnection.IceConnectionState.FAILED -> {
+                            localBandwidthMode = ConsultationMode.CHAT
+                            _uiState.value = _uiState.value.copy(
+                                isConnected = false,
+                                hasRemoteVideo = false
+                            )
+                            publishModeConstraintIfNeeded()
+                            applyEffectiveMediaState(
+                                banner = "Connection lost - switched to Chat mode",
+                                clearDelayMs = 5000
+                            )
+                            networkMonitorJob?.cancel()
+                        }
+                        PeerConnection.IceConnectionState.CLOSED -> {
+                            _uiState.value = _uiState.value.copy(isConnected = false, hasRemoteVideo = false)
+                            networkMonitorJob?.cancel()
+                        }
+                        else -> {}
+                    }
+                }
+                onRemoteStreamRemoved = {
+                    _remoteVideoTrack.value = null
+                    _uiState.value = _uiState.value.copy(hasRemoteVideo = false)
+                }
+
+                // Initialize and start
+                initialize()
+                val localVideoTrack = try {
+                    startLocalMedia()
+                } catch (mediaError: Throwable) {
+                    android.util.Log.w("VideoConsultationVM", "Local media fallback to audio-only: ${mediaError.message}", mediaError)
+                    null
+                }
+                createPeerConnection()
+
+                if (localVideoTrack == null) {
+                    userPreferredMode = ConsultationMode.AUDIO
+                    localBandwidthMode = ConsultationMode.AUDIO
+                    applyEffectiveMediaState(
+                        banner = "Camera unavailable - switched to Audio-only mode",
+                        clearDelayMs = 4000
                     )
                 }
             }
-            onOfferCreated = { sdp ->
-                val roomId = _uiState.value.session?.sessionId
-                if (roomId != null) {
-                    hasSentLocalOffer = true
-                    appointmentRepository.sendOffer(roomId, sdp.description, sdp.type.canonicalForm())
-                }
-            }
-            onAnswerCreated = { sdp ->
-                val roomId = _uiState.value.session?.sessionId
-                if (roomId != null) {
-                    appointmentRepository.sendAnswer(roomId, sdp.description, sdp.type.canonicalForm())
-                }
-            }
-            onConnectionStateChanged = { state ->
-                when (state) {
-                    PeerConnection.IceConnectionState.CONNECTED,
-                    PeerConnection.IceConnectionState.COMPLETED -> {
-                        localBandwidthMode = ConsultationMode.VIDEO
-                        _uiState.value = _uiState.value.copy(
-                            isConnected = true,
-                            isConnecting = false,
-                            consultationCompleted = false
-                        )
-                        startCallDurationTimer()
-                        publishModeConstraintIfNeeded()
-                        applyEffectiveMediaState()
-                        startNetworkQualityMonitor()
-                        startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
-                    }
-                    PeerConnection.IceConnectionState.DISCONNECTED -> {
-                        _uiState.value = _uiState.value.copy(
-                            modeBanner = "⚠️ Connection interrupted — reconnecting..."
-                        )
-                        viewModelScope.launch {
-                            kotlinx.coroutines.delay(5000)
-                            if (_uiState.value.modeBanner?.contains("reconnecting") == true) {
-                                _uiState.value = _uiState.value.copy(modeBanner = null)
-                            }
-                        }
-                    }
-                    PeerConnection.IceConnectionState.FAILED -> {
-                        localBandwidthMode = ConsultationMode.CHAT
-                        _uiState.value = _uiState.value.copy(
-                            isConnected = false,
-                            hasRemoteVideo = false
-                        )
-                        publishModeConstraintIfNeeded()
-                        applyEffectiveMediaState(
-                            banner = "❌ Connection lost — switched to Chat mode",
-                            clearDelayMs = 5000
-                        )
-                        networkMonitorJob?.cancel()
-                    }
-                    PeerConnection.IceConnectionState.CLOSED -> {
-                        _uiState.value = _uiState.value.copy(isConnected = false, hasRemoteVideo = false)
-                        networkMonitorJob?.cancel()
-                    }
-                    else -> {}
-                }
-            }
-            onRemoteStreamRemoved = {
-                _remoteVideoTrack.value = null
-                _uiState.value = _uiState.value.copy(hasRemoteVideo = false)
-            }
-
-            // Initialize and start
-            initialize()
-            val localVideoTrack = try {
-                startLocalMedia()
-            } catch (mediaError: Exception) {
-                android.util.Log.w("VideoConsultationVM", "Local media fallback to audio-only: ${mediaError.message}")
-                null
-            }
-            createPeerConnection()
-
-            if (localVideoTrack == null) {
-                userPreferredMode = ConsultationMode.AUDIO
-                localBandwidthMode = ConsultationMode.AUDIO
-                applyEffectiveMediaState(
-                    banner = "Camera unavailable — switched to Audio-only mode",
-                    clearDelayMs = 4000
-                )
-            }
+        } catch (error: Throwable) {
+            android.util.Log.e("VideoConsultationVM", "WebRTC initialization failed: ${error.message}", error)
+            releaseWebRTC()
+            userPreferredMode = ConsultationMode.CHAT
+            localBandwidthMode = ConsultationMode.CHAT
+            _uiState.value = _uiState.value.copy(
+                isConnecting = false,
+                isConnected = false,
+                connectionMode = ConsultationMode.CHAT,
+                isMicEnabled = false,
+                isCameraEnabled = false,
+                modeBanner = "Video setup failed on this device - chat is still available",
+                error = null
+            )
         }
     }
 
@@ -1047,36 +1074,46 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun applySpeakerRoute(isSpeakerOn: Boolean) {
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val targetType = if (isSpeakerOn) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-            val communicationDevice = audioManager
-                .availableCommunicationDevices
-                .firstOrNull { it.type == targetType }
-                ?: audioManager.availableCommunicationDevices.firstOrNull()
-            if (communicationDevice != null) {
-                audioManager.setCommunicationDevice(communicationDevice)
+        try {
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val targetType = if (isSpeakerOn) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                val communicationDevices = audioManager.availableCommunicationDevices
+                val communicationDevice = communicationDevices
+                    .firstOrNull { it.type == targetType }
+                    ?: communicationDevices.firstOrNull()
+                if (communicationDevice != null) {
+                    audioManager.setCommunicationDevice(communicationDevice)
+                } else {
+                    audioManager.clearCommunicationDevice()
+                }
             } else {
-                audioManager.clearCommunicationDevice()
+                @Suppress("DEPRECATION")
+                run {
+                    audioManager.isSpeakerphoneOn = isSpeakerOn
+                }
             }
-        } else {
-            @Suppress("DEPRECATION")
-            run {
-                audioManager.isSpeakerphoneOn = isSpeakerOn
-            }
+        } catch (error: SecurityException) {
+            android.util.Log.w("VideoConsultationVM", "Audio routing permission denied: ${error.message}")
+        } catch (error: RuntimeException) {
+            android.util.Log.w("VideoConsultationVM", "Audio routing unavailable: ${error.message}")
         }
     }
 
     private fun resetAudioRoute() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            audioManager.clearCommunicationDevice()
-        } else {
-            @Suppress("DEPRECATION")
-            run {
-                audioManager.isSpeakerphoneOn = false
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice()
+            } else {
+                @Suppress("DEPRECATION")
+                run {
+                    audioManager.isSpeakerphoneOn = false
+                }
             }
+            audioManager.mode = AudioManager.MODE_NORMAL
+        } catch (error: RuntimeException) {
+            android.util.Log.w("VideoConsultationVM", "Unable to reset audio route: ${error.message}")
         }
-        audioManager.mode = AudioManager.MODE_NORMAL
     }
 
     fun dismissCompletion() {
