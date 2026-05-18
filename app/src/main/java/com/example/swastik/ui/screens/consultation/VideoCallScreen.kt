@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import com.example.swastik.ui.viewmodel.ConsultationMode
 import com.example.swastik.ui.viewmodel.ChatMessageUi
 import org.webrtc.EglBase
@@ -455,27 +457,58 @@ fun WebRTCVideoView(
 ) {
     val context = LocalContext.current
 
-    AndroidView(
-        factory = {
-            SurfaceViewRenderer(context).apply {
-                init(eglContext, null)
-                setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
-                setMirror(mirror)
-                setEnableHardwareScaler(true)
-                videoTrack.addSink(this)
-            }
-        },
-        update = { renderer ->
-            renderer.setMirror(mirror)
-        },
-        onRelease = { renderer ->
-            try {
-                videoTrack.removeSink(renderer)
-            } catch (_: Exception) { }
-            renderer.release()
-        },
-        modifier = modifier
-    )
+    key(videoTrack, eglContext) {
+        AndroidView(
+            factory = {
+                FrameLayout(context).apply {
+                    val renderer = SurfaceViewRenderer(context)
+                    try {
+                        renderer.init(eglContext, null)
+                        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                        renderer.setMirror(mirror)
+                        renderer.setEnableHardwareScaler(true)
+                        videoTrack.addSink(renderer)
+                        addView(
+                            renderer,
+                            FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        )
+                    } catch (error: Throwable) {
+                        android.util.Log.e("VideoCallScreen", "Unable to attach WebRTC renderer: ${error.message}", error)
+                        try {
+                            videoTrack.removeSink(renderer)
+                        } catch (_: Throwable) { }
+                        try {
+                            renderer.release()
+                        } catch (_: Throwable) { }
+                    }
+                }
+            },
+            update = { container ->
+                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
+                    try {
+                        renderer.setMirror(mirror)
+                    } catch (error: Throwable) {
+                        android.util.Log.w("VideoCallScreen", "Unable to update renderer mirror: ${error.message}")
+                    }
+                }
+            },
+            onRelease = { container ->
+                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
+                    try {
+                        videoTrack.removeSink(renderer)
+                    } catch (_: Throwable) { }
+                    try {
+                        renderer.release()
+                    } catch (_: Throwable) { }
+                }
+                container.removeAllViews()
+            },
+            modifier = modifier
+        )
+    }
 }
 
 /**
