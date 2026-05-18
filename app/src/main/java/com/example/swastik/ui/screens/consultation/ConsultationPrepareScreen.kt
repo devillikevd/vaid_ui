@@ -73,7 +73,7 @@ fun ConsultationPrepareScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = (-72).dp)
+                .offset(x = 72.dp, y = 12.dp)
                 .size(220.dp)
                 .clip(CircleShape)
                 .background(accentBlue.copy(alpha = 0.16f))
@@ -81,7 +81,7 @@ fun ConsultationPrepareScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = (-48).dp, bottom = 48.dp)
+                .offset(x = (-48).dp, y = (-48).dp)
                 .size(180.dp)
                 .clip(CircleShape)
                 .background(accentTeal.copy(alpha = 0.10f))
