@@ -49,7 +49,7 @@ const emptyForm = (): TestFormState => ({
     price: '',
     discounted_price: '',
     turnaround_hours: '24',
-    sample_type: 'Blood',
+    sample_type: '',
     preparation_instructions: '',
     is_active: true,
 });
@@ -128,7 +128,7 @@ export default function DiagnosticCenterTestsPage() {
             price: String(test.price ?? ''),
             discounted_price: test.discounted_price != null ? String(test.discounted_price) : '',
             turnaround_hours: String(test.turnaround_hours ?? 24),
-            sample_type: test.sample_type || 'Blood',
+            sample_type: test.sample_type || '',
             preparation_instructions: test.preparation_instructions || '',
             is_active: test.is_active,
         });

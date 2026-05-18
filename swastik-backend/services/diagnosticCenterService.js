@@ -381,7 +381,7 @@ const addTest = async (centerId, testData) => {
       price: testData.price,
       discounted_price: testData.discountedPrice || testData.discounted_price || null,
       turnaround_hours: testData.turnaroundHours || testData.turnaround_hours || 24,
-      sample_type: testData.sampleType || testData.sample_type || 'Blood',
+      sample_type: testData.sampleType || testData.sample_type || null,
       preparation_instructions: testData.preparationInstructions || testData.preparation_instructions,
       is_active: true,
     })

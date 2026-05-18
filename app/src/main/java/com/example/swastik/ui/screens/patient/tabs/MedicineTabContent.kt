@@ -569,7 +569,7 @@ private fun EmptyMedicineState(
     val supportingText = when {
         searchQuery.isNotBlank() -> "Try a brand name, generic name, or reset the search."
         selectedCategory != null -> "Clear the filter or try a broader category."
-        else -> "This environment has little or no seeded medicine catalog data yet. Refresh to check again."
+        else -> "No medicines are available from connected pharmacies yet. Refresh to check again."
     }
 
     Box(

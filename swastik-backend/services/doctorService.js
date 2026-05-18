@@ -623,40 +623,67 @@ class DoctorService {
 
     const { offset } = paginate(page, limit);
 
-    // Get unique patients who have had appointments
-    const { data: appointments } = await supabaseAdmin
-      .from('appointments')
-      .select(`
-        patient_id,
-        appointment_date,
-        created_at,
-        patient:patients(
-          id, name, age, gender, blood_group, profile_image_url,
-          user:users(email, phone)
-        )
-      `)
-      .eq('doctor_id', doctor.id)
-      .order('appointment_date', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false });
+    const patientSelect = `
+      id, name, age, gender, blood_group, profile_image_url,
+      user:users(email, phone)
+    `;
 
-    // Get unique patients
+    const [appointmentsResult, consultationsResult] = await Promise.all([
+      supabaseAdmin
+        .from('appointments')
+        .select(`
+          patient_id,
+          appointment_date,
+          created_at,
+          patient:patients(${patientSelect})
+        `)
+        .eq('doctor_id', doctor.id)
+        .order('appointment_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false }),
+      supabaseAdmin
+        .from('consultations')
+        .select(`
+          patient_id,
+          started_at,
+          ended_at,
+          created_at,
+          patient:patients(${patientSelect})
+        `)
+        .eq('doctor_id', doctor.id)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    if (appointmentsResult.error) throw appointmentsResult.error;
+    if (consultationsResult.error) throw consultationsResult.error;
+
+    const patientEvents = [
+      ...(appointmentsResult.data || []).map((appointment) => ({
+        patient: appointment.patient,
+        lastVisit: appointment.appointment_date || appointment.created_at || null,
+      })),
+      ...(consultationsResult.data || []).map((consultation) => ({
+        patient: consultation.patient,
+        lastVisit: consultation.started_at || consultation.ended_at || consultation.created_at || null,
+      })),
+    ];
+
     const patientMap = new Map();
-    appointments?.forEach(apt => {
-      if (!apt.patient) return;
+    patientEvents.forEach((event) => {
+      if (!event.patient) return;
 
-      const existing = patientMap.get(apt.patient.id);
-      const lastVisit = apt.appointment_date || apt.created_at || null;
+      const existing = patientMap.get(event.patient.id);
+      const lastVisit = event.lastVisit;
 
       if (!existing) {
-        patientMap.set(apt.patient.id, {
-          id: apt.patient.id,
-          name: apt.patient.name,
-          age: apt.patient.age,
-          gender: apt.patient.gender,
-          bloodGroup: apt.patient.blood_group,
-          profileImageUrl: apt.patient.profile_image_url,
-          email: apt.patient.user?.email || null,
-          phone: apt.patient.user?.phone || null,
+        patientMap.set(event.patient.id, {
+          id: event.patient.id,
+          name: event.patient.name,
+          age: event.patient.age,
+          gender: event.patient.gender,
+          bloodGroup: event.patient.blood_group,
+          profileImageUrl: event.patient.profile_image_url,
+          email: event.patient.user?.email || null,
+          phone: event.patient.user?.phone || null,
           lastVisit,
           totalVisits: 1,
         });
@@ -976,16 +1003,24 @@ class DoctorService {
       throw new ApiError(404, 'Doctor profile not found');
     }
 
-    // Check if doctor has treated this patient
-    const { data: hasAppointment } = await supabaseAdmin
-      .from('appointments')
-      .select('id')
-      .eq('doctor_id', doctor.id)
-      .eq('patient_id', patientId)
-      .limit(1)
-      .single();
+    const [{ data: hasAppointment }, { data: hasConsultation }] = await Promise.all([
+      supabaseAdmin
+        .from('appointments')
+        .select('id')
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('consultations')
+        .select('id')
+        .eq('doctor_id', doctor.id)
+        .eq('patient_id', patientId)
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    if (!hasAppointment) {
+    if (!hasAppointment && !hasConsultation) {
       throw new ApiError(403, 'You can only view details of your patients');
     }
 
@@ -1069,8 +1104,12 @@ class DoctorService {
       grant ? Promise.resolve([]) : getExplicitlySharedReports(patientId, doctor.id),
     ]);
 
-    const totalVisits = appointments?.length || 0;
-    const lastVisit = appointments?.[0]?.appointment_date || appointments?.[0]?.created_at || null;
+    const totalVisits = Math.max(appointments?.length || 0, consultations?.length || 0);
+    const appointmentLastVisit = appointments?.[0]?.appointment_date || appointments?.[0]?.created_at || null;
+    const consultationLastVisit = consultations?.[0]?.started_at || consultations?.[0]?.ended_at || consultations?.[0]?.created_at || null;
+    const lastVisit = [appointmentLastVisit, consultationLastVisit]
+      .filter(Boolean)
+      .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || null;
     const visibleReports = grant
       ? (fullHistoryReportsResult?.data || [])
       : explicitlySharedReports;
