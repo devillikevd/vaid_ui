@@ -110,8 +110,24 @@ class WebRTCManager(
         )
         val decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
 
-        val audioDeviceModule: AudioDeviceModule = JavaAudioDeviceModule.builder(context)
-            .createAudioDeviceModule()
+        val audioDeviceModule = try {
+            JavaAudioDeviceModule.builder(context)
+                .setAudioRecordErrorCallback(object : JavaAudioDeviceModule.AudioRecordErrorCallback {
+                    override fun onWebRtcAudioRecordInitError(errorMessage: String?) {
+                        Log.e(TAG, "AudioRecord init error: $errorMessage")
+                    }
+                    override fun onWebRtcAudioRecordStartError(errorCode: JavaAudioDeviceModule.AudioRecordStartErrorCode?, errorMessage: String?) {
+                        Log.e(TAG, "AudioRecord start error: $errorMessage")
+                    }
+                    override fun onWebRtcAudioRecordError(errorMessage: String?) {
+                        Log.e(TAG, "AudioRecord error: $errorMessage")
+                    }
+                })
+                .createAudioDeviceModule()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create JavaAudioDeviceModule: ${e.message}")
+            JavaAudioDeviceModule.builder(context).setUseHardwareAcousticEchoCanceler(false).setUseHardwareNoiseSuppressor(false).createAudioDeviceModule()
+        }
 
         peerConnectionFactory = PeerConnectionFactory.builder()
             .setAudioDeviceModule(audioDeviceModule)
