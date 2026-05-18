@@ -69,7 +69,7 @@ class WebRTCManager(
     @Volatile
     private var hasRemoteDescription = false
 
-    val eglBase: EglBase = EglBase.create()
+    val eglBase: EglBase by lazy { EglBase.create() }
 
     // Callbacks — set by the ViewModel
     var onLocalVideoTrack: ((VideoTrack) -> Unit)? = null
