@@ -130,6 +130,10 @@ class VideoConsultationViewModel @Inject constructor(
     private var currentAppointmentId: String? = null
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
     private var callDurationJob: kotlinx.coroutines.Job? = null
+    private var patientOfferFallbackJob: kotlinx.coroutines.Job? = null
+    private var hasSentLocalOffer = false
+    private var hasReceivedRemoteOffer = false
+    private var hasReceivedRemoteAnswer = false
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -222,6 +226,7 @@ class VideoConsultationViewModel @Inject constructor(
             onOfferCreated = { sdp ->
                 val roomId = _uiState.value.session?.sessionId
                 if (roomId != null) {
+                    hasSentLocalOffer = true
                     appointmentRepository.sendOffer(roomId, sdp.description, sdp.type.canonicalForm())
                 }
             }
@@ -428,17 +433,30 @@ class VideoConsultationViewModel @Inject constructor(
      */
     private fun handleSignalingEvent(event: SignalingEvent) {
         when (event) {
+            is SignalingEvent.RoomState -> {
+                val sessionRoomId = _uiState.value.session?.sessionId ?: return
+                if (event.roomId != sessionRoomId) return
+                if (event.participants.isNotEmpty()) {
+                    publishModeConstraintIfNeeded(force = true)
+                    schedulePatientOfferFallback()
+                }
+            }
             is SignalingEvent.UserJoined -> {
                 // Doctor web is the single offer initiator to avoid SDP glare.
-                // The patient app only answers incoming offers.
+                // If the doctor does not send an offer promptly, a delayed
+                // patient fallback offer below prevents a silent stuck room.
                 publishModeConstraintIfNeeded(force = true)
+                schedulePatientOfferFallback()
             }
             is SignalingEvent.Offer -> {
                 // Received offer — set remote description and create answer
+                hasReceivedRemoteOffer = true
+                patientOfferFallbackJob?.cancel()
                 webRTCManager?.handleRemoteOffer(event.sdp, event.type)
             }
             is SignalingEvent.Answer -> {
                 // Received answer — set remote description
+                hasReceivedRemoteAnswer = true
                 webRTCManager?.handleRemoteAnswer(event.sdp, event.type)
             }
             is SignalingEvent.IceCandidate -> {
@@ -486,6 +504,21 @@ class VideoConsultationViewModel @Inject constructor(
                     modeBanner = "Doctor left the video room"
                 )
             }
+        }
+    }
+
+    private fun schedulePatientOfferFallback() {
+        val session = _uiState.value.session ?: return
+        if (session.sessionId.isBlank() || _uiState.value.isConnected) return
+        if (hasSentLocalOffer || hasReceivedRemoteOffer || hasReceivedRemoteAnswer) return
+
+        patientOfferFallbackJob?.cancel()
+        patientOfferFallbackJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(1500)
+            if (_uiState.value.session?.sessionId != session.sessionId) return@launch
+            if (_uiState.value.isConnected || hasSentLocalOffer || hasReceivedRemoteOffer || hasReceivedRemoteAnswer) return@launch
+            android.util.Log.d("VideoConsultationVM", "Creating delayed patient offer fallback")
+            webRTCManager?.createOffer()
         }
     }
 
@@ -949,6 +982,11 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun releaseWebRTC() {
+        patientOfferFallbackJob?.cancel()
+        patientOfferFallbackJob = null
+        hasSentLocalOffer = false
+        hasReceivedRemoteOffer = false
+        hasReceivedRemoteAnswer = false
         networkMonitorJob?.cancel()
         networkMonitorJob = null
         callDurationJob?.cancel()

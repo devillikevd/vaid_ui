@@ -160,6 +160,7 @@ class PushNotificationCoordinator @Inject constructor(
             "appointment_confirmed",
             "appointment_reminder",
             "follow_up_reminder",
+            "consultation_started",
             "appointment_status_changed",
             "appointment_rescheduled",
             "appointment_cancelled" -> preferences.appointments

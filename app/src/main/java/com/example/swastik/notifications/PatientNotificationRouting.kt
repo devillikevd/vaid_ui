@@ -2,6 +2,8 @@ package com.example.swastik.notifications
 
 import com.example.swastik.navigation.Screen
 import com.google.gson.JsonObject
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import org.json.JSONObject
 
 data class PatientNotificationDestination(
@@ -47,6 +49,7 @@ fun resolvePatientNotificationDestination(
     val appointmentId = data["appointmentId"] ?: data["appointment_id"]
     val prescriptionId = data["prescriptionId"] ?: data["prescription_id"]
     val medicineId = data["medicineId"] ?: data["medicine_id"]
+    val doctorName = data["doctorName"] ?: data["doctor_name"] ?: "Doctor"
 
     if (!medicineId.isNullOrBlank()) {
         return PatientNotificationDestination(
@@ -102,6 +105,15 @@ fun resolvePatientNotificationDestination(
                 actionLabel = "View Reminders",
                 route = Screen.VitalsReminders.route,
                 deepLink = "vaididea://vitals"
+            )
+        }
+
+        normalizedType == "consultation_started" && !appointmentId.isNullOrBlank() -> {
+            val encodedDoctorName = URLEncoder.encode(doctorName, StandardCharsets.UTF_8.toString())
+            PatientNotificationDestination(
+                actionLabel = "Join Call",
+                route = Screen.VideoConsultation.createRoute(appointmentId, doctorName),
+                deepLink = "vaididea://consultation/$appointmentId/$encodedDoctorName"
             )
         }
 

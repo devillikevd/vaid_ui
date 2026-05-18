@@ -272,7 +272,33 @@ class AppEventEmitter extends EventEmitter {
     const { doctor_id, patient_id } = normalized;
     // BUG-13 Fix: Notify both doctor (multi-tab sync) and patient
     if (doctor_id) this.notifyUser(doctor_id, 'consultation:started', normalized);
-    if (patient_id) this.notifyUser(patient_id, 'consultation:started', normalized);
+    if (patient_id) {
+      this.notifyUser(patient_id, 'consultation:started', normalized);
+      const notificationKey = normalized.consultationId || normalized.appointmentId || normalized.roomId || crypto.randomUUID();
+
+      const patientNotif = {
+        type: 'consultation_started',
+        title: 'Doctor is waiting',
+        message: `${normalized.doctorName || 'Doctor'} has started your consultation. Join now.`,
+        timestamp: normalized.timestamp,
+        data: {
+          consultationId: normalized.consultationId,
+          appointmentId: normalized.appointmentId,
+          roomId: normalized.roomId,
+          doctorName: normalized.doctorName || 'Doctor',
+          idempotencyKey: `consultation-started:${notificationKey}`,
+        },
+      };
+
+      try {
+        const notificationService = require('./notificationService');
+        notificationService.sendNotification(patient_id, patientNotif).catch((err) => {
+          console.warn('[EventEmitter] consultation_started push failed:', err.message || err);
+        });
+      } catch (err) {
+        console.warn('[EventEmitter] notification service unavailable:', err.message || err);
+      }
+    }
     this.emitDistributed('consultation:started', normalized);
   }
 

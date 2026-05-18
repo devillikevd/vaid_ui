@@ -62,11 +62,20 @@ class AuthViewModel @Inject constructor(
                     )
                 },
                 onFailure = { e ->
-                    _uiState.value = AuthUiState(
-                        isLoading = false,
-                        isSessionResolved = true,
-                        error = e.message ?: "Failed to restore session"
-                    )
+                    _uiState.value = if (authRepository.isAuthenticated()) {
+                        AuthUiState(
+                            isLoading = false,
+                            isSessionResolved = true,
+                            isLoggedIn = true,
+                            error = e.message ?: "Failed to refresh profile. Showing saved session."
+                        )
+                    } else {
+                        AuthUiState(
+                            isLoading = false,
+                            isSessionResolved = true,
+                            error = e.message ?: "Failed to restore session"
+                        )
+                    }
                 }
             )
         }

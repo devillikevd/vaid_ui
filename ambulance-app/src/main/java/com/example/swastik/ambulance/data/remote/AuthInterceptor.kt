@@ -124,9 +124,7 @@ class AuthInterceptor @Inject constructor(
                 if (newAccessToken.isNotEmpty()) {
                     val expiresIn = dataObj.optLong("expires_in", dataObj.optLong("expiresIn", 604800L))
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
-                    if (socketManager.isConnected) {
-                        socketManager.reconnect(newAccessToken)
-                    }
+                    socketManager.reconnect(newAccessToken)
                     newAccessToken
                 } else {
                     tokenManager.clearAll()
@@ -134,14 +132,15 @@ class AuthInterceptor @Inject constructor(
                     null
                 }
             } else {
+                val statusCode = refreshResponse.code
                 refreshResponse.close()
-                tokenManager.clearAll()
-                socketManager.notifySessionExpired()
+                if (statusCode == 401 || statusCode == 403) {
+                    tokenManager.clearAll()
+                    socketManager.notifySessionExpired()
+                }
                 null
             }
         } catch (e: Exception) {
-            tokenManager.clearAll()
-            socketManager.notifySessionExpired()
             CrashReporter.recordException(e, "Token refresh failed")
             null
         }

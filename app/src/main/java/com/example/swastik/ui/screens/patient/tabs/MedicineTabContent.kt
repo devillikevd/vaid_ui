@@ -55,10 +55,8 @@ fun MedicineTabContent(
     var searchQuery by remember { mutableStateOf("") }
     val colorScheme = MaterialTheme.colorScheme
     val filteredMedicines = viewModel.getFilteredMedicines()
-    val nearbyHighlights = remember(state.nearbyMedicines) {
-        state.nearbyMedicines.filter { it.inStock }.take(6)
-    }
-    val showNearbyHighlights = searchQuery.isBlank() && state.selectedCategory == null && nearbyHighlights.isNotEmpty()
+    val nearbyHighlights = viewModel.getFilteredNearbyMedicines().take(6)
+    val showNearbyHighlights = searchQuery.isBlank() && nearbyHighlights.isNotEmpty()
 
     cartState.pharmacyConflict?.let { conflict ->
         AlertDialog(

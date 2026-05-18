@@ -33,5 +33,6 @@ class SwastikApplication : Application() {
         // Start SyncManager to drain offline queue when network restores
         syncManager.startObserving()
         pushNotificationCoordinator.ensureNotificationChannel()
+        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
     }
 }

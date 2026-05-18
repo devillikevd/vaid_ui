@@ -1,11 +1,8 @@
 package com.example.swastik.ambulance.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFFD32F2F),
@@ -37,7 +34,7 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun SwastikAmbulanceTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     // Always use our branded red color scheme for the ambulance app.

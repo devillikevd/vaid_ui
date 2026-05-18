@@ -127,9 +127,7 @@ class AuthInterceptor @Inject constructor(
 
                 if (newAccessToken.isNotEmpty()) {
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
-                    if (socketManager.isConnected) {
-                        socketManager.reconnect()
-                    }
+                    socketManager.reconnect()
                     newAccessToken
                 } else {
                     socketManager.disconnect()
@@ -137,14 +135,16 @@ class AuthInterceptor @Inject constructor(
                     null
                 }
             } else {
+                val statusCode = refreshResponse.code
                 refreshResponse.close()
-                socketManager.disconnect()
-                tokenManager.clearAll(emitSessionExpired = true)
+                if (statusCode == 401 || statusCode == 403) {
+                    socketManager.disconnect()
+                    tokenManager.clearAll(emitSessionExpired = true)
+                }
                 null
             }
         } catch (_: Exception) {
             socketManager.disconnect()
-            tokenManager.clearAll(emitSessionExpired = true)
             null
         }
     }

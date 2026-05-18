@@ -375,7 +375,7 @@ async function sendMessage(userId, sessionId, message, options = {}) {
  * Analyze an image (skin condition, wound, report, etc.) using Groq Vision.
  * Accepts a base64-encoded image and optional text description.
  *
- * Uses Groq's Llama 3.2 Vision model which natively supports image input.
+ * Uses a Groq vision-capable model which natively supports image input.
  *
  * @param {string} userId
  * @param {string} sessionId
@@ -385,6 +385,7 @@ async function sendMessage(userId, sessionId, message, options = {}) {
  */
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // ~7.5 MB decoded (10 MB base64)
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jpeg', description = '') {
   // Validate base64 image size (prevents memory bomb)
@@ -491,7 +492,7 @@ GUIDELINES:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.2-90b-vision-preview',
+          model: GROQ_VISION_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             {
@@ -577,7 +578,7 @@ GUIDELINES:
     await saveMessages(sessionId, userId, `[Image: ${description || 'Medical image analysis'}]`, parsedResponse.summary, {
       messageType: 'image',
       provider: 'groq_vision',
-      model: 'llama-3.2-90b-vision-preview',
+      model: GROQ_VISION_MODEL,
       latencyMs,
       tokens: usage.total_tokens,
     });
@@ -587,7 +588,7 @@ GUIDELINES:
     return {
       response: parsedResponse,
       provider: 'groq_vision',
-      model: 'llama-3.2-90b-vision-preview',
+      model: GROQ_VISION_MODEL,
       latencyMs,
       usage: {
         promptTokens: usage.prompt_tokens || 0,

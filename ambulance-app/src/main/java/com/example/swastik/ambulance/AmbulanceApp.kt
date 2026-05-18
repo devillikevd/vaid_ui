@@ -35,5 +35,6 @@ class AmbulanceApp : Application() {
             osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
         }
         pushNotificationCoordinator.ensureNotificationChannel()
+        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
     }
 }

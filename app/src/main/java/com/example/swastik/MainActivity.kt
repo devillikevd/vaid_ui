@@ -109,9 +109,12 @@ fun SwastikApp(tokenManager: TokenManager) {
     }
 
     SwastikTheme(darkTheme = darkTheme) {
+        val startDestination = remember(tokenManager) {
+            if (tokenManager.isAuthenticated()) Screen.PatientDashboard.createRoute() else Screen.Home.route
+        }
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route
+            startDestination = startDestination
         ) {
 
         // ── Auth ──────────────────────────────────────────
@@ -221,7 +224,9 @@ fun SwastikApp(tokenManager: TokenManager) {
                     navController.navigate(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
                 },
                 onNavigateToEmergency = { navController.navigate(Screen.Emergency.route) },
-                onNavigateToDiagnostic = { navController.navigate(Screen.DiagnosticBooking.createRoute()) },
+                onNavigateToDiagnostic = {
+                    navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.DIAGNOSTIC_CENTER))
+                },
                 onNavigateToVitals = { navController.navigate(Screen.VitalsReminders.route) },
                 onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) },
                 onNavigateToBookingHistory = { navController.navigate(Screen.BookingHistory.route) },
@@ -461,6 +466,10 @@ fun SwastikApp(tokenManager: TokenManager) {
             arguments = listOf(
                 navArgument("appointmentId") { type = NavType.StringType },
                 navArgument("doctorName") { type = NavType.StringType }
+            ),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "vaididea://consultation/{appointmentId}/{doctorName}" },
+                navDeepLink { uriPattern = "https://vaididea.in/consultation/{appointmentId}/{doctorName}" }
             )
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {

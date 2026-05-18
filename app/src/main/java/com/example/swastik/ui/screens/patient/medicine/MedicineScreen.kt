@@ -58,6 +58,7 @@ fun MedicineScreen(
 
     val state by viewModel.uiState.collectAsState()
     val filteredMedicines = viewModel.getFilteredMedicines()
+    val filteredNearbyMedicines = viewModel.getFilteredNearbyMedicines()
     val cartState by viewModel.cartState.collectAsState()
     val isDarkMode = isSystemInDarkTheme()
     val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
@@ -185,7 +186,7 @@ fun MedicineScreen(
                         ) {
                             CircularProgressIndicator(color = SwastikPurple)
                         }
-                    } else if (filteredMedicines.isEmpty()) {
+                    } else if (filteredMedicines.isEmpty() && filteredNearbyMedicines.isEmpty()) {
                         MedicineEmptyState(
                             onResetFilters = {
                                 searchQuery = ""
@@ -199,7 +200,7 @@ fun MedicineScreen(
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            if (searchQuery.isBlank() && state.nearbyMedicines.isNotEmpty()) {
+                            if (searchQuery.isBlank() && filteredNearbyMedicines.isNotEmpty()) {
                                 item {
                                     Text(
                                         stringResource(id = R.string.available_near_you),
@@ -214,7 +215,7 @@ fun MedicineScreen(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         contentPadding = PaddingValues(bottom = 16.dp)
                                     ) {
-                                        items(state.nearbyMedicines) { nearbyMed ->
+                                        items(filteredNearbyMedicines) { nearbyMed ->
                                             NearbyMedicineCard(
                                                 nearbyMed = nearbyMed,
                                                 onClick = { onMedicineClick(nearbyMed.medicineId ?: "") },

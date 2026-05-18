@@ -118,7 +118,7 @@ class SocketManager @Inject constructor(
                     || errorMsg.contains("jwt", ignoreCase = true)
                     || errorMsg.contains("token", ignoreCase = true)
                     || errorMsg.contains("401")) {
-                    _sessionExpiredFlow.tryEmit(Unit)
+                    Log.w(TAG, "Socket auth failed; keeping session for HTTP token refresh")
                 }
             }
 

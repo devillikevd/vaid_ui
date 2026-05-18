@@ -16,6 +16,7 @@ import com.example.swastik.data.remote.OrderUpdate
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -295,8 +296,63 @@ class MedicineViewModel @Inject constructor(
     fun getFilteredMedicines(): List<Medicine> {
         val state = _uiState.value
         return state.medicines.filter { medicine ->
-            val categoryMatch = state.selectedCategory == null || medicine.category == state.selectedCategory
-            categoryMatch
+            state.selectedCategory == null || medicine.matchesSelectedCategory(state.selectedCategory)
+        }
+    }
+
+    fun getFilteredNearbyMedicines(): List<NearbyMedicineDto> {
+        val state = _uiState.value
+        return state.nearbyMedicines.filter { nearbyMedicine ->
+            nearbyMedicine.inStock &&
+                (state.selectedCategory == null || nearbyMedicine.matchesSelectedCategory(state.selectedCategory))
+        }
+    }
+
+    private fun Medicine.matchesSelectedCategory(category: MedicineCategory): Boolean {
+        if (this.category == category) return true
+        return matchesCategoryTerms(
+            category = category,
+            fields = listOf(name, genericName, description, this.category.name)
+        )
+    }
+
+    private fun NearbyMedicineDto.matchesSelectedCategory(category: MedicineCategory): Boolean {
+        if (this.category.equals(category.name, ignoreCase = true)) return true
+        return matchesCategoryTerms(
+            category = category,
+            fields = listOf(name, this.category)
+        )
+    }
+
+    private fun matchesCategoryTerms(category: MedicineCategory, fields: List<String?>): Boolean {
+        val text = fields
+            .filterNotNull()
+            .joinToString(" ")
+            .lowercase(Locale.ROOT)
+
+        if (text.isBlank()) return false
+
+        if (category == MedicineCategory.OTHER) {
+            return MedicineCategory.entries
+                .filterNot { it == MedicineCategory.OTHER }
+                .none { otherCategory -> matchesCategoryTerms(otherCategory, fields) }
+        }
+
+        return categorySearchTerms(category).any { term ->
+            Regex("\\b${Regex.escape(term.lowercase(Locale.ROOT))}s?\\b").containsMatchIn(text)
+        }
+    }
+
+    private fun categorySearchTerms(category: MedicineCategory): List<String> {
+        return when (category) {
+            MedicineCategory.TABLET -> listOf("tablet", "tab", "caplet")
+            MedicineCategory.CAPSULE -> listOf("capsule", "cap")
+            MedicineCategory.SYRUP -> listOf("syrup", "suspension", "oral liquid")
+            MedicineCategory.OINTMENT -> listOf("ointment", "cream", "gel", "lotion")
+            MedicineCategory.DROPS -> listOf("drop", "drops")
+            MedicineCategory.POWDER -> listOf("powder", "sachet")
+            MedicineCategory.INJECTION -> listOf("injection", "inj", "vial")
+            MedicineCategory.OTHER -> emptyList()
         }
     }
 

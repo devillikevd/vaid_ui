@@ -240,9 +240,7 @@ class AuthRepository @Inject constructor(
                 if (newAccess != null) {
                     val expiresIn = refreshBody.resolvedExpiresIn()
                     tokenManager.saveTokens(newAccess, newRefresh, expiresIn)
-                    if (socketManager.isConnected) {
-                        socketManager.reconnect(newAccess)
-                    }
+                    socketManager.reconnect(newAccess)
                     return true
                 }
             }
@@ -270,7 +268,7 @@ class AuthRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.data != null) {
                 Result.success(response.body()!!.data!!)
             } else {
-                if (response.code() == 401) {
+                if (response.code() == 401 && !tokenManager.isAuthenticated()) {
                     socketManager.disconnect()
                     tokenManager.clearAll()
                 }

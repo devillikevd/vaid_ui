@@ -264,7 +264,22 @@ data class Medicine(
 )
 
 enum class MedicineCategory {
-    TABLET, CAPSULE, SYRUP, OINTMENT, DROPS, POWDER, INJECTION, OTHER
+    @SerializedName("tablet")
+    TABLET,
+    @SerializedName("capsule")
+    CAPSULE,
+    @SerializedName("syrup")
+    SYRUP,
+    @SerializedName("ointment")
+    OINTMENT,
+    @SerializedName("drops")
+    DROPS,
+    @SerializedName("powder")
+    POWDER,
+    @SerializedName("injection")
+    INJECTION,
+    @SerializedName("other")
+    OTHER
 }
 
 data class Pharmacy(

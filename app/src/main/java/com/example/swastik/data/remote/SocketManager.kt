@@ -19,6 +19,7 @@ import javax.inject.Singleton
 
 // Event Models
 sealed class SignalingEvent {
+    data class RoomState(val roomId: String, val participants: List<String>) : SignalingEvent()
     data class UserJoined(val userId: String, val role: String) : SignalingEvent()
     data class Offer(val sdp: String, val type: String) : SignalingEvent()
     data class Answer(val sdp: String, val type: String) : SignalingEvent()
@@ -245,8 +246,15 @@ class SocketManager @Inject constructor(
         }
     }
 
-    private fun invalidateSession(reason: String) {
+    private fun invalidateSession(reason: String, allowRefreshRecovery: Boolean = true) {
         Log.w(TAG, reason)
+        if (allowRefreshRecovery && !tokenManager.refreshToken.isNullOrBlank()) {
+            socket?.off()
+            socket?.disconnect()
+            socket = null
+            scope.launch { _connectionState.emit(false) }
+            return
+        }
         disconnect()
         tokenManager.clearAll(emitSessionExpired = true)
     }
@@ -348,7 +356,7 @@ class SocketManager @Inject constructor(
                 errorMsg.contains("jwt", ignoreCase = true) ||
                 errorMsg.contains("authentication", ignoreCase = true) ||
                 errorMsg.contains("expired", ignoreCase = true)) {
-                invalidateSession("Auth-related socket error — clearing patient session")
+                invalidateSession("Auth-related socket error; waiting for token refresh")
             }
         }
 
@@ -363,8 +371,10 @@ class SocketManager @Inject constructor(
                 val data = args.firstOrNull()
                 if (data is JSONObject) {
                     val code = data.optString("code", "")
-                    if (code == "TOKEN_EXPIRED" || code == "ACCOUNT_REMOVED" || code == "ACCOUNT_DEACTIVATED") {
-                        invalidateSession("Realtime session rejected by backend ($code)")
+                    if (code == "TOKEN_EXPIRED") {
+                        invalidateSession("Realtime token expired; waiting for token refresh")
+                    } else if (code == "ACCOUNT_REMOVED" || code == "ACCOUNT_DEACTIVATED") {
+                        invalidateSession("Realtime session rejected by backend ($code)", allowRefreshRecovery = false)
                     }
                 } else {
                     val errorMsg = extractSocketErrorMessage(data)
@@ -377,6 +387,27 @@ class SocketManager @Inject constructor(
         }
 
         // --- Video Signaling Events ---
+
+        socket?.on("video:room-state") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                val participantArray = data.optJSONArray("participants")
+                val participants = mutableListOf<String>()
+                if (participantArray != null) {
+                    for (index in 0 until participantArray.length()) {
+                        participantArray.optString(index).takeIf { it.isNotBlank() }?.let(participants::add)
+                    }
+                }
+                scope.launch {
+                    _signalingEvents.emit(
+                        SignalingEvent.RoomState(
+                            roomId = data.optString("roomId", ""),
+                            participants = participants.distinct()
+                        )
+                    )
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing video:room-state", e) }
+        }
 
         socket?.on("video:user-joined") { args ->
             try {

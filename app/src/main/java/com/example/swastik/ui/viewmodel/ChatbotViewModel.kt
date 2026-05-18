@@ -3,14 +3,19 @@ package com.example.swastik.ui.viewmodel
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.swastik.data.model.FacilityType
+import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.remote.dto.ChatMessage
 import com.example.swastik.data.remote.dto.ChatSession
 import com.example.swastik.data.remote.dto.HealthTip
 import com.example.swastik.data.remote.dto.SymptomAnalysis
 import com.example.swastik.data.repository.ChatbotRepository
+import com.example.swastik.data.repository.HospitalRepository
 import com.example.swastik.data.repository.Result
+import com.example.swastik.utils.LocationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +71,9 @@ data class ChatbotUiState(
 
 @HiltViewModel
 class ChatbotViewModel @Inject constructor(
-    private val chatbotRepository: ChatbotRepository
+    private val chatbotRepository: ChatbotRepository,
+    private val hospitalRepository: HospitalRepository,
+    private val locationHelper: LocationHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -212,6 +219,10 @@ class ChatbotViewModel @Inject constructor(
     fun sendMessage(content: String, messageType: String = "text") {
         if (content.isBlank() || _uiState.value.rateLimited) return
 
+        if (messageType == "text" && handleLocalFacilityAgent(content)) {
+            return
+        }
+
         val userMessage = ChatUiMessage(
             id = "user_${System.currentTimeMillis()}",
             content = content,
@@ -270,6 +281,129 @@ class ChatbotViewModel @Inject constructor(
                     )
                 }
                 is Result.Loading -> Unit
+            }
+        }
+    }
+
+    private fun handleLocalFacilityAgent(content: String): Boolean {
+        val facilityType = detectFacilityIntent(content) ?: return false
+        val userMessage = ChatUiMessage(
+            id = "user_${System.currentTimeMillis()}",
+            content = content,
+            isUser = true
+        )
+
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages + userMessage,
+            isSending = true,
+            error = null
+        )
+
+        viewModelScope.launch {
+            val aiMessage = try {
+                val location = locationHelper.getLastLocation()
+                if (location == null) {
+                    ChatUiMessage(
+                        id = "facility_${System.currentTimeMillis()}",
+                        content = "I can search VAIDIDEA facilities once location permission is available. Please allow location, then ask again or open the ${facilityType.getDisplayName()} map from the app.",
+                        isUser = false,
+                        followUpQuestion = "Open the map view to call, navigate, or book.",
+                        provider = "local_facility_agent"
+                    )
+                } else {
+                    val facilities = loadNearbyFacilities(facilityType, location.latitude, location.longitude)
+                    ChatUiMessage(
+                        id = "facility_${System.currentTimeMillis()}",
+                        content = buildFacilityAgentReply(facilityType, facilities),
+                        isUser = false,
+                        followUpQuestion = "Open the ${facilityType.getDisplayName()} map to call, navigate, or book.",
+                        provider = "local_facility_agent"
+                    )
+                }
+            } catch (error: Exception) {
+                ChatUiMessage(
+                    id = "facility_error_${System.currentTimeMillis()}",
+                    content = "I could not load nearby ${facilityType.getDisplayName().lowercase(Locale.ROOT)} options right now. Please try again in a moment from the map view.",
+                    isUser = false,
+                    provider = "local_facility_agent"
+                )
+            }
+
+            _uiState.value = _uiState.value.copy(
+                messages = _uiState.value.messages + aiMessage,
+                isSending = false,
+                lastAiMessageToSpeak = if (_uiState.value.ttsEnabled) aiMessage.id else null
+            )
+        }
+
+        return true
+    }
+
+    private fun detectFacilityIntent(content: String): FacilityType? {
+        val text = content.lowercase(Locale.ROOT)
+        val wantsNearby = listOf(
+            "nearby", "near me", "near", "around me", "closest", "find", "search", "locate", "map",
+            "nzdik", "nazdik", "najdik", "paas", "पास", "नजदीक", "नज़दीक"
+        ).any { text.contains(it) }
+        if (!wantsNearby) return null
+
+        return when {
+            listOf("diagnostic", "diagnostics", "lab", "pathology", "test center", "scan").any { text.contains(it) } ->
+                FacilityType.DIAGNOSTIC_CENTER
+            listOf("pharmacy", "medical store", "medicine shop", "chemist").any { text.contains(it) } ->
+                FacilityType.MEDICAL_STORE
+            listOf("clinic", "clinics").any { text.contains(it) } ->
+                FacilityType.CLINIC
+            listOf("hospital", "hospitals").any { text.contains(it) } ->
+                FacilityType.HOSPITAL
+            else -> null
+        }
+    }
+
+    private suspend fun loadNearbyFacilities(
+        facilityType: FacilityType,
+        latitude: Double,
+        longitude: Double
+    ): List<MedicalFacility> {
+        return when (facilityType) {
+            FacilityType.HOSPITAL -> hospitalRepository.getNearbyHospitals(latitude, longitude, radius = 25)
+            FacilityType.CLINIC -> hospitalRepository.getNearbyClinics(latitude, longitude, radius = 25)
+            FacilityType.MEDICAL_STORE -> hospitalRepository.getNearbyPharmacies(latitude, longitude, radius = 25)
+            FacilityType.DIAGNOSTIC_CENTER -> hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius = 25)
+        }
+    }
+
+    private fun buildFacilityAgentReply(
+        facilityType: FacilityType,
+        facilities: List<MedicalFacility>
+    ): String {
+        val topFacilities = facilities
+            .sortedWith(compareBy<MedicalFacility> { it.distanceKm <= 0.0 }.thenBy { it.distanceKm })
+            .take(5)
+
+        if (topFacilities.isEmpty()) {
+            return "I could not find nearby ${facilityType.getDisplayName().lowercase(Locale.ROOT)} options in VAIDIDEA for your current location. Try increasing the radius from the map view."
+        }
+
+        return buildString {
+            append("Found ${topFacilities.size} nearby ${facilityType.getDisplayName().lowercase(Locale.ROOT)} options in VAIDIDEA:")
+            topFacilities.forEachIndexed { index, facility ->
+                append("\n\n")
+                append(index + 1)
+                append(". ")
+                append(facility.name)
+                append(" - ")
+                append(facility.distance.ifBlank { "distance unavailable" })
+                append(" - ")
+                append(if (facility.isOpen) "Open" else "Closed")
+                if (facility.address.isNotBlank()) {
+                    append("\nAddress: ")
+                    append(facility.address)
+                }
+                if (facility.phone.isNotBlank()) {
+                    append("\nPhone: ")
+                    append(facility.phone)
+                }
             }
         }
     }
