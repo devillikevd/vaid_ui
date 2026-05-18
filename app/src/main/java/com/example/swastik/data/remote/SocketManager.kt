@@ -612,10 +612,10 @@ class SocketManager @Inject constructor(
                 Log.d(TAG, "Consultation started: $data")
                 scope.launch {
                     _consultationStarted.emit(ConsultationStartedEvent(
-                        consultationId = data.optString("consultationId", ""),
-                        appointmentId = data.optString("appointmentId", ""),
-                        doctorName = data.optString("doctorName", "Doctor"),
-                        roomId = data.optString("roomId", ""),
+                        consultationId = data.optString("consultationId", data.optString("id", "")),
+                        appointmentId = data.optString("appointmentId", data.optString("appointment_id", "")),
+                        doctorName = data.optString("doctorName", data.optString("doctor_name", "Doctor")),
+                        roomId = data.optString("roomId", data.optString("room_id", "")),
                         type = data.optNullableString("type"),
                         timestamp = data.optString("timestamp", "")
                     ))
