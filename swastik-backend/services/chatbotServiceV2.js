@@ -384,7 +384,7 @@ async function sendMessage(userId, sessionId, message, options = {}) {
  * @param {string} description - optional user description of what they want analyzed
  */
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // ~7.5 MB decoded (10 MB base64)
+const MAX_BASE64_LENGTH = 4 * 1024 * 1024;
 const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
 
 async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jpeg', description = '') {
@@ -397,7 +397,7 @@ async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jp
   }
   if (base64Image.length > MAX_BASE64_LENGTH) {
     return {
-      response: { summary: 'Image is too large. Please share an image smaller than 7.5 MB.', possible_conditions: [], severity: 'low', recommended_specialist: 'General Physician', requires_emergency: false, confidence_score: 0, follow_up_question: null },
+      response: { summary: 'Image is too large. Please share an image smaller than 4 MB.', possible_conditions: [], severity: 'low', recommended_specialist: 'General Physician', requires_emergency: false, confidence_score: 0, follow_up_question: null },
       provider: 'error', error: true,
     };
   }
