@@ -234,7 +234,7 @@ class MedicineRepository @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("Failed to create order")
             } else {
-                Result.Error(response.body()?.message ?: "Order failed")
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Order failed")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

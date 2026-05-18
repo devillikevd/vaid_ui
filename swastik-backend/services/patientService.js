@@ -3,6 +3,7 @@ const { uploadProfileImage, deleteFile, getPresignedUrl, extractObjectNameFromUr
 const { ApiError } = require('../middleware/errorHandler');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
+const { calculateAge, dateOfBirthFromAge } = require('../utils/patientProfile');
 
 const VALID_GENDERS = ['male', 'female', 'other'];
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -46,6 +47,18 @@ const countKeywordMatches = (sourceText, keywords = []) => {
   }
   return count;
 };
+
+const normalizePatientProfile = (patient, extraFields = {}) => ({
+  ...patient,
+  age: calculateAge(patient?.date_of_birth),
+  // Flatten common user fields for mobile/web clients expecting top-level values
+  email: patient?.user?.email || patient?.email || null,
+  phone: patient?.user?.phone || patient?.phone || null,
+  is_verified: patient?.user?.is_verified ?? patient?.is_verified ?? false,
+  // Backward-compatible alias used by some clients
+  location: patient?.address || patient?.location || null,
+  ...extraFields,
+});
 
 class PatientService {
   async _getPatientByUserId(userId) {
@@ -160,28 +173,21 @@ class PatientService {
         .not('result_url', 'is', null),
     ]);
 
-    return {
-      ...patient,
-      // Flatten common user fields for mobile/web clients expecting top-level values
-      email: patient.user?.email || patient.email || null,
-      phone: patient.user?.phone || patient.phone || null,
-      is_verified: patient.user?.is_verified ?? patient.is_verified ?? false,
-      // Backward-compatible alias used by some clients
-      location: patient.address || patient.location || null,
+    return normalizePatientProfile(patient, {
       emergencyContacts: emergencyContacts || [],
       familyMembers: familyMembers || [],
       stats: {
         appointments: appointmentCount || 0,
         reports: (reportCount || 0) + (diagnosticReportCount || 0),
       },
-    };
+    });
   }
 
   // Update patient profile
   async updateProfile(userId, updateData) {
     const { data: patient } = await supabaseAdmin
       .from('patients')
-      .select('id')
+      .select('id, date_of_birth')
       .eq('user_id', userId)
       .single();
 
@@ -193,12 +199,12 @@ class PatientService {
     // Whitelist approach to prevent mass-assignment
     const updateFields = { updated_at: new Date().toISOString() };
     if (updateData.name !== undefined) updateFields.name = String(updateData.name).trim().slice(0, 100);
-    if (updateData.age !== undefined) {
-      const age = parseInt(updateData.age, 10);
-      if (!isNaN(age) && age >= 0 && age <= 150) updateFields.age = age;
-    }
-    if (updateData.dateOfBirth !== undefined || updateData.date_of_birth !== undefined) {
-      updateFields.date_of_birth = updateData.dateOfBirth || updateData.date_of_birth;
+    const providedDateOfBirth = updateData.dateOfBirth ?? updateData.date_of_birth;
+    if (providedDateOfBirth !== undefined) {
+      updateFields.date_of_birth = providedDateOfBirth || null;
+    } else if (updateData.age !== undefined) {
+      const dateOfBirth = dateOfBirthFromAge(updateData.age);
+      if (dateOfBirth) updateFields.date_of_birth = dateOfBirth;
     }
     if (updateData.gender !== undefined) {
       if (VALID_GENDERS.includes(updateData.gender)) updateFields.gender = updateData.gender;

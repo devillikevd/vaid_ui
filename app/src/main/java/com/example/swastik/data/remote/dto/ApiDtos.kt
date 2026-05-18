@@ -675,6 +675,7 @@ data class ShareReportRequest(
 )
 
 data class MedicineAvailabilityDto(
+    @SerializedName("inventory_item_id") val inventoryItemId: String? = null,
     @SerializedName("pharmacy_id") val pharmacyId: String,
     @SerializedName("pharmacy_name") val pharmacyName: String,
     val address: String?,
@@ -900,6 +901,8 @@ data class MedicineOrderRequest(
 data class OrderItemRequest(
     val medicineId: String? = null,
     @SerializedName("inventoryItemId") val inventoryItemId: String? = null,
+    val name: String? = null,
+    val genericName: String? = null,
     val quantity: Int
 )
 

@@ -58,7 +58,7 @@ describe('doctor patient records from consultations', () => {
           patient: {
             id: 'patient-1',
             name: 'Patient One',
-            age: 34,
+            date_of_birth: '1992-01-01',
             gender: 'female',
             blood_group: 'B+',
             profile_image_url: null,
@@ -83,6 +83,7 @@ describe('doctor patient records from consultations', () => {
     expect(result.data[0]).toEqual(expect.objectContaining({
       id: 'patient-1',
       name: 'Patient One',
+      age: expect.any(Number),
       email: 'patient@example.com',
       phone: '+919999999999',
       lastVisit: '2026-05-18T03:15:00.000Z',
@@ -101,6 +102,7 @@ describe('doctor patient records from consultations', () => {
       data: {
         id: 'patient-1',
         name: 'Patient One',
+        date_of_birth: '1992-01-01',
         user: {
           email: 'patient@example.com',
           phone: '+919999999999',
@@ -138,6 +140,7 @@ describe('doctor patient records from consultations', () => {
     expect(result).toEqual(expect.objectContaining({
       id: 'patient-1',
       name: 'Patient One',
+      age: expect.any(Number),
       email: 'patient@example.com',
       phone: '+919999999999',
       totalVisits: 1,

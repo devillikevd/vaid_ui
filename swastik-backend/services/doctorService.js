@@ -5,6 +5,7 @@ const { paginate, paginatedResponse } = require('../utils/helpers');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
+const { calculateAge } = require('../utils/patientProfile');
 
 const getActivePatientRecordGrant = async (patientId, doctorId) => {
   const nowIso = new Date().toISOString();
@@ -249,12 +250,12 @@ class DoctorService {
       completedTodayApptsResult,
     ] = await Promise.all([
       supabaseAdmin.from('appointments')
-        .select('*, patient:patients(id, name, age, gender, profile_image_url)')
+        .select('*, patient:patients(id, name, date_of_birth, gender, profile_image_url)')
         .eq('doctor_id', doctor.id).eq('appointment_date', today)
         .in('status', ['scheduled', 'confirmed', 'in_progress'])
         .order('time_slot', { ascending: true }),
       supabaseAdmin.from('appointments')
-        .select('*, patient:patients(id, name, age, gender)')
+        .select('*, patient:patients(id, name, date_of_birth, gender)')
         .eq('doctor_id', doctor.id).gt('appointment_date', today)
         .in('status', ['scheduled', 'confirmed'])
         .order('appointment_date', { ascending: true }).limit(10),
@@ -279,8 +280,17 @@ class DoctorService {
         .eq('status', 'completed'),
     ]);
 
-    const todayAppointments = todayApptsResult.data || [];
-    const upcomingAppointments = upcomingApptsResult.data || [];
+    const normalizeAppointmentPatient = (appointment) => ({
+      ...appointment,
+      patient: appointment.patient
+        ? {
+          ...appointment.patient,
+          age: calculateAge(appointment.patient.date_of_birth),
+        }
+        : appointment.patient,
+    });
+    const todayAppointments = (todayApptsResult.data || []).map(normalizeAppointmentPatient);
+    const upcomingAppointments = (upcomingApptsResult.data || []).map(normalizeAppointmentPatient);
     const pendingCount = pendingApptsResult.count || 0;
     const recentConsultations = recentConsultResult.data || [];
     const totalPatientsToday = totalPatientsResult.count || 0;
@@ -624,7 +634,7 @@ class DoctorService {
     const { offset } = paginate(page, limit);
 
     const patientSelect = `
-      id, name, age, gender, blood_group, profile_image_url,
+      id, name, date_of_birth, gender, blood_group, profile_image_url,
       user:users(email, phone)
     `;
 
@@ -678,7 +688,8 @@ class DoctorService {
         patientMap.set(event.patient.id, {
           id: event.patient.id,
           name: event.patient.name,
-          age: event.patient.age,
+          age: calculateAge(event.patient.date_of_birth),
+          dateOfBirth: event.patient.date_of_birth || null,
           gender: event.patient.gender,
           bloodGroup: event.patient.blood_group,
           profileImageUrl: event.patient.profile_image_url,
@@ -1116,6 +1127,7 @@ class DoctorService {
 
     return {
       ...patient,
+      age: calculateAge(patient?.date_of_birth),
       email: patient?.user?.email || null,
       phone: patient?.user?.phone || null,
       totalVisits,

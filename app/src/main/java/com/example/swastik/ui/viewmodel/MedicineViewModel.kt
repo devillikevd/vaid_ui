@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Singleton
 
 data class MedicineUiState(
     val medicines: List<Medicine> = emptyList(), // Popular/Global
@@ -79,12 +80,24 @@ data class OrderHistoryUiState(
     val lastRealtimeUpdate: OrderUpdate? = null
 )
 
+@Singleton
+class MedicineCartStore @Inject constructor() {
+    private val _cartState = MutableStateFlow(CartUiState())
+    val cartState: StateFlow<CartUiState> = _cartState.asStateFlow()
+    val value: CartUiState get() = _cartState.value
+
+    fun set(state: CartUiState) {
+        _cartState.value = state
+    }
+}
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class MedicineViewModel @Inject constructor(
     private val medicineRepository: MedicineRepository,
     private val locationHelper: LocationHelper,
-    private val socketManager: SocketManager
+    private val socketManager: SocketManager,
+    private val cartStore: MedicineCartStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MedicineUiState())
@@ -93,8 +106,7 @@ class MedicineViewModel @Inject constructor(
     private val _detailState = MutableStateFlow(MedicineDetailUiState())
     val detailState: StateFlow<MedicineDetailUiState> = _detailState.asStateFlow()
 
-    private val _cartState = MutableStateFlow(CartUiState())
-    val cartState: StateFlow<CartUiState> = _cartState.asStateFlow()
+    val cartState: StateFlow<CartUiState> = cartStore.cartState
 
     private val _orderHistoryState = MutableStateFlow(OrderHistoryUiState())
     val orderHistoryState: StateFlow<OrderHistoryUiState> = _orderHistoryState.asStateFlow()
@@ -269,7 +281,7 @@ class MedicineViewModel @Inject constructor(
         // Get user's actual location for nearby pharmacy search
         val location = try { locationHelper.getLastLocation() } catch (_: Exception) { null }
         val lat = location?.latitude ?: return  // Skip availability if no location permission
-        val lng = location?.longitude ?: return
+        val lng = location.longitude
 
         when (val result = medicineRepository.getMedicineAvailability(medicineId, lat, lng)) {
             is Result.Success -> {
@@ -365,11 +377,11 @@ class MedicineViewModel @Inject constructor(
         pharmacyId: String? = null,
         pharmacyName: String? = null
     ) {
-        val cart = _cartState.value
+        val cart = cartStore.value
         if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
-            _cartState.value = cart.copy(
+            cartStore.set(cart.copy(
                 pharmacyConflict = PharmacyConflict(pharmacyId, pharmacyName, medicine)
-            )
+            ))
             return
         }
 
@@ -383,32 +395,32 @@ class MedicineViewModel @Inject constructor(
         } else {
             currentItems.add(CartItem(medicine = medicine, quantity = 1))
         }
-        _cartState.value = cart.copy(
+        cartStore.set(cart.copy(
             items = currentItems,
             selectedPharmacyId = pharmacyId ?: cart.selectedPharmacyId,
             selectedPharmacyName = pharmacyName ?: cart.selectedPharmacyName,
             pharmacyConflict = null
-        )
+        ))
     }
 
     fun resolvePharmacyConflict(clearCartAndAdd: Boolean) {
-        val conflict = _cartState.value.pharmacyConflict ?: return
+        val conflict = cartStore.value.pharmacyConflict ?: return
         if (clearCartAndAdd) {
-            _cartState.value = CartUiState(
+            cartStore.set(CartUiState(
                 selectedPharmacyId = conflict.newPharmacyId,
                 selectedPharmacyName = conflict.newPharmacyName,
-                deliveryAddress = _cartState.value.deliveryAddress
-            )
+                deliveryAddress = cartStore.value.deliveryAddress
+            ))
             addToCart(conflict.medicine, conflict.newPharmacyId, conflict.newPharmacyName)
         } else {
-            _cartState.value = _cartState.value.copy(pharmacyConflict = null)
+            cartStore.set(cartStore.value.copy(pharmacyConflict = null))
         }
     }
 
     fun removeFromCart(itemKey: String) {
-        _cartState.value = _cartState.value.copy(
-            items = _cartState.value.items.filter { cartItemKey(it.medicine) != itemKey }
-        )
+        cartStore.set(cartStore.value.copy(
+            items = cartStore.value.items.filter { cartItemKey(it.medicine) != itemKey }
+        ))
     }
 
     fun updateCartQuantity(itemKey: String, quantity: Int) {
@@ -416,32 +428,32 @@ class MedicineViewModel @Inject constructor(
             removeFromCart(itemKey)
             return
         }
-        _cartState.value = _cartState.value.copy(
-            items = _cartState.value.items.map {
+        cartStore.set(cartStore.value.copy(
+            items = cartStore.value.items.map {
                 if (cartItemKey(it.medicine) == itemKey) it.copy(quantity = quantity) else it
             }
-        )
+        ))
     }
 
     fun setDeliveryAddress(address: String) {
-        _cartState.value = _cartState.value.copy(deliveryAddress = address)
+        cartStore.set(cartStore.value.copy(deliveryAddress = address))
     }
 
     fun setPharmacy(pharmacyId: String, pharmacyName: String) {
-        _cartState.value = _cartState.value.copy(
+        cartStore.set(cartStore.value.copy(
             selectedPharmacyId = pharmacyId,
             selectedPharmacyName = pharmacyName
-        )
+        ))
     }
 
     fun placeOrder() {
-        val cart = _cartState.value
+        val cart = cartStore.value
         if (cart.selectedPharmacyId.isNullOrBlank() || cart.items.isEmpty() || cart.deliveryAddress.isBlank()) {
-            _cartState.value = cart.copy(orderError = "Please fill in all order details")
+            cartStore.set(cart.copy(orderError = "Please fill in all order details"))
             return
         }
 
-        _cartState.value = cart.copy(isOrdering = true, orderError = null, orderSuccess = false)
+        cartStore.set(cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
         viewModelScope.launch {
             val request = MedicineOrderRequest(
                 pharmacyId = cart.selectedPharmacyId,
@@ -449,6 +461,8 @@ class MedicineViewModel @Inject constructor(
                     OrderItemRequest(
                         medicineId = it.medicine.id.takeIf { id -> id.isNotBlank() },
                         inventoryItemId = it.medicine.inventoryItemId,
+                        name = it.medicine.name,
+                        genericName = it.medicine.genericName,
                         quantity = it.quantity
                     )
                 },
@@ -456,18 +470,18 @@ class MedicineViewModel @Inject constructor(
             )
             when (val result = medicineRepository.createOrder(request)) {
                 is Result.Success -> {
-                    _cartState.value = _cartState.value.copy(
+                    cartStore.set(cartStore.value.copy(
                         isOrdering = false,
                         orderResult = result.data,
                         orderSuccess = true,
                         items = emptyList() // Clear cart
-                    )
+                    ))
                 }
                 is Result.Error -> {
-                    _cartState.value = _cartState.value.copy(
+                    cartStore.set(cartStore.value.copy(
                         isOrdering = false,
                         orderError = result.message
-                    )
+                    ))
                 }
                 is Result.Loading -> {}
             }
@@ -475,15 +489,15 @@ class MedicineViewModel @Inject constructor(
     }
 
     fun clearCart() {
-        _cartState.value = CartUiState()
+        cartStore.set(CartUiState())
     }
 
     fun clearOrderError() {
-        _cartState.value = _cartState.value.copy(orderError = null)
+        cartStore.set(cartStore.value.copy(orderError = null))
     }
 
     fun resetOrderSuccess() {
-        _cartState.value = _cartState.value.copy(orderSuccess = false, orderResult = null)
+        cartStore.set(cartStore.value.copy(orderSuccess = false, orderResult = null))
     }
 
     // ==================== ORDER HISTORY ====================

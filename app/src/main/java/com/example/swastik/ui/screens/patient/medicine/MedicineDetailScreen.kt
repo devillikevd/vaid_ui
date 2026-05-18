@@ -56,6 +56,7 @@ fun MedicineDetailScreen(
     val pharmacies = detailState.availability.map { avail ->
         PharmacyInfo(
             id = avail.pharmacyId,
+            inventoryItemId = avail.inventoryItemId,
             name = avail.pharmacyName,
             distance = avail.distance?.let { "${String.format(Locale.US, "%.1f", it)} km" } ?: "N/A",
             available = avail.inStock,
@@ -281,7 +282,15 @@ fun MedicineDetailScreen(
                         pharmacy = pharmacy,
                         onClick = {
                             if (pharmacy.available) {
-                                viewModel.addToCart(medicine, pharmacy.id, pharmacy.name)
+                                viewModel.addToCart(
+                                    medicine.copy(
+                                        inventoryItemId = pharmacy.inventoryItemId,
+                                        nearbyPharmacyId = pharmacy.id,
+                                        nearbyPharmacy = pharmacy.name
+                                    ),
+                                    pharmacy.id,
+                                    pharmacy.name
+                                )
                                 onNavigateToCart()
                             }
                         }
@@ -478,6 +487,7 @@ private fun MedicineDetailBottomBar(
 // Helper data class
 private data class PharmacyInfo(
     val id: String,
+    val inventoryItemId: String?,
     val name: String,
     val distance: String,
     val available: Boolean,

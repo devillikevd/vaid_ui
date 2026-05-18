@@ -1,6 +1,12 @@
 package com.example.swastik.ui.screens.consultation
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.ui.viewmodel.VideoConsultationViewModel
 
@@ -30,6 +36,14 @@ fun VideoConsultationFlow(
 
     // EGL context for video renderers
     val eglBaseContext = viewModel.eglBaseContext
+
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        // Continue with joining consultation regardless, WebRTCManager will handle missing camera/mic gracefully now
+        viewModel.joinConsultation(appointmentId)
+    }
 
     // Track when user was connected
     LaunchedEffect(uiState.isConnected) {
@@ -111,7 +125,19 @@ fun VideoConsultationFlow(
             onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess() },
             onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
             onStartConsultation = {
-                viewModel.joinConsultation(appointmentId)
+                val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+                if (hasCamera && hasMic) {
+                    viewModel.joinConsultation(appointmentId)
+                } else {
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.CAMERA,
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                    )
+                }
             }
         )
     }

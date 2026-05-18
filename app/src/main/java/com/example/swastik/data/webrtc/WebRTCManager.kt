@@ -1,7 +1,10 @@
 package com.example.swastik.data.webrtc
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.example.swastik.data.remote.ApiConfig
 import org.webrtc.*
 import org.webrtc.audio.AudioDeviceModule
@@ -128,34 +131,62 @@ class WebRTCManager(
             Log.e(TAG, "PeerConnectionFactory not initialized")
             return null
         }
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasMicPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
 
         // --- Audio ---
-        val audioConstraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("echoCancellation", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("noiseSuppression", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("autoGainControl", "true"))
+        if (hasMicPermission) {
+            val audioConstraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("echoCancellation", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("noiseSuppression", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("autoGainControl", "true"))
+            }
+            val audioSource = factory.createAudioSource(audioConstraints)
+            localAudioTrack = factory.createAudioTrack("audio_local", audioSource)
+            localAudioTrack?.setEnabled(true)
+        } else {
+            Log.w(TAG, "Microphone permission missing; joining without local audio")
         }
-        val audioSource = factory.createAudioSource(audioConstraints)
-        localAudioTrack = factory.createAudioTrack("audio_local", audioSource)
-        localAudioTrack?.setEnabled(true)
 
         // --- Video ---
+        if (!hasCameraPermission) {
+            Log.w(TAG, "Camera permission missing; joining without local video")
+            return null
+        }
+
         videoCapturer = createCameraCapturer()
         if (videoCapturer == null) {
             Log.e(TAG, "No camera found on device")
             return null
         }
 
-        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
-        val videoSource = factory.createVideoSource(videoCapturer!!.isScreencast)
-        videoCapturer!!.initialize(surfaceTextureHelper, context, videoSource.capturerObserver)
-        startCaptureWithFallback(videoCapturer!!)
+        try {
+            surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglBase.eglBaseContext)
+            val videoSource = factory.createVideoSource(videoCapturer!!.isScreencast)
+            videoCapturer!!.initialize(surfaceTextureHelper, context, videoSource.capturerObserver)
+            startCaptureWithFallback(videoCapturer!!)
 
-        localVideoTrack = factory.createVideoTrack("video_local", videoSource)
-        localVideoTrack?.setEnabled(true)
+            localVideoTrack = factory.createVideoTrack("video_local", videoSource)
+            localVideoTrack?.setEnabled(true)
+        } catch (error: Exception) {
+            Log.w(TAG, "Video capture unavailable; continuing without local video: ${error.message}")
+            try {
+                videoCapturer?.dispose()
+            } catch (_: Exception) {}
+            videoCapturer = null
+            surfaceTextureHelper?.dispose()
+            surfaceTextureHelper = null
+            return null
+        }
 
         Log.d(TAG, "Local media started")
-        onLocalVideoTrack?.invoke(localVideoTrack!!)
+        localVideoTrack?.let { onLocalVideoTrack?.invoke(it) }
         return localVideoTrack
     }
 

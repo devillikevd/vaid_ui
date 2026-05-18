@@ -22,6 +22,16 @@ const CATEGORIES = [
   { id: 'ayurvedic', name: 'Ayurvedic' },
 ];
 
+const FORM_CATEGORIES = {
+  tablet: ['tablet', 'tablets', 'tab', 'tabs', 'caplet'],
+  capsule: ['capsule', 'capsules', 'cap', 'caps'],
+  syrup: ['syrup', 'suspension', 'oral liquid', 'liquid'],
+  ointment: ['ointment', 'cream', 'gel', 'lotion'],
+  drops: ['drop', 'drops'],
+  powder: ['powder', 'sachet'],
+  injection: ['injection', 'inj', 'vial', 'ampoule'],
+};
+
 const normalizeMedicineText = (value) =>
   sanitizeSearch(String(value || ''))
     .trim()
@@ -36,6 +46,40 @@ const getInventoryDiscoveryKey = (item = {}) =>
   normalizeMedicineText(item.name) ||
   normalizeMedicineText(item.medicine_name) ||
   item.id;
+
+const inferDosageFormCategory = (item = {}) => {
+  const sourceText = [
+    item.form,
+    item.dosage_form,
+    item.category,
+    item.subcategory,
+    item.name,
+    item.generic_name,
+    item.medicine_name,
+    item.description,
+    item.pack_size,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  for (const [category, terms] of Object.entries(FORM_CATEGORIES)) {
+    if (terms.some((term) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b`, 'i').test(sourceText))) {
+      return category;
+    }
+  }
+
+  return 'other';
+};
+
+const normalizeMedicineForClient = (medicine = {}) => ({
+  ...medicine,
+  therapeutic_category: medicine.category || null,
+  category: inferDosageFormCategory(medicine),
+});
+
+const isDosageFormCategory = (category) =>
+  Boolean(category && Object.prototype.hasOwnProperty.call(FORM_CATEGORIES, String(category).toLowerCase()));
 
 const inventoryMatchesMedicine = (item = {}, medicine = {}) => {
   if (!item || !medicine) return false;
@@ -97,7 +141,7 @@ const getPopularMedicines = async (limit = 10) => {
     .limit(limit);
 
   if (error) throw error;
-  return data || [];
+  return (data || []).map(normalizeMedicineForClient);
 };
 
 // Search medicines
@@ -112,7 +156,9 @@ const searchMedicines = async (query, filters = {}, page = 1, limit = 20) => {
     const q = sanitizeSearch(query);
     if (q) dbQuery = dbQuery.or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`);
   }
-  if (filters.category) dbQuery = dbQuery.eq('category', filters.category);
+  if (filters.category && !isDosageFormCategory(filters.category)) {
+    dbQuery = dbQuery.eq('category', filters.category);
+  }
   if (filters.requiresPrescription) dbQuery = dbQuery.eq('requires_prescription', true);
   if (filters.maxPrice) dbQuery = dbQuery.lte('price', filters.maxPrice);
 
@@ -122,8 +168,14 @@ const searchMedicines = async (query, filters = {}, page = 1, limit = 20) => {
 
   if (error) throw error;
 
+  const normalizedData = (data || []).map(normalizeMedicineForClient);
+  const categoryFilter = filters.category ? String(filters.category).toLowerCase() : null;
+  const filteredData = isDosageFormCategory(categoryFilter)
+    ? normalizedData.filter((medicine) => medicine.category === categoryFilter)
+    : normalizedData;
+
   return {
-    data: data || [],
+    data: filteredData,
     pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
@@ -155,7 +207,7 @@ const getMedicineById = async (id) => {
     }
   } catch (_) { /* search_count column may not exist */ }
 
-  return data;
+  return normalizeMedicineForClient(data);
 };
 
 // Get medicine availability at nearby pharmacies
@@ -196,6 +248,8 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
 
     const existing = availabilityByPharmacy.get(item.pharmacy_id);
     const candidate = {
+      inventory_item_id: item.id,
+      inventoryItemId: item.id,
       pharmacy_id: pharmacy.id,
       pharmacy_name: pharmacy.name,
       address: pharmacy.address,
@@ -241,7 +295,8 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
       id: item.id,
       medicineId: item.medicine_id,
       name: getInventoryDisplayName(item),
-      category: item.category,
+      category: inferDosageFormCategory(item),
+      therapeuticCategory: item.category || null,
       price: item.price || 0,
       pharmacyName: pharmacy.name,
       pharmacyId: pharmacy.id,
@@ -288,7 +343,7 @@ const getAlternatives = async (medicineId) => {
     .limit(10);
 
   if (error) throw error;
-  return data || [];
+  return (data || []).map(normalizeMedicineForClient);
 };
 
 // Find pharmacies with medicine
