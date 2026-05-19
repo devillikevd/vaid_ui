@@ -77,7 +77,7 @@ fun SmartReminderSection(
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("📅", fontSize = 40.sp)
+                    Text(stringResource(R.string.string_8), fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         stringResource(R.string.no_reminders_today),
@@ -480,7 +480,7 @@ private fun PrescriptionQuickAction(onClick: () -> Unit) {
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Prescription", fontSize = 11.sp, color = Color.Gray)
+        Text(stringResource(R.string.prescription), fontSize = 11.sp, color = Color.Gray)
     }
 }
 
@@ -557,7 +557,7 @@ fun DoctorRecommendationSection(
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("👨‍⚕️", fontSize = 40.sp)
+                    Text(stringResource(R.string.string_2), fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         stringResource(R.string.no_doctor_recommendations),
@@ -737,7 +737,7 @@ fun EnhancedChatBotSection(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🤖", fontSize = 32.sp)
+                        Text(stringResource(R.string.string_9), fontSize = 32.sp)
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
@@ -930,7 +930,7 @@ fun EmergencyDialog(
                 ) {
                     Icon(Icons.Default.LocalHospital, contentDescription = "Request ambulance")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Request Ambulance")
+                    Text(stringResource(R.string.request_ambulance))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -946,7 +946,7 @@ fun EmergencyDialog(
                 ) {
                     Icon(Icons.Default.Call, contentDescription = "Call ambulance", tint = Color.Red)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Call Ambulance (108)", color = Color.Red)
+                    Text(stringResource(R.string.call_ambulance_108_1), color = Color.Red)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -965,7 +965,7 @@ fun EmergencyDialog(
                 ) {
                     Icon(Icons.Default.People, contentDescription = "Alert emergency contacts", tint = SwastikPurple)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Alert Emergency Contacts", color = SwastikPurple)
+                    Text(stringResource(R.string.alert_emergency_contacts), color = SwastikPurple)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -984,14 +984,14 @@ fun EmergencyDialog(
                 ) {
                     Icon(Icons.Default.LocationOn, contentDescription = "Share live location", tint = SwastikPurple)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Share Live Location", color = SwastikPurple)
+                    Text(stringResource(R.string.share_live_location), color = SwastikPurple)
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

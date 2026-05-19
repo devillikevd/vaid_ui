@@ -68,6 +68,18 @@ router.get('/:id',
   })
 );
 
+// Get ICE servers for a consultation (doctor/patient only)
+router.get('/:id/ice-servers',
+  asyncHandler(async (req, res) => {
+    const result = await consultationService.getIceServers(
+      req.user.id,
+      req.user.role,
+      req.params.id
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
 // End consultation (doctor only)
 router.put('/:id/end',
   [

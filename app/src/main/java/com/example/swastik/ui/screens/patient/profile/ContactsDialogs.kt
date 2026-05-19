@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.*
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 // ==================== EMERGENCY CONTACTS DIALOG ====================
 
@@ -45,12 +47,12 @@ fun EmergencyContactsDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.ContactEmergency, null, tint = colorScheme.error)
                 Spacer(Modifier.width(8.dp))
-                Text("Emergency Contacts", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.emergency_contacts), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { showAddForm = !showAddForm }) {
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = if (showAddForm) "Cancel" else "Add Contact",
+                        contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Contact",
                         tint = SwastikPurple
                     )
                 }
@@ -66,21 +68,21 @@ fun EmergencyContactsDialog(
                         border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Add Emergency Contact", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_emergency_contact), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
                             OutlinedTextField(
                                 value = newName, onValueChange = { newName = it },
-                                label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.name)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             OutlinedTextField(
                                 value = newPhone, onValueChange = { newPhone = it.filter { c -> c.isDigit() || c == '+' } },
-                                label = { Text("Phone Number") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.phone_number)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                             )
                             OutlinedTextField(
                                 value = newRelation, onValueChange = { newRelation = it },
-                                label = { Text("Relation") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.relation)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             Button(
@@ -95,7 +97,7 @@ fun EmergencyContactsDialog(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                                 enabled = newName.isNotBlank() && newPhone.isNotBlank() && newRelation.isNotBlank()
-                            ) { Text("Add Contact") }
+                            ) { Text(stringResource(R.string.add_contact)) }
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -108,8 +110,8 @@ fun EmergencyContactsDialog(
                     ) {
                         Icon(Icons.Outlined.ContactEmergency, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No emergency contacts added", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
-                        Text("Tap + to add contacts for emergencies", fontSize = 12.sp, color = colorScheme.outline)
+                        Text(stringResource(R.string.no_emergency_contacts_added), fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.tap_to_add_contacts_for_emergencies), fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     contacts.forEach { contact ->
@@ -143,7 +145,7 @@ fun EmergencyContactsDialog(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Done") }
+            ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
     )
@@ -153,7 +155,7 @@ fun EmergencyContactsDialog(
         val dialogColorScheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = { contactToDelete = null },
-            title = { Text("Delete Contact?", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.delete_contact_1), fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     "Are you sure you want to remove ${contact.name} from your emergency contacts? This action cannot be undone.",
@@ -169,10 +171,10 @@ fun EmergencyContactsDialog(
                     },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = dialogColorScheme.error)
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { contactToDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { contactToDelete = null }) { Text(stringResource(R.string.cancel)) }
             },
             shape = RoundedCornerShape(20.dp)
         )
@@ -201,12 +203,12 @@ fun FamilyMembersDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.FamilyRestroom, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Family Members", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.family_members), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { showAddForm = !showAddForm }) {
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = if (showAddForm) "Cancel" else "Add Member",
+                        contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Member",
                         tint = SwastikPurple
                     )
                 }
@@ -222,20 +224,20 @@ fun FamilyMembersDialog(
                         border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Add Family Member", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_family_member), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
                             OutlinedTextField(
                                 value = newName, onValueChange = { newName = it },
-                                label = { Text("Name") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.name)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             OutlinedTextField(
                                 value = newRelation, onValueChange = { newRelation = it },
-                                label = { Text("Relation") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.relation)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             OutlinedTextField(
                                 value = newPhone, onValueChange = { newPhone = it.filter { c -> c.isDigit() || c == '+' } },
-                                label = { Text("Phone (optional)") }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.phone_optional)) }, modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                             )
@@ -251,7 +253,7 @@ fun FamilyMembersDialog(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                                 enabled = newName.isNotBlank() && newRelation.isNotBlank()
-                            ) { Text("Add Member") }
+                            ) { Text(stringResource(R.string.add_member)) }
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -264,8 +266,8 @@ fun FamilyMembersDialog(
                     ) {
                         Icon(Icons.Outlined.FamilyRestroom, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No family members linked", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
-                        Text("Tap + to link family profiles", fontSize = 12.sp, color = colorScheme.outline)
+                        Text(stringResource(R.string.no_family_members_linked), fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.tap_to_link_family_profiles), fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     members.forEach { member ->
@@ -304,7 +306,7 @@ fun FamilyMembersDialog(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Done") }
+            ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
     )
@@ -314,7 +316,7 @@ fun FamilyMembersDialog(
         val dialogColorScheme = MaterialTheme.colorScheme
         AlertDialog(
             onDismissRequest = { memberToDelete = null },
-            title = { Text("Remove Member?", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.remove_member), fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     "Are you sure you want to remove ${member.name} from your family members? This action cannot be undone.",
@@ -330,10 +332,10 @@ fun FamilyMembersDialog(
                     },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = dialogColorScheme.error)
-                ) { Text("Remove") }
+                ) { Text(stringResource(R.string.remove)) }
             },
             dismissButton = {
-                TextButton(onClick = { memberToDelete = null }) { Text("Cancel") }
+                TextButton(onClick = { memberToDelete = null }) { Text(stringResource(R.string.cancel)) }
             },
             shape = RoundedCornerShape(20.dp)
         )
@@ -358,12 +360,12 @@ fun SavedAddressesDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.LocationOn, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Saved Addresses", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.saved_addresses), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { showAddForm = !showAddForm }) {
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = if (showAddForm) "Cancel" else "Add Address",
+                        contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Address",
                         tint = SwastikPurple
                     )
                 }
@@ -379,16 +381,16 @@ fun SavedAddressesDialog(
                         border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Add Address", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_address), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
                             OutlinedTextField(
                                 value = newLabel, onValueChange = { newLabel = it },
-                                label = { Text("Label (e.g., Home, Office)") },
+                                label = { Text(stringResource(R.string.label_e_g_home_office)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             OutlinedTextField(
                                 value = newAddress, onValueChange = { newAddress = it },
-                                label = { Text("Full Address") },
+                                label = { Text(stringResource(R.string.full_address)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 maxLines = 3
@@ -403,7 +405,7 @@ fun SavedAddressesDialog(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                                 enabled = newLabel.isNotBlank() && newAddress.isNotBlank()
-                            ) { Text("Save Address") }
+                            ) { Text(stringResource(R.string.save_address)) }
                         }
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -416,8 +418,8 @@ fun SavedAddressesDialog(
                     ) {
                         Icon(Icons.Outlined.LocationOn, null, tint = colorScheme.outline, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(8.dp))
-                        Text("No addresses saved", fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
-                        Text("Save your home, office, etc. for quick access", fontSize = 12.sp, color = colorScheme.outline)
+                        Text(stringResource(R.string.no_addresses_saved), fontSize = 14.sp, color = colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.save_your_home_office_etc_for_quick_access), fontSize = 12.sp, color = colorScheme.outline)
                     }
                 } else {
                     addresses.forEach { address ->
@@ -451,7 +453,7 @@ fun SavedAddressesDialog(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Done") }
+            ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
     )

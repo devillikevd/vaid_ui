@@ -84,15 +84,153 @@ class WebRTCManager(
     /** Network quality classification */
     enum class NetworkQuality { EXCELLENT, GOOD, POOR, CRITICAL }
 
+    /**
+     * Snapshot of real-time WebRTC transport metrics extracted from PeerConnection stats.
+     * Used by ViewModel to make fine-grained fallback/restore decisions.
+     */
+    data class StatsSnapshot(
+        val roundTripTimeMs: Double = -1.0,
+        val packetLossPercent: Double = 0.0,
+        val availableBitrateBps: Long = -1,
+        val audioBytesSent: Long = 0,
+        val videoBytesSent: Long = 0,
+        val timestampMs: Long = System.currentTimeMillis()
+    ) {
+        /** Map stats thresholds to a NetworkQuality level (mirrors web logic). */
+        fun toNetworkQuality(): NetworkQuality = when {
+            // CRITICAL: >15% loss OR RTT >800ms OR zero bitrate for >3s
+            packetLossPercent > 15.0 || (roundTripTimeMs > 800 && roundTripTimeMs > 0) -> NetworkQuality.CRITICAL
+            // POOR: >5% loss OR RTT >400ms OR bitrate <50kbps
+            packetLossPercent > 5.0 || (roundTripTimeMs > 400 && roundTripTimeMs > 0)
+                || (availableBitrateBps in 1..50_000) -> NetworkQuality.POOR
+            // EXCELLENT: <1% loss AND RTT <100ms AND bitrate >500kbps
+            packetLossPercent < 1.0 && roundTripTimeMs in 0.0..100.0
+                && availableBitrateBps > 500_000 -> NetworkQuality.EXCELLENT
+            // GOOD: everything else
+            else -> NetworkQuality.GOOD
+        }
+    }
+
     /** Current ICE connection state for external checks */
     val currentIceState: PeerConnection.IceConnectionState?
         get() = peerConnection?.iceConnectionState()
+
+    /** Previous byte counters for delta-based bitrate calculation */
+    @Volatile private var prevAudioBytesSent: Long = 0
+    @Volatile private var prevVideoBytesSent: Long = 0
+    @Volatile private var prevStatsTimestampMs: Long = 0
+    /** Previous packet counters for delta-based loss calculation */
+    @Volatile private var prevPacketsSent: Long = 0
+    @Volatile private var prevPacketsLost: Long = 0
 
     /**
      * Get the underlying PeerConnection for stats polling.
      * Used by ViewModel to monitor network quality.
      */
     fun getPeerConnection(): PeerConnection? = peerConnection
+
+    /**
+     * Asynchronously collect a [StatsSnapshot] from the live PeerConnection.
+     *
+     * Extracts RTT, packet loss, and bitrate from the RTCStatsReport —
+     * the same signals the web client uses for its quality classifier.
+     *
+     * @param callback Receives the snapshot on a WebRTC internal thread;
+     *                 callers should post to their own dispatcher if needed.
+     */
+    fun collectStatsSnapshot(callback: (StatsSnapshot) -> Unit) {
+        val pc = peerConnection
+        if (pc == null) {
+            callback(StatsSnapshot())
+            return
+        }
+
+        pc.getStats { report ->
+            var rtt = -1.0
+            var packetsSent = 0L
+            var packetsLost = 0L
+            var audioBytes = 0L
+            var videoBytes = 0L
+            var availableBitrate = -1L
+
+            for (stats in report.statsMap.values) {
+                when (stats.type) {
+                    // candidate-pair gives RTT
+                    "candidate-pair" -> {
+                        val nominated = stats.members["nominated"]
+                        if (nominated == true || nominated == "true") {
+                            val currentRtt = stats.members["currentRoundTripTime"]
+                            if (currentRtt is Number) {
+                                rtt = currentRtt.toDouble() * 1000.0 // seconds → ms
+                            }
+                            val bw = stats.members["availableOutgoingBitrate"]
+                            if (bw is Number) {
+                                availableBitrate = bw.toLong()
+                            }
+                        }
+                    }
+                    // outbound-rtp gives bytes sent and packet counts
+                    "outbound-rtp" -> {
+                        val kind = stats.members["kind"] ?: stats.members["mediaType"]
+                        val bytes = (stats.members["bytesSent"] as? Number)?.toLong() ?: 0L
+                        when (kind) {
+                            "audio" -> audioBytes = bytes
+                            "video" -> videoBytes = bytes
+                        }
+                    }
+                    // remote-inbound-rtp gives packet loss from receiver reports
+                    "remote-inbound-rtp" -> {
+                        val sent = (stats.members["packetsSent"] as? Number)?.toLong()
+                            ?: (stats.members["packetsReceived"] as? Number)?.toLong() ?: 0L
+                        val lost = (stats.members["packetsLost"] as? Number)?.toLong() ?: 0L
+                        packetsSent += sent + lost
+                        packetsLost += lost
+                    }
+                }
+            }
+
+            // Compute DELTA-based packet loss (loss during THIS polling interval only).
+            // Cumulative loss never decreases, which would cause permanent false degradation
+            // even after network fully recovers. Delta-based loss correctly shows 0% once fixed.
+            val deltaPacketsSent = packetsSent - prevPacketsSent
+            val deltaPacketsLost = packetsLost - prevPacketsLost
+            val lossPercent = if (deltaPacketsSent > 0 && prevStatsTimestampMs > 0) {
+                ((deltaPacketsLost.coerceAtLeast(0)).toDouble() / deltaPacketsSent.toDouble()) * 100.0
+            } else 0.0
+            prevPacketsSent = packetsSent
+            prevPacketsLost = packetsLost
+
+            // Compute instantaneous send bitrate from byte deltas
+            val nowMs = System.currentTimeMillis()
+            val deltaMs = nowMs - prevStatsTimestampMs
+            if (deltaMs > 0 && prevStatsTimestampMs > 0) {
+                val deltaBytes = (audioBytes - prevAudioBytesSent) + (videoBytes - prevVideoBytesSent)
+                if (deltaBytes >= 0) {
+                    val instantBps = (deltaBytes * 8 * 1000) / deltaMs
+                    if (availableBitrate < 0) {
+                        availableBitrate = instantBps
+                    }
+                }
+            }
+            prevAudioBytesSent = audioBytes
+            prevVideoBytesSent = videoBytes
+            prevStatsTimestampMs = nowMs
+
+            Log.d(TAG, "Stats: rtt=${rtt}ms loss=${String.format("%.1f", lossPercent)}% " +
+                "bw=${availableBitrate}bps deltaPktSent=$deltaPacketsSent deltaPktLost=$deltaPacketsLost")
+
+            callback(
+                StatsSnapshot(
+                    roundTripTimeMs = rtt,
+                    packetLossPercent = lossPercent,
+                    availableBitrateBps = availableBitrate,
+                    audioBytesSent = audioBytes,
+                    videoBytesSent = videoBytes,
+                    timestampMs = nowMs
+                )
+            )
+        }
+    }
 
     /**
      * Initialize the PeerConnectionFactory. Must be called once before anything else.
@@ -307,6 +445,20 @@ class WebRTCManager(
         localVideoTrack?.let { peerConnection?.addTrack(it, listOf("stream_local")) }
 
         Log.d(TAG, "PeerConnection created and local tracks added")
+    }
+
+    /**
+     * Trigger an ICE restart on the existing PeerConnection.
+     * Called by ViewModel recovery poller when attempting to restore from CHAT mode.
+     */
+    fun restartIce() {
+        val pc = peerConnection
+        if (pc == null) {
+            Log.w(TAG, "restartIce: no PeerConnection")
+            return
+        }
+        Log.d(TAG, "Triggering ICE restart")
+        pc.restartIce()
     }
 
     /**

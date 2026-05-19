@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">VAIDIDEA</string>
 
-    <!-- ─── Medicine Screen ─── -->
+    
     <string name="medicine_finder">Medicine Finder</string>
     <string name="search_medicines">Search medicines…</string>
     <string name="available_near_you">Available Near You 📍</string>
@@ -16,8 +16,12 @@
     <string name="something_went_wrong">Something went wrong</string>
     <string name="left_in_stock">%d Left in Stock</string>
     <string name="local_pharmacy">Local Pharmacy</string>
+    <string name="change_pharmacy_title">Change Pharmacy?</string>
+    <string name="pharmacy_conflict_message">Your cart already has medicines from another pharmacy. Clear it and add this medicine from %1$s?</string>
+    <string name="pharmacy_conflict_fallback">the new pharmacy</string>
+    <string name="clear_and_add">Clear &amp; Add</string>
 
-    <!-- ─── Medicine Detail Screen ─── -->
+    
     <string name="medicine_details">Medicine Details</string>
     <string name="description">Description</string>
     <string name="no_description">No description available</string>
@@ -30,7 +34,7 @@
     <string name="rx_required">Rx Required</string>
     <string name="available">Available</string>
 
-    <!-- ─── Cart Screen ─── -->
+    
     <string name="medicine_cart">Medicine Cart</string>
     <string name="place_order">Place Order</string>
     <string name="delivery_address">Delivery Address</string>
@@ -40,12 +44,12 @@
     <string name="total">Total</string>
     <string name="items">Items</string>
 
-    <!-- ─── Order History ─── -->
+    
     <string name="order_history">Order History</string>
     <string name="no_orders_found">No orders found</string>
     <string name="cancel_order">Cancel Order</string>
 
-    <!-- ─── Home Tab ─── -->
+    
     <string name="todays_reminders">Today\'s Reminders</string>
     <string name="view_all">View All</string>
     <string name="no_reminders_today">No reminders for today</string>
@@ -78,17 +82,17 @@
     <string name="recommendations_description">Recommendations will appear after your activity is synced</string>
     <string name="book">Book</string>
 
-    <!-- ─── AI Health Assistant ─── -->
+    
     <string name="ai_health_assistant">AI Health Assistant</string>
     <string name="how_can_i_help">How can I help you today?</string>
     <string name="describe_symptoms">Describe your symptoms or ask a question</string>
 
-    <!-- ─── Trust Signals ─── -->
+    
     <string name="verified_doctors">Verified\nDoctors</string>
     <string name="data_encrypted">Data\nEncrypted</string>
     <string name="abdm_compliant">ABDM\nCompliant</string>
 
-    <!-- ─── Profile Tab ─── -->
+    
     <string name="profile">Profile</string>
     <string name="edit_profile">Edit Profile</string>
     <string name="personal_info">Personal Information</string>
@@ -103,38 +107,107 @@
     <string name="help_center">Help Center</string>
     <string name="change_password">Change Password</string>
     <string name="logout">Logout</string>
+    <string name="failed_to_process_image">Failed to process image</string>
+    <string name="default_user_name">Swastik User</string>
+    <string name="share_profile">Share Profile</string>
+    <string name="profile_share_phone">Phone: %1$s</string>
+    <string name="profile_share_email">Email: %1$s</string>
+    <string name="profile_share_blood">Blood: %1$s</string>
+    <string name="profile_share_footer">Shared via VAIDIDEA Health App</string>
+    <string name="health_identity">Health Identity</string>
+    <string name="verified">Verified</string>
+    <string name="not_verified">Not Verified</string>
+    <string name="account_settings">Account Settings</string>
+    <string name="preferences">Preferences</string>
+    <string name="support_legal">Support &amp; Legal</string>
+    <string name="connecting_support_agent">Connecting to support agent…</string>
+    <string name="app_version">Swastik v1.0.0</string>
+    <string name="made_with_love">Made with love in India</string>
+    <string name="logout_title">Logout</string>
+    <string name="logout_message">Are you sure you want to logout? You will need to sign in again to access your account.</string>
 
-    <!-- ─── Records Tab ─── -->
+    
     <string name="records">Records</string>
     <string name="reports">Reports</string>
     <string name="prescriptions">Prescriptions</string>
+    <string name="medical_records_title">Medical Records</string>
+    <string name="medical_records_subtitle">Your complete health history</string>
+    <string name="failed_to_load_records">Failed to load records</string>
+    <string name="no_medical_records_yet">No medical records yet</string>
+    <string name="upload_reports_or_consult">Upload reports or consult a doctor to get started</string>
+    <string name="upload_report">Upload Report</string>
+    <string name="recent_consultations">Recent Consultations</string>
+    <string name="no_consultations_yet">No consultations yet</string>
+    <string name="recent_prescriptions">Recent Prescriptions</string>
+    <string name="no_prescriptions_yet">No prescriptions yet</string>
+    <string name="documents">Documents</string>
+    <string name="no_reports_uploaded_yet">No reports uploaded yet</string>
+    <string name="all_consultations">All Consultations</string>
+    <string name="all_prescriptions">All Prescriptions</string>
+    <string name="all_reports_documents">All Reports &amp; Documents</string>
+    <string name="filter_all">All</string>
+    <string name="filter_consultations">Consultations</string>
+    <string name="filter_prescriptions">Prescriptions</string>
+    <string name="filter_reports">Reports</string>
+    <string name="doctor_prescription_fallback">Doctor prescription</string>
+    <string name="prescription_details_fallback">Prescription details</string>
+    <string name="more_medicines_format">+%d more medicines</string>
+    <string name="duration_format">Duration: %1$s</string>
+    <string name="cannot_open_document">Cannot open document</string>
+    <string name="no_file_available_report">No file available for this report</string>
+    <string name="cannot_download_file">Cannot download file</string>
+    <string name="no_file_available">No file available</string>
+    <string name="selected_file">Selected file</string>
+    <string name="select_file_pdf_image">Select File (PDF, Image)</string>
+    <string name="report_link_label">Or Paste Report Link</string>
+    <string name="report_link_placeholder">https://example.com/report.pdf</string>
+    <string name="report_link_help">Use this when your report is already hosted or uploads are temporarily unavailable.</string>
+    <string name="report_name_label">Report Name</string>
+    <string name="report_name_placeholder">Enter report name</string>
+    <string name="report_type_label">Report Type</string>
+    <string name="report_type_blood_test">Blood Test</string>
+    <string name="report_type_urine_test">Urine Test</string>
+    <string name="report_type_x_ray">X-Ray</string>
+    <string name="report_type_mri">MRI</string>
+    <string name="report_type_ct_scan">CT Scan</string>
+    <string name="report_type_ultrasound">Ultrasound</string>
+    <string name="report_type_ecg">ECG</string>
+    <string name="report_type_other">Other</string>
+    <string name="uploading">Uploading…</string>
+    <string name="shared_report">Shared Report</string>
+    <string name="status_active">Active</string>
 
-    <!-- ─── Appointment ─── -->
+    
     <string name="appointments">Appointments</string>
     <string name="appointment_history">Appointment History</string>
     <string name="book_appointment">Book Appointment</string>
     <string name="upcoming">Upcoming</string>
     <string name="completed">Completed</string>
     <string name="cancelled">Cancelled</string>
+    <string name="cancel_appointment">Cancel Appointment</string>
+    <string name="keep_appointment">Keep Appointment</string>
+    <string name="cancel_appointment_confirmation">Are you sure you want to cancel your appointment with %1$s?</string>
+    <string name="appointment_date_time_format">Date: %1$s at %2$s</string>
+    <string name="appointment_doctor_fallback">the doctor</string>
 
-    <!-- ─── Emergency ─── -->
+    
     <string name="emergency">Emergency</string>
     <string name="call_ambulance">Call Ambulance</string>
 
-    <!-- ─── Vitals & Reminders ─── -->
+    
     <string name="vitals_reminders">Vitals &amp; Reminders</string>
     <string name="add_reminder">Add Reminder</string>
     <string name="record_vitals">Record Vitals</string>
 
-    <!-- ─── Diagnostic Booking ─── -->
+    
     <string name="diagnostic_booking">Diagnostic Booking</string>
     <string name="booking_history">Booking History</string>
 
-    <!-- ─── Chatbot ─── -->
+    
     <string name="chatbot">Health Assistant</string>
     <string name="type_message">Type your message…</string>
 
-    <!-- ─── Common ─── -->
+    
     <string name="back">Back</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
@@ -144,4 +217,343 @@
     <string name="error">Error</string>
     <string name="success">Success</string>
     <string name="close">Close</string>
+    <string name="upload">Upload</string>
+    <string name="download">Download</string>
+    <string name="user_label">User</string>
+    <string name="patient_label">Patient</string>
+<string name="search_for_medicines">Search For Medicines</string>
+    <string name="voice_search_unavailable">Voice Search Unavailable</string>
+    <string name="refresh_catalog">Refresh Catalog</string>
+    <string name="welcome">Welcome</string>
+    <string name="set_location">Set Location</string>
+    <string name="schedule_now">Schedule Now</string>
+    <string name="search_doctors_specialist">Search Doctors Specialist</string>
+    <string name="request_ambulance">Request Ambulance</string>
+    <string name="call_ambulance_108">Call Ambulance 108</string>
+    <string name="alert_emergency_contacts">Alert Emergency Contacts</string>
+    <string name="share_live_location">Share Live Location</string>
+    <string name="select_language">Select Language</string>
+    <string name="apply">Apply</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="full_name">Full Name</string>
+    <string name="age">Age</string>
+    <string name="gender">Gender</string>
+    <string name="blood_group">Blood Group</string>
+    <string name="select_blood_group">Select Blood Group</string>
+    <string name="weight_kg">Weight Kg</string>
+    <string name="height_cm">Height Cm</string>
+    <string name="location">Location</string>
+    <string name="notification_settings">Notification Settings</string>
+    <string name="appointment_reminders">Appointment Reminders</string>
+    <string name="medicine_reminders">Medicine Reminders</string>
+    <string name="report_ready_alerts">Report Ready Alerts</string>
+    <string name="promotional_offers">Promotional Offers</string>
+    <string name="sound">Sound</string>
+    <string name="notification_prefs_saved">Notification Prefs Saved</string>
+    <string name="privacy_security">Privacy Security</string>
+    <string name="update_account_password">Update Account Password</string>
+    <string name="biometric_login">Biometric Login</string>
+    <string name="two_factor_auth">Two Factor Auth</string>
+    <string name="data_privacy">Data Privacy</string>
+    <string name="health_data_encrypted">Health Data Encrypted</string>
+    <string name="abdm_abha_compliant">Abdm Abha Compliant</string>
+    <string name="data_never_shared">Data Never Shared</string>
+    <string name="done">Done</string>
+    <string name="current_password">Current Password</string>
+    <string name="new_password">New Password</string>
+    <string name="confirm_new_password">Confirm New Password</string>
+    <string name="password_min_length">Password Min Length</string>
+    <string name="enter_current_password">Enter Current Password</string>
+    <string name="new_password_min_length">New Password Min Length</string>
+    <string name="passwords_dont_match">Passwords Dont Match</string>
+    <string name="new_password_must_differ">New Password Must Differ</string>
+    <string name="add_emergency_contact">Add Emergency Contact</string>
+    <string name="name_label">Name Label</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="relation">Relation</string>
+    <string name="add_contact">Add Contact</string>
+    <string name="no_emergency_contacts">No Emergency Contacts</string>
+    <string name="tap_to_add_contacts">Tap To Add Contacts</string>
+    <string name="delete_contact">Delete Contact</string>
+    <string name="delete">Delete</string>
+    <string name="language_set_to">Language Set To</string>
+    <string name="theme_set_to">Theme Set To</string>
+    <string name="video">Video</string>
+    <string name="in_person">In Person</string>
+    <string name="start_video_consultation">Start Video Consultation</string>
+    <string name="book_again">Book Again</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="search_doctors_hint">Search Doctors Hint</string>
+    <string name="no_doctors_found">No Doctors Found</string>
+    <string name="view_profile">View Profile</string>
+    <string name="rating">Rating</string>
+    <string name="consultation_fee">Consultation Fee</string>
+    <string name="languages_spoken">Languages Spoken</string>
+    <string name="about_doctor">About Doctor</string>
+    <string name="education">Education</string>
+    <string name="describe_symptoms_visit">Describe Symptoms Visit</string>
+    <string name="emergency_network">Emergency Network</string>
+    <string name="tell_dispatch">Tell Dispatch</string>
+    <string name="dispatch_placeholder">Dispatch Placeholder</string>
+    <string name="dispatch_ambulance_now">Dispatch Ambulance Now</string>
+    <string name="call_108_directly">Call 108 Directly</string>
+    <string name="confirm_emergency_request">Confirm Emergency Request</string>
+    <string name="yes_request_now">Yes Request Now</string>
+    <string name="live_route_view">Live Route View</string>
+    <string name="live_route_desc">Live Route Desc</string>
+    <string name="pickup_point_ready">Pickup Point Ready</string>
+    <string name="pickup_point_desc">Pickup Point Desc</string>
+    <string name="dispatch_details">Dispatch Details</string>
+    <string name="open_live_route_maps">Open Live Route Maps</string>
+    <string name="call_ambulance_driver">Call Ambulance Driver</string>
+    <string name="cancel_emergency_request">Cancel Emergency Request</string>
+    <string name="response_journey">Response Journey</string>
+    <string name="cancel_request">Cancel Request</string>
+    <string name="reminders">Reminders</string>
+    <string name="no_vitals_recorded">No Vitals Recorded</string>
+    <string name="tap_to_record_vital">Tap To Record Vital</string>
+    <string name="no_reminders_set">No Reminders Set</string>
+    <string name="tap_to_create_reminder">Tap To Create Reminder</string>
+    <string name="taken">Taken</string>
+    <string name="snooze">Snooze</string>
+    <string name="skip">Skip</string>
+    <string name="snooze_reminder">Snooze Reminder</string>
+    <string name="record_vital">Record Vital</string>
+    <string name="vital_type">Vital Type</string>
+    <string name="value_with_unit">Value With Unit</string>
+    <string name="notes_optional">Notes Optional</string>
+    <string name="record">Record</string>
+    <string name="reminder_title">Reminder Title</string>
+    <string name="type">Type</string>
+    <string name="select_time">Select Time</string>
+    <string name="add">Add</string>
+    <string name="ok">Ok</string>
+    <string name="request_submitted">Request Submitted</string>
+    <string name="booking_request_sent">Booking Request Sent</string>
+    <string name="view_my_tests">View My Tests</string>
+    <string name="diagnostic_centers">Diagnostic Centers</string>
+    <string name="search_centers_tests">Search Centers Tests</string>
+    <string name="no_diagnostic_centers">No Diagnostic Centers</string>
+    <string name="book_test">Book Test</string>
+    <string name="test_label">Test Label</string>
+    <string name="price_label">Price Label</string>
+    <string name="select_date">Select Date</string>
+    <string name="collection_type">Collection Type</string>
+    <string name="walk_in">Walk In</string>
+    <string name="home_collection">Home Collection</string>
+    <string name="collection_address">Collection Address</string>
+    <string name="confirm_booking">Confirm Booking</string>
+    <string name="no_tests_available">No Tests Available</string>
+    <string name="book_test_name">Book Test Name</string>
+    <string name="report_in">Report In</string>
+    <string name="sample_label">Sample Label</string>
+    <string name="no_bookings_found">No Bookings Found</string>
+    <string name="bookings_appear_here">Bookings Appear Here</string>
+    <string name="category_label">Category Label</string>
+    <string name="report_type_format">Report Type Format</string>
+    <string name="uploaded_label">Uploaded Label</string>
+    <string name="unable_open_report">Unable Open Report</string>
+    <string name="view_report">View Report</string>
+    <string name="cancel_booking">Cancel Booking</string>
+    <string name="call">Call</string>
+    <string name="directions">Directions</string>
+    <string name="sos">Sos</string>
+    <string name="specializations">Specializations</string>
+    <string name="departments">Departments</string>
+    <string name="emergency_24_7">Emergency 24 7</string>
+    <string name="open_now">Open Now</string>
+    <string name="reviews">Reviews</string>
+    <string name="write_review">Write Review</string>
+    <string name="your_rating">Your Rating</string>
+    <string name="your_review_optional">Your Review Optional</string>
+    <string name="submit">Submit</string>
+    <string name="patient_reviews">Patient Reviews</string>
+    <string name="reset">Reset</string>
+    <string name="apply_filters">Apply Filters</string>
+    <string name="search_inventory">Search Inventory</string>
+    <string name="from_pharmacy">From Pharmacy</string>
+    <string name="call_store">Call Store</string>
+    <string name="clinic">Clinic</string>
+    <string name="open_clinic_details">Open Clinic Details</string>
+    <string name="address">Address</string>
+    <string name="no_doctors_at_clinic">No Doctors At Clinic</string>
+    <string name="diagnostic_center">Diagnostic Center</string>
+    <string name="emergency_services_available">Emergency Services Available</string>
+    <string name="book_a_test">Book A Test</string>
+    <string name="exit">Exit</string>
+    <string name="navigate">Navigate</string>
+    <string name="emergency_ready_facility">Emergency Ready Facility</string>
+    <string name="quick_call_navigation">Quick Call Navigation</string>
+    <string name="call_hospital">Call Hospital</string>
+    <string name="call_108">Call 108</string>
+    <string name="address_unavailable">Address Unavailable</string>
+    <string name="na_fallback_108">Na Fallback 108</string>
+    <string name="refresh_nearby">Refresh Nearby</string>
+    <string name="reset_filters">Reset Filters</string>
+    <string name="refresh">Refresh</string>
+    <string name="pharmacy_cart_conflict">Pharmacy Cart Conflict</string>
+    <string name="home">Home</string>
+    <string name="medicine">Medicine</string>
+    <string name="no_notifications">No Notifications</string>
+    <string name="try_again">Try Again</string>
+    <string name="n_1_km">1 km</string>
+    <string name="search_inventory_1">Search inventory...</string>
+    <string name="string">📦</string>
+    <string name="rx">Rx</string>
+    <string name="string_1"> • </string>
+    <string name="string_2">👨‍⚕️</string>
+    <string name="no_doctors_listed_at_this_clinic_yet">No doctors listed at this clinic yet</string>
+    <string name="n_24_7_emergency_diagnostic_services">24/7 emergency diagnostic services</string>
+    <string name="book_a_test_1">Book a Test</string>
+    <string name="emergency_ready_facility_1">Emergency-ready facility</string>
+    <string name="quick_call_and_turn_by_turn_navigation">Quick call and turn-by-turn navigation</string>
+    <string name="string_3">🏥</string>
+    <string name="string_4">❓</string>
+    <string name="sos_1">SOS</string>
+    <string name="emergency_n24_7">Emergency\n24/7</string>
+    <string name="your_review_optional_1">Your review (optional)</string>
+    <string name="search_for_medicines_1">Search for medicines</string>
+    <string name="clear_filters_1">Clear filters</string>
+    <string name="refresh_catalog_1">Refresh catalog</string>
+    <string name="no_vitals_recorded_yet">No vitals recorded yet</string>
+    <string name="tap_to_record_your_first_vital">Tap + to record your first vital</string>
+    <string name="no_reminders_set_1">No reminders set</string>
+    <string name="tap_to_create_a_reminder">Tap + to create a reminder</string>
+    <string name="notes_optional_1">Notes (optional)</string>
+    <string name="medicine_1">💊 Medicine</string>
+    <string name="appointment">📅 Appointment</string>
+    <string name="test">🧪 Test</string>
+    <string name="english_hindi">English, Hindi</string>
+    <string name="string_5">☝️</string>
+    <string name="string_6">😔</string>
+    <string name="my_bookings">My Bookings</string>
+    <string name="booking_cancelled_successfully">Booking cancelled successfully</string>
+    <string name="no_bookings_found_1">No bookings found</string>
+    <string name="your_diagnostic_bookings_will_appear_here">Your diagnostic bookings will appear here</string>
+    <string name="ud83e_udd16">\uD83E\uDD16</string>
+    <string name="new_chat">New chat</string>
+    <string name="smart_care_assistant">Smart care assistant</string>
+    <string name="share_for_analysis">Share for Analysis</string>
+    <string name="take_a_photo_or_choose_from_gallery_for_ai_analysis">Take a photo or choose from gallery for AI analysis</string>
+    <string name="ud83d_udcf7_analyze_image">\uD83D\uDCF7 Analyze Image</string>
+    <string name="add_a_description_optional">Add a description (optional)</string>
+    <string name="describe_symptoms_or_concern">Describe symptoms or concern</string>
+    <string name="u2695_ufe0f_ai_will_analyze_for_skin_conditions_wounds_or_abnormalities_always_consult_a_doctor">\u2695\uFE0F AI will analyze for skin conditions, wounds, or abnormalities. Always consult a doctor.</string>
+    <string name="analyze">Analyze</string>
+    <string name="ud83e_ude7a">\uD83E\uDE7A</string>
+    <string name="ud83d_udc64">\uD83D\uDC64</string>
+    <string name="symptom_checker">Symptom Checker</string>
+    <string name="add_other_symptoms">Add other symptoms</string>
+    <string name="example_sore_throat_fatigue">Example: sore throat, fatigue</string>
+    <string name="duration">Duration</string>
+    <string name="example_2_days">Example: 2 days</string>
+    <string name="how_severe_does_it_feel">How severe does it feel?</string>
+    <string name="analyze_symptoms">Analyze symptoms</string>
+    <string name="health_tips">Health Tips</string>
+    <string name="chat_history">Chat History</string>
+    <string name="no_previous_chat_sessions_yet">No previous chat sessions yet.</string>
+    <string name="my_prescriptions">My Prescriptions</string>
+    <string name="sent_to_pharmacy">Sent To Pharmacy</string>
+    <string name="call_pharmacy">Call Pharmacy</string>
+    <string name="view_my_orders">View My Orders</string>
+    <string name="prescription_details">Prescription Details</string>
+    <string name="choose_pharmacy">Choose Pharmacy</string>
+    <string name="search_pharmacy_by_name">Search pharmacy by name</string>
+    <string name="send_prescription">Send Prescription</string>
+    <string name="my_reports">My Reports</string>
+    <string name="unable_to_load_reports">Unable to Load Reports</string>
+    <string name="no_reports_found">No Reports Found</string>
+    <string name="your_medical_reports_will_appear_here">Your medical reports will appear here</string>
+    <string name="no_notifications_1">No notifications</string>
+    <string name="n_24_7_available">24/7 Available</string>
+    <string name="string_7">🩺</string>
+    <string name="string_8">📅</string>
+    <string name="string_9">🤖</string>
+    <string name="call_ambulance_108_1">Call Ambulance (108)</string>
+    <string name="name">Name</string>
+    <string name="no_emergency_contacts_added">No emergency contacts added</string>
+    <string name="tap_to_add_contacts_for_emergencies">Tap + to add contacts for emergencies</string>
+    <string name="delete_contact_1">Delete Contact?</string>
+    <string name="add_family_member">Add Family Member</string>
+    <string name="phone_optional">Phone (optional)</string>
+    <string name="add_member">Add Member</string>
+    <string name="no_family_members_linked">No family members linked</string>
+    <string name="tap_to_link_family_profiles">Tap + to link family profiles</string>
+    <string name="remove_member">Remove Member?</string>
+    <string name="remove">Remove</string>
+    <string name="saved_addresses">Saved Addresses</string>
+    <string name="add_address">Add Address</string>
+    <string name="label_e_g_home_office">Label (e.g., Home, Office)</string>
+    <string name="full_address">Full Address</string>
+    <string name="save_address">Save Address</string>
+    <string name="no_addresses_saved">No addresses saved</string>
+    <string name="save_your_home_office_etc_for_quick_access">Save your home, office, etc. for quick access</string>
+    <string name="send_feedback">Send Feedback</string>
+    <string name="how_would_you_rate_your_experience">How would you rate your experience?</string>
+    <string name="your_feedback">Your feedback</string>
+    <string name="frequently_asked_questions">Frequently Asked Questions</string>
+    <string name="health_qr_code">Health QR Code</string>
+    <string name="checking_health_card">Checking health card...</string>
+    <string name="tap_generate_below">Tap Generate below</string>
+    <string name="active_health_card_ready_to_share">Active health card ready to share</string>
+    <string name="share">Share</string>
+    <string name="revoke">Revoke</string>
+    <string name="generate">Generate</string>
+    <string name="my_profile">My Profile</string>
+    <string name="edit">Edit</string>
+    <string name="profile_completion">Profile Completion</string>
+    <string name="abha_number">ABHA Number</string>
+    <string name="string_10">👳</string>
+    <string name="string_11">💊</string>
+    <string name="order_cancelled_successfully">Order cancelled successfully</string>
+    <string name="your_medicine_orders_will_appear_here">Your medicine orders will appear here</string>
+    <string name="items_1">Items:</string>
+    <string name="order_placed">Order Placed!</string>
+    <string name="your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly">Your medicine order has been placed successfully. The pharmacy will prepare your order shortly.</string>
+    <string name="add_medicines_from_the_medicine_finder">Add medicines from the medicine finder</string>
+    <string name="browse_medicines">Browse Medicines</string>
+    <string name="enter_your_delivery_address">Enter your delivery address</string>
+    <string name="thank_you_feedback">Thank you for your feedback!</string>
+        <string name="blood">Blood</string>
+    <string name="type_unit">Type</string>
+    <string name="weight">Weight</string>
+    <string name="height">Height</string>
+    <string name="add_your_name">Add your name</string>
+    <string name="add_your_age">Add your age</string>
+    <string name="set_your_gender">Set your gender</string>
+    <string name="add_blood_group">Add blood group</string>
+    <string name="upload_profile_photo">Upload a profile photo</string>
+    <string name="add_emergency_contact_step">Add an emergency contact</string>
+    <string name="complete_your_profile">Complete your profile</string>
+    <string name="next_step">💡 Next step: %1$s</string>
+    <string name="consultations">Consultations</string>
+    <string name="not_linked">Not Linked</string>
+    <string name="linked_hospitals">Linked: %1$d hospitals</string>
+    <string name="tap_to_link_abha">Tap to link your ABHA</string>
+    <string name="name_dob_gender">Name, DOB, Gender</string>
+    <string name="home_office">Home, Office</string>
+    <string name="manage_linked_profiles">Manage linked profiles</string>
+    <string name="quick_access_emergencies">Quick access in emergencies</string>
+    <string name="manage_alerts_reminders">Manage alerts and reminders</string>
+    <string name="light_mode">Light Mode</string>
+    <string name="dark_mode">Dark Mode</string>
+    <string name="system_default">System Default</string>
+    <string name="password_biometrics_2fa">Password, Biometrics, 2FA</string>
+    <string name="data_sync">Data &amp; Sync</string>
+    <string name="auto_backup_enabled">Auto-backup enabled</string>
+    <string name="support_24_7">24/7 Support</string>
+    <string name="chat_with_us_anytime">Chat with us anytime</string>
+    <string name="online">Online</string>
+    <string name="faqs_tutorials">FAQs &amp; Tutorials</string>
+    <string name="help_us_improve">Help us improve</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="privacy_policy">Privacy Policy</string>
+
+    <string name="language_english">English</string>
+    <string name="language_hindi">Hindi</string>
+    <string name="language_bengali">Bengali</string>
+    <string name="language_telugu">Telugu</string>
+    <string name="language_tamil">Tamil</string>
+    <string name="language_kannada">Kannada</string>
+    <string name="language_marathi">Marathi</string>
 </resources>

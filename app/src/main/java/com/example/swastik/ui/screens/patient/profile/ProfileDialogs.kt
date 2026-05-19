@@ -29,6 +29,8 @@ import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.utils.ProfileValidation
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 // ==================== EDIT PROFILE DIALOG ====================
 
@@ -69,7 +71,7 @@ fun EditProfileDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Edit, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Edit Profile", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.edit_profile), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -103,7 +105,7 @@ fun EditProfileDialog(
                 }
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Full Name") },
+                    label = { Text(stringResource(R.string.full_name)) },
                     leadingIcon = { Icon(Icons.Outlined.Person, null, modifier = Modifier.size(20.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -113,7 +115,7 @@ fun EditProfileDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = age, onValueChange = { age = it.filter { c -> c.isDigit() } },
-                        label = { Text("Age") },
+                        label = { Text(stringResource(R.string.age)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -129,7 +131,7 @@ fun EditProfileDialog(
                             value = gender.replaceFirstChar { it.uppercase() },
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Gender") },
+                            label = { Text(stringResource(R.string.gender)) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = genderExpanded) },
                             modifier = Modifier.menuAnchor(),
                             shape = RoundedCornerShape(12.dp),
@@ -152,10 +154,10 @@ fun EditProfileDialog(
                     onExpandedChange = { if (!isSaving) bloodGroupExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = bloodGroup.ifEmpty { "Select Blood Group" },
+                        value = bloodGroup.ifEmpty { stringResource(R.string.select_blood_group) },
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Blood Group") },
+                        label = { Text(stringResource(R.string.blood_group)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bloodGroupExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         shape = RoundedCornerShape(12.dp),
@@ -175,7 +177,7 @@ fun EditProfileDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = weight, onValueChange = { weight = it },
-                        label = { Text("Weight (kg)") },
+                        label = { Text(stringResource(R.string.weight_kg)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -184,7 +186,7 @@ fun EditProfileDialog(
                     )
                     OutlinedTextField(
                         value = height, onValueChange = { height = it },
-                        label = { Text("Height (cm)") },
+                        label = { Text(stringResource(R.string.height_cm)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -194,7 +196,7 @@ fun EditProfileDialog(
                 }
                 OutlinedTextField(
                     value = location, onValueChange = { location = it },
-                    label = { Text("Location") },
+                    label = { Text(stringResource(R.string.location)) },
                     leadingIcon = { Icon(Icons.Outlined.LocationOn, null, modifier = Modifier.size(20.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -243,12 +245,12 @@ fun EditProfileDialog(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Save Changes")
+                    Text(stringResource(R.string.save_changes))
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") }
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text(stringResource(R.string.cancel)) }
         },
         shape = RoundedCornerShape(20.dp)
     )
@@ -259,8 +261,8 @@ fun EditProfileDialog(
 @Composable
 fun LanguagePickerDialog(onDismiss: () -> Unit) {
     val appSettings by AppSettingsStore.settings.collectAsState()
-    var selected by remember(appSettings.language) { mutableStateOf(appSettings.language) }
-    val languages = listOf("English", "Hindi", "Bengali", "Telugu", "Tamil", "Kannada", "Marathi")
+    var selectedTag by remember(appSettings.language) { mutableStateOf(appSettings.language) }
+    val options = com.example.swastik.util.LanguageConfig.options
     val context = LocalContext.current
 
     AlertDialog(
@@ -269,26 +271,27 @@ fun LanguagePickerDialog(onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Language, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Select Language", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.select_language), fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column {
-                languages.forEach { lang ->
+                options.forEach { lang ->
+                    val label = stringResource(lang.labelResId)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selected = lang }
+                            .clickable { selectedTag = lang.tag }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = selected == lang,
-                            onClick = { selected = lang },
+                            selected = selectedTag == lang.tag,
+                            onClick = { selectedTag = lang.tag },
                             colors = RadioButtonDefaults.colors(selectedColor = SwastikPurple)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(lang, fontSize = 15.sp, fontWeight = if (selected == lang) FontWeight.SemiBold else FontWeight.Normal)
+                        Text(label, fontSize = 15.sp, fontWeight = if (selectedTag == lang.tag) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
             }
@@ -296,15 +299,16 @@ fun LanguagePickerDialog(onDismiss: () -> Unit) {
         confirmButton = {
             Button(
                 onClick = {
-                    AppSettingsStore.updateLanguage(selected)
-                    Toast.makeText(context, "Language set to $selected", Toast.LENGTH_SHORT).show()
+                    AppSettingsStore.updateLanguage(selectedTag)
+                    val label = context.getString(com.example.swastik.util.LanguageConfig.labelResId(selectedTag))
+                    Toast.makeText(context, context.getString(R.string.language_set_to, label), Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Apply") }
+            ) { Text(stringResource(R.string.apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
 }
@@ -324,7 +328,7 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.DarkMode, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Appearance", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.appearance), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -363,14 +367,14 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
             Button(
                 onClick = {
                     AppSettingsStore.updateTheme(selected)
-                    Toast.makeText(context, "Theme set to ${selected.name.lowercase().replaceFirstChar { it.uppercase() }}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.theme_set_to) + " " + selected.name.lowercase().replaceFirstChar { it.uppercase() }, Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Apply") }
+            ) { Text(stringResource(R.string.apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
 }
@@ -394,17 +398,17 @@ fun NotificationSettingsDialog(onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Notifications, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Notification Settings", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.notification_settings), fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column {
-                NotifToggleRow("Appointment Reminders", appointments) { appointments = it }
-                NotifToggleRow("Medicine Reminders", medicines) { medicines = it }
-                NotifToggleRow("Report Ready Alerts", reports) { reports = it }
-                NotifToggleRow("Promotional Offers", promotions) { promotions = it }
+                NotifToggleRow(stringResource(R.string.appointment_reminders), appointments) { appointments = it }
+                NotifToggleRow(stringResource(R.string.medicine_reminders), medicines) { medicines = it }
+                NotifToggleRow(stringResource(R.string.report_ready_alerts), reports) { reports = it }
+                NotifToggleRow(stringResource(R.string.promotional_offers), promotions) { promotions = it }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                NotifToggleRow("Sound", sound) { sound = it }
+                NotifToggleRow(stringResource(R.string.sound), sound) { sound = it }
             }
         },
         confirmButton = {
@@ -419,14 +423,14 @@ fun NotificationSettingsDialog(onDismiss: () -> Unit) {
                             sound = sound
                         )
                     )
-                    Toast.makeText(context, "Notification preferences saved", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.notification_prefs_saved), Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
 }
@@ -462,7 +466,7 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Security, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Privacy & Security", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.privacy_security), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -476,21 +480,21 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
                         Icon(Icons.Outlined.Lock, null, tint = SwastikPurple, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Change Password", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                            Text("Update your account password", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.change_password), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.update_account_password), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, null, tint = SwastikPurple)
                     }
                 }
                 Spacer(Modifier.height(4.dp))
-                NotifToggleRow("Biometric Login", biometrics) { biometrics = it }
-                NotifToggleRow("Two-Factor Auth (2FA)", twoFactor) { twoFactor = it }
+                NotifToggleRow(stringResource(R.string.biometric_login), biometrics) { biometrics = it }
+                NotifToggleRow(stringResource(R.string.two_factor_auth), twoFactor) { twoFactor = it }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text("Data & Privacy", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.data_privacy), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Text("Your health data is encrypted end-to-end", fontSize = 12.sp, color = colorScheme.onSurface)
-                Text("ABDM/ABHA compliant storage", fontSize = 12.sp, color = colorScheme.onSurface)
-                Text("Data is never shared without consent", fontSize = 12.sp, color = colorScheme.onSurface)
+                Text(stringResource(R.string.health_data_encrypted), fontSize = 12.sp, color = colorScheme.onSurface)
+                Text(stringResource(R.string.abdm_abha_compliant), fontSize = 12.sp, color = colorScheme.onSurface)
+                Text(stringResource(R.string.data_never_shared), fontSize = 12.sp, color = colorScheme.onSurface)
             }
         },
         confirmButton = {
@@ -498,7 +502,7 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Done") }
+            ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
     )
@@ -520,6 +524,7 @@ fun ChangePasswordDialog(
     var validationError by remember { mutableStateOf<String?>(null) }
     val isSaving = saveState is ProfileUpdateState.Loading
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -527,7 +532,7 @@ fun ChangePasswordDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Lock, null, tint = SwastikPurple)
                 Spacer(Modifier.width(8.dp))
-                Text("Change Password", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.change_password), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -559,7 +564,7 @@ fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = currentPassword,
                     onValueChange = { currentPassword = it; validationError = null },
-                    label = { Text("Current Password") },
+                    label = { Text(stringResource(R.string.current_password)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
@@ -574,7 +579,7 @@ fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it; validationError = null },
-                    label = { Text("New Password") },
+                    label = { Text(stringResource(R.string.new_password)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
@@ -589,24 +594,24 @@ fun ChangePasswordDialog(
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it; validationError = null },
-                    label = { Text("Confirm New Password") },
+                    label = { Text(stringResource(R.string.confirm_new_password)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
                     enabled = !isSaving,
                     visualTransformation = PasswordVisualTransformation()
                 )
-                Text("Password must be at least 8 characters", fontSize = 11.sp, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.password_min_length), fontSize = 11.sp, color = colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     when {
-                        currentPassword.isBlank() -> validationError = "Enter current password"
-                        newPassword.length < 8 -> validationError = "New password must be at least 8 characters"
-                        newPassword != confirmPassword -> validationError = "Passwords don't match"
-                        currentPassword == newPassword -> validationError = "New password must be different"
+                        currentPassword.isBlank() -> validationError = context.getString(R.string.enter_current_password)
+                        newPassword.length < 8 -> validationError = context.getString(R.string.new_password_min_length)
+                        newPassword != confirmPassword -> validationError = context.getString(R.string.passwords_dont_match)
+                        currentPassword == newPassword -> validationError = context.getString(R.string.new_password_must_differ)
                         else -> onSubmit(currentPassword, newPassword)
                     }
                 },
@@ -621,11 +626,11 @@ fun ChangePasswordDialog(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Change Password")
+                    Text(stringResource(R.string.change_password))
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
 }

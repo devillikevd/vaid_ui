@@ -32,6 +32,8 @@ import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.utils.NavigationHelper
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -107,7 +109,7 @@ fun HospitalDetailScreen(
                     Text(uiState.error!!, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(onClick = { viewModel.loadFacilityDetails(facilityId, facilityType) }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             }
@@ -212,7 +214,7 @@ fun HospitalDetailScreen(
                             ) {
                                 Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Call", fontSize = 13.sp)
+                                Text(stringResource(R.string.call), fontSize = 13.sp)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -223,7 +225,7 @@ fun HospitalDetailScreen(
                             ) {
                                 Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Directions", fontSize = 13.sp)
+                                Text(stringResource(R.string.directions), fontSize = 13.sp)
                             }
                             if (facility.isEmergencyAvailable) {
                                 Button(
@@ -234,7 +236,7 @@ fun HospitalDetailScreen(
                                 ) {
                                     Icon(Icons.Default.LocalHospital, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("SOS", fontSize = 13.sp)
+                                    Text(stringResource(R.string.sos_1), fontSize = 13.sp)
                                 }
                             }
                         }
@@ -277,7 +279,7 @@ fun HospitalDetailScreen(
 
                                 if (facility.specializations.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Text("Specializations", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                    Text(stringResource(R.string.specializations), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.height(6.dp))
                                     FlowRow(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -295,7 +297,7 @@ fun HospitalDetailScreen(
 
                                 if (facility.departments.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(12.dp))
-                                    Text("Departments", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                                    Text(stringResource(R.string.departments), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.height(6.dp))
                                     FlowRow(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -332,7 +334,7 @@ fun HospitalDetailScreen(
                                     ) {
                                         Icon(Icons.Default.LocalHospital, contentDescription = null, tint = colorScheme.error)
                                         Spacer(modifier = Modifier.height(4.dp))
-                                        Text("Emergency\n24/7", fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
+                                        Text(stringResource(R.string.emergency_n24_7), fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
                                     }
                                 }
                             }
@@ -348,7 +350,7 @@ fun HospitalDetailScreen(
                                     ) {
                                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SwastikGreen)
                                         Spacer(modifier = Modifier.height(4.dp))
-                                        Text("Open Now", fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
+                                        Text(stringResource(R.string.open_now), fontSize = 12.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
                                     }
                                 }
                             }
@@ -434,7 +436,7 @@ private fun HospitalReviewSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Reviews", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.reviews), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     Text(
                         "$reviewCount reviews • ${String.format(Locale.US, "%.1f", rating)} avg",
                         fontSize = 13.sp,
@@ -449,7 +451,7 @@ private fun HospitalReviewSection(
                         ) {
                             Icon(Icons.Default.RateReview, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Write Review", fontSize = 13.sp)
+                            Text(stringResource(R.string.write_review), fontSize = 13.sp)
                         }
                     } else {
                         Text(
@@ -466,7 +468,7 @@ private fun HospitalReviewSection(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("Your Rating", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Text(stringResource(R.string.your_rating), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Star rating
@@ -491,7 +493,7 @@ private fun HospitalReviewSection(
                 OutlinedTextField(
                     value = userComment,
                     onValueChange = { userComment = it },
-                    label = { Text("Your review (optional)") },
+                    label = { Text(stringResource(R.string.your_review_optional_1)) },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                     shape = RoundedCornerShape(12.dp)
@@ -531,7 +533,7 @@ private fun HospitalReviewSection(
                             },
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                         Button(
                             onClick = {
@@ -553,7 +555,7 @@ private fun HospitalReviewSection(
                                     color = Color.White
                                 )
                             } else {
-                                Text("Submit")
+                                Text(stringResource(R.string.submit))
                             }
                         }
                     }
@@ -566,7 +568,7 @@ private fun HospitalReviewSection(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("Patient Reviews", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (uiState.reviewsLoading) {
@@ -684,7 +686,7 @@ private fun DoctorDetailCard(
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Book", fontSize = 13.sp)
+                Text(stringResource(R.string.book), fontSize = 13.sp)
             }
         }
     }

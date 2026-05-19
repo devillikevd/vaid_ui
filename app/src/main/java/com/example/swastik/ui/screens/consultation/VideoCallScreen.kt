@@ -495,6 +495,17 @@ fun WebRTCVideoView(
                     }
                 }
             },
+            onReset = { container ->
+                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
+                    try {
+                        videoTrack.removeSink(renderer)
+                    } catch (_: Throwable) { }
+                    try {
+                        renderer.release()
+                    } catch (_: Throwable) { }
+                }
+                container.removeAllViews()
+            },
             onRelease = { container ->
                 (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
                     try {
@@ -708,6 +719,7 @@ private fun ChatModeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF0A1426).copy(alpha = 0.86f))
+                .padding(WindowInsets.ime.asPaddingValues())
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

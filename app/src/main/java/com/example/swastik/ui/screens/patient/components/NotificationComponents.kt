@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -58,7 +61,7 @@ fun NotificationPanelDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Notifications", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(stringResource(R.string.notifications), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Row {
                     IconButton(onClick = { onMarkAllRead() }) {
                         Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read", tint = SwastikPurple)
@@ -105,7 +108,7 @@ fun NotificationPanelDialog(
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("No notifications", color = Color.Gray, fontSize = 14.sp)
+                            Text(stringResource(R.string.no_notifications_1), color = Color.Gray, fontSize = 14.sp)
                         }
                     }
                 } else {
@@ -126,7 +129,7 @@ fun NotificationPanelDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         }
     )

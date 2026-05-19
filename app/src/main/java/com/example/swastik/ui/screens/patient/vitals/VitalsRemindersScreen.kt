@@ -26,6 +26,8 @@ import com.example.swastik.data.remote.dto.ReminderDto
 import com.example.swastik.data.remote.dto.VitalDto
 import com.example.swastik.ui.viewmodel.VitalsViewModel
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 private val SwastikPurple = Color(0xFF6C63FF)
 
@@ -48,7 +50,7 @@ fun VitalsRemindersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Vitals & Reminders", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.vitals_reminders), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -90,7 +92,7 @@ fun VitalsRemindersScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(Icons.Default.MonitorHeart, null, modifier = Modifier.size(18.dp))
-                        Text("Vitals", fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.vitals), fontWeight = FontWeight.Medium)
                     }
                 }
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
@@ -100,7 +102,7 @@ fun VitalsRemindersScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(Icons.Default.Alarm, null, modifier = Modifier.size(18.dp))
-                        Text("Reminders", fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.reminders), fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -186,8 +188,8 @@ private fun VitalsTab(vitals: List<VitalDto>) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.MonitorHeart, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(8.dp))
-                Text("No vitals recorded yet", color = Color.Gray)
-                Text("Tap + to record your first vital", color = Color.Gray, fontSize = 12.sp)
+                Text(stringResource(R.string.no_vitals_recorded_yet), color = Color.Gray)
+                Text(stringResource(R.string.tap_to_record_your_first_vital), color = Color.Gray, fontSize = 12.sp)
             }
         }
     } else {
@@ -263,8 +265,8 @@ private fun RemindersTab(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Default.Alarm, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(8.dp))
-                Text("No reminders set", color = Color.Gray)
-                Text("Tap + to create a reminder", color = Color.Gray, fontSize = 12.sp)
+                Text(stringResource(R.string.no_reminders_set_1), color = Color.Gray)
+                Text(stringResource(R.string.tap_to_create_a_reminder), color = Color.Gray, fontSize = 12.sp)
             }
         }
     } else {
@@ -385,7 +387,7 @@ private fun ReminderCard(
                             contentColor = Color(0xFF2E7D32)
                         )
                     ) {
-                        Text("Taken")
+                        Text(stringResource(R.string.taken))
                     }
                     FilledTonalButton(
                         onClick = onSnooze,
@@ -396,14 +398,14 @@ private fun ReminderCard(
                             contentColor = SwastikPurple
                         )
                     ) {
-                        Text("Snooze")
+                        Text(stringResource(R.string.snooze))
                     }
                     OutlinedButton(
                         onClick = onSkip,
                         enabled = !actionInProgress,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Skip")
+                        Text(stringResource(R.string.skip))
                     }
                 }
             }
@@ -429,7 +431,7 @@ private fun SnoozeReminderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Snooze Reminder", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.snooze_reminder), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -456,7 +458,7 @@ private fun SnoozeReminderDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
@@ -473,10 +475,10 @@ private fun RecordVitalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Record Vital", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.record_vital), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Vital Type", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.vital_type), fontWeight = FontWeight.Medium)
                 // Type selector chips
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     VitalType.entries.chunked(2).forEach { row ->
@@ -504,7 +506,7 @@ private fun RecordVitalDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes (optional)") },
+                    label = { Text(stringResource(R.string.notes_optional_1)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -515,10 +517,10 @@ private fun RecordVitalDialog(
                 onClick = { onRecord(selectedType, value, notes.ifBlank { null }) },
                 enabled = value.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Record") }
+            ) { Text(stringResource(R.string.record)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }
@@ -536,28 +538,28 @@ private fun AddReminderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Reminder", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.add_reminder), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Reminder Title") },
+                    label = { Text(stringResource(R.string.reminder_title)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                Text("Type", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.type), fontWeight = FontWeight.Medium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = type == "medicine", onClick = { type = "medicine" }, label = { Text("💊 Medicine") })
-                    FilterChip(selected = type == "appointment", onClick = { type = "appointment" }, label = { Text("📅 Appointment") })
-                    FilterChip(selected = type == "test", onClick = { type = "test" }, label = { Text("🧪 Test") })
+                    FilterChip(selected = type == "medicine", onClick = { type = "medicine" }, label = { Text(stringResource(R.string.medicine_1)) })
+                    FilterChip(selected = type == "appointment", onClick = { type = "appointment" }, label = { Text(stringResource(R.string.appointment)) })
+                    FilterChip(selected = type == "test", onClick = { type = "test" }, label = { Text(stringResource(R.string.test)) })
                 }
 
                 OutlinedTextField(
                     value = time,
                     onValueChange = { },
-                    label = { Text("Select Time") },
+                    label = { Text(stringResource(R.string.select_time)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showTimePicker = true },
@@ -582,10 +584,10 @@ private fun AddReminderDialog(
                 onClick = { onAdd(title, type, time) },
                 enabled = title.isNotBlank() && time.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-            ) { Text("Add") }
+            ) { Text(stringResource(R.string.add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 
@@ -594,7 +596,7 @@ private fun AddReminderDialog(
         val timePickerState = rememberTimePickerState()
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("Select Time") },
+            title = { Text(stringResource(R.string.select_time)) },
             text = {
                 TimePicker(state = timePickerState)
             },
@@ -606,10 +608,10 @@ private fun AddReminderDialog(
                     val hour12 = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
                     time = String.format(Locale.US, "%02d:%02d %s", hour12, minute, amPm)
                     showTimePicker = false
-                }) { Text("OK", color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }

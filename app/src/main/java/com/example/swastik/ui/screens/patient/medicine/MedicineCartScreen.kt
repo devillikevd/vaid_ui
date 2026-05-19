@@ -24,6 +24,8 @@ import com.example.swastik.data.model.CartItem
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.utils.NavigationHelper
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 /**
  * Medicine Cart & Order Screen — review cart, enter address, place order.
@@ -51,10 +53,10 @@ fun MedicineCartScreen(
                 onOrderComplete()
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(48.dp)) },
-            title = { Text("Order Placed!", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Your medicine order has been placed successfully. The pharmacy will prepare your order shortly.")
+                    Text(stringResource(R.string.your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly))
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
@@ -113,7 +115,7 @@ fun MedicineCartScreen(
                         onOrderComplete()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                ) { Text("Done") }
+                ) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -127,7 +129,7 @@ fun MedicineCartScreen(
                         },
                         enabled = !pharmacyPhone.isNullOrBlank()
                     ) {
-                        Text("Call Pharmacy")
+                        Text(stringResource(R.string.call_pharmacy))
                     }
                     TextButton(
                         onClick = {
@@ -135,7 +137,7 @@ fun MedicineCartScreen(
                             onNavigateToOrderHistory()
                         }
                     ) {
-                        Text("View My Orders")
+                        Text(stringResource(R.string.view_my_orders))
                     }
                 }
             }
@@ -145,7 +147,7 @@ fun MedicineCartScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Medicine Cart", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.medicine_cart), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -166,14 +168,14 @@ fun MedicineCartScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.ShoppingCart, null, tint = Color.Gray, modifier = Modifier.size(80.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text("Your cart is empty", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.Gray)
+                    Text(stringResource(R.string.cart_empty), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.Gray)
                     Spacer(Modifier.height(4.dp))
-                    Text("Add medicines from the medicine finder", color = Color.Gray)
+                    Text(stringResource(R.string.add_medicines_from_the_medicine_finder), color = Color.Gray)
                     Spacer(Modifier.height(24.dp))
                     Button(
                         onClick = onBackClick,
                         colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                    ) { Text("Browse Medicines") }
+                    ) { Text(stringResource(R.string.browse_medicines)) }
                 }
             }
         } else {
@@ -242,12 +244,12 @@ fun MedicineCartScreen(
                     // Delivery address
                     item {
                         Spacer(Modifier.height(8.dp))
-                        Text("Delivery Address", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
                             value = cartState.deliveryAddress,
                             onValueChange = { viewModel.setDeliveryAddress(it) },
-                            placeholder = { Text("Enter your delivery address") },
+                            placeholder = { Text(stringResource(R.string.enter_your_delivery_address)) },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 2,
                             shape = RoundedCornerShape(12.dp)
@@ -263,11 +265,11 @@ fun MedicineCartScreen(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Items", color = Color.Gray)
+                            Text(stringResource(R.string.items), color = Color.Gray)
                             Text("${cartState.totalItems}")
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Total", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            Text(stringResource(R.string.total), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPurple)
                         }
                         Spacer(Modifier.height(12.dp))
@@ -291,7 +293,7 @@ fun MedicineCartScreen(
                             } else {
                                 Icon(Icons.Default.ShoppingCartCheckout, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Place Order", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }

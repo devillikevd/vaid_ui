@@ -82,6 +82,18 @@ data class UploadResponse(
     fun storageUrl(): String? = storageUrl ?: storageUrlSnake ?: url ?: fileUrl
 }
 
+// ==================== WEBRTC DTOs ====================
+
+data class IceServerDto(
+    val urls: List<String>,
+    val username: String? = null,
+    val credential: String? = null
+)
+
+data class IceServersResponse(
+    val iceServers: List<IceServerDto>
+)
+
 // ==================== HEALTH CARD DTOs ====================
 
 data class HealthCardTokenResponse(

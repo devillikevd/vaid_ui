@@ -96,6 +96,11 @@ interface ApiService {
         @Path("id") id: String
     ): Response<ApiResponse<Appointment>>
 
+    @GET("consultations/{id}/ice-servers")
+    suspend fun getConsultationIceServers(
+        @Path("id") id: String
+    ): Response<ApiResponse<IceServersResponse>>
+
     @GET("patients/appointments/{id}/record-access")
     suspend fun getMedicalRecordAccess(
         @Path("id") id: String

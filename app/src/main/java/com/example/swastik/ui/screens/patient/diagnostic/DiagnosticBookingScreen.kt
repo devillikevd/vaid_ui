@@ -30,6 +30,8 @@ import com.example.swastik.data.remote.dto.DiagnosticCenterDto
 import com.example.swastik.data.remote.dto.DiagnosticTestDto
 import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 private val SwastikPurple = Color(0xFF6C63FF)
 
@@ -94,8 +96,8 @@ fun DiagnosticBookingScreen(
                 onBackClick()
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(48.dp)) },
-            title = { Text("Request Submitted", fontWeight = FontWeight.Bold) },
-            text = { Text("Your diagnostic test booking request was sent successfully. The center will confirm it soon.") },
+            title = { Text(stringResource(R.string.request_submitted), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.booking_request_sent)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -103,7 +105,7 @@ fun DiagnosticBookingScreen(
                         onBackClick()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                ) { Text("Done") }
+                ) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
                 TextButton(
@@ -112,7 +114,7 @@ fun DiagnosticBookingScreen(
                         onNavigateToBookingHistory()
                     }
                 ) {
-                    Text("View My Tests")
+                    Text(stringResource(R.string.view_my_tests))
                 }
             }
         )
@@ -124,7 +126,7 @@ fun DiagnosticBookingScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Diagnostic Centers", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.diagnostic_centers), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -146,7 +148,7 @@ fun DiagnosticBookingScreen(
                     searchQuery = it
                     viewModel.searchCenters(it)
                 },
-                placeholder = { Text("Search centers or tests...") },
+                placeholder = { Text(stringResource(R.string.search_centers_tests)) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -179,7 +181,7 @@ fun DiagnosticBookingScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.Biotech, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(8.dp))
-                            Text("No diagnostic centers found", color = Color.Gray)
+                            Text(stringResource(R.string.no_diagnostic_centers), color = Color.Gray)
                         }
                     }
                 } else {
@@ -200,10 +202,10 @@ fun DiagnosticBookingScreen(
     if (showBookingDialog && uiState.selectedTest != null) {
         AlertDialog(
             onDismissRequest = { showBookingDialog = false },
-            title = { Text("Book Test", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.book_test), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Test: ${uiState.selectedTest!!.name}", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
                     uiState.selectedTest!!.price?.let {
                         Text("Price: ₹${it.toInt()}", color = SwastikPurple, fontWeight = FontWeight.Bold)
                     }
@@ -211,7 +213,7 @@ fun DiagnosticBookingScreen(
                     OutlinedTextField(
                         value = bookingDate,
                         onValueChange = { },
-                        label = { Text("Select Date") },
+                        label = { Text(stringResource(R.string.select_date)) },
                         modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
                         enabled = false,
                         trailingIcon = {
@@ -230,7 +232,7 @@ fun DiagnosticBookingScreen(
                     OutlinedTextField(
                         value = bookingTime,
                         onValueChange = { },
-                        label = { Text("Select Time") },
+                        label = { Text(stringResource(R.string.select_time)) },
                         modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true },
                         enabled = false,
                         trailingIcon = {
@@ -247,17 +249,17 @@ fun DiagnosticBookingScreen(
                         singleLine = true
                     )
 
-                    Text("Collection Type", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = collectionType == "walk_in",
                             onClick = { collectionType = "walk_in" },
-                            label = { Text("Walk In") }
+                            label = { Text(stringResource(R.string.walk_in)) }
                         )
                         FilterChip(
                             selected = collectionType == "home_collection",
                             onClick = { collectionType = "home_collection" },
-                            label = { Text("Home Collection") }
+                            label = { Text(stringResource(R.string.home_collection)) }
                         )
                     }
 
@@ -265,7 +267,7 @@ fun DiagnosticBookingScreen(
                         OutlinedTextField(
                             value = collectionAddress,
                             onValueChange = { collectionAddress = it },
-                            label = { Text("Collection Address") },
+                            label = { Text(stringResource(R.string.collection_address)) },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 2
                         )
@@ -285,10 +287,10 @@ fun DiagnosticBookingScreen(
                     },
                     enabled = bookingDate.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                ) { Text("Confirm Booking") }
+                ) { Text(stringResource(R.string.confirm_booking)) }
             },
             dismissButton = {
-                TextButton(onClick = { showBookingDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showBookingDialog = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -322,10 +324,10 @@ fun DiagnosticBookingScreen(
                         )
                     }
                     showDatePicker = false
-                }) { Text("OK", color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -337,7 +339,7 @@ fun DiagnosticBookingScreen(
         val timePickerState = rememberTimePickerState()
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
-            title = { Text("Select Time") },
+            title = { Text(stringResource(R.string.select_time)) },
             text = {
                 TimePicker(state = timePickerState)
             },
@@ -345,10 +347,10 @@ fun DiagnosticBookingScreen(
                 TextButton(onClick = {
                     bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
                     showTimePicker = false
-                }) { Text("OK", color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -423,7 +425,7 @@ private fun CenterTestsView(
 
                 if (tests.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No tests available", color = Color.Gray)
+                Text(stringResource(R.string.no_tests_available), color = Color.Gray)
             }
         } else {
             LazyColumn(
@@ -453,7 +455,7 @@ private fun CenterTestsView(
                 ) {
                     Icon(Icons.Default.EventAvailable, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Book ${selectedTest.name}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(stringResource(R.string.book_test_name, selectedTest.name), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }
@@ -492,8 +494,8 @@ private fun TestCard(
                     ?: test.turnaroundHours?.let { hours ->
                         if (hours == 24) "24 hours" else "$hours hours"
                     }
-                turnaroundLabel?.let { Text("Report in: $it", color = Color.Gray, fontSize = 12.sp) }
-                test.sampleType?.let { Text("Sample: $it", color = Color.Gray, fontSize = 12.sp) }
+                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = Color.Gray, fontSize = 12.sp) }
+                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = Color.Gray, fontSize = 12.sp) }
             }
             test.price?.let {
                 Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 16.sp)

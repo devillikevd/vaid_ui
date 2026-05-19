@@ -63,6 +63,8 @@ import com.example.swastik.ui.viewmodel.ChatLanguage
 import com.example.swastik.ui.viewmodel.ChatUiMessage
 import java.io.File
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 
 data class ChatQuickAction(
@@ -353,10 +355,10 @@ fun ChatbotScreen(
                                     )
                                 ),
                             contentAlignment = Alignment.Center
-                        ) { Text("\uD83E\uDD16", fontSize = 20.sp) }
+                        ) { Text(stringResource(R.string.ud83e_udd16), fontSize = 20.sp) }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Health Assistant", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -496,7 +498,7 @@ fun ChatbotScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = { viewModel.startFreshSession() }) {
-                                Text("New chat", color = Color(0xFFE65100))
+                                Text(stringResource(R.string.new_chat), color = Color(0xFFE65100))
                             }
                         }
                     }
@@ -544,7 +546,7 @@ fun ChatbotScreen(
                     if (messages.size == 1) {
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Quick Actions", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                            Text(stringResource(R.string.quick_actions), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
                             QuickActionsGrid(actions = quickActions, onActionClick = { action -> sendMessage(action.query) })
                         }
                     }
@@ -660,7 +662,7 @@ private fun SessionStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Smart care assistant", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(stringResource(R.string.smart_care_assistant), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     Text(
                         text = "Live chat, symptom triage, image analysis, and bilingual support in ${selectedLanguage.nativeLabel}",
                         fontSize = 12.sp,
@@ -764,9 +766,9 @@ private fun AttachmentMenu(onDismiss: () -> Unit, onCameraClick: () -> Unit, onG
             Column(modifier = Modifier.padding(24.dp)) {
                 Box(modifier = Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.LightGray))
                 Spacer(modifier = Modifier.height(20.dp))
-                Text("Share for Analysis", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.share_for_analysis), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("Take a photo or choose from gallery for AI analysis", fontSize = 13.sp, color = Color.Gray)
+                Text(stringResource(R.string.take_a_photo_or_choose_from_gallery_for_ai_analysis), fontSize = 13.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AttachmentOption(Icons.Outlined.CameraAlt, "Camera", "Take photo", Color(0xFF2196F3), onCameraClick)
@@ -808,7 +810,7 @@ private fun ImagePreviewDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text("\uD83D\uDCF7 Analyze Image", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.ud83d_udcf7_analyze_image), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Filled.Close, contentDescription = "Close", modifier = Modifier.size(20.dp))
                 }
@@ -831,27 +833,27 @@ private fun ImagePreviewDialog(
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("Add a description (optional)", fontSize = 12.sp, color = Color.Gray)
+                Text(stringResource(R.string.add_a_description_optional), fontSize = 12.sp, color = Color.Gray)
                 Spacer(modifier = Modifier.height(6.dp))
                 OutlinedTextField(
                     value = description, onValueChange = onDescriptionChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Describe symptoms or concern", fontSize = 13.sp) },
+                    placeholder = { Text(stringResource(R.string.describe_symptoms_or_concern), fontSize = 13.sp) },
                     textStyle = TextStyle(fontSize = 14.sp),
                     shape = RoundedCornerShape(12.dp), maxLines = 3
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("\u2695\uFE0F AI will analyze for skin conditions, wounds, or abnormalities. Always consult a doctor.", fontSize = 11.sp, color = Color.Gray, lineHeight = 16.sp)
+                Text(stringResource(R.string.u2695_ufe0f_ai_will_analyze_for_skin_conditions_wounds_or_abnormalities_always_consult_a_doctor), fontSize = 11.sp, color = Color.Gray, lineHeight = 16.sp)
             }
         },
         confirmButton = {
             Button(onClick = onSend, colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple), shape = RoundedCornerShape(12.dp)) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Analyze")
+                Text(stringResource(R.string.analyze))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         shape = RoundedCornerShape(20.dp)
     )
 }
@@ -877,7 +879,7 @@ private fun SeverityBadge(severity: String) {
 private fun SpecialistChip(specialist: String) {
     Surface(shape = RoundedCornerShape(12.dp), color = SwastikPurple.copy(alpha = 0.1f), modifier = Modifier.padding(top = 4.dp)) {
         Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("\uD83E\uDE7A", fontSize = 11.sp)
+            Text(stringResource(R.string.ud83e_ude7a), fontSize = 11.sp)
             Spacer(modifier = Modifier.width(4.dp))
             Text(text = specialist, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SwastikPurple)
         }
@@ -988,7 +990,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
             if (message.isUser) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-                    Text("\uD83D\uDC64", fontSize = 16.sp)
+                    Text(stringResource(R.string.ud83d_udc64), fontSize = 16.sp)
                 }
             }
         }
@@ -1018,7 +1020,7 @@ private fun SymptomCheckerSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("Symptom Checker", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(stringResource(R.string.symptom_checker), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
                 "Share the symptoms you have right now. The assistant will suggest urgency, next steps, and a likely specialist.",
                 color = Color.Gray,
@@ -1046,8 +1048,8 @@ private fun SymptomCheckerSheet(
                 value = customSymptoms,
                 onValueChange = { customSymptoms = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Add other symptoms") },
-                placeholder = { Text("Example: sore throat, fatigue") },
+                label = { Text(stringResource(R.string.add_other_symptoms)) },
+                placeholder = { Text(stringResource(R.string.example_sore_throat_fatigue)) },
                 maxLines = 3
             )
 
@@ -1055,13 +1057,13 @@ private fun SymptomCheckerSheet(
                 value = duration,
                 onValueChange = { duration = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Duration") },
-                placeholder = { Text("Example: 2 days") },
+                label = { Text(stringResource(R.string.duration)) },
+                placeholder = { Text(stringResource(R.string.example_2_days)) },
                 singleLine = true
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("How severe does it feel?", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Text(stringResource(R.string.how_severe_does_it_feel), fontWeight = FontWeight.Medium, fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("mild", "moderate", "severe").forEach { option ->
                         FilterChip(
@@ -1090,7 +1092,7 @@ private fun SymptomCheckerSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Analyze symptoms")
+                Text(stringResource(R.string.analyze_symptoms))
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1123,7 +1125,7 @@ private fun HealthTipsSheet(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("Health Tips", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(stringResource(R.string.health_tips), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { (key, label) ->
                     FilterChip(
@@ -1190,9 +1192,9 @@ private fun ChatHistorySheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Chat History", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(stringResource(R.string.chat_history), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 TextButton(onClick = onNewChat) {
-                    Text("New chat")
+                    Text(stringResource(R.string.new_chat))
                 }
             }
 
@@ -1206,7 +1208,7 @@ private fun ChatHistorySheet(
                     CircularProgressIndicator()
                 }
             } else if (sessions.isEmpty()) {
-                Text("No previous chat sessions yet.", color = Color.Gray, fontSize = 13.sp)
+                Text(stringResource(R.string.no_previous_chat_sessions_yet), color = Color.Gray, fontSize = 13.sp)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),

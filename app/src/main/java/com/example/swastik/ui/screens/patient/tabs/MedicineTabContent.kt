@@ -61,10 +61,13 @@ fun MedicineTabContent(
     cartState.pharmacyConflict?.let { conflict ->
         AlertDialog(
             onDismissRequest = { viewModel.resolvePharmacyConflict(false) },
-            title = { Text("Change Pharmacy?", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.change_pharmacy_title), fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Your cart already has medicines from another pharmacy. Clear it and add this medicine from ${conflict.newPharmacyName ?: "the new pharmacy"}?"
+                    stringResource(
+                        R.string.pharmacy_conflict_message,
+                        conflict.newPharmacyName ?: stringResource(R.string.pharmacy_conflict_fallback)
+                    )
                 )
             },
             confirmButton = {
@@ -72,12 +75,12 @@ fun MedicineTabContent(
                     onClick = { viewModel.resolvePharmacyConflict(true) },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                 ) {
-                    Text("Clear & Add")
+                    Text(stringResource(R.string.clear_and_add))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.resolvePharmacyConflict(false) }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -299,7 +302,7 @@ private fun MedicineSearchBar(
     OutlinedTextField(
         value = searchQuery,
         onValueChange = onSearchChange,
-        placeholder = { Text("Search for medicines", color = colorScheme.onSurfaceVariant) },
+        placeholder = { Text(stringResource(R.string.search_for_medicines_1), color = colorScheme.onSurfaceVariant) },
         leadingIcon = {
             Icon(Icons.Default.Search, contentDescription = null, tint = colorScheme.onSurfaceVariant)
         },
@@ -310,7 +313,7 @@ private fun MedicineSearchBar(
                 }
             } else {
                 IconButton(onClick = {
-                    android.widget.Toast.makeText(context, "Voice search is unavailable", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(R.string.voice_search_unavailable), android.widget.Toast.LENGTH_SHORT).show()
                 }) {
                     Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPurple)
                 }
@@ -353,7 +356,7 @@ private fun MedicineCategoryFilter(
             FilterChip(
                 selected = selectedCategory == null,
                 onClick = { onCategorySelected(null) },
-                label = { Text("All", fontSize = 12.sp) },
+                label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
                     selectedLabelColor = Color.White,
@@ -604,13 +607,13 @@ private fun EmptyMedicineState(
             Spacer(modifier = Modifier.height(16.dp))
             if (hasActiveFilters) {
                 TextButton(onClick = onClearFilters) {
-                    Text("Clear filters", color = SwastikPurple)
+                    Text(stringResource(R.string.clear_filters_1), color = SwastikPurple)
                 }
             }
             OutlinedButton(onClick = onReloadCatalog) {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPurple)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Refresh catalog", color = SwastikPurple)
+                Text(stringResource(R.string.refresh_catalog_1), color = SwastikPurple)
             }
         }
     }

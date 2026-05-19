@@ -99,7 +99,7 @@ class PushNotificationCoordinator @Inject constructor(
         val pendingIntent = destination.deepLink?.let(::buildDeepLinkIntent)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title.ifBlank { context.getString(R.string.app_name) })
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

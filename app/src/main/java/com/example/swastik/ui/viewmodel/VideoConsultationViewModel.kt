@@ -131,9 +131,23 @@ class VideoConsultationViewModel @Inject constructor(
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
     private var callDurationJob: kotlinx.coroutines.Job? = null
     private var patientOfferFallbackJob: kotlinx.coroutines.Job? = null
+    private var recoveryPollerJob: kotlinx.coroutines.Job? = null
     private var hasSentLocalOffer = false
     private var hasReceivedRemoteOffer = false
     private var hasReceivedRemoteAnswer = false
+
+    // ── Hysteresis counters for stats-based fallback/restore ──
+    // Require N consecutive samples before changing mode to prevent jitter
+    private var consecutiveDegradeCount = 0
+    private var consecutiveRestoreCount = 0
+    private var pendingQualityLevel: WebRTCManager.NetworkQuality? = null
+    private var iceRestartAttempts = 0
+    private companion object {
+        const val DEGRADE_THRESHOLD = 3   // 3 consecutive bad samples (~9s) before downgrading
+        const val RESTORE_THRESHOLD = 4   // 4 consecutive good samples (~12s) before upgrading
+        const val MAX_ICE_RESTARTS = 3    // max ICE restarts before giving up
+        const val STATS_POLL_INTERVAL_MS = 3000L
+    }
 
     // Expose local and remote video tracks for the UI to render
     private val _localVideoTrack = MutableStateFlow<VideoTrack?>(null)
@@ -194,12 +208,15 @@ class VideoConsultationViewModel @Inject constructor(
     /**
      * Initialize WebRTC engine and start local media.
      */
-    private fun initializeWebRTC() {
+    private fun initializeWebRTC(iceServers: List<org.webrtc.PeerConnection.IceServer>? = null) {
         if (isWebRTCInitialized) return
         isWebRTCInitialized = true
 
         try {
             webRTCManager = WebRTCManager(appContext).apply {
+                if (iceServers != null) {
+                    this.iceServers = iceServers
+                }
                 cvAnalyzer = try {
                     ComputerVisionAnalyzer(appContext)
                 } catch (error: Throwable) {
@@ -252,11 +269,27 @@ class VideoConsultationViewModel @Inject constructor(
                     when (state) {
                         PeerConnection.IceConnectionState.CONNECTED,
                         PeerConnection.IceConnectionState.COMPLETED -> {
-                            localBandwidthMode = ConsultationMode.VIDEO
+                            iceRestartAttempts = 0
+                            consecutiveDegradeCount = 0
+                            consecutiveRestoreCount = 0
+                            // Restore to VIDEO if we were previously degraded due to ICE failure
+                            if (localBandwidthMode != ConsultationMode.VIDEO && _uiState.value.isConnected) {
+                                localBandwidthMode = ConsultationMode.VIDEO
+                                publishModeConstraintIfNeeded()
+                                applyEffectiveMediaState(
+                                    banner = "✅ Connection restored — Video mode active",
+                                    clearDelayMs = 4000
+                                )
+                            } else {
+                                localBandwidthMode = ConsultationMode.VIDEO
+                            }
+                            // Reset ICE restart budget on every successful connection
+                            iceRestartAttempts = 0
                             _uiState.value = _uiState.value.copy(
                                 isConnected = true,
                                 isConnecting = false,
-                                consultationCompleted = false
+                                consultationCompleted = false,
+                                networkQuality = WebRTCManager.NetworkQuality.GOOD
                             )
                             startCallDurationTimer()
                             publishModeConstraintIfNeeded()
@@ -266,31 +299,70 @@ class VideoConsultationViewModel @Inject constructor(
                         }
                         PeerConnection.IceConnectionState.DISCONNECTED -> {
                             _uiState.value = _uiState.value.copy(
-                                modeBanner = "Connection interrupted - reconnecting..."
+                                modeBanner = "Connection interrupted — reconnecting..."
                             )
                             viewModelScope.launch {
-                                kotlinx.coroutines.delay(5000)
+                                kotlinx.coroutines.delay(8000)
                                 if (_uiState.value.modeBanner?.contains("reconnecting") == true) {
                                     _uiState.value = _uiState.value.copy(modeBanner = null)
                                 }
                             }
                         }
                         PeerConnection.IceConnectionState.FAILED -> {
-                            localBandwidthMode = ConsultationMode.CHAT
-                            _uiState.value = _uiState.value.copy(
-                                isConnected = false,
-                                hasRemoteVideo = false
-                            )
-                            publishModeConstraintIfNeeded()
-                            applyEffectiveMediaState(
-                                banner = "Connection lost - switched to Chat mode",
-                                clearDelayMs = 5000
-                            )
-                            networkMonitorJob?.cancel()
+                            // Attempt ICE restart before giving up to chat
+                            if (iceRestartAttempts < MAX_ICE_RESTARTS) {
+                                iceRestartAttempts++
+                                android.util.Log.w("VideoConsultationVM",
+                                    "ICE failed — restart attempt $iceRestartAttempts/$MAX_ICE_RESTARTS")
+                                _uiState.value = _uiState.value.copy(
+                                    modeBanner = "Connection lost — reconnecting (attempt $iceRestartAttempts)..."
+                                )
+                                viewModelScope.launch {
+                                    // Exponential backoff: 4s, 6s, 8s
+                                    val backoffMs = (2000L + iceRestartAttempts * 2000L)
+                                    kotlinx.coroutines.delay(backoffMs)
+                                    val currentIce = webRTCManager?.currentIceState
+                                    if (currentIce == PeerConnection.IceConnectionState.FAILED
+                                        || currentIce == PeerConnection.IceConnectionState.DISCONNECTED) {
+                                        if (iceRestartAttempts >= MAX_ICE_RESTARTS) {
+                                            // Exhausted restarts — fall to chat but KEEP monitor alive
+                                            localBandwidthMode = ConsultationMode.CHAT
+                                            _uiState.value = _uiState.value.copy(
+                                                isConnected = false,
+                                                hasRemoteVideo = false
+                                            )
+                                            publishModeConstraintIfNeeded()
+                                            applyEffectiveMediaState(
+                                                banner = "Connection lost — switched to Chat mode",
+                                                clearDelayMs = 8000
+                                            )
+                                            // DO NOT cancel networkMonitorJob — we need it for recovery
+                                            // Start a recovery poller that periodically tries ICE restart
+                                            startRecoveryPoller()
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Exhausted restarts — fall to chat but KEEP monitor alive for recovery
+                                localBandwidthMode = ConsultationMode.CHAT
+                                _uiState.value = _uiState.value.copy(
+                                    isConnected = false,
+                                    hasRemoteVideo = false
+                                )
+                                publishModeConstraintIfNeeded()
+                                applyEffectiveMediaState(
+                                    banner = "Connection lost — switched to Chat mode",
+                                    clearDelayMs = 8000
+                                )
+                                // Keep networkMonitorJob alive; start recovery poller
+                                startRecoveryPoller()
+                            }
                         }
                         PeerConnection.IceConnectionState.CLOSED -> {
+                            // Terminal — connection is fully torn down, no recovery possible
                             _uiState.value = _uiState.value.copy(isConnected = false, hasRemoteVideo = false)
                             networkMonitorJob?.cancel()
+                            recoveryPollerJob?.cancel()
                         }
                         else -> {}
                     }
@@ -352,27 +424,125 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     /**
-     * Monitor network quality every 3 seconds using ICE connection state heuristics.
-     * On Android, full RTCStatsReport access varies by library version, so we also
-     * use ICE connection state transitions as a quality signal.
+     * Monitor network quality every 3 seconds using real WebRTC stats (RTT, loss, bitrate).
+     * Uses hysteresis: requires consecutive bad/good samples before mode changes,
+     * preventing aggressive fallback on transient network glitches.
      */
     private fun startNetworkQualityMonitor() {
         networkMonitorJob?.cancel()
+        consecutiveDegradeCount = 0
+        consecutiveRestoreCount = 0
+        pendingQualityLevel = null
         networkMonitorJob = viewModelScope.launch {
+            // Allow initial connection to stabilize
+            kotlinx.coroutines.delay(5000)
             while (true) {
-                kotlinx.coroutines.delay(3000)
-                val iceState = webRTCManager?.currentIceState
-                val quality = when (iceState) {
-                    PeerConnection.IceConnectionState.CONNECTED,
-                    PeerConnection.IceConnectionState.COMPLETED -> WebRTCManager.NetworkQuality.GOOD
-                    PeerConnection.IceConnectionState.CHECKING -> WebRTCManager.NetworkQuality.POOR
-                    PeerConnection.IceConnectionState.DISCONNECTED -> WebRTCManager.NetworkQuality.POOR
-                    PeerConnection.IceConnectionState.FAILED -> WebRTCManager.NetworkQuality.CRITICAL
-                    else -> _uiState.value.networkQuality
+                kotlinx.coroutines.delay(STATS_POLL_INTERVAL_MS)
+                val manager = webRTCManager ?: break
+
+                // Poll real RTC stats instead of relying only on ICE state
+                val snapshot = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                    manager.collectStatsSnapshot { stats ->
+                        if (cont.isActive) cont.resume(stats) {}
+                    }
                 }
-                if (quality != _uiState.value.networkQuality) {
-                    _uiState.value = _uiState.value.copy(networkQuality = quality)
-                    handleQualityChange(quality)
+
+                // Combine stats quality with ICE state as a safety net
+                var quality = snapshot.toNetworkQuality()
+                val iceState = manager.currentIceState
+                if (iceState == PeerConnection.IceConnectionState.FAILED) {
+                    quality = WebRTCManager.NetworkQuality.CRITICAL
+                } else if (iceState == PeerConnection.IceConnectionState.DISCONNECTED
+                    && quality == WebRTCManager.NetworkQuality.GOOD) {
+                    quality = WebRTCManager.NetworkQuality.POOR
+                }
+
+                applyQualityWithHysteresis(quality)
+            }
+        }
+    }
+
+    /**
+     * When stuck in CHAT mode after ICE failure, periodically attempt ICE restart
+     * to automatically recover VIDEO/AUDIO when network comes back.
+     */
+    private fun startRecoveryPoller() {
+        recoveryPollerJob?.cancel()
+        recoveryPollerJob = viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(15_000) // Check every 15s
+                if (localBandwidthMode != ConsultationMode.CHAT) {
+                    // Already recovered via normal path
+                    android.util.Log.d("VideoConsultationVM", "Recovery poller: mode already restored, stopping")
+                    return@launch
+                }
+                val manager = webRTCManager ?: return@launch
+                val iceState = manager.currentIceState
+                android.util.Log.d("VideoConsultationVM",
+                    "Recovery poller: ICE=$iceState, attempting restart")
+
+                // Reset restart budget for recovery attempt
+                iceRestartAttempts = 0
+                try {
+                    manager.restartIce()
+                } catch (e: Exception) {
+                    android.util.Log.w("VideoConsultationVM", "Recovery ICE restart failed: ${e.message}")
+                }
+
+                // Wait and check if ICE recovered
+                kotlinx.coroutines.delay(8000)
+                val newIceState = manager.currentIceState
+                if (newIceState == PeerConnection.IceConnectionState.CONNECTED
+                    || newIceState == PeerConnection.IceConnectionState.COMPLETED) {
+                    android.util.Log.d("VideoConsultationVM", "Recovery poller: ICE reconnected!")
+                    // The onConnectionStateChanged callback handles mode restoration
+                    return@launch
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply quality change only after sustained consecutive samples exceed threshold.
+     * Prevents jitter: momentary dips won't trigger fallback, sustained issues will.
+     */
+    private fun applyQualityWithHysteresis(measured: WebRTCManager.NetworkQuality) {
+        val currentMode = localBandwidthMode
+        val targetMode = when (measured) {
+            WebRTCManager.NetworkQuality.CRITICAL -> ConsultationMode.CHAT
+            WebRTCManager.NetworkQuality.POOR -> ConsultationMode.AUDIO
+            WebRTCManager.NetworkQuality.GOOD,
+            WebRTCManager.NetworkQuality.EXCELLENT -> ConsultationMode.VIDEO
+        }
+
+        val isDegrading = targetMode.rank() < currentMode.rank()
+        val isRestoring = targetMode.rank() > currentMode.rank()
+
+        when {
+            isDegrading -> {
+                consecutiveRestoreCount = 0
+                consecutiveDegradeCount++
+                if (consecutiveDegradeCount >= DEGRADE_THRESHOLD) {
+                    consecutiveDegradeCount = 0
+                    _uiState.value = _uiState.value.copy(networkQuality = measured)
+                    handleQualityChange(measured)
+                }
+            }
+            isRestoring -> {
+                consecutiveDegradeCount = 0
+                consecutiveRestoreCount++
+                if (consecutiveRestoreCount >= RESTORE_THRESHOLD) {
+                    consecutiveRestoreCount = 0
+                    _uiState.value = _uiState.value.copy(networkQuality = measured)
+                    handleQualityChange(measured)
+                }
+            }
+            else -> {
+                // Stable — reset counters
+                consecutiveDegradeCount = 0
+                consecutiveRestoreCount = 0
+                if (measured != _uiState.value.networkQuality) {
+                    _uiState.value = _uiState.value.copy(networkQuality = measured)
                 }
             }
         }
@@ -400,31 +570,31 @@ class VideoConsultationViewModel @Inject constructor(
             nextMode == ConsultationMode.CHAT -> {
                 applyEffectiveMediaState(
                     banner = "⚠️ Very poor network — switched to Chat mode",
-                    clearDelayMs = 5000
+                    clearDelayMs = 8000
                 )
             }
             nextMode == ConsultationMode.AUDIO && previousMode == ConsultationMode.VIDEO -> {
                 applyEffectiveMediaState(
                     banner = "📶 Low bandwidth — switched to Audio-only mode",
-                    clearDelayMs = 5000
+                    clearDelayMs = 6000
                 )
             }
             nextMode == ConsultationMode.AUDIO && previousMode == ConsultationMode.CHAT -> {
                 applyEffectiveMediaState(
-                    banner = "📶 Connection stabilizing — switched to Audio-only mode",
+                    banner = "📶 Connection stabilizing — Audio restored",
                     clearDelayMs = 5000
                 )
             }
             nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.CHAT -> {
                 applyEffectiveMediaState(
-                    banner = "✅ Network recovered — Video restored",
-                    clearDelayMs = 3000
+                    banner = "✅ Network recovered — Video restored!",
+                    clearDelayMs = 4000
                 )
             }
             nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.AUDIO -> {
                 applyEffectiveMediaState(
-                    banner = "✅ Network improved — Video restored",
-                    clearDelayMs = 3000
+                    banner = "✅ Network improved — Video restored!",
+                    clearDelayMs = 4000
                 )
             }
             else -> applyEffectiveMediaState()
@@ -502,20 +672,20 @@ class VideoConsultationViewModel @Inject constructor(
                 when {
                     nextRemoteMode == ConsultationMode.CHAT -> {
                         applyEffectiveMediaState(
-                            banner = "Peer switched to Chat mode for network stability",
-                            clearDelayMs = 5000
+                            banner = "Doctor switched to Chat mode due to network constraints",
+                            clearDelayMs = 8000
                         )
                     }
                     nextRemoteMode == ConsultationMode.AUDIO -> {
                         applyEffectiveMediaState(
-                            banner = "Peer switched to Audio-only mode for network stability",
-                            clearDelayMs = 5000
+                            banner = "Doctor switched to Audio-only mode due to network constraints",
+                            clearDelayMs = 6000
                         )
                     }
                     previousRemoteMode != ConsultationMode.VIDEO -> {
                         applyEffectiveMediaState(
-                            banner = "Peer network recovered",
-                            clearDelayMs = 3000
+                            banner = "Doctor's network recovered — Video restored!",
+                            clearDelayMs = 4000
                         )
                     }
                     else -> applyEffectiveMediaState()
@@ -753,25 +923,47 @@ class VideoConsultationViewModel @Inject constructor(
     private fun onConsultationJoinSuccess(session: VideoCallSession) {
         pendingAppointmentId = null
         pendingJoinRetryJob?.cancel()
-        initializeWebRTC()
 
-        _uiState.value = _uiState.value.copy(
-            isConnecting = false,
-            isWaitingForDoctor = false,
-            session = session,
-            consultationCompleted = false,
-            error = null,
-            modeBanner = null,
-            callDuration = 0L
-        )
+        // Fetch server-side ICE config (STUN/TURN) before creating PeerConnection.
+        // This unifies ICE delivery with the web client's approach.
+        viewModelScope.launch {
+            val consultationId = session.consultationId.ifEmpty { session.sessionId }
+            when (val iceResult = appointmentRepository.getConsultationIceServers(consultationId)) {
+                is Result.Success -> {
+                    val servers = iceResult.data
+                    if (servers.isNotEmpty()) {
+                        android.util.Log.d("VideoConsultationVM",
+                            "Loaded ${servers.size} ICE servers from backend")
+                        // Will be applied when WebRTCManager creates peer connection
+                        initializeWebRTC(iceServers = servers)
+                    } else {
+                        initializeWebRTC() // Use default STUN/TURN from ApiConfig
+                    }
+                }
+                is Result.Error -> {
+                    android.util.Log.w("VideoConsultationVM",
+                        "ICE server fetch failed, using defaults: ${iceResult.message}")
+                    initializeWebRTC()
+                }
+                is Result.Loading -> initializeWebRTC()
+            }
 
-        // Join signaling/chat rooms only after the session is present in state.
-        // This avoids a race where the doctor sends an offer immediately and
-        // the patient app cannot answer because its roomId is still null.
-        appointmentRepository.joinVideoRoom(session.sessionId)
-        appointmentRepository.joinChat(session.sessionId)
-        publishModeConstraintIfNeeded(force = true)
-        applyEffectiveMediaState()
+            _uiState.value = _uiState.value.copy(
+                isConnecting = false,
+                isWaitingForDoctor = false,
+                session = session,
+                consultationCompleted = false,
+                error = null,
+                modeBanner = null,
+                callDuration = 0L
+            )
+
+            // Join signaling/chat rooms only after the session is present in state.
+            appointmentRepository.joinVideoRoom(session.sessionId)
+            appointmentRepository.joinChat(session.sessionId)
+            publishModeConstraintIfNeeded(force = true)
+            applyEffectiveMediaState()
+        }
     }
 
     private fun beginWaitingForDoctor(appointmentId: String) {
@@ -1016,6 +1208,8 @@ class VideoConsultationViewModel @Inject constructor(
         hasReceivedRemoteAnswer = false
         networkMonitorJob?.cancel()
         networkMonitorJob = null
+        recoveryPollerJob?.cancel()
+        recoveryPollerJob = null
         callDurationJob?.cancel()
         callDurationJob = null
         vitalsStreamJob?.cancel()
@@ -1038,6 +1232,11 @@ class VideoConsultationViewModel @Inject constructor(
         remoteRequestedMode = ConsultationMode.VIDEO
         userMicPreference = true
         lastPublishedModeConstraint = ConsultationMode.VIDEO
+        
+        consecutiveDegradeCount = 0
+        consecutiveRestoreCount = 0
+        pendingQualityLevel = null
+        iceRestartAttempts = 0
     }
 
     private fun effectiveMode(): ConsultationMode =

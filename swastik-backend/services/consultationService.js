@@ -425,6 +425,58 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
   return consultation;
 };
 
+// Get ICE servers for a consultation (doctor/patient only)
+const getIceServers = async (userId, role, consultationId) => {
+  const { data: consultation, error } = await supabaseAdmin
+    .from('consultations')
+    .select('id, doctor_id, patient_id')
+    .eq('id', consultationId)
+    .single();
+
+  if (error || !consultation) {
+    throw new ApiError(404, 'Consultation not found');
+  }
+
+  if (role === 'doctor') {
+    const { data: doctor } = await supabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+    if (!doctor || consultation.doctor_id !== doctor.id) {
+      throw new ApiError(403, 'Unauthorized to view ICE servers');
+    }
+  } else if (role === 'patient') {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+    if (!patient || consultation.patient_id !== patient.id) {
+      throw new ApiError(403, 'Unauthorized to view ICE servers');
+    }
+  } else {
+    throw new ApiError(403, 'Unauthorized to view ICE servers');
+  }
+
+  const { webrtc } = config;
+  const iceServers = [];
+
+  if (webrtc?.stunServer) {
+    iceServers.push({ urls: [webrtc.stunServer] });
+  }
+
+  if (webrtc?.turnServer) {
+    iceServers.push({
+      urls: [webrtc.turnServer],
+      username: webrtc.turnUsername || '',
+      credential: webrtc.turnCredential || '',
+    });
+  }
+
+  return { iceServers };
+};
+
 // Leave consultation (patient) — signal the patient has left the video call
 // Unlike endConsultation (doctor-only), this just emits a socket event and returns OK.
 const leaveConsultation = async (patientUserId, consultationId) => {
@@ -930,6 +982,7 @@ module.exports = {
   startConsultation,
   joinConsultation,
   getConsultation,
+  getIceServers,
   endConsultation,
   leaveConsultation,
   addPrescription,

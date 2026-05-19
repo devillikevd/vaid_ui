@@ -27,6 +27,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.DiagnosticBookingDto
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.DiagnosticViewModel
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +55,7 @@ fun BookingHistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Bookings", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.my_bookings), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -112,7 +114,7 @@ fun BookingHistoryScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
                         Spacer(Modifier.width(8.dp))
-                        Text("Booking cancelled successfully", color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.booking_cancelled_successfully), color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -134,7 +136,7 @@ fun BookingHistoryScreen(
                         Spacer(Modifier.width(8.dp))
                         Text(error, color = Color(0xFFC62828), modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearBookingHistoryError() }) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.dismiss))
                         }
                     }
                 }
@@ -151,8 +153,8 @@ fun BookingHistoryScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.Science, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("No bookings found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
-                            Text("Your diagnostic bookings will appear here", color = Color.Gray, fontSize = 14.sp)
+                            Text(stringResource(R.string.no_bookings_found_1), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
+                            Text(stringResource(R.string.your_diagnostic_bookings_will_appear_here), color = Color.Gray, fontSize = 14.sp)
                         }
                     }
                 }
@@ -300,7 +302,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Category, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Category: $cat", fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.category_label, cat), fontSize = 13.sp, color = Color.Gray)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -310,7 +312,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Timer, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Report: $rt", fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.report_type_format, rt), fontSize = 13.sp, color = Color.Gray)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -333,7 +335,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Verified, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Uploaded: ${formatBookingDate(uploadedAt)}", fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.uploaded_label, formatBookingDate(uploadedAt)), fontSize = 13.sp, color = Color.Gray)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -374,7 +376,7 @@ private fun BookingHistoryCard(
                                 try {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(resultUrl)))
                                 } catch (_: Exception) {
-                                    Toast.makeText(context, "Unable to open this report", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.unable_open_report), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -383,7 +385,7 @@ private fun BookingHistoryCard(
                         ) {
                             Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("View Report")
+                            Text(stringResource(R.string.view_report))
                         }
                     }
 
@@ -398,7 +400,7 @@ private fun BookingHistoryCard(
                         ) {
                             Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Cancel Booking")
+                            Text(stringResource(R.string.cancel_booking))
                         }
                     }
                 }

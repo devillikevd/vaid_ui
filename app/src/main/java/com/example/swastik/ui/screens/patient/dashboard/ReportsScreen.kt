@@ -29,6 +29,8 @@ import com.example.swastik.data.model.MedicalDocument
 import com.example.swastik.data.model.DocumentType
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.RecordsViewModel
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +57,7 @@ fun ReportsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Reports", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.my_reports), fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
@@ -102,7 +104,7 @@ fun ReportsScreen(
                     ) {
                         Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Unable to Load Reports", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(stringResource(R.string.unable_to_load_reports), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(uiState.error ?: "Something went wrong while loading your reports.", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
                     }
@@ -111,9 +113,9 @@ fun ReportsScreen(
                     Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Icon(Icons.Outlined.Description, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("No Reports Found", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(stringResource(R.string.no_reports_found), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Your medical reports will appear here", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.your_medical_reports_will_appear_here), fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
                     }
                 }
                 else -> {
@@ -128,10 +130,10 @@ fun ReportsScreen(
                                         try {
                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(report.fileUrl)))
                                         } catch (_: Exception) {
-                                            Toast.makeText(context, "Unable to open this report", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.unable_open_report), Toast.LENGTH_SHORT).show()
                                         }
                                     } else {
-                                        Toast.makeText(context, "No file available for this report", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.no_file_available_report), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )

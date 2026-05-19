@@ -44,6 +44,8 @@ import com.example.swastik.utils.NavigationHelper
 import com.example.swastik.ui.components.OsmMapView
 import com.example.swastik.ui.components.MapMarkerData
 import org.osmdroid.util.GeoPoint
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 private const val DEFAULT_DISCOVERY_RADIUS_KM = 10f
 private const val MAX_DISCOVERY_RADIUS_KM = 25f
@@ -99,7 +101,7 @@ fun HospitalFinderScreen(
         FacilityType.HOSPITAL -> "Hospitals"
         FacilityType.CLINIC -> "Clinics"
         FacilityType.MEDICAL_STORE -> "Medical Stores"
-        FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic Centers"
+        FacilityType.DIAGNOSTIC_CENTER -> stringResource(R.string.diagnostic_centers)
         null -> "Nearby Care"
     }
 
@@ -381,7 +383,7 @@ fun HospitalFinderScreen(
                                 onClick = { viewModel.fetchLocationAndLoad(selectedFacilityType) },
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                             ) {
-                                Text("Retry")
+                                Text(stringResource(R.string.retry))
                             }
                         }
                     }
@@ -497,18 +499,18 @@ fun HospitalFinderScreen(
                 cartState.pharmacyConflict?.let { conflict ->
                     AlertDialog(
                         onDismissRequest = { medicineViewModel.resolvePharmacyConflict(false) },
-                        title = { Text("Change Pharmacy?", fontWeight = FontWeight.Bold) },
+                        title = { Text(stringResource(R.string.change_pharmacy_title), fontWeight = FontWeight.Bold) },
                         text = {
-                            Text("Your cart contains items from another pharmacy. Would you like to clear your cart and add this item from ${conflict.newPharmacyName ?: "the new pharmacy"}?")
+                            Text(stringResource(R.string.pharmacy_conflict_message, conflict.newPharmacyName ?: stringResource(R.string.pharmacy_conflict_fallback)))
                         },
                         confirmButton = {
                             Button(
                                 onClick = { medicineViewModel.resolvePharmacyConflict(true) },
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                            ) { Text("Clear & Add") }
+                            ) { Text(stringResource(R.string.clear_and_add)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { medicineViewModel.resolvePharmacyConflict(false) }) { Text("Cancel") }
+                            TextButton(onClick = { medicineViewModel.resolvePharmacyConflict(false) }) { Text(stringResource(R.string.cancel)) }
                         }
                     )
                 }
@@ -789,7 +791,7 @@ private fun FilterBottomSheet(
                 onHospitalTypeChange(null)
                 onEmergencyServicesChange(false)
             }) {
-                Text("Reset", color = SwastikPurple)
+                Text(stringResource(R.string.reset), color = SwastikPurple)
             }
         }
 
@@ -806,7 +808,7 @@ private fun FilterBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("1 km", fontSize = 12.sp, color = Color.Gray)
+                    Text(stringResource(R.string.n_1_km), fontSize = 12.sp, color = Color.Gray)
                     Text(
                         "${distanceFilter.toInt()} km",
                         fontSize = 14.sp,
@@ -970,7 +972,7 @@ private fun FilterBottomSheet(
         ) {
             Icon(Icons.Default.FilterList, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Apply Filters", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.apply_filters), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -1131,7 +1133,7 @@ private fun FacilityDetailSheet(
             )
             QuickActionButton(
                 icon = Icons.Default.CalendarMonth,
-                label = "Book",
+                label = stringResource(R.string.book),
                 color = SwastikPurple,
                 modifier = Modifier.weight(1f),
                 onClick = onBookAppointment
@@ -1532,7 +1534,7 @@ private fun DoctorCard(
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
                 contentPadding = PaddingValues(horizontal = 20.dp)
             ) {
-                Text("Book", fontSize = 14.sp)
+                Text(stringResource(R.string.book), fontSize = 14.sp)
             }
         }
     }
@@ -1684,7 +1686,7 @@ private fun MedicalStoreDetailSheet(
                 if (query.length >= 2) onInventorySearch(query)
                 else if (query.isEmpty()) onInventorySearch("")
             },
-            placeholder = { Text("Search inventory...", color = Color.Gray) },
+            placeholder = { Text(stringResource(R.string.search_inventory_1), color = Color.Gray) },
             leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF4CAF50)) },
             trailingIcon = {
                 if (isInventoryLoading) {
@@ -1717,7 +1719,7 @@ private fun MedicalStoreDetailSheet(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("📦", fontSize = 32.sp)
+                Text(stringResource(R.string.string), fontSize = 32.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     if (inventoryQuery.isNotEmpty()) "No medicines found for \"$inventoryQuery\""
@@ -1774,7 +1776,7 @@ private fun MedicalStoreDetailSheet(
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text("View Cart", fontSize = 13.sp)
+                        Text(stringResource(R.string.view_cart), fontSize = 13.sp)
                     }
                 }
             }
@@ -1808,7 +1810,7 @@ private fun MedicalStoreDetailSheet(
                     tint = Color(0xFF4CAF50)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Call Store", color = Color(0xFF4CAF50))
+                Text(stringResource(R.string.call_store), color = Color(0xFF4CAF50))
             }
             Button(
                 onClick = {
@@ -1827,7 +1829,7 @@ private fun MedicalStoreDetailSheet(
             ) {
                 Icon(Icons.Default.Directions, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Directions")
+                Text(stringResource(R.string.directions))
             }
         }
 
@@ -1847,7 +1849,7 @@ private fun MedicalStoreDetailSheet(
         ) {
             Icon(Icons.Default.History, contentDescription = null, tint = SwastikPurple)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("My Orders", color = SwastikPurple)
+            Text(stringResource(R.string.my_orders), color = SwastikPurple)
         }
     }
 }
@@ -1945,7 +1947,7 @@ private fun PharmacyInventoryCard(
                                 .background(Color(0xFFFF9800).copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            Text("Rx", fontSize = 9.sp, color = Color(0xFFFF9800), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.rx), fontSize = 9.sp, color = Color(0xFFFF9800), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1955,7 +1957,7 @@ private fun PharmacyInventoryCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (item.category != null) {
                         Text(item.category, fontSize = 11.sp, color = Color.Gray)
-                        Text(" • ", fontSize = 11.sp, color = Color.Gray)
+                        Text(stringResource(R.string.string_1), fontSize = 11.sp, color = Color.Gray)
                     }
                     Text(
                         "Stock: ${item.quantity ?: 0} ${item.unit ?: "units"}",
@@ -2017,7 +2019,7 @@ private fun PharmacyInventoryCard(
                             .background(Color(0xFFFFEBEE), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text("Out of Stock", fontSize = 10.sp, color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.out_of_stock), fontSize = 10.sp, color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -2065,7 +2067,7 @@ private fun ClinicDetailSheet(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(facility.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("Clinic", fontSize = 14.sp, color = subtextColor)
+                    Text(stringResource(R.string.clinic), fontSize = 14.sp, color = subtextColor)
                 }
             }
             StatusBadge(isOpen = facility.isOpen)
@@ -2122,7 +2124,7 @@ private fun ClinicDetailSheet(
                 onClick = { NavigationHelper.openDirections(clinicContext, facility.latitude, facility.longitude, facility.name) }
             )
             QuickActionButton(
-                icon = Icons.Default.CalendarMonth, label = "Book", color = SwastikPurple,
+                icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPurple,
                 modifier = Modifier.weight(1f),
                 onClick = onBookAppointment
             )
@@ -2139,7 +2141,7 @@ private fun ClinicDetailSheet(
         ) {
             Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Open Clinic Details")
+            Text(stringResource(R.string.open_clinic_details))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2181,7 +2183,7 @@ private fun ClinicDetailSheet(
                 Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF4CAF50))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Address", fontSize = 12.sp, color = subtextColor)
+                    Text(stringResource(R.string.address), fontSize = 12.sp, color = subtextColor)
                     Text(facility.address, fontSize = 14.sp, color = textColor)
                 }
             }
@@ -2209,9 +2211,9 @@ private fun ClinicDetailSheet(
                 modifier = Modifier.fillMaxWidth().padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("👨‍⚕️", fontSize = 32.sp)
+                Text(stringResource(R.string.string_2), fontSize = 32.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("No doctors listed at this clinic yet", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.no_doctors_listed_at_this_clinic_yet), fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
             }
         } else {
             // Show dynamically loaded clinic doctors (deduplicated)
@@ -2280,7 +2282,7 @@ private fun DiagnosticCenterDetailSheet(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(facility.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("Diagnostic Center", fontSize = 14.sp, color = subtextColor)
+                    Text(stringResource(R.string.diagnostic_center), fontSize = 14.sp, color = subtextColor)
                 }
             }
             StatusBadge(isOpen = facility.isOpen)
@@ -2384,7 +2386,7 @@ private fun DiagnosticCenterDetailSheet(
                 Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF7C3AED))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Address", fontSize = 12.sp, color = subtextColor)
+                    Text(stringResource(R.string.address), fontSize = 12.sp, color = subtextColor)
                     Text(facility.address, fontSize = 14.sp, color = textColor)
                 }
                 IconButton(onClick = {
@@ -2409,8 +2411,8 @@ private fun DiagnosticCenterDetailSheet(
                 Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Emergency Services Available", fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935), fontSize = 14.sp)
-                    Text("24/7 emergency diagnostic services", fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.8f))
+                    Text(stringResource(R.string.emergency_services_available), fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935), fontSize = 14.sp)
+                    Text(stringResource(R.string.n_24_7_emergency_diagnostic_services), fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.8f))
                 }
             }
         }
@@ -2429,7 +2431,7 @@ private fun DiagnosticCenterDetailSheet(
         ) {
             Icon(Icons.Default.Science, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Book a Test", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.book_a_test_1), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -2483,7 +2485,7 @@ private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
                 onClick = onExitEmergency,
                 colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
             ) {
-                Text("Exit", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.exit), fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -2731,7 +2733,7 @@ private fun EmergencyHospitalCard(
                 ) {
                     Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Navigate", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.navigate), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -2810,8 +2812,8 @@ private fun EmergencyFacilityDetailSheet(
                 Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE53935))
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
-                    Text("Emergency-ready facility", fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
-                    Text("Quick call and turn-by-turn navigation", fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.85f))
+                    Text(stringResource(R.string.emergency_ready_facility_1), fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
+                    Text(stringResource(R.string.quick_call_and_turn_by_turn_navigation), fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.85f))
                 }
             }
         }
@@ -2861,7 +2863,7 @@ private fun EmergencyFacilityDetailSheet(
             ) {
                 Icon(Icons.Default.Navigation, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Navigate", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.navigate), fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -2921,8 +2923,8 @@ private fun EmptyStateView(
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🏥", fontSize = 60.sp)
-                Text("❓", fontSize = 30.sp)
+                Text(stringResource(R.string.string_3), fontSize = 60.sp)
+                Text(stringResource(R.string.string_4), fontSize = 30.sp)
             }
         }
 
@@ -2957,7 +2959,7 @@ private fun EmptyStateView(
                 tint = Color.White
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Refresh Nearby", color = Color.White)
+            Text(stringResource(R.string.refresh_nearby), color = Color.White)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -2975,7 +2977,7 @@ private fun EmptyStateView(
                 tint = SwastikPurple
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Reset Filters", color = SwastikPurple)
+            Text(stringResource(R.string.reset_filters), color = SwastikPurple)
         }
     }
 }
@@ -3030,7 +3032,7 @@ private fun MapEmptyStateCard(
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Refresh")
+                    Text(stringResource(R.string.refresh))
                 }
                 OutlinedButton(
                     onClick = onResetFilters,
@@ -3039,7 +3041,7 @@ private fun MapEmptyStateCard(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPurple)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Reset", color = SwastikPurple)
+                    Text(stringResource(R.string.reset), color = SwastikPurple)
                 }
             }
         }
@@ -3154,7 +3156,7 @@ private fun FilterChipsSection(
             FilterChip(
                 selected = selectedType == null,
                 onClick = { onTypeSelected(null) },
-                label = { Text("All") },
+                label = { Text(stringResource(R.string.filter_all)) },
                 leadingIcon = {
                     if (selectedType == null) {
                         Icon(

@@ -24,6 +24,8 @@ import com.example.swastik.data.remote.dto.MedicineOrderDto
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +83,7 @@ fun OrderHistoryScreen(
         },
         topBar = {
             TopAppBar(
-                title = { Text("My Orders", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.my_orders), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -140,7 +142,7 @@ fun OrderHistoryScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
                         Spacer(Modifier.width(8.dp))
-                        Text("Order cancelled successfully", color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.order_cancelled_successfully), color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -162,7 +164,7 @@ fun OrderHistoryScreen(
                         Spacer(Modifier.width(8.dp))
                         Text(error, color = Color(0xFFC62828), modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearOrderHistoryError() }) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.dismiss))
                         }
                     }
                 }
@@ -179,8 +181,8 @@ fun OrderHistoryScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.ShoppingBag, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("No orders found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
-                            Text("Your medicine orders will appear here", color = Color.Gray, fontSize = 14.sp)
+                            Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
+                            Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = Color.Gray, fontSize = 14.sp)
                         }
                     }
                 }
@@ -292,7 +294,7 @@ private fun OrderHistoryCard(
                     Spacer(Modifier.height(8.dp))
 
                     // Items
-                    Text("Items:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.items_1), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     order.items?.forEach { item ->
                         Row(
                             modifier = Modifier
@@ -344,7 +346,7 @@ private fun OrderHistoryCard(
                         ) {
                             Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Cancel Order")
+                            Text(stringResource(R.string.cancel_order))
                         }
                     }
                 }

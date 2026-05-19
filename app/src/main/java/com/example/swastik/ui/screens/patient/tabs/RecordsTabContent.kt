@@ -20,10 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.ui.viewmodel.UploadState
@@ -101,7 +103,7 @@ fun RecordsTabContent(
 // ... (rest of content)
 
                 Text(
-                    text = "Medical Records",
+                    text = stringResource(R.string.medical_records_title),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorScheme.onSurface,
@@ -109,7 +111,7 @@ fun RecordsTabContent(
                 )
 
                 Text(
-                    text = "Your complete health history",
+                    text = stringResource(R.string.medical_records_subtitle),
                     fontSize = 14.sp,
                     color = colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
@@ -141,7 +143,7 @@ fun RecordsTabContent(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = state.error ?: "Failed to load records",
+                                text = state.error ?: stringResource(R.string.failed_to_load_records),
                                 fontSize = 14.sp,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -152,7 +154,7 @@ fun RecordsTabContent(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Retry")
+                                Text(stringResource(R.string.retry))
                             }
                         }
                     }
@@ -171,14 +173,14 @@ fun RecordsTabContent(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "No medical records yet",
+                                text = stringResource(R.string.no_medical_records_yet),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Upload reports or consult a doctor to get started",
+                                text = stringResource(R.string.upload_reports_or_consult),
                                 fontSize = 13.sp,
                                 color = colorScheme.outline
                             )
@@ -189,7 +191,7 @@ fun RecordsTabContent(
                             ) {
                                 Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Upload Report")
+                                Text(stringResource(R.string.upload_report))
                             }
                         }
                     }
@@ -201,47 +203,62 @@ fun RecordsTabContent(
                 ) {
                     when (selectedFilter) {
                         RecordFilter.ALL -> {
-                            item { SectionHeader("Recent Consultations", "See All") { selectedFilter = RecordFilter.CONSULTATIONS } }
+                            item {
+                                SectionHeader(
+                                    stringResource(R.string.recent_consultations),
+                                    stringResource(R.string.see_all)
+                                ) { selectedFilter = RecordFilter.CONSULTATIONS }
+                            }
                             if (consultations.isEmpty()) {
-                                item { EmptySectionMessage("No consultations yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_consultations_yet)) }
                             } else {
                                 items(consultations.take(2)) { ConsultationCard(it) }
                             }
                             item { Spacer(modifier = Modifier.height(8.dp)) }
-                            item { SectionHeader("Recent Prescriptions", if (prescriptions.isNotEmpty()) "See All" else null) { onNavigateToPrescriptions() } }
+                            item {
+                                SectionHeader(
+                                    stringResource(R.string.recent_prescriptions),
+                                    if (prescriptions.isNotEmpty()) stringResource(R.string.see_all) else null
+                                ) { onNavigateToPrescriptions() }
+                            }
                             if (prescriptions.isEmpty()) {
-                                item { EmptySectionMessage("No prescriptions yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_prescriptions_yet)) }
                             } else {
                                 items(prescriptions.take(2)) { PrescriptionSummaryCard(it) }
                             }
                             item { Spacer(modifier = Modifier.height(8.dp)) }
-                            item { SectionHeader("Documents", if (documents.isNotEmpty()) "See All" else null) { onNavigateToReports() } }
+                            item {
+                                SectionHeader(
+                                    stringResource(R.string.documents),
+                                    if (documents.isNotEmpty()) stringResource(R.string.see_all) else null
+                                ) { onNavigateToReports() }
+                            }
                             if (documents.isEmpty()) {
-                                item { EmptySectionMessage("No reports uploaded yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_reports_uploaded_yet)) }
                             } else {
                                 items(documents.take(3)) { DocumentItem(it) }
                             }
                         }
                         RecordFilter.CONSULTATIONS -> {
-                            item { SectionHeader("All Consultations", null) }
+                            item { SectionHeader(stringResource(R.string.all_consultations), null) }
                             if (consultations.isEmpty()) {
-                                item { EmptySectionMessage("No consultations yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_consultations_yet)) }
                             } else {
                                 items(consultations) { ConsultationCard(it) }
                             }
                         }
                         RecordFilter.PRESCRIPTIONS -> {
-                            item { SectionHeader("All Prescriptions", null) }
+                            item { SectionHeader(stringResource(R.string.all_prescriptions), null) }
                             if (prescriptions.isEmpty()) {
-                                item { EmptySectionMessage("No prescriptions yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_prescriptions_yet)) }
                             } else {
                                 items(prescriptions) { PrescriptionSummaryCard(it) }
                             }
                         }
                         RecordFilter.REPORTS -> {
-                            item { SectionHeader("All Reports & Documents", null) }
+                            item { SectionHeader(stringResource(R.string.all_reports_documents), null) }
                             if (documents.isEmpty()) {
-                                item { EmptySectionMessage("No reports uploaded yet") }
+                                item { EmptySectionMessage(stringResource(R.string.no_reports_uploaded_yet)) }
                             } else {
                                 items(documents) { DocumentItem(it) }
                             }
@@ -300,23 +317,24 @@ private fun RecordsHeader(
 
         Column {
             Text(
-                profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { "User" } ?: "User",
+                profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { stringResource(R.string.user_label) }
+                    ?: stringResource(R.string.user_label),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = colorScheme.onSurface
             )
-            Text("Patient", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.patient_label), fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         IconButton(onClick = onUploadClick) {
-            Icon(Icons.Outlined.CloudUpload, contentDescription = "Upload", tint = SwastikPurple)
+            Icon(Icons.Outlined.CloudUpload, contentDescription = stringResource(R.string.upload), tint = SwastikPurple)
         }
 
         Box {
             IconButton(onClick = onNotificationClick) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = colorScheme.onSurface)
+                Icon(Icons.Outlined.Notifications, contentDescription = stringResource(R.string.notifications), tint = colorScheme.onSurface)
             }
             if (unreadCount > 0) {
                 Box(
@@ -338,10 +356,10 @@ private fun RecordsFilterRow(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val filters = listOf(
-        RecordFilter.ALL to "All",
-        RecordFilter.CONSULTATIONS to "Consultations",
-        RecordFilter.PRESCRIPTIONS to "Prescriptions",
-        RecordFilter.REPORTS to "Reports"
+        RecordFilter.ALL to stringResource(R.string.filter_all),
+        RecordFilter.CONSULTATIONS to stringResource(R.string.filter_consultations),
+        RecordFilter.PRESCRIPTIONS to stringResource(R.string.filter_prescriptions),
+        RecordFilter.REPORTS to stringResource(R.string.filter_reports)
     )
 
     LazyRow(
@@ -481,7 +499,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        prescription.doctor?.name ?: "Doctor prescription",
+                        prescription.doctor?.name ?: stringResource(R.string.doctor_prescription_fallback),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -501,7 +519,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     }
                 ) {
                     Text(
-                        (prescription.status ?: "active").replaceFirstChar { it.uppercase() },
+                        (prescription.status ?: stringResource(R.string.status_active)).replaceFirstChar { it.uppercase() },
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         fontSize = 11.sp,
                         color = when ((prescription.status ?: "").lowercase()) {
@@ -517,7 +535,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = colorScheme.outline.copy(alpha = 0.35f))
 
             Text(
-                text = prescription.diagnosis.ifBlank { "Prescription details" },
+                text = prescription.diagnosis.ifBlank { stringResource(R.string.prescription_details_fallback) },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = colorScheme.onSurface
@@ -534,7 +552,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 if (prescription.medicines.size > 3) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "+${prescription.medicines.size - 3} more medicines",
+                        text = stringResource(R.string.more_medicines_format, prescription.medicines.size - 3),
                         fontSize = 12.sp,
                         color = SwastikPurple,
                         fontWeight = FontWeight.Medium
@@ -593,7 +611,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.DateRange, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Duration: ${prescription.duration}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.duration_format, prescription.duration), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -613,10 +631,10 @@ private fun DocumentItem(document: MedicalDocument) {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(document.fileUrl))
                         context.startActivity(intent)
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Cannot open document", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.cannot_open_document), Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(context, "No file available for this report", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.no_file_available_report), Toast.LENGTH_SHORT).show()
                 }
             },
         shape = RoundedCornerShape(12.dp),
@@ -661,13 +679,13 @@ private fun DocumentItem(document: MedicalDocument) {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(document.fileUrl))
                         context.startActivity(intent)
                     } catch (e: Exception) {
-                        Toast.makeText(context, "Cannot download file", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.cannot_download_file), Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(context, "No file available", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.no_file_available), Toast.LENGTH_SHORT).show()
                 }
             }) {
-                Icon(Icons.Outlined.Download, contentDescription = "Download", tint = SwastikPurple)
+                Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.download), tint = SwastikPurple)
             }
         }
     }
@@ -724,16 +742,17 @@ private fun UploadReportDialog(
     var selectedType by remember { mutableStateOf("blood_test") }
     var typeExpanded by remember { mutableStateOf(false) }
     var manualUrl by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     val reportTypes = listOf(
-        "blood_test" to "Blood Test",
-        "urine_test" to "Urine Test",
-        "x_ray" to "X-Ray",
-        "mri" to "MRI",
-        "ct_scan" to "CT Scan",
-        "ultrasound" to "Ultrasound",
-        "ecg" to "ECG",
-        "other" to "Other"
+        "blood_test" to stringResource(R.string.report_type_blood_test),
+        "urine_test" to stringResource(R.string.report_type_urine_test),
+        "x_ray" to stringResource(R.string.report_type_x_ray),
+        "mri" to stringResource(R.string.report_type_mri),
+        "ct_scan" to stringResource(R.string.report_type_ct_scan),
+        "ultrasound" to stringResource(R.string.report_type_ultrasound),
+        "ecg" to stringResource(R.string.report_type_ecg),
+        "other" to stringResource(R.string.report_type_other)
     )
 
     val filePicker = rememberLauncherForActivityResult(
@@ -741,7 +760,7 @@ private fun UploadReportDialog(
     ) { uri: Uri? ->
         uri?.let {
             selectedUri = it
-            selectedFileName = it.lastPathSegment ?: "Selected file"
+            selectedFileName = it.lastPathSegment ?: context.getString(R.string.selected_file)
         }
     }
 
@@ -756,7 +775,7 @@ private fun UploadReportDialog(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Upload Report", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.upload_report), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -770,7 +789,7 @@ private fun UploadReportDialog(
                     Icon(Icons.Outlined.AttachFile, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (selectedFileName.isEmpty()) "Select File (PDF, Image)"
+                        if (selectedFileName.isEmpty()) stringResource(R.string.select_file_pdf_image)
                         else selectedFileName,
                         maxLines = 1
                     )
@@ -779,8 +798,8 @@ private fun UploadReportDialog(
                 OutlinedTextField(
                     value = manualUrl,
                     onValueChange = { manualUrl = it },
-                    label = { Text("Or Paste Report Link") },
-                    placeholder = { Text("https://example.com/report.pdf") },
+                    label = { Text(stringResource(R.string.report_link_label)) },
+                    placeholder = { Text(stringResource(R.string.report_link_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isUploading,
                     singleLine = true,
@@ -788,7 +807,7 @@ private fun UploadReportDialog(
                         Icon(Icons.Outlined.Link, contentDescription = null)
                     },
                     supportingText = {
-                        Text("Use this when your report is already hosted or uploads are temporarily unavailable.")
+                        Text(stringResource(R.string.report_link_help))
                     }
                 )
 
@@ -796,8 +815,8 @@ private fun UploadReportDialog(
                 OutlinedTextField(
                     value = reportName,
                     onValueChange = { reportName = it },
-                    label = { Text("Report Name") },
-                    placeholder = { Text("Enter report name") },
+                    label = { Text(stringResource(R.string.report_name_label)) },
+                    placeholder = { Text(stringResource(R.string.report_name_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !isUploading
@@ -809,10 +828,11 @@ private fun UploadReportDialog(
                     onExpandedChange = { if (!isUploading) typeExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = reportTypes.find { it.first == selectedType }?.second ?: "Blood Test",
+                        value = reportTypes.find { it.first == selectedType }?.second
+                            ?: stringResource(R.string.report_type_blood_test),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Report Type") },
+                        label = { Text(stringResource(R.string.report_type_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -847,7 +867,7 @@ private fun UploadReportDialog(
                             color = SwastikPurple
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Uploading...", fontSize = 13.sp, color = Color.Gray)
+                        Text(stringResource(R.string.uploading), fontSize = 13.sp, color = Color.Gray)
                     }
                 }
             }
@@ -859,7 +879,7 @@ private fun UploadReportDialog(
                     val defaultName = when {
                         reportName.isNotBlank() -> reportName
                         selectedFileName.isNotBlank() -> selectedFileName
-                        normalizedUrl != null -> "Shared Report"
+                        normalizedUrl != null -> context.getString(R.string.shared_report)
                         else -> ""
                     }
                     onUpload(selectedUri, defaultName, selectedType, normalizedUrl)
@@ -867,7 +887,7 @@ private fun UploadReportDialog(
                 enabled = (selectedUri != null || manualUrl.isNotBlank()) && !isUploading,
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
             ) {
-                Text("Upload")
+                Text(stringResource(R.string.upload))
             }
         },
         dismissButton = {
@@ -875,7 +895,7 @@ private fun UploadReportDialog(
                 onClick = onDismiss,
                 enabled = !isUploading
             ) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

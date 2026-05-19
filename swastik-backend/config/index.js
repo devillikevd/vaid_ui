@@ -203,6 +203,8 @@ const config = {
   webrtc: {
     stunServer: process.env.WEBRTC_STUN_SERVER || 'stun:stun.l.google.com:19302',
     turnServer: process.env.WEBRTC_TURN_SERVER || '',
+    turnUsername: process.env.WEBRTC_TURN_USERNAME || '',
+    turnCredential: process.env.WEBRTC_TURN_CREDENTIAL || '',
   },
 
   // Email (Gmail SMTP via Nodemailer)

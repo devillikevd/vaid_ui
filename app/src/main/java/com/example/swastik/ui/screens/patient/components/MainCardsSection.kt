@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -91,7 +94,7 @@ fun MainCardsSection(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Schedule Now", fontSize = 12.sp, color = Color.White)
+                            Text(stringResource(R.string.schedule_now), fontSize = 12.sp, color = Color.White)
                         }
 
                         Spacer(modifier = Modifier.height(6.dp))
@@ -104,7 +107,7 @@ fun MainCardsSection(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("24/7 Available", fontSize = 12.sp, color = Color.White)
+                            Text(stringResource(R.string.n_24_7_available), fontSize = 12.sp, color = Color.White)
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
@@ -138,7 +141,7 @@ fun MainCardsSection(
                                     .background(SwastikPurple.copy(alpha = 0.3f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("🩺", fontSize = 24.sp)
+                                Text(stringResource(R.string.string_7), fontSize = 24.sp)
                             }
                         }
                     }

@@ -475,6 +475,31 @@ class AppointmentRepository @Inject constructor(
         }
     }
 
+    /**
+     * Fetch ICE servers for WebRTC.
+     * GET /api/consultations/:id/ice-servers
+     */
+    suspend fun getConsultationIceServers(consultationId: String): Result<List<org.webrtc.PeerConnection.IceServer>> {
+        return try {
+            val response = apiService.getConsultationIceServers(consultationId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val servers = response.body()?.data?.iceServers.orEmpty().mapNotNull { dto ->
+                    val urls = dto.urls.filter { it.isNotBlank() }
+                    if (urls.isEmpty()) return@mapNotNull null
+                    val builder = org.webrtc.PeerConnection.IceServer.builder(urls)
+                    if (!dto.username.isNullOrBlank()) builder.setUsername(dto.username)
+                    if (!dto.credential.isNullOrBlank()) builder.setPassword(dto.credential)
+                    builder.createIceServer()
+                }
+                Result.Success(servers)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to load ICE servers")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     // ==================== Cache Mapping Extensions ====================
 
     private fun Appointment.toCachedAppointment() = CachedAppointment(

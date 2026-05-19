@@ -87,16 +87,9 @@ fun SwastikApp(tokenManager: TokenManager) {
 
     // Apply Android internal localization when preference changes
     LaunchedEffect(appSettings.language) {
-        val languageTag = when (appSettings.language) {
-            "Hindi" -> "hi"
-            "Bengali" -> "bn"
-            "Telugu" -> "te"
-            "Tamil" -> "ta"
-            "Kannada" -> "kn"
-            "Marathi" -> "mr"
-            else -> "en"
-        }
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
+        // appSettings.language is now a BCP-47 tag (e.g. "en", "hi", "bn")
+        // directly usable by AppCompatDelegate
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(appSettings.language))
     }
 
     LaunchedEffect(tokenManager, navController) {

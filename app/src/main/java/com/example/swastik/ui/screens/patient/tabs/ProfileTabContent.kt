@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.profile.*
 import com.example.swastik.ui.theme.*
@@ -75,7 +77,7 @@ fun ProfileTabContent(
                     viewModel?.uploadProfileImage(imagePart)
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Failed to process image", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.failed_to_process_image), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -115,17 +117,27 @@ fun ProfileTabContent(
                         onEditClick = { showEditProfileDialog = true },
                         onShareClick = {
                             val shareText = buildString {
-                                append("${profile?.name ?: "Swastik User"}\n")
-                                if (profile?.phoneNumber?.isNotEmpty() == true) append("Phone: ${profile.phoneNumber}\n")
-                                if (profile?.email?.isNotEmpty() == true) append("Email: ${profile.email}\n")
-                                if (profile?.bloodGroup?.isNotEmpty() == true) append("Blood: ${profile.bloodGroup}\n")
-                                append("\nShared via VAIDIDEA Health App")
+                                append("${profile?.name ?: context.getString(R.string.default_user_name)}\n")
+                                if (profile?.phoneNumber?.isNotEmpty() == true) {
+                                    append(context.getString(R.string.profile_share_phone, profile.phoneNumber))
+                                    append("\n")
+                                }
+                                if (profile?.email?.isNotEmpty() == true) {
+                                    append(context.getString(R.string.profile_share_email, profile.email))
+                                    append("\n")
+                                }
+                                if (profile?.bloodGroup?.isNotEmpty() == true) {
+                                    append(context.getString(R.string.profile_share_blood, profile.bloodGroup))
+                                    append("\n")
+                                }
+                                append("\n")
+                                append(context.getString(R.string.profile_share_footer))
                             }
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Profile"))
+                            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_profile)))
                         },
                         onCameraClick = { imagePickerLauncher.launch("image/*") }
                     )
@@ -134,13 +146,13 @@ fun ProfileTabContent(
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
                 item {
                     SectionTitleWithBadge(
-                        "Health Identity",
-                        if (profile?.isVerified == true) "Verified" else "Not Verified",
+                        stringResource(R.string.health_identity),
+                        if (profile?.isVerified == true) stringResource(R.string.verified) else stringResource(R.string.not_verified),
                         if (profile?.isVerified == true) Color(0xFF4CAF50) else Color.Gray
                     )
                 }
                 item { HealthIdCard(profile = profile) }
-                item { Text("Account Settings", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.account_settings), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
                 item {
                     SettingsCard(
                         onPersonalInfoClick = { showPersonalInfoDialog = true },
@@ -149,7 +161,7 @@ fun ProfileTabContent(
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
                 }
-                item { Text("Preferences", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
                 item {
                     PreferencesCard(
                         onNotificationsClick = { showNotificationDialog = true },
@@ -158,11 +170,11 @@ fun ProfileTabContent(
                         onPrivacyClick = { showPrivacyDialog = true }
                     )
                 }
-                item { Text("Support & Legal", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.support_legal), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
                 item {
                     SupportCard(
                         onSupportClick = {
-                            Toast.makeText(context, "Connecting to support agent...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.connecting_support_agent), Toast.LENGTH_SHORT).show()
                         },
                         onHelpClick = { showHelpCenterDialog = true },
                         onFeedbackClick = { showFeedbackDialog = true },
@@ -189,7 +201,7 @@ fun ProfileTabContent(
                     ) {
                         Icon(Icons.Outlined.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Logout", fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.logout), fontWeight = FontWeight.Medium)
                     }
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -199,8 +211,8 @@ fun ProfileTabContent(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Swastik v1.0.0", fontSize = 12.sp, color = Color.Gray)
-                        Text("Made with love in India", fontSize = 11.sp, color = Color.LightGray)
+                        Text(stringResource(R.string.app_version), fontSize = 12.sp, color = Color.Gray)
+                        Text(stringResource(R.string.made_with_love), fontSize = 11.sp, color = Color.LightGray)
                     }
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -312,12 +324,12 @@ fun ProfileTabContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Logout, null, tint = Color(0xFFD32F2F))
                     Spacer(Modifier.width(8.dp))
-                    Text("Logout", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.logout_title), fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Text(
-                    "Are you sure you want to logout? You will need to sign in again to access your account.",
+                    stringResource(R.string.logout_message),
                     fontSize = 14.sp,
                     color = Color.DarkGray
                 )
@@ -330,10 +342,10 @@ fun ProfileTabContent(
                     },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                ) { Text("Logout") }
+                ) { Text(stringResource(R.string.logout)) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showLogoutDialog = false }) { Text(stringResource(R.string.cancel)) }
             },
             shape = RoundedCornerShape(20.dp)
         )

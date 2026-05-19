@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
+
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -41,7 +44,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Home"
                 )
             },
-            label = { Text("Home", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.home), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -57,7 +60,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Medicine"
                 )
             },
-            label = { Text("Medicine", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.medicine), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -76,7 +79,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Records"
                 )
             },
-            label = { Text("Records", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.records), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -92,7 +95,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Profile"
                 )
             },
-            label = { Text("Profile", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.profile), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -313,7 +316,7 @@ fun NoInternetView(onRetry: () -> Unit) {
         ) {
             Icon(Icons.Default.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Try Again")
+            Text(stringResource(R.string.try_again))
         }
     }
 }

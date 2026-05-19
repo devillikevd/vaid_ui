@@ -67,16 +67,16 @@ fun MedicineScreen(
     cartState.pharmacyConflict?.let { conflict ->
         AlertDialog(
             onDismissRequest = { viewModel.resolvePharmacyConflict(false) },
-            title = { Text("Change Pharmacy?", fontWeight = FontWeight.Bold) },
-            text = { Text("Your cart contains items from another pharmacy. Would you like to clear your cart and add this item from ${conflict.newPharmacyName ?: "the new pharmacy"}?") },
+            title = { Text(stringResource(R.string.change_pharmacy_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.pharmacy_conflict_message, conflict.newPharmacyName ?: stringResource(R.string.pharmacy_conflict_fallback))) },
             confirmButton = {
                 Button(
                     onClick = { viewModel.resolvePharmacyConflict(true) },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
-                ) { Text("Clear & Add") }
+                ) { Text(stringResource(R.string.clear_and_add)) }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.resolvePharmacyConflict(false) }) { Text("Cancel") }
+                TextButton(onClick = { viewModel.resolvePharmacyConflict(false) }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -292,7 +292,7 @@ private fun MedicineScreenHeader(
                 .background(SwastikPurple.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
-            Text("👳", fontSize = 24.sp)
+            Text(stringResource(R.string.string_10), fontSize = 24.sp)
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -435,7 +435,7 @@ private fun MedicineCategoryFilter(
             FilterChip(
                 selected = selectedCategory == null,
                 onClick = { onCategorySelected(null) },
-                label = { Text("All", fontSize = 12.sp) },
+                label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
                     selectedLabelColor = Color.White
@@ -654,7 +654,7 @@ private fun MedicineEmptyState(
                 .background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text("💊", fontSize = 50.sp)
+            Text(stringResource(R.string.string_11), fontSize = 50.sp)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -686,7 +686,7 @@ private fun MedicineEmptyState(
                 tint = SwastikPurple
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Reset Filters", color = SwastikPurple)
+            Text(stringResource(R.string.reset_filters), color = SwastikPurple)
         }
     }
 }
@@ -712,7 +712,7 @@ private fun MedicineBottomNavBar(
                     contentDescription = "Home"
                 )
             },
-            label = { Text("Home", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.home), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -789,7 +789,7 @@ private fun MedicineBottomNavBar(
                     contentDescription = "Records"
                 )
             },
-            label = { Text("Records", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.records), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
@@ -808,7 +808,7 @@ private fun MedicineBottomNavBar(
                     contentDescription = "Profile"
                 )
             },
-            label = { Text("Profile", fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.profile), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,

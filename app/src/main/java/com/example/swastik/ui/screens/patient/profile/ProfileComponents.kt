@@ -29,6 +29,8 @@ import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.local.ThemePreference
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.*
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 // ==================== HEADER ====================
 
@@ -47,7 +49,7 @@ fun ProfileHeader(onQrClick: () -> Unit, onSettingsClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("My Profile", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(stringResource(R.string.my_profile), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 IconButton(onClick = onQrClick) {
                     Icon(Icons.Outlined.QrCode2, contentDescription = "QR", tint = Color.White)
@@ -181,13 +183,13 @@ fun ProfileInfoCard(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    ProfileStat(profile?.displayAge ?: "--", "Age", "yrs")
+                    ProfileStat(profile?.displayAge ?: "--", stringResource(R.string.age), "yrs")
                     VerticalDivider()
-                    ProfileStat(profile?.displayBloodGroup ?: "--", "Blood", "Type")
+                    ProfileStat(profile?.displayBloodGroup ?: "--", stringResource(R.string.blood), stringResource(R.string.type_unit))
                     VerticalDivider()
-                    ProfileStat(profile?.displayWeight ?: "--", "Weight", "kg")
+                    ProfileStat(profile?.displayWeight ?: "--", stringResource(R.string.weight), "kg")
                     VerticalDivider()
-                    ProfileStat(profile?.displayHeight ?: "--", "Height", "cm")
+                    ProfileStat(profile?.displayHeight ?: "--", stringResource(R.string.height), "cm")
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -204,7 +206,7 @@ fun ProfileInfoCard(
                     ) {
                         Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = SwastikPurple)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Edit", color = SwastikPurple, fontSize = 13.sp)
+                        Text(stringResource(R.string.edit), color = SwastikPurple, fontSize = 13.sp)
                     }
                     Button(
                         onClick = onShareClick,
@@ -214,7 +216,7 @@ fun ProfileInfoCard(
                     ) {
                         Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Share", fontSize = 13.sp)
+                        Text(stringResource(R.string.share), fontSize = 13.sp)
                     }
                 }
             }
@@ -276,15 +278,15 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
     if (percentage >= 1f) return
 
     val missingField = if (profile == null) {
-        "Add your name"
+        stringResource(R.string.add_your_name)
     } else when {
-        profile.name.isEmpty() -> "Add your name"
-        profile.age <= 0 -> "Add your age"
-        profile.gender.isEmpty() -> "Set your gender"
-        profile.bloodGroup.isEmpty() -> "Add blood group"
-        profile.profileImageUrl.isEmpty() -> "Upload a profile photo"
-        profile.emergencyContacts.isEmpty() -> "Add an emergency contact"
-        else -> "Complete your profile"
+        profile.name.isEmpty() -> stringResource(R.string.add_your_name)
+        profile.age <= 0 -> stringResource(R.string.add_your_age)
+        profile.gender.isEmpty() -> stringResource(R.string.set_your_gender)
+        profile.bloodGroup.isEmpty() -> stringResource(R.string.add_blood_group)
+        profile.profileImageUrl.isEmpty() -> stringResource(R.string.upload_profile_photo)
+        profile.emergencyContacts.isEmpty() -> stringResource(R.string.add_emergency_contact_step)
+        else -> stringResource(R.string.complete_your_profile)
     }
 
     Card(
@@ -298,7 +300,7 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Profile Completion", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                Text(stringResource(R.string.profile_completion), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
                 Text("${(percentage * 100).toInt()}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = SwastikPurple)
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -309,7 +311,7 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
                 trackColor = SwastikPurple.copy(alpha = 0.15f),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text("💡 Next step: $missingField", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.next_step, missingField), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -322,9 +324,9 @@ fun QuickStatsSection(stats: PatientStats) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), "Consultations", SwastikPurple, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), "Prescriptions", Color(0xFF4CAF50), Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), "Reports", Color(0xFF2196F3), Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), SwastikPurple, Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), Color(0xFF4CAF50), Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), Color(0xFF2196F3), Modifier.weight(1f))
     }
 }
 
@@ -409,15 +411,15 @@ fun HealthIdCard(profile: PatientProfile?) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text("ABHA Number", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 Text(
-                    if (hasAbha) profile?.abhaNumber ?: "" else "Not Linked",
+                    if (hasAbha) profile?.abhaNumber ?: "" else stringResource(R.string.not_linked),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = accentTextColor
                 )
                 Text(
-                    if (hasAbha) "Linked: ${profile?.linkedHospitals ?: 0} hospitals" else "Tap to link your ABHA",
+                    if (hasAbha) stringResource(R.string.linked_hospitals, profile?.linkedHospitals ?: 0) else stringResource(R.string.tap_to_link_abha),
                     fontSize = 11.sp,
                     color = accentColor
                 )
@@ -448,13 +450,13 @@ fun SettingsCard(
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Person, "Personal Information", "Name, DOB, Gender", onClick = onPersonalInfoClick)
+            SettingsMenuItem(Icons.Outlined.Person, stringResource(R.string.personal_info), stringResource(R.string.name_dob_gender), onClick = onPersonalInfoClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.LocationOn, "Saved Addresses", "Home, Office", onClick = onAddressesClick)
+            SettingsMenuItem(Icons.Outlined.LocationOn, stringResource(R.string.saved_addresses), stringResource(R.string.home_office), onClick = onAddressesClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.FamilyRestroom, "Family Members", "Manage linked profiles", onClick = onFamilyClick)
+            SettingsMenuItem(Icons.Outlined.FamilyRestroom, stringResource(R.string.family_members), stringResource(R.string.manage_linked_profiles), onClick = onFamilyClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.ContactEmergency, "Emergency Contacts", "Quick access in emergencies", onClick = onEmergencyClick)
+            SettingsMenuItem(Icons.Outlined.ContactEmergency, stringResource(R.string.emergency_contacts), stringResource(R.string.quick_access_emergencies), onClick = onEmergencyClick)
         }
     }
 }
@@ -470,9 +472,9 @@ fun PreferencesCard(
     val colorScheme = MaterialTheme.colorScheme
     val currentLang = appSettings.language
     val currentTheme = when (appSettings.themePreference) {
-        ThemePreference.LIGHT -> "Light Mode"
-        ThemePreference.DARK -> "Dark Mode"
-        ThemePreference.SYSTEM -> "System Default"
+        ThemePreference.LIGHT -> stringResource(R.string.light_mode)
+        ThemePreference.DARK -> stringResource(R.string.dark_mode)
+        ThemePreference.SYSTEM -> stringResource(R.string.system_default)
     }
 
     Card(
@@ -481,15 +483,15 @@ fun PreferencesCard(
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Notifications, "Notifications", "Manage alerts and reminders", onClick = onNotificationsClick)
+            SettingsMenuItem(Icons.Outlined.Notifications, stringResource(R.string.notifications), stringResource(R.string.manage_alerts_reminders), onClick = onNotificationsClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.Language, "Language", currentLang, onClick = onLanguageClick)
+            SettingsMenuItem(Icons.Outlined.Language, stringResource(R.string.language), stringResource(com.example.swastik.util.LanguageConfig.labelResId(currentLang)), onClick = onLanguageClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.DarkMode, "Appearance", currentTheme, onClick = onAppearanceClick)
+            SettingsMenuItem(Icons.Outlined.DarkMode, stringResource(R.string.appearance), currentTheme, onClick = onAppearanceClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.Security, "Privacy & Security", "Password, Biometrics, 2FA", onClick = onPrivacyClick)
+            SettingsMenuItem(Icons.Outlined.Security, stringResource(R.string.privacy_security), stringResource(R.string.password_biometrics_2fa), onClick = onPrivacyClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.CloudSync, "Data & Sync", "Auto-backup enabled", onClick = {})
+            SettingsMenuItem(Icons.Outlined.CloudSync, stringResource(R.string.data_sync), stringResource(R.string.auto_backup_enabled), onClick = {})
         }
     }
 }
@@ -509,15 +511,15 @@ fun SupportCard(
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Headphones, "24/7 Support", "Chat with us anytime", badgeText = "Online", badgeColor = SwastikGreen, onClick = onSupportClick)
+            SettingsMenuItem(Icons.Outlined.Headphones, stringResource(R.string.support_24_7), stringResource(R.string.chat_with_us_anytime), badgeText = stringResource(R.string.online), badgeColor = SwastikGreen, onClick = onSupportClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, "Help Center", "FAQs & Tutorials", onClick = onHelpClick)
+            SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, stringResource(R.string.help_center), stringResource(R.string.faqs_tutorials), onClick = onHelpClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.Feedback, "Send Feedback", "Help us improve", onClick = onFeedbackClick)
+            SettingsMenuItem(Icons.Outlined.Feedback, stringResource(R.string.send_feedback), stringResource(R.string.help_us_improve), onClick = onFeedbackClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.Description, "Terms of Service", "", onClick = onTermsClick)
+            SettingsMenuItem(Icons.Outlined.Description, stringResource(R.string.terms_of_service), "", onClick = onTermsClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.PrivacyTip, "Privacy Policy", "", onClick = onPrivacyPolicyClick)
+            SettingsMenuItem(Icons.Outlined.PrivacyTip, stringResource(R.string.privacy_policy), "", onClick = onPrivacyPolicyClick)
         }
     }
 }

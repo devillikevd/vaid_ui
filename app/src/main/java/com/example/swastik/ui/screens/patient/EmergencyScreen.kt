@@ -37,6 +37,8 @@ import com.example.swastik.ui.viewmodel.EmergencyUiState
 import com.example.swastik.ui.viewmodel.EmergencyViewModel
 import com.example.swastik.utils.NavigationHelper
 import org.osmdroid.util.GeoPoint
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 private val EmergencyCanvas = Color(0xFFF8F2EB)
 private val EmergencySurface = Color(0xFFFFFBF7)
@@ -84,7 +86,7 @@ fun EmergencyScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Emergency Network", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.emergency_network), fontWeight = FontWeight.Bold)
                         Text(
                             "Ambulance dispatch and live response",
                             fontSize = 12.sp,
@@ -334,8 +336,8 @@ private fun EmergencyTypeSelection(
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
-                label = { Text("Tell dispatch what is happening") },
-                placeholder = { Text("Bleeding after bike accident, labour pain, chest pain, unconscious patient...") },
+                label = { Text(stringResource(R.string.tell_dispatch)) },
+                placeholder = { Text(stringResource(R.string.dispatch_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
                 shape = RoundedCornerShape(16.dp),
@@ -386,7 +388,7 @@ private fun EmergencyTypeSelection(
                 } else {
                     Icon(Icons.Filled.LocalHospital, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Dispatch Ambulance Now", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(stringResource(R.string.dispatch_ambulance_now), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }
@@ -403,7 +405,7 @@ private fun EmergencyTypeSelection(
             ) {
                 Icon(Icons.Default.Call, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Call 108 Directly", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.call_108_directly), fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -411,7 +413,7 @@ private fun EmergencyTypeSelection(
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
-            title = { Text("Confirm Emergency Request") },
+            title = { Text(stringResource(R.string.confirm_emergency_request)) },
             text = {
                 Text(
                     "This will trigger the ambulance response flow with your current location so the nearest available vehicle can be routed to you."
@@ -425,12 +427,12 @@ private fun EmergencyTypeSelection(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
                 ) {
-                    Text("Yes, Request Now")
+                    Text(stringResource(R.string.yes_request_now))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -867,8 +869,8 @@ private fun ActiveEmergencyView(
                             Icon(Icons.Outlined.Map, contentDescription = null, tint = EmergencyRoute)
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text("Live route view", fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
-                                Text("Your location and the ambulance are shown together.", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.live_route_view), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                Text(stringResource(R.string.live_route_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                             }
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
@@ -901,8 +903,8 @@ private fun ActiveEmergencyView(
                             Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = EmergencyRoute)
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text("Pickup point ready", fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
-                                Text("We have your current location while the ambulance GPS connects.", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.pickup_point_ready), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                Text(stringResource(R.string.pickup_point_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                             }
                         }
                         Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
@@ -930,7 +932,7 @@ private fun ActiveEmergencyView(
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Dispatch details", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
+                        Text(stringResource(R.string.dispatch_details), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         InfoRow("Request #", emergency.resolvedRequestId())
                         InfoRow("Status", resolvedStatus)
@@ -1003,7 +1005,7 @@ private fun ActiveEmergencyView(
                         ) {
                             Icon(Icons.Default.Navigation, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Open Live Route in Maps", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.open_live_route_maps), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1021,7 +1023,7 @@ private fun ActiveEmergencyView(
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Call Ambulance Driver", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.call_ambulance_driver), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1037,7 +1039,7 @@ private fun ActiveEmergencyView(
                 shape = RoundedCornerShape(14.dp),
                 enabled = !uiState.isLoading
             ) {
-                Text("Cancel Emergency Request")
+                Text(stringResource(R.string.cancel_emergency_request))
             }
         }
     }
@@ -1173,7 +1175,7 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Response Journey", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
+            Text(stringResource(R.string.response_journey), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
 
             stages.forEachIndexed { index, (_, label) ->
                 val active = index <= currentIndex
@@ -1255,7 +1257,7 @@ private fun EmergencyConfirmation(
             shape = RoundedCornerShape(14.dp),
             enabled = !uiState.isLoading
         ) {
-            Text("Cancel Request")
+            Text(stringResource(R.string.cancel_request))
         }
     }
 }

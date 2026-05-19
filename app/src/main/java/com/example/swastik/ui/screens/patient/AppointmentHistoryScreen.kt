@@ -21,11 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.AppointmentViewModel
@@ -62,7 +64,7 @@ fun AppointmentHistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Appointment History", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
+                title = { Text(stringResource(R.string.appointment_history), fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -94,13 +96,18 @@ fun AppointmentHistoryScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            uiState.error.orEmpty().ifBlank { "Something went wrong" },
+                            uiState.error.orEmpty().ifBlank { stringResource(R.string.something_went_wrong) },
                             fontSize = 16.sp,
                             color = colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadAppointments() }, colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) { Text("Retry") }
+                        Button(
+                            onClick = { viewModel.loadAppointments() },
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                        ) {
+                            Text(stringResource(R.string.retry))
+                        }
                     }
                 }
                 uiState.appointments.isEmpty() -> EmptyAppointmentsView(
@@ -133,13 +140,18 @@ fun AppointmentHistoryScreen(
     showCancelDialog?.let { appointment ->
         AlertDialog(
             onDismissRequest = { showCancelDialog = null },
-            title = { Text("Cancel Appointment", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.cancel_appointment), fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Are you sure you want to cancel your appointment with ${appointment.doctor?.name ?: "the doctor"}?")
+                    Text(
+                        stringResource(
+                            R.string.cancel_appointment_confirmation,
+                            appointment.doctor?.name ?: stringResource(R.string.appointment_doctor_fallback)
+                        )
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Date: ${appointment.date} at ${appointment.timeSlot}",
+                        stringResource(R.string.appointment_date_time_format, appointment.date, appointment.timeSlot),
                         fontSize = 13.sp,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -153,12 +165,12 @@ fun AppointmentHistoryScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = colorScheme.error)
                 ) {
-                    Text("Cancel Appointment")
+                    Text(stringResource(R.string.cancel_appointment))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCancelDialog = null }) {
-                    Text("Keep Appointment")
+                    Text(stringResource(R.string.keep_appointment))
                 }
             }
         )
@@ -173,7 +185,17 @@ private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: 
             FilterChip(
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelected(filter) },
-                label = { Text(text = filter.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 13.sp) },
+                label = {
+                    Text(
+                        text = when (filter) {
+                            AppointmentFilter.ALL -> stringResource(R.string.filter_all)
+                            AppointmentFilter.UPCOMING -> stringResource(R.string.upcoming)
+                            AppointmentFilter.COMPLETED -> stringResource(R.string.completed)
+                            AppointmentFilter.CANCELLED -> stringResource(R.string.cancelled)
+                        },
+                        fontSize = 13.sp
+                    )
+                },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
                     selectedLabelColor = Color.White,
@@ -293,7 +315,7 @@ private fun AppointmentCard(
                     Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Start Video Consultation", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.start_video_consultation), fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 } else {
                     Surface(
@@ -325,7 +347,7 @@ private fun AppointmentCard(
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, tint = colorScheme.error, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Cancel Appointment", color = colorScheme.error, fontSize = 13.sp)
+                    Text(stringResource(R.string.cancel_appointment), color = colorScheme.error, fontSize = 13.sp)
                 }
             }
             if (isCompleted) {
@@ -334,12 +356,12 @@ private fun AppointmentCard(
                     OutlinedButton(onClick = onPrescriptionClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple))) {
                         Icon(Icons.Outlined.Description, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Prescription", color = SwastikPurple, fontSize = 12.sp)
+                        Text(stringResource(R.string.prescription), color = SwastikPurple, fontSize = 12.sp)
                     }
                     OutlinedButton(onClick = onBookAgainClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple))) {
                         Icon(Icons.Outlined.Replay, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Book Again", color = SwastikPurple, fontSize = 12.sp)
+                        Text(stringResource(R.string.book_again), color = SwastikPurple, fontSize = 12.sp)
                     }
                 }
             }
@@ -376,7 +398,7 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
         Button(onClick = onBookClick, modifier = Modifier.fillMaxWidth(0.6f).height(50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Book Appointment", fontSize = 15.sp)
+            Text(stringResource(R.string.book_appointment), fontSize = 15.sp)
         }
     }
 }

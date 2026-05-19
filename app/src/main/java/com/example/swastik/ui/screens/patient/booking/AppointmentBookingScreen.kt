@@ -39,6 +39,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 /**
  * Multi-step Appointment Booking Screen:
@@ -107,7 +109,7 @@ fun AppointmentBookingScreen(
     val stepTitle = when (currentStep) {
         1 -> "Select Doctor"
         2 -> "Pick Date & Time"
-        3 -> "Confirm Booking"
+        3 -> stringResource(R.string.confirm_booking)
         else -> "Book Appointment"
     }
 
@@ -171,7 +173,7 @@ fun AppointmentBookingScreen(
                             fontSize = 13.sp
                         )
                         TextButton(onClick = { appointmentViewModel.clearError() }) {
-                            Text("Dismiss")
+                            Text(stringResource(R.string.dismiss))
                         }
                     }
                 }
@@ -348,7 +350,7 @@ private fun DoctorSelectionStep(
                 searchQuery = it
                 doctorSearchViewModel.updateFilters(search = it.ifBlank { null })
             },
-            placeholder = { Text("Search doctors by name or specialty") },
+            placeholder = { Text(stringResource(R.string.search_doctors_hint)) },
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
@@ -431,7 +433,7 @@ private fun DoctorSelectionStep(
                                 doctorSearchViewModel.searchDoctors(resetList = true)
                             }
                         ) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -449,7 +451,7 @@ private fun DoctorSelectionStep(
                             tint = Color.Gray
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("No doctors found", color = Color.Gray, fontSize = 16.sp)
+                        Text(stringResource(R.string.no_doctors_found), color = Color.Gray, fontSize = 16.sp)
                         Text(
                             "Try a different search",
                             color = Color.LightGray,
@@ -496,7 +498,7 @@ private fun DoctorBookingCard(
                         .background(SwastikPurpleLight),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("👨‍⚕️", fontSize = 28.sp)
+                    Text(stringResource(R.string.string_2), fontSize = 28.sp)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -551,7 +553,7 @@ private fun DoctorBookingCard(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
             ) {
-                Text("View Profile")
+                Text(stringResource(R.string.view_profile))
             }
         }
     }
@@ -587,7 +589,7 @@ private fun DoctorProfileSheet(
                         .background(SwastikPurpleLight),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("👨‍⚕️", fontSize = 40.sp)
+                    Text(stringResource(R.string.string_2), fontSize = 40.sp)
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -627,20 +629,20 @@ private fun DoctorProfileSheet(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(String.format(Locale.US, "%.1f", it), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         }
-                        Text("Rating", fontSize = 12.sp, color = Color.Gray)
+                        Text(stringResource(R.string.rating), fontSize = 12.sp, color = Color.Gray)
                     }
                 }
                 
                 doctor.consultationFee?.let {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("₹$it", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPurple)
-                        Text("Consultation Fee", fontSize = 12.sp, color = Color.Gray)
+                        Text(stringResource(R.string.consultation_fee), fontSize = 12.sp, color = Color.Gray)
                     }
                 }
                 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("English, Hindi", fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
-                    Text("Languages", fontSize = 12.sp, color = Color.Gray)
+                    Text(stringResource(R.string.english_hindi), fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.languages_spoken), fontSize = 12.sp, color = Color.Gray)
                 }
             }
 
@@ -649,7 +651,7 @@ private fun DoctorProfileSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                Text("About Doctor", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Text(stringResource(R.string.about_doctor), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "An experienced specialist dedicated to providing excellent patient care and treatment.",
@@ -661,7 +663,7 @@ private fun DoctorProfileSheet(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 if (!doctor.qualification.isNullOrBlank()) {
-                    Text("Education", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                    Text(stringResource(R.string.education), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPurple))
@@ -682,7 +684,7 @@ private fun DoctorProfileSheet(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
             ) {
-                Text("Book Appointment", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(stringResource(R.string.book_appointment), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }
@@ -732,7 +734,7 @@ private fun DateTimeSelectionStep(
                             .background(SwastikPurple),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("👨‍⚕️", fontSize = 22.sp)
+                        Text(stringResource(R.string.string_2), fontSize = 22.sp)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -884,7 +886,7 @@ private fun DateTimeSelectionStep(
                             .padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("☝️", fontSize = 32.sp)
+                        Text(stringResource(R.string.string_5), fontSize = 32.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             "Select a date above to see available slots",
@@ -977,7 +979,7 @@ private fun NoSlotsAvailableCard(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("😔", fontSize = 32.sp)
+            Text(stringResource(R.string.string_6), fontSize = 32.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = if (formattedDate != null) "No open slots on $formattedDate" else "No open slots available",
@@ -1282,7 +1284,7 @@ private fun ConfirmationStep(
                     .fillMaxWidth()
                     .height(100.dp),
                 placeholder = {
-                    Text("Describe your symptoms or reason for visit...")
+                    Text(stringResource(R.string.describe_symptoms_visit))
                 },
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 4
@@ -1319,7 +1321,7 @@ private fun ConfirmationStep(
                     Icon(Icons.Outlined.CheckCircle, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Confirm Booking",
+                        stringResource(R.string.confirm_booking),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )

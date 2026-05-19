@@ -27,6 +27,8 @@ import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.SwastikPurple
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun DashboardHeader(
@@ -86,7 +88,7 @@ fun DashboardHeader(
 
             Column {
                 Text(
-                    text = profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { "Welcome" } ?: "Welcome",
+                    text = profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { stringResource(R.string.welcome) } ?: stringResource(R.string.welcome),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1A1A2E)
@@ -94,13 +96,13 @@ fun DashboardHeader(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Outlined.LocationOn,
-                        contentDescription = "Location",
+                        contentDescription = stringResource(R.string.location),
                         modifier = Modifier.size(14.dp),
                         tint = Color.Gray
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
+                        text = profile?.location?.ifEmpty { stringResource(R.string.set_location) } ?: stringResource(R.string.set_location),
                         fontSize = 12.sp,
                         color = Color.Gray
                     )
@@ -117,8 +119,9 @@ fun DashboardHeader(
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val labelResId = com.example.swastik.util.LanguageConfig.labelResId(selectedLanguage)
                     Text(
-                        text = selectedLanguage,
+                        text = stringResource(labelResId),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -132,15 +135,16 @@ fun DashboardHeader(
                     expanded = showLanguageMenu,
                     onDismissRequest = { showLanguageMenu = false }
                 ) {
-                    listOf("English", "Hindi", "Bengali", "Telugu", "Tamil", "Kannada", "Marathi").forEach { lang ->
+                    com.example.swastik.util.LanguageConfig.options.forEach { lang ->
+                        val label = stringResource(lang.labelResId)
                         DropdownMenuItem(
-                            text = { Text(lang) },
+                            text = { Text(label) },
                             onClick = {
-                                AppSettingsStore.updateLanguage(lang)
+                                AppSettingsStore.updateLanguage(lang.tag)
                                 showLanguageMenu = false
-                                onLanguageSelected(lang)
+                                onLanguageSelected(lang.tag)
                             },
-                            leadingIcon = if (lang == selectedLanguage) {
+                            leadingIcon = if (lang.tag == selectedLanguage) {
                                 { Icon(Icons.Default.Check, contentDescription = null, tint = SwastikPurple) }
                             } else null
                         )
@@ -185,7 +189,7 @@ fun SearchBar(onSearchClick: () -> Unit = {}) {
             onValueChange = { },
             enabled = false,
             placeholder = {
-                Text("Search for Doctors / Specialist", color = Color.Gray)
+                Text(stringResource(R.string.search_doctors_specialist), color = Color.Gray)
             },
             leadingIcon = {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = Color.Gray)

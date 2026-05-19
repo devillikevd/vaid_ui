@@ -72,6 +72,8 @@ import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.utils.NavigationHelper
 import java.time.LocalDate
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -103,7 +105,7 @@ fun PrescriptionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Prescriptions", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.my_prescriptions), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -426,7 +428,7 @@ fun PrescriptionDetailScreen(
                     modifier = Modifier.size(36.dp)
                 )
             },
-            title = { Text("Sent To Pharmacy", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.sent_to_pharmacy), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(successState.message)
@@ -490,7 +492,7 @@ fun PrescriptionDetailScreen(
                     },
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                 ) {
-                    Text("Done")
+                    Text(stringResource(R.string.done))
                 }
             },
             dismissButton = {
@@ -505,7 +507,7 @@ fun PrescriptionDetailScreen(
                         },
                         enabled = !selectedPharmacyPhone.isNullOrBlank()
                     ) {
-                        Text("Call Pharmacy")
+                        Text(stringResource(R.string.call_pharmacy))
                     }
                     TextButton(
                         onClick = {
@@ -515,7 +517,7 @@ fun PrescriptionDetailScreen(
                             onNavigateToOrderHistory()
                         }
                     ) {
-                        Text("View My Orders")
+                        Text(stringResource(R.string.view_my_orders))
                     }
                 }
             }
@@ -567,7 +569,7 @@ fun PrescriptionDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Prescription Details", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.prescription_details), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -997,7 +999,7 @@ private fun PrescriptionForwardCard(
                     disabledContainerColor = Color.LightGray
                 )
             ) {
-                Text("Choose Pharmacy")
+                Text(stringResource(R.string.choose_pharmacy))
             }
         }
     }
@@ -1072,7 +1074,7 @@ private fun ForwardPrescriptionSheet(
             onValueChange = onSearchQueryChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            placeholder = { Text("Search pharmacy by name") },
+            placeholder = { Text(stringResource(R.string.search_pharmacy_by_name)) },
             leadingIcon = {
                 Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.Gray)
             },
@@ -1195,7 +1197,7 @@ private fun ForwardPrescriptionSheet(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Send Prescription")
+                Text(stringResource(R.string.send_prescription))
             }
         }
     }
