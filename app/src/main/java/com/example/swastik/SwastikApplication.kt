@@ -19,7 +19,7 @@ class SwastikApplication : Application() {
 
     @Inject
     lateinit var pushNotificationCoordinator: PushNotificationCoordinator
-    
+
     override fun onCreate() {
         super.onCreate()
         AppSettingsStore.init(this)

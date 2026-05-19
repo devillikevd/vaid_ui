@@ -22,7 +22,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
-    id("com.google.gms.google-services")
+    // id("com.google.gms.google-services")
 }
 
 
@@ -147,7 +147,7 @@ android {
                 if (missing.isNotEmpty()) {
                     throw GradleException(
                         "Missing release signing properties: ${missing.joinToString(", ")}. " +
-                            "Set them in local.properties or environment variables."
+                                "Set them in local.properties or environment variables."
                     )
                 }
                 signingConfig = signingConfigs.getByName("release")
@@ -220,15 +220,19 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
-    
+
+    // DataStore - used by AppSettingsStore.kt for theme & language preferences
+    // Added by Divyanshu - fixes Unresolved reference: AppSettingsStore
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
     // Hilt Dependency Injection
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    
+
     // Security Crypto for encrypted shared preferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    
+
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.6")
 
@@ -236,7 +240,7 @@ dependencies {
     implementation("io.socket:socket.io-client:2.1.0") {
         exclude(group = "org.json", module = "json")
     }
-    
+
     // WebRTC for Video Calls
     implementation("io.getstream:stream-webrtc-android:1.1.1")
 
@@ -254,7 +258,7 @@ dependencies {
 
     // FFT math for rPPG calculations
     implementation("com.github.wendykierp:JTransforms:3.1")
-    
+
     // CameraX
     implementation("androidx.camera:camera-camera2:1.3.0")
     implementation("androidx.camera:camera-lifecycle:1.3.0")
