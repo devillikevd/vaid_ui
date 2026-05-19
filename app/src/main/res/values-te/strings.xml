@@ -276,8 +276,8 @@
     <string name="tap_to_add_contacts">పరిచయాలను జోడించడానికి నొక్కండి</string>
     <string name="delete_contact">పరిచయాన్ని తొలగించండి</string>
     <string name="delete">తొలగించు</string>
-    <string name="language_set_to">భాష సెట్ కు</string>
-    <string name="theme_set_to">థీమ్ సెట్</string>
+    <string name="language_set_to">భాష %1$s కి సెట్ చేయబడింది</string>
+    <string name="theme_set_to">థీమ్ %1$s కి సెట్ చేయబడింది</string>
     <string name="video">వీడియో</string>
     <string name="in_person">వ్యక్తిగతంగా</string>
     <string name="start_video_consultation">వీడియో కన్సల్టేషన్ ప్రారంభించండి</string>

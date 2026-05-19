@@ -276,8 +276,8 @@
     <string name="tap_to_add_contacts">தொடர்புகளைச் சேர்க்க தட்டவும்</string>
     <string name="delete_contact">தொடர்பை நீக்கு</string>
     <string name="delete">நீக்கு</string>
-    <string name="language_set_to">மொழி அமைக்கவும்</string>
-    <string name="theme_set_to">தீம் அமைக்கவும்</string>
+    <string name="language_set_to">மொழி %1$s க்கு அமைக்கப்பட்டது</string>
+    <string name="theme_set_to">தீம் %1$s க்கு அமைக்கப்பட்டது</string>
     <string name="video">வீடியோ</string>
     <string name="in_person">நேரில்</string>
     <string name="start_video_consultation">வீடியோ ஆலோசனையைத் தொடங்கவும்</string>
