@@ -14,8 +14,12 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 import java.io.ByteArrayOutputStream
@@ -110,6 +114,9 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private var lastProcessedTimeMs = 0L
     private var missingFaceFrames = 0
 
+    private val scope = CoroutineScope(Dispatchers.Default + Job())
+    @Volatile private var isProcessingFrame = false
+
     private val pulseSamples = ArrayDeque<SignalSample>()
     private val respirationSamples = ArrayDeque<SignalSample>()
     private val tremorSamples = ArrayDeque<SignalSample>()
@@ -145,40 +152,63 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
 
     override fun onFrame(frame: VideoFrame) {
         val currentTimeMs = System.currentTimeMillis()
-        if (currentTimeMs - lastProcessedTimeMs < FRAME_PROCESS_INTERVAL_MS) {
+        if (currentTimeMs - lastProcessedTimeMs < FRAME_PROCESS_INTERVAL_MS || isProcessingFrame) {
             return
         }
+        
+        isProcessingFrame = true
         lastProcessedTimeMs = currentTimeMs
+        
+        // Retain the frame before passing to background thread
+        frame.retain()
 
-        val bitmap = try {
-            videoFrameToBitmap(frame)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode frame.", e)
-            null
-        } ?: return
+        scope.launch {
+            try {
+                val bitmap = try {
+                    videoFrameToBitmap(frame)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to decode frame.", e)
+                    null
+                }
+                
+                // Release the frame as soon as we extract the bitmap
+                frame.release()
 
-        val landmarker = faceLandmarker
-        if (landmarker == null) {
-            handleFaceLoss()
-            return
+                if (bitmap == null) {
+                    isProcessingFrame = false
+                    return@launch
+                }
+
+                val landmarker = faceLandmarker
+                if (landmarker == null) {
+                    handleFaceLoss()
+                    isProcessingFrame = false
+                    return@launch
+                }
+
+                val result = try {
+                    landmarker.detect(BitmapImageBuilder(bitmap).build())
+                } catch (e: Exception) {
+                    Log.e(TAG, "FaceLandmarker detection failed.", e)
+                    null
+                }
+
+                val landmarks = result?.faceLandmarks()?.firstOrNull()
+                if (landmarks.isNullOrEmpty()) {
+                    handleFaceLoss()
+                    isProcessingFrame = false
+                    return@launch
+                }
+
+                missingFaceFrames = 0
+                val metrics = calculateMetrics(bitmap, result, currentTimeMs)
+                _vitalsData.value = metrics ?: CVMetrics(isFaceDetected = false, capturedAtMs = currentTimeMs)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in async frame processing", e)
+            } finally {
+                isProcessingFrame = false
+            }
         }
-
-        val result = try {
-            landmarker.detect(BitmapImageBuilder(bitmap).build())
-        } catch (e: Exception) {
-            Log.e(TAG, "FaceLandmarker detection failed.", e)
-            null
-        }
-
-        val landmarks = result?.faceLandmarks()?.firstOrNull()
-        if (landmarks.isNullOrEmpty()) {
-            handleFaceLoss()
-            return
-        }
-
-        missingFaceFrames = 0
-        val metrics = calculateMetrics(bitmap, result, currentTimeMs)
-        _vitalsData.value = metrics ?: CVMetrics(isFaceDetected = false, capturedAtMs = currentTimeMs)
     }
 
     private fun calculateMetrics(
@@ -779,5 +809,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         clearBuffers()
         faceLandmarker?.close()
         faceLandmarker = null
+        try {
+            scope.coroutineContext[Job]?.cancel()
+        } catch (e: Exception) {}
     }
 }

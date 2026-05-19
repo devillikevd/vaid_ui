@@ -62,6 +62,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -432,6 +434,28 @@ fun PatientLoginScreen(
                     } else {
                         Text("Login", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(" or ", color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+
+                val context = LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        Toast.makeText(context, "Google Sign-In coming soon", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Continue with Google", color = Color.Black, fontWeight = FontWeight.Medium)
                 }
 
                 Row(

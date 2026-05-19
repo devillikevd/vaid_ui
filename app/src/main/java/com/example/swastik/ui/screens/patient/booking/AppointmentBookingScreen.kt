@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +64,7 @@ fun AppointmentBookingScreen(
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf("video") }
     var notes by remember { mutableStateOf("") }
+    var showDoctorProfile by remember { mutableStateOf<Doctor?>(null) }
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId) {
@@ -187,11 +190,7 @@ fun AppointmentBookingScreen(
                         doctorSearchViewModel = doctorSearchViewModel,
                         uiState = doctorState,
                         onDoctorSelected = { doctor ->
-                            selectedDoctor = doctor
-                            selectedDate = null
-                            selectedTimeSlot = null
-                            appointmentViewModel.resetSlotSelectionState()
-                            currentStep = 2
+                            showDoctorProfile = doctor
                         }
                     )
                     2 -> DateTimeSelectionStep(
@@ -313,6 +312,20 @@ private fun DoctorSelectionStep(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedSpecialization by remember { mutableStateOf<String?>(null) }
+    
+    val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spokenText = result.data
+                ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                searchQuery = spokenText
+                doctorSearchViewModel.updateFilters(search = spokenText)
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Search bar
@@ -324,6 +337,30 @@ private fun DoctorSelectionStep(
             },
             placeholder = { Text("Search doctors by name or specialty") },
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { 
+                        searchQuery = ""
+                        doctorSearchViewModel.updateFilters(search = null)
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                    }
+                } else {
+                    IconButton(onClick = {
+                        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
+                        }
+                        try {
+                            speechLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                    }) {
+                        Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPurple)
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -501,7 +538,138 @@ private fun DoctorBookingCard(
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
             ) {
-                Text("Select Doctor")
+                Text("View Profile")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DoctorProfileSheet(
+    doctor: Doctor,
+    onDismiss: () -> Unit,
+    onBookClick: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(SwastikPurpleLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("👨‍⚕️", fontSize = 40.sp)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = doctor.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    )
+                    Text(
+                        text = doctor.specialization,
+                        fontSize = 16.sp,
+                        color = SwastikPurple
+                    )
+                    doctor.experienceYears?.let {
+                        Text(
+                            text = "$it Years Experience",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Stats row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                doctor.averageRating?.let {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(String.format(Locale.US, "%.1f", it), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        }
+                        Text("Rating", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+                
+                doctor.consultationFee?.let {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("₹$it", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPurple)
+                        Text("Consultation Fee", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("English, Hindi", fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Text("Languages", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                Text("About Doctor", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "An experienced specialist dedicated to providing excellent patient care and treatment.",
+                    fontSize = 14.sp,
+                    color = Color.DarkGray,
+                    lineHeight = 20.sp
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (!doctor.qualification.isNullOrBlank()) {
+                    Text("Education", fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPurple))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(doctor.qualification, fontSize = 14.sp, color = Color.DarkGray)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = onBookClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .height(54.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            ) {
+                Text("Book Appointment", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
         }
     }

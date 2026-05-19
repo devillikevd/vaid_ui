@@ -38,6 +38,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -105,7 +106,10 @@ fun PatientRegisterScreen(
         trimmedName.length < 2 -> "Enter your full name."
         else -> null
     }
-    val phoneError = phoneValidationMessage(normalizedPhoneDigits)
+    val phoneError = when {
+        normalizedPhoneDigits.isBlank() -> "Enter your mobile number."
+        else -> phoneValidationMessage(normalizedPhoneDigits)
+    }
     val confirmPasswordError = when {
         confirmPassword.isBlank() -> null
         confirmPassword != password -> "Passwords do not match."
@@ -331,7 +335,7 @@ fun PatientRegisterScreen(
                         isError = phoneError != null,
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         prefix = { Text("+91") },
-                        placeholder = { Text("Optional") },
+                        placeholder = { Text("Enter 10-digit number") },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Phone,
                             imeAction = ImeAction.Next
@@ -339,11 +343,11 @@ fun PatientRegisterScreen(
                         colors = authOutlinedTextFieldColors(),
                         shape = RoundedCornerShape(14.dp),
                         supportingText = {
-                            val supportText = phoneError ?: "Optional. Add this for quicker SOS and provider communication."
-                            Text(
-                                supportText,
-                                color = if (phoneError != null) MaterialTheme.colorScheme.error else Color(0xFF6B7280)
-                            )
+                            if (phoneError != null) {
+                                Text(phoneError, color = MaterialTheme.colorScheme.error)
+                            } else {
+                                Text("Add this for quicker SOS and provider communication.", color = Color(0xFF6B7280))
+                            }
                         }
                     )
                 }
@@ -458,6 +462,28 @@ fun PatientRegisterScreen(
                     } else {
                         Text("Register", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(" or ", color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+
+                val context = androidx.compose.ui.platform.LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        android.widget.Toast.makeText(context, "Google Sign-Up coming soon", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Sign up with Google", color = Color.Black, fontWeight = FontWeight.Medium)
                 }
 
                 Row(

@@ -98,7 +98,7 @@ class PushNotificationCoordinator @Inject constructor(
         val destination = resolvePatientNotificationDestination(type, data)
         val pendingIntent = destination.deepLink?.let(::buildDeepLinkIntent)
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title.ifBlank { context.getString(R.string.app_name) })
             .setContentText(message)
@@ -107,11 +107,14 @@ class PushNotificationCoordinator @Inject constructor(
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setSilent(!preferences.sound)
-            .build()
+
+        if (preferences.sound) {
+            builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+        }
 
         NotificationManagerCompat.from(context).notify(
             ("$type:$title:$message").hashCode(),
-            notification
+            builder.build()
         )
     }
 
