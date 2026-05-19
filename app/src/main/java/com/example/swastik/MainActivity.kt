@@ -1,8 +1,8 @@
 package com.example.swastik
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.appcompat.app.AppCompatDelegate
@@ -43,7 +43,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     @Inject lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -241,6 +241,19 @@ fun AppointmentBookingScreen(
                 }
             }
         }
+        
+        if (showDoctorProfile != null) {
+            DoctorProfileSheet(
+                doctor = showDoctorProfile!!,
+                onDismiss = { showDoctorProfile = null },
+                onBookClick = {
+                    val doctorToBook = showDoctorProfile
+                    showDoctorProfile = null
+                    selectedDoctor = doctorToBook
+                    currentStep = 2
+                }
+            )
+        }
     }
 }
 
