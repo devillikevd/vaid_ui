@@ -6,12 +6,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.example.swastik.MainActivity
 import com.example.swastik.R
 import com.example.swastik.data.local.AppSettingsStore
@@ -30,9 +30,9 @@ import kotlinx.coroutines.tasks.await
 
 @Singleton
 class PushNotificationCoordinator @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val patientRepository: PatientRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
 ) {
     companion object {
         private const val TAG = "PushNotifications"
@@ -142,7 +142,7 @@ class PushNotificationCoordinator @Inject constructor(
     }
 
     private fun buildDeepLinkIntent(deepLink: String): PendingIntent {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink), context, MainActivity::class.java).apply {
+        val intent = Intent(Intent.ACTION_VIEW, deepLink.toUri(), context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         return PendingIntent.getActivity(
@@ -166,7 +166,8 @@ class PushNotificationCoordinator @Inject constructor(
             "consultation_started",
             "appointment_status_changed",
             "appointment_rescheduled",
-            "appointment_cancelled" -> preferences.appointments
+            "appointment_cancelled" ->
+                preferences.appointments
 
             "medicine",
             "medicine_reminder",
