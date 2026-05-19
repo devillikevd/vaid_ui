@@ -276,8 +276,8 @@
     <string name="tap_to_add_contacts">পরিচিতি যোগ করতে আলতো চাপুন</string>
     <string name="delete_contact">পরিচিতি মুছুন</string>
     <string name="delete">মুছে দিন</string>
-    <string name="language_set_to">ভাষা সেট করুন</string>
-    <string name="theme_set_to">থিম সেট</string>
+    <string name="language_set_to">ভাষা %1$s এ সেট করা হয়েছে</string>
+    <string name="theme_set_to">থিম %1$s এ সেট করা হয়েছে</string>
     <string name="video">ভিডিও</string>
     <string name="in_person">ব্যক্তিগতভাবে</string>
     <string name="start_video_consultation">ভিডিও পরামর্শ শুরু করুন</string>
