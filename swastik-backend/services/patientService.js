@@ -334,6 +334,39 @@ class PatientService {
     return { url };
   }
 
+  // Delete profile image
+  async deleteProfileImage(userId) {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id, profile_image_url')
+      .eq('user_id', userId)
+      .single();
+
+    if (!patient) {
+      throw new ApiError(404, 'Patient profile not found');
+    }
+
+    if (patient.profile_image_url) {
+      try {
+        const objectPath = extractObjectNameFromUrl(patient.profile_image_url);
+        if (objectPath) {
+          await deleteFile(objectPath);
+        }
+      } catch (e) {
+        console.warn('Failed to delete image from storage:', e.message);
+      }
+    }
+
+    await supabaseAdmin
+      .from('patients')
+      .update({ profile_image_url: null })
+      .eq('id', patient.id);
+
+    await cacheDel(`patient:dashboard:${userId}`);
+
+    return { success: true };
+  }
+
   // Get dashboard data
   async getDashboard(userId) {
     // Check cache first (30s TTL — short enough for near-real-time, long enough to absorb reloads)

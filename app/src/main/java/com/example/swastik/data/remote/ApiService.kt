@@ -553,6 +553,9 @@ interface ApiService {
     suspend fun uploadProfileImage(
         @Part image: okhttp3.MultipartBody.Part
     ): Response<ApiResponse<UploadResponse>>
+
+    @DELETE("patients/profile/image")
+    suspend fun deleteProfileImage(): Response<ApiResponse<Unit>>
     
     @Multipart
     @POST("uploads/report")

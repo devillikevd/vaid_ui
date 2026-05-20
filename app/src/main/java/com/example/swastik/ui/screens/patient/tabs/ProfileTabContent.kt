@@ -6,10 +6,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.profile.*
@@ -54,6 +58,8 @@ fun ProfileTabContent(
     var showQrDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showFullScreenImage by remember { mutableStateOf<String?>(null) }
+    var showPhotoOptions by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -139,7 +145,8 @@ fun ProfileTabContent(
                             }
                             context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_profile)))
                         },
-                        onCameraClick = { imagePickerLauncher.launch("image/*") }
+                        onCameraClick = { showPhotoOptions = true },
+                        onImageClick = { showFullScreenImage = it }
                     )
                 }
                 item { ProfileCompletionCard(profile = profile) }
@@ -338,7 +345,11 @@ fun ProfileTabContent(
                 Button(
                     onClick = {
                         showLogoutDialog = false
-                        onLogout()
+                        if (viewModel != null) {
+                            viewModel.logout(onComplete = onLogout)
+                        } else {
+                            onLogout()
+                        }
                     },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
@@ -349,6 +360,70 @@ fun ProfileTabContent(
             },
             shape = RoundedCornerShape(20.dp)
         )
+    }
+
+    if (showPhotoOptions) {
+        AlertDialog(
+            onDismissRequest = { showPhotoOptions = false },
+            title = { Text(stringResource(R.string.profile_photo), fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.change_photo)) },
+                        leadingContent = { Icon(Icons.Outlined.PhotoCamera, null) },
+                        modifier = Modifier.clickable {
+                            showPhotoOptions = false
+                            imagePickerLauncher.launch("image/*")
+                        }
+                    )
+                    if (profile?.profileImageUrl?.isNotEmpty() == true) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.remove_photo), color = Color.Red) },
+                            leadingContent = { Icon(Icons.Outlined.Delete, null, tint = Color.Red) },
+                            modifier = Modifier.clickable {
+                                showPhotoOptions = false
+                                viewModel?.deleteProfileImage()
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showPhotoOptions = false }) { Text(stringResource(R.string.cancel)) } }
+        )
+    }
+
+    if (showFullScreenImage != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showFullScreenImage = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { showFullScreenImage = null },
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(showFullScreenImage)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Full Profile Photo",
+                    modifier = Modifier.fillMaxWidth(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+                IconButton(
+                    onClick = { showFullScreenImage = null },
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp)
+                ) {
+                    Icon(Icons.Default.Close, null, tint = Color.White)
+                }
+            }
+        }
     }
 
     // ── Toast observers for async operations ────────────────────

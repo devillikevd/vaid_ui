@@ -11,6 +11,7 @@ import com.example.swastik.data.remote.dto.AddFamilyMemberRequest
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.EmergencyRepository
+import com.example.swastik.data.repository.AuthRepository
 import com.example.swastik.notifications.PushNotificationCoordinator
 import com.example.swastik.utils.NetworkObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +39,7 @@ data class PatientDashboardUiState(
 @HiltViewModel
 class PatientDashboardViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
+    private val authRepository: AuthRepository,
     private val emergencyRepository: EmergencyRepository,
     private val socketManager: SocketManager,
     private val pushNotificationCoordinator: PushNotificationCoordinator,
@@ -63,6 +65,13 @@ class PatientDashboardViewModel @Inject constructor(
         collectProviderCatalogUpdates()
         collectPrescriptionUpdates()
         observeSocketReconnects()
+    }
+
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.logout()
+            onComplete()
+        }
     }
 
     val patientProfile = patientRepository.patientProfile
@@ -282,6 +291,22 @@ class PatientDashboardViewModel @Inject constructor(
             when (val result = patientRepository.uploadProfileImage(imagePart)) {
                 is Result.Success -> {
                     _imageUploadState.value = ProfileUpdateState.Success("Profile photo updated!")
+                    loadDashboard()
+                }
+                is Result.Error -> {
+                    _imageUploadState.value = ProfileUpdateState.Error(result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun deleteProfileImage() {
+        viewModelScope.launch {
+            _imageUploadState.value = ProfileUpdateState.Loading
+            when (val result = patientRepository.deleteProfileImage()) {
+                is Result.Success -> {
+                    _imageUploadState.value = ProfileUpdateState.Success("Profile photo removed!")
                     loadDashboard()
                 }
                 is Result.Error -> {

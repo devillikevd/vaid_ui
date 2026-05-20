@@ -39,6 +39,7 @@ enum class AppointmentFilter {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentHistoryScreen(
+    initialFilter: String? = null,
     onBackClick: () -> Unit,
     onAppointmentClick: (Appointment) -> Unit = {},
     onStartConsultation: (Appointment) -> Unit = {},
@@ -46,7 +47,15 @@ fun AppointmentHistoryScreen(
     onNavigateToBooking: () -> Unit = {},
     viewModel: AppointmentViewModel = hiltViewModel()
 ) {
-    var selectedFilter by remember { mutableStateOf(AppointmentFilter.ALL) }
+    val initialEnum = remember(initialFilter) {
+        when (initialFilter?.uppercase()) {
+            "UPCOMING" -> AppointmentFilter.UPCOMING
+            "COMPLETED" -> AppointmentFilter.COMPLETED
+            "CANCELLED" -> AppointmentFilter.CANCELLED
+            else -> AppointmentFilter.ALL
+        }
+    }
+    var selectedFilter by remember { mutableStateOf(initialEnum) }
     var showCancelDialog by remember { mutableStateOf<Appointment?>(null) }
     val uiState = viewModel.uiState
     val colorScheme = MaterialTheme.colorScheme

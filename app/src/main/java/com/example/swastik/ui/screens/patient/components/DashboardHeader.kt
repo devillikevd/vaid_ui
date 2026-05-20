@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -27,7 +28,11 @@ import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.SwastikPurple
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.swastik.R
 
 @Composable
@@ -73,15 +78,28 @@ fun DashboardHeader(
                         Brush.linearGradient(
                             colors = listOf(SwastikPurple.copy(alpha = 0.25f), SwastikPurple.copy(alpha = 0.1f))
                         )
-                    ),
+                    )
+                    .border(2.dp, SwastikPurple.copy(alpha = 0.2f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    profile?.initials?.ifEmpty { "👤" } ?: "👤",
-                    fontSize = if (profile?.initials?.isNotEmpty() == true) 18.sp else 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SwastikPurple
-                )
+                if (profile?.profileImageUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(profile.profileImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Profile Photo",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        profile?.initials?.ifEmpty { "👤" } ?: "👤",
+                        fontSize = if (profile?.initials?.isNotEmpty() == true) 18.sp else 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SwastikPurple
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))

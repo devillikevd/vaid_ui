@@ -514,4 +514,7 @@
     <string name="browse_medicines">ঔষধ ব্রাউজ করুন</string>
     <string name="enter_your_delivery_address">আপনার বিতরণ ঠিকানা লিখুন</string>
     <string name="thank_you_feedback">আপনার প্রতিক্রিয়া জন্য আপনাকে ধন্যবাদ!</string>
-    </resources>
+    <string name="profile_photo">প্রোফাইল ছবি</string>
+    <string name="change_photo">ছবি পরিবর্তন করুন</string>
+    <string name="remove_photo">ছবি সরান</string>
+</resources>

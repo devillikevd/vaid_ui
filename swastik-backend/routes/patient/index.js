@@ -91,6 +91,14 @@ router.post('/profile/image',
   })
 );
 
+// Delete profile image
+router.delete('/profile/image',
+  asyncHandler(async (req, res) => {
+    const result = await patientService.deleteProfileImage(req.user.id);
+    res.json({ success: true, ...result });
+  })
+);
+
 // Get dashboard
 router.get('/dashboard',
   asyncHandler(async (req, res) => {

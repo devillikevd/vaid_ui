@@ -711,6 +711,24 @@ class PatientRepository @Inject constructor(
         }
     }
 
+    /**
+     * Delete profile image
+     * DELETE /api/patients/profile/image
+     */
+    suspend fun deleteProfileImage(): Result<Unit> {
+        return try {
+            val response = apiService.deleteProfileImage()
+            if (response.isSuccessful && response.body()?.success == true) {
+                _patientProfile.value = _patientProfile.value?.copy(profileImageUrl = "")
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to remove profile image")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     private suspend fun fetchRecommendedDoctors(limit: Int = 8): Result<List<Doctor>> {
         return try {
             val response = apiService.getRecommendedDoctors(limit)

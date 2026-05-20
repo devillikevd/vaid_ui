@@ -556,4 +556,7 @@
     <string name="language_tamil">Tamil</string>
     <string name="language_kannada">Kannada</string>
     <string name="language_marathi">Marathi</string>
+    <string name="profile_photo">Profile Photo</string>
+    <string name="change_photo">Change Photo</string>
+    <string name="remove_photo">Remove Photo</string>
 </resources>

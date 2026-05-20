@@ -61,6 +61,7 @@ fun PatientDashboardScreen(
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
+    onStartVideoConsultation: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onNotificationActionRoute: (String) -> Unit = {}
 ) {
@@ -156,7 +157,7 @@ fun PatientDashboardScreen(
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
                             onProfileClick = { selectedTab = 3 },
-                            onStartVideoConsultation = { onNavigateToAppointments() },
+                            onStartVideoConsultation = onStartVideoConsultation,
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToReports = onNavigateToReports,
                             onNavigateToHospitals = onNavigateToHospitals,

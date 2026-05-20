@@ -197,7 +197,12 @@ fun SwastikApp(tokenManager: TokenManager) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToAppointments = { navController.navigate(Screen.AppointmentHistory.route) },
+                onNavigateToAppointments = {
+                    navController.navigate(Screen.AppointmentHistory.createRoute())
+                },
+                onStartVideoConsultation = {
+                    navController.navigate(Screen.AppointmentBooking.createRoute())
+                },
                 onNavigateToHospitals = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.HOSPITAL)) },
                 onNavigateToClinics = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.CLINIC)) },
                 onNavigateToPharmacies = { navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.MEDICAL_STORE)) },
@@ -270,13 +275,22 @@ fun SwastikApp(tokenManager: TokenManager) {
 
         composable(
             route = Screen.AppointmentHistory.route,
+            arguments = listOf(
+                navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "vaididea://appointments" },
                 navDeepLink { uriPattern = "https://vaididea.in/appointments" }
             )
-        ) {
+        ) { backStackEntry ->
+            val initialFilter = backStackEntry.arguments?.getString("filter")
             AuthGuard(navController, tokenManager) {
             AppointmentHistoryScreen(
+                initialFilter = initialFilter,
                 onBackClick = { navController.popBackStack() },
                 onStartConsultation = { appointment ->
                     navController.navigate(

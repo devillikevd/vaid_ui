@@ -69,7 +69,8 @@ fun ProfileInfoCard(
     profile: PatientProfile?,
     onEditClick: () -> Unit,
     onShareClick: () -> Unit,
-    onCameraClick: () -> Unit
+    onCameraClick: () -> Unit,
+    onImageClick: (String) -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Card(
@@ -103,7 +104,8 @@ fun ProfileInfoCard(
                             .size(90.dp)
                             .clip(CircleShape)
                             .background(SwastikPurple.copy(alpha = 0.15f))
-                            .border(3.dp, SwastikPurple, CircleShape),
+                            .border(3.dp, SwastikPurple, CircleShape)
+                            .clickable { profile?.profileImageUrl?.let { if(it.isNotEmpty()) onImageClick(it) } },
                         contentAlignment = Alignment.Center
                     ) {
                         if (profile?.profileImageUrl?.isNotEmpty() == true) {

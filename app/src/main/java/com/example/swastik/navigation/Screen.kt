@@ -16,7 +16,11 @@ sealed class Screen(val route: String) {
     object PatientDashboard : Screen("patient_dashboard?tab={tab}") {
         fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 3)}"
     }
-    object AppointmentHistory : Screen("appointment_history")
+    object AppointmentHistory : Screen("appointment_history?filter={filter}") {
+        fun createRoute(filter: String? = null): String {
+            return if (filter == null) "appointment_history" else "appointment_history?filter=$filter"
+        }
+    }
     object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}") {
         fun createRoute(
             doctorId: String? = null,
