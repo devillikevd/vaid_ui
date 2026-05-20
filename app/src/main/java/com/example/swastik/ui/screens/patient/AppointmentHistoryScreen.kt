@@ -136,43 +136,16 @@ fun AppointmentHistoryScreen(
         }
     }
 
-    // Cancel Appointment Dialog
+    // Cancel Appointment Flow
     showCancelDialog?.let { appointment ->
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = null },
-            title = { Text(stringResource(R.string.cancel_appointment), fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    Text(
-                        stringResource(
-                            R.string.cancel_appointment_confirmation,
-                            appointment.doctor?.name ?: stringResource(R.string.appointment_doctor_fallback)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.appointment_date_time_format, appointment.date, appointment.timeSlot),
-                        fontSize = 13.sp,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
+        AppointmentCancellationFlow(
+            appointment = appointment,
+            onDismiss = { showCancelDialog = null },
+            onConfirmCancellation = { reason ->
+                viewModel.cancelAppointment(appointment.id, reason)
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.cancelAppointment(appointment.id)
-                        showCancelDialog = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.error)
-                ) {
-                    Text(stringResource(R.string.cancel_appointment))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = null }) {
-                    Text(stringResource(R.string.keep_appointment))
-                }
-            }
+            onBookAgain = onNavigateToBooking,
+            onFindAnotherSpecialist = onNavigateToBooking
         )
     }
 }

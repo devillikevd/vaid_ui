@@ -68,6 +68,11 @@ fun PatientDashboardScreen(
     var showNotificationPanel by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    // Handle back button when Profile tab is selected
+    androidx.activity.compose.BackHandler(enabled = selectedTab != 0) {
+        selectedTab = 0
+    }
+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
