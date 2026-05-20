@@ -55,6 +55,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -88,9 +90,9 @@ fun PatientRegisterScreen(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var languageExpanded by rememberSaveable { mutableStateOf(false) }
-    var selectedLanguage by remember(appSettings.language) { mutableStateOf(appSettings.language) }
+    var selectedTag by remember(appSettings.language) { mutableStateOf(appSettings.language) }
 
-    val languages = listOf("English", "Hindi", "Tamil", "Telugu", "Bengali", "Kannada", "Marathi")
+    val languageOptions = com.example.swastik.util.LanguageConfig.options
     val trimmedName = fullName.trim()
     val normalizedEmail = email.trim()
     val normalizedPhoneDigits = normalizeIndianPhoneInput(phoneNumber)
@@ -156,7 +158,7 @@ fun PatientRegisterScreen(
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Create patient account",
+                text = stringResource(R.string.create_patient_account),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
@@ -182,14 +184,14 @@ fun PatientRegisterScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Get started",
+                            text = stringResource(R.string.get_started),
                             fontSize = 30.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Create your personal patient account. Doctors, hospitals, pharmacies, and other providers register from their own portals.",
+                            text = stringResource(R.string.register_description),
                             fontSize = 14.sp,
                             color = Color(0xFF6B7280),
                             lineHeight = 20.sp
@@ -205,7 +207,7 @@ fun PatientRegisterScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = selectedLanguage,
+                                text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedTag)),
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp
                             )
@@ -217,12 +219,11 @@ fun PatientRegisterScreen(
                             expanded = languageExpanded,
                             onDismissRequest = { languageExpanded = false }
                         ) {
-                            languages.forEach { language ->
+                            languageOptions.forEach { lang ->
                                 DropdownMenuItem(
-                                    text = { Text(language) },
+                                    text = { Text(stringResource(lang.labelResId)) },
                                     onClick = {
-                                        selectedLanguage = language
-                                        AppSettingsStore.updateLanguage(language)
+                                        AppSettingsStore.updateLanguage(lang.tag)
                                         languageExpanded = false
                                     }
                                 )
@@ -255,13 +256,13 @@ fun PatientRegisterScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "What happens next",
+                                text = stringResource(R.string.what_happens_next),
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF312E81)
                             )
                         }
                         Text(
-                            text = "We’ll send a 6-digit verification code to your email. After entering it, you can log in and access the full patient ecosystem.",
+                            text = stringResource(R.string.register_next_steps),
                             fontSize = 13.sp,
                             color = Color(0xFF4B5563),
                             lineHeight = 19.sp
@@ -276,7 +277,7 @@ fun PatientRegisterScreen(
                 )
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Full name", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.full_name_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = fullName,
                         onValueChange = {
@@ -287,7 +288,7 @@ fun PatientRegisterScreen(
                         singleLine = true,
                         isError = nameError != null,
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                        placeholder = { Text("Enter your full name") },
+                        placeholder = { Text(stringResource(R.string.full_name_placeholder)) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         colors = authOutlinedTextFieldColors(),
                         shape = RoundedCornerShape(14.dp),
@@ -298,7 +299,7 @@ fun PatientRegisterScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Email address", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.email_address_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = email,
                         onValueChange = {
@@ -323,7 +324,7 @@ fun PatientRegisterScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Mobile number", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.mobile_number_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = normalizedPhoneDigits,
                         onValueChange = {
@@ -335,7 +336,7 @@ fun PatientRegisterScreen(
                         isError = phoneError != null,
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                         prefix = { Text("+91") },
-                        placeholder = { Text("Enter 10-digit number") },
+                        placeholder = { Text(stringResource(R.string.mobile_number_placeholder)) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Phone,
                             imeAction = ImeAction.Next
@@ -346,14 +347,14 @@ fun PatientRegisterScreen(
                             if (phoneError != null) {
                                 Text(phoneError, color = MaterialTheme.colorScheme.error)
                             } else {
-                                Text("Add this for quicker SOS and provider communication.", color = Color(0xFF6B7280))
+                                Text(stringResource(R.string.phone_supporting_text), color = Color(0xFF6B7280))
                             }
                         }
                     )
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Password", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.password_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = password,
                         onValueChange = {
@@ -372,7 +373,7 @@ fun PatientRegisterScreen(
                                 )
                             }
                         },
-                        placeholder = { Text("Create a strong password") },
+                        placeholder = { Text(stringResource(R.string.password_placeholder)) },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
@@ -390,7 +391,7 @@ fun PatientRegisterScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Confirm password", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.confirm_password_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = {
@@ -409,7 +410,7 @@ fun PatientRegisterScreen(
                                 )
                             }
                         },
-                        placeholder = { Text("Re-enter your password") },
+                        placeholder = { Text(stringResource(R.string.re_enter_password)) },
                         visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
@@ -460,7 +461,7 @@ fun PatientRegisterScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Register", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.register), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -469,7 +470,7 @@ fun PatientRegisterScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(" or ", color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(stringResource(R.string.or_separator), color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
                 }
 
@@ -483,7 +484,7 @@ fun PatientRegisterScreen(
                         .height(56.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Sign up with Google", color = Color.Black, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.sign_up_google), color = Color.Black, fontWeight = FontWeight.Medium)
                 }
 
                 Row(
@@ -491,9 +492,9 @@ fun PatientRegisterScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Already registered?", color = Color(0xFF6B7280))
+                    Text(stringResource(R.string.already_registered), color = Color(0xFF6B7280))
                     TextButton(onClick = onLoginClick, enabled = !uiState.isLoading) {
-                        Text("Login here", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.login_here), fontWeight = FontWeight.Bold)
                     }
                 }
             }

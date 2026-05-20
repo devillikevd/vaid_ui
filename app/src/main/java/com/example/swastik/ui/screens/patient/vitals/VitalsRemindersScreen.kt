@@ -228,7 +228,7 @@ private fun VitalCard(vital: VitalDto) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    getVitalDisplayName(vital.type ?: ""),
+                    stringResource(getVitalDisplayName(vital.type ?: "")),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
@@ -366,7 +366,7 @@ private fun ReminderCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            "Marked for today",
+                            stringResource(R.string.marked_for_today),
                             color = Color(0xFF2E7D32),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -435,7 +435,7 @@ private fun SnoozeReminderDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Choose how long to snooze $reminderTitle.",
+                    stringResource(R.string.snooze_instruction, reminderTitle),
                     fontSize = 14.sp,
                     color = Color(0xFF374151)
                 )
@@ -446,7 +446,7 @@ private fun SnoozeReminderDialog(
                                 onClick = { onSelectMinutes(minutes) },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("$minutes min")
+                                Text(stringResource(R.string.minutes_format, minutes))
                             }
                         }
                         if (row.size == 1) {
@@ -499,7 +499,7 @@ private fun RecordVitalDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
-                    label = { Text("Value (${selectedType.defaultUnit})") },
+                    label = { Text(stringResource(R.string.value_with_unit_format, selectedType.defaultUnit)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -630,15 +630,15 @@ private fun getVitalIconAndColor(type: String): Pair<ImageVector, Color> {
     }
 }
 
-private fun getVitalDisplayName(type: String): String {
+private fun getVitalDisplayName(type: String): Int {
     return when (type.lowercase()) {
-        "blood_pressure" -> "Blood Pressure"
-        "heart_rate" -> "Heart Rate"
-        "temperature" -> "Temperature"
-        "blood_sugar" -> "Blood Sugar"
-        "oxygen_saturation" -> "Oxygen Level"
-        "weight" -> "Weight"
-        "height" -> "Height"
-        else -> type.replace("_", " ").replaceFirstChar { it.uppercase() }
+        "blood_pressure" -> R.string.blood_pressure
+        "heart_rate" -> R.string.heart_rate
+        "temperature" -> R.string.temperature
+        "blood_sugar" -> R.string.blood_sugar
+        "oxygen_saturation" -> R.string.oxygen_level
+        "weight" -> R.string.weight
+        "height" -> R.string.height
+        else -> R.string.vital
     }
 }

@@ -92,10 +92,11 @@ object AppSettingsStore {
     }
 
     fun updateLanguage(language: String) {
-        _settings.value = _settings.value.copy(language = language)
+        val normalized = com.example.swastik.util.LanguageConfig.normalizeStoredLanguage(language)
+        _settings.value = _settings.value.copy(language = normalized)
         CoroutineScope(Dispatchers.IO).launch {
             appContext.dataStore.edit { prefs ->
-                prefs[LANGUAGE_KEY] = language
+                prefs[LANGUAGE_KEY] = normalized
             }
         }
     }

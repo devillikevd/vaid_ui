@@ -526,6 +526,9 @@ interface ApiService {
     @PUT("notifications/read-all")
     suspend fun markAllNotificationsRead(): Response<ApiResponse<Unit>>
 
+    @DELETE("notifications")
+    suspend fun deleteAllNotifications(): Response<ApiResponse<Unit>>
+
     @GET("notifications/unread-count")
     suspend fun getUnreadNotificationCount(): Response<ApiResponse<UnreadCountDto>>
 

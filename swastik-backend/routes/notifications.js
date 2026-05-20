@@ -69,6 +69,16 @@ router.put('/read-all', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * @route DELETE /api/notifications
+ * @desc Clear (delete) all user notifications
+ * @access Private
+ */
+router.delete('/', asyncHandler(async (req, res) => {
+    const result = await notificationService.clearAllNotifications(req.user.id);
+    res.json({ success: true, ...result });
+}));
+
+/**
  * @route POST /api/notifications/register-device
  * @desc Register device for push notifications
  * @access Private

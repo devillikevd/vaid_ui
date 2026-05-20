@@ -446,6 +446,27 @@ class PatientRepository @Inject constructor(
     }
 
     /**
+     * Delete all notifications permanently
+     * DELETE /api/notifications
+     */
+    suspend fun deleteAllNotifications(): Result<Unit> {
+        return try {
+            val response = apiService.deleteAllNotifications()
+            if (response.isSuccessful && response.body()?.success == true) {
+                // Clear local cache
+                try { notificationDao.clearAll() } catch (_: Exception) {}
+                // Update state flow
+                _notifications.value = emptyList()
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to clear notifications")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
      * Upload profile image
      * POST /api/patients/profile/image
      */

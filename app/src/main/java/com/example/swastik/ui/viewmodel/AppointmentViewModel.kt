@@ -48,9 +48,23 @@ class AppointmentViewModel @Inject constructor(
             
             when (val result = repository.getAppointments(status = status)) {
                 is Result.Success -> {
+                    // Sort appointments: scheduled/confirmed first (soonest first), then others (most recent first)
+                    val sortedAppointments = result.data.sortedWith { a, b ->
+                        val aStatus = a.status.lowercase()
+                        val bStatus = b.status.lowercase()
+                        val aIsUpcoming = aStatus == "scheduled" || aStatus == "confirmed"
+                        val bIsUpcoming = bStatus == "scheduled" || bStatus == "confirmed"
+                        
+                        when {
+                            aIsUpcoming && bIsUpcoming -> a.date.compareTo(b.date)
+                            aIsUpcoming -> -1
+                            bIsUpcoming -> 1
+                            else -> b.date.compareTo(a.date)
+                        }
+                    }
                     uiState = uiState.copy(
                         isLoading = false,
-                        appointments = result.data,
+                        appointments = sortedAppointments,
                         hasLoaded = true
                     )
                 }
@@ -74,9 +88,11 @@ class AppointmentViewModel @Inject constructor(
             
             when (val result = repository.getAppointments(upcoming = true)) {
                 is Result.Success -> {
+                    // Sort by date ascending (soonest first) for upcoming list
+                    val sortedAppointments = result.data.sortedBy { it.date }
                     uiState = uiState.copy(
                         isLoading = false,
-                        appointments = result.data,
+                        appointments = sortedAppointments,
                         hasLoaded = true
                     )
                 }

@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
@@ -20,20 +18,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.swastik.data.local.AppSettingsStore
-import com.example.swastik.data.repository.PatientRepository
-import com.example.swastik.data.model.*
-import com.example.swastik.ui.theme.SwastikPurple
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.swastik.R
+import com.example.swastik.data.model.*
+import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.data.local.AppSettingsStore
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.*
 
 @Composable
 fun DashboardHeader(
@@ -41,45 +40,144 @@ fun DashboardHeader(
     unreadNotificationsCount: Int,
     onNotificationClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onLanguageSelected: (String) -> Unit = {}
+    onLocationUpdate: (String) -> Unit = {}
 ) {
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var locationInput by remember { mutableStateOf(profile?.location ?: "") }
     var showLanguageMenu by remember { mutableStateOf(false) }
+    
     val appSettings by AppSettingsStore.settings.collectAsState()
     val selectedLanguage = appSettings.language
 
+    val currentDate = remember {
+        val date = LocalDate.now()
+        val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH)
+        date.format(formatter).uppercase()
+    }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Brush.horizontalGradient(
+                Brush.verticalGradient(
                     colors = listOf(
-                        SwastikPurple.copy(alpha = 0.08f),
+                        Color(0xFF1A1A2E).copy(alpha = 0.95f), // Darker gradient like screenshot
+                        Color(0xFF1A1A2E).copy(alpha = 0.8f),
                         Color.Transparent
                     )
                 )
             )
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 20.dp, vertical = 14.dp) // Reduced area as requested
     ) {
+        // Top Row: Date, Language and Notification
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onProfileClick() }
-                .padding(4.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.LightGray
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = currentDate,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.LightGray
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Restore Language Option with Label
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showLanguageMenu = true }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Language,
+                            contentDescription = "Language",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedLanguage)),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showLanguageMenu,
+                        onDismissRequest = { showLanguageMenu = false }
+                    ) {
+                        com.example.swastik.util.LanguageConfig.options.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(lang.labelResId)) },
+                                onClick = {
+                                    AppSettingsStore.updateLanguage(lang.tag)
+                                    showLanguageMenu = false
+                                },
+                                leadingIcon = if (lang.tag == selectedLanguage) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, tint = SwastikPurple) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+
+                Box {
+                    IconButton(onClick = onNotificationClick) {
+                        Icon(
+                            Icons.Outlined.Notifications,
+                            contentDescription = "Notifications",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    if (unreadNotificationsCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .background(Color.Red, CircleShape)
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-4).dp, y = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Main Row: Profile and Info
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(50.dp)
+                    .size(76.dp) // Reduced size slightly for more compact area
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(SwastikPurple.copy(alpha = 0.25f), SwastikPurple.copy(alpha = 0.1f))
-                        )
-                    )
-                    .border(2.dp, SwastikPurple.copy(alpha = 0.2f), CircleShape),
+                    .background(Color.White)
+                    .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                    .clickable { onProfileClick() },
                 contentAlignment = Alignment.Center
             ) {
                 if (profile?.profileImageUrl?.isNotEmpty() == true) {
@@ -95,102 +193,90 @@ fun DashboardHeader(
                 } else {
                     Text(
                         profile?.initials?.ifEmpty { "👤" } ?: "👤",
-                        fontSize = if (profile?.initials?.isNotEmpty() == true) 18.sp else 24.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = SwastikPurple
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column {
+                val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                 Text(
-                    text = profile?.name?.split(" ")?.firstOrNull()?.ifEmpty { stringResource(R.string.welcome) } ?: stringResource(R.string.welcome),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1A2E)
+                    text = "Hello, $firstName! 👋",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    lineHeight = 30.sp
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { 
+                            locationInput = profile?.location ?: ""
+                            showLocationDialog = true 
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
                     Icon(
                         Icons.Outlined.LocationOn,
-                        contentDescription = stringResource(R.string.location),
-                        modifier = Modifier.size(14.dp),
-                        tint = Color.Gray
+                        contentDescription = "Location",
+                        modifier = Modifier.size(18.dp),
+                        tint = SwastikPurple
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = profile?.location?.ifEmpty { stringResource(R.string.set_location) } ?: stringResource(R.string.set_location),
-                        fontSize = 12.sp,
-                        color = Color.Gray
+                        text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.LightGray
+                    )
+                    Icon(
+                        Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.LightGray
                     )
                 }
             }
         }
+    }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showLanguageMenu = true }
-                        .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+    if (showLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = { Text("Update Location") },
+            text = {
+                OutlinedTextField(
+                    value = locationInput,
+                    onValueChange = { locationInput = it },
+                    label = { Text("Your Location") },
+                    placeholder = { Text("e.g. New York, USA") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onLocationUpdate(locationInput)
+                        showLocationDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                 ) {
-                    val labelResId = com.example.swastik.util.LanguageConfig.labelResId(selectedLanguage)
-                    Text(
-                        text = stringResource(labelResId),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Select language",
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Text("Update")
                 }
-                DropdownMenu(
-                    expanded = showLanguageMenu,
-                    onDismissRequest = { showLanguageMenu = false }
-                ) {
-                    com.example.swastik.util.LanguageConfig.options.forEach { lang ->
-                        val label = stringResource(lang.labelResId)
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                AppSettingsStore.updateLanguage(lang.tag)
-                                showLanguageMenu = false
-                                onLanguageSelected(lang.tag)
-                            },
-                            leadingIcon = if (lang.tag == selectedLanguage) {
-                                { Icon(Icons.Default.Check, contentDescription = null, tint = SwastikPurple) }
-                            } else null
-                        )
-                    }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationDialog = false }) {
+                    Text("Cancel")
                 }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box {
-                IconButton(onClick = onNotificationClick) {
-                    Icon(
-                        Icons.Outlined.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color.Black
-                    )
-                }
-                if (unreadNotificationsCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(Color.Red, CircleShape)
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-8).dp, y = 8.dp)
-                    )
-                }
-            }
-        }
+        )
     }
 }
 

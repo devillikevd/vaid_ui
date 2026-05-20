@@ -43,7 +43,8 @@ fun HomeTabContent(
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
-    onSearchClick: () -> Unit = {}
+    onSearchClick: () -> Unit = {},
+    onLocationUpdate: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -65,7 +66,8 @@ fun HomeTabContent(
             profile = profile,
             unreadNotificationsCount = unreadNotificationsCount,
             onNotificationClick = onNotificationClick,
-            onProfileClick = onProfileClick
+            onProfileClick = onProfileClick,
+            onLocationUpdate = onLocationUpdate
         )
 
         Spacer(modifier = Modifier.height(16.dp))

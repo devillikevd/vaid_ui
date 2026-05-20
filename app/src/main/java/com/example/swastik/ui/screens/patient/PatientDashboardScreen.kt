@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
+import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.screens.patient.components.*
 import com.example.swastik.ui.screens.patient.tabs.*
 import com.example.swastik.ui.theme.*
@@ -172,7 +173,10 @@ fun PatientDashboardScreen(
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToBooking = onNavigateToBooking,
                             onNavigateToMedicineDetail = onNavigateToMedicineDetail,
-                            onSearchClick = onSearchClick
+                            onSearchClick = onSearchClick,
+                            onLocationUpdate = { newLocation ->
+                                viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
+                            }
                         )
                         1 -> MedicineTabContent(
                             modifier = Modifier.padding(paddingValues),
@@ -230,8 +234,8 @@ fun PatientDashboardScreen(
             NotificationPanelDialog(
                 notifications = notifications,
                 onDismiss = { showNotificationPanel = false },
-                onMarkAllRead = {
-                    viewModel.markAllNotificationsRead()
+                onClearAll = {
+                    viewModel.clearAllNotifications()
                 },
                 onMarkAsRead = { notificationId ->
                     viewModel.markNotificationRead(notificationId)

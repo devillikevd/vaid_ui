@@ -265,7 +265,10 @@ fun SwastikApp(tokenManager: TokenManager) {
                 val clinicId = backStackEntry.arguments?.getString("clinicId")?.takeIf { it.isNotBlank() }
                 AppointmentBookingScreen(
                     onBackClick = { navController.popBackStack() },
-                    onBookingComplete = { navController.popBackStack() },
+                    onBookingComplete = {
+                        navController.popBackStack()
+                        navController.navigate(Screen.AppointmentHistory.createRoute("upcoming"))
+                    },
                     preselectedDoctorId = doctorId,
                     preselectedHospitalId = hospitalId,
                     preselectedClinicId = clinicId

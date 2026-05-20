@@ -63,6 +63,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.text.KeyboardActions
@@ -181,14 +183,14 @@ fun PatientLoginScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Welcome back",
+                text = stringResource(R.string.welcome_back),
                 color = Color.White,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Sign in to continue with appointments, records, medicines, SOS, and consultations.",
+                text = stringResource(R.string.login_description),
                 color = Color.White.copy(alpha = 0.88f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp
@@ -208,12 +210,12 @@ fun PatientLoginScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Patient Login",
+                    text = stringResource(R.string.patient_login),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Use the same email and password you verified during registration.",
+                    text = stringResource(R.string.login_instruction),
                     fontSize = 14.sp,
                     color = Color(0xFF6B7280)
                 )
@@ -238,7 +240,7 @@ fun PatientLoginScreen(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
                     ) {
                         Text(
-                            text = "Email verified successfully. Sign in with your password to continue.",
+                            text = stringResource(R.string.email_verified_success),
                             modifier = Modifier.padding(14.dp),
                             color = Color(0xFF1B5E20),
                             fontSize = 13.sp,
@@ -264,13 +266,13 @@ fun PatientLoginScreen(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Email verification is still pending",
+                                    text = stringResource(R.string.verification_pending),
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF312E81)
                                 )
                             }
                             Text(
-                                text = "Finish email verification first. Enter the 6-digit code from your inbox or request a fresh code below.",
+                                text = stringResource(R.string.verification_instruction),
                                 color = Color(0xFF4B5563),
                                 fontSize = 13.sp
                             )
@@ -296,21 +298,21 @@ fun PatientLoginScreen(
                                 enabled = normalizedEmail.isNotBlank() && verificationOtp.length == 6 && !uiState.isLoading,
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
                             ) {
-                                Text("Verify email OTP")
+                                Text(stringResource(R.string.verify_email_otp))
                             }
                             OutlinedButton(
                                 onClick = { viewModel.resendVerification(normalizedEmail) },
                                 enabled = normalizedEmail.isNotBlank() && emailError == null && !uiState.isLoading,
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
                             ) {
-                                Text("Resend verification code")
+                                Text(stringResource(R.string.resend_verification_code))
                             }
                         }
                     }
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Email address", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.email_address_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = email,
                         onValueChange = {
@@ -343,7 +345,7 @@ fun PatientLoginScreen(
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Password", fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.password_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
                         value = password,
                         onValueChange = {
@@ -352,7 +354,7 @@ fun PatientLoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        placeholder = { Text("Enter your password") },
+                        placeholder = { Text(stringResource(R.string.enter_your_password)) },
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -385,7 +387,7 @@ fun PatientLoginScreen(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
                 ) {
                     Text(
-                        text = "First-time sign-ins require verified email access. If your code expired, request a new one from this screen.",
+                        text = stringResource(R.string.first_time_sign_in_help),
                         modifier = Modifier.padding(14.dp),
                         color = Color(0xFF4B5563),
                         fontSize = 13.sp,
@@ -409,7 +411,7 @@ fun PatientLoginScreen(
                         },
                         enabled = !uiState.isLoading
                     ) {
-                        Text("Forgot password?")
+                        Text(stringResource(R.string.forgot_password_question))
                     }
                 }
 
@@ -432,7 +434,7 @@ fun PatientLoginScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Login", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.login), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -441,7 +443,7 @@ fun PatientLoginScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(" or ", color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(stringResource(R.string.or_separator), color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
                 }
 
@@ -455,7 +457,7 @@ fun PatientLoginScreen(
                         .height(54.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text("Continue with Google", color = Color.Black, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.continue_with_google), color = Color.Black, fontWeight = FontWeight.Medium)
                 }
 
                 Row(
@@ -463,9 +465,9 @@ fun PatientLoginScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("New to VAIDIDEA?", color = Color(0xFF6B7280))
+                    Text(stringResource(R.string.new_to_vaididea), color = Color(0xFF6B7280))
                     TextButton(onClick = onRegisterClick, enabled = !uiState.isLoading) {
-                        Text("Create account", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.create_account), fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -476,7 +478,7 @@ fun PatientLoginScreen(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Back to Home")
+                    Text(stringResource(R.string.back_to_home))
                 }
             }
         }
@@ -602,14 +604,14 @@ private fun ForgotPasswordDialog(
         onDismissRequest = {
             if (!isLoading) onDismiss()
         },
-        title = { Text(if (step == 0) "Reset Password" else "Enter Reset Code") },
+        title = { Text(if (step == 0) stringResource(R.string.reset_password) else stringResource(R.string.enter_reset_code)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     if (step == 0) {
-                        "We’ll email you a 6-digit password reset code for your patient account."
+                        stringResource(R.string.reset_password_instruction)
                     } else {
-                        "Enter the reset code from your email and choose a new password."
+                        stringResource(R.string.reset_code_instruction)
                     },
                     color = Color(0xFF4B5563),
                     fontSize = 14.sp
@@ -668,7 +670,7 @@ private fun ForgotPasswordDialog(
                         singleLine = true,
                         isError = passwordError != null,
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                        placeholder = { Text("New password") },
+                        placeholder = { Text(stringResource(R.string.new_password_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                         visualTransformation = PasswordVisualTransformation(),
                         colors = authOutlinedTextFieldColors(),
@@ -686,7 +688,7 @@ private fun ForgotPasswordDialog(
                         singleLine = true,
                         isError = confirmPasswordError != null || (!errorMessage.isNullOrBlank() && step == 1),
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                        placeholder = { Text("Confirm new password") },
+                        placeholder = { Text(stringResource(R.string.confirm_new_password_placeholder)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         visualTransformation = PasswordVisualTransformation(),
                         colors = authOutlinedTextFieldColors(),
@@ -724,13 +726,13 @@ private fun ForgotPasswordDialog(
                         color = Color.White
                     )
                 } else {
-                    Text(if (step == 0) "Send reset code" else "Reset password")
+                    Text(if (step == 0) stringResource(R.string.send_reset_code) else stringResource(R.string.reset_password))
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isLoading) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

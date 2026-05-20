@@ -54,25 +54,20 @@
     <string name="view_all">View All</string>
     <string name="no_reminders_today">No reminders for today</string>
     <string name="reminders_description">Your upcoming appointments and medicine reminders will appear here</string>
-    <string name="quick_actions">Quick Actions</string>
-    <string name="ambulance">Ambulance</string>
-    <string name="vitals">Vitals</string>
+
     <string name="prescription">Prescription</string>
-    <string name="help">Help</string>
-    <string name="my_orders">My Orders</string>
-    <string name="my_tests">My Tests</string>
-    <string name="care_services">Care Services</string>
+
     <string name="care_services_desc">Hospitals, clinics, pharmacy, and diagnostic booking in separate flows.</string>
-    <string name="hospitals">Hospitals</string>
+
     <string name="hospitals_subtitle">Beds, emergency care, specialists</string>
     <string name="nearby_hospitals">Nearby hospitals</string>
-    <string name="clinics">Clinics</string>
+
     <string name="clinics_subtitle">OPD visits and local doctors</string>
     <string name="clinic_visits">Clinic visits</string>
-    <string name="pharmacy">Pharmacy</string>
+
     <string name="pharmacy_subtitle">Check stores and medicine access</string>
     <string name="medical_stores">Medical stores</string>
-    <string name="diagnostics">Diagnostics</string>
+
     <string name="diagnostics_subtitle">Book tests and find centers</string>
     <string name="labs_and_scans">Labs and scans</string>
     <string name="open">Open</string>
@@ -83,14 +78,11 @@
     <string name="book">Book</string>
 
     
-    <string name="ai_health_assistant">AI Health Assistant</string>
-    <string name="how_can_i_help">How can I help you today?</string>
+
     <string name="describe_symptoms">Describe your symptoms or ask a question</string>
 
     
-    <string name="verified_doctors">Verified\nDoctors</string>
-    <string name="data_encrypted">Data\nEncrypted</string>
-    <string name="abdm_compliant">ABDM\nCompliant</string>
+
 
     
     <string name="profile">Profile</string>
@@ -224,8 +216,7 @@
 <string name="search_for_medicines">ওষুধের জন্য অনুসন্ধান করুন</string>
     <string name="voice_search_unavailable">ভয়েস অনুসন্ধান অনুপলব্ধ</string>
     <string name="refresh_catalog">ক্যাটালগ রিফ্রেশ করুন</string>
-    <string name="welcome">স্বাগতম</string>
-    <string name="set_location">অবস্থান সেট করুন</string>
+
     <string name="schedule_now">এখন সময়সূচী</string>
     <string name="search_doctors_specialist">অনুসন্ধান ডাক্তার বিশেষজ্ঞ</string>
     <string name="request_ambulance">অ্যাম্বুলেন্সের জন্য অনুরোধ করুন</string>
@@ -233,8 +224,7 @@
     <string name="alert_emergency_contacts">সতর্কতা জরুরী পরিচিতি</string>
     <string name="share_live_location">লাইভ অবস্থান শেয়ার করুন</string>
     <string name="select_language">ভাষা নির্বাচন করুন</string>
-    <string name="apply">আবেদন করুন</string>
-    <string name="save_changes">পরিবর্তনগুলি সংরক্ষণ করুন</string>
+
     <string name="full_name">পুরো নাম</string>
     <string name="age">বয়স</string>
     <string name="gender">লিঙ্গ</string>
@@ -513,8 +503,84 @@
     <string name="add_medicines_from_the_medicine_finder">মেডিসিন ফাইন্ডার থেকে ওষুধ যোগ করুন</string>
     <string name="browse_medicines">ঔষধ ব্রাউজ করুন</string>
     <string name="enter_your_delivery_address">আপনার বিতরণ ঠিকানা লিখুন</string>
-    <string name="thank_you_feedback">আপনার প্রতিক্রিয়া জন্য আপনাকে ধন্যবাদ!</string>
+    <string name="thank_you_feedback">আপনার প্রতিক্রিয়া জন্য আপনাকে धन्यवाद!</string>
     <string name="profile_photo">প্রোফাইল ছবি</string>
     <string name="change_photo">ছবি পরিবর্তন করুন</string>
     <string name="remove_photo">ছবি সরান</string>
+
+    <string name="quick_actions">দ্রুত পদক্ষেপ</string>
+    <string name="ambulance">অ্যাম্বুলেন্স</string>
+    <string name="vitals">ভাইটাল</string>
+    <string name="help">সাহায্য</string>
+    <string name="my_orders">আমার অর্ডার</string>
+    <string name="my_tests">আমার টেস্ট</string>
+    <string name="care_services">সেবা সমূহ</string>
+    <string name="hospitals">হাসপাতাল</string>
+    <string name="clinics">ক্লিনিক</string>
+    <string name="pharmacy">ফার্মেসি</string>
+    <string name="diagnostics">ডায়াগনস্টিকস</string>
+    <string name="ai_health_assistant">এআই স্বাস্থ্য সহকারী</string>
+    <string name="how_can_i_help">আমি আজ আপনাকে কীভাবে সাহায্য করতে পারি?</string>
+    <string name="verified_doctors">যাচাইকৃত\nডাক্তার</string>
+    <string name="data_encrypted">ডেটা\nএনক্রিপ্ট করা</string>
+    <string name="abdm_compliant">ABDM\nসম্মত</string>
+    <string name="emergency_sos">জরুরি এসওএস</string>
+    <string name="choose_emergency_action">একটি জরুরি পদক্ষেপ বেছে নিন:</string>
+    <string name="create_patient_account">রোগীর অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="get_started">শুরু করুন</string>
+    <string name="full_name_label">পুরো নাম</string>
+    <string name="email_address_label">ইমেল ঠিকানা</string>
+    <string name="mobile_number_label">মোবাইল নম্বর</string>
+    <string name="password_label">পাসওয়ার্ড</string>
+    <string name="confirm_password_label">পাসওয়ার্ড নিশ্চিত করুন</string>
+    <string name="login">লগইন</string>
+    <string name="register">রেজিস্টার</string>
+    <string name="welcome_back">ফিরে আসার জন্য স্বাগতম</string>
+    <string name="patient_login">রোগীর লগইন</string>
+    <string name="apply">প্রয়োগ করুন</string>
+    <string name="save_changes">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="open_label">খুলুন</string>
+    <string name="example_fever">আমার জ্বর হয়েছে</string>
+    <string name="chest_pain">বুকে ব্যথা</string>
+    <string name="book_doctor">ডাক্তার বুক করুন</string>
+    <string name="medicine_info">ওষুধের তথ্য</string>
+    <string name="login_description">অ্যাপয়েন্টমেন্ট, রেকর্ড, ওষুধ, এসওএস এবং পরামর্শ চালিয়ে যেতে সাইন ইন করুন।</string>
+    <string name="login_instruction">রেজিস্ট্রেশনের সময় আপনি যে ইমেল এবং পাসওয়ার্ড যাচাই করেছেন তা ব্যবহার করুন।</string>
+    <string name="email_verified_success">ইমেল সফলভাবে যাচাই করা হয়েছে। চালিয়ে যেতে আপনার পাসওয়ার্ড দিয়ে সাইন ইন করুন।</string>
+    <string name="verification_pending">ইমেল যাচাইকরণ এখনও মুলতুবি রয়েছে</string>
+    <string name="verification_instruction">প্রথমে ইমেল যাচাইকরণ শেষ করুন। আপনার ইনবক্স থেকে ৬-সংখ্যার কোডটি লিখুন বা নিচে একটি নতুন কোডের জন্য অনুরোধ করুন।</string>
+    <string name="verify_email_otp">ইমেল ওটিপি যাচাই করুন</string>
+    <string name="resend_verification_code">যাচাইকরণ কোড পুনরায় পাঠান</string>
+    <string name="forgot_password_question">পাসওয়ার্ড ভুলে গেছেন?</string>
+    <string name="continue_with_google">গুগল দিয়ে চালিয়ে যান</string>
+    <string name="new_to_vaididea">VAIDIDEA-তে নতুন?</string>
+    <string name="create_account">অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="back_to_home">হোমে ফিরে যান</string>
+    <string name="full_name_placeholder">আপনার পুরো নাম লিখুন</string>
+    <string name="mobile_number_placeholder">১০ সংখ্যার নম্বর লিখুন</string>
+    <string name="phone_supporting_text">দ্রুত এসওএস এবং যোগাযোগ সুবিধার জন্য এটি যোগ করুন।</string>
+    <string name="password_placeholder">একটি শক্তিশালী পাসওয়ার্ড তৈরি করুন</string>
+    <string name="re_enter_password">আপনার পাসওয়ার্ড আবার লিখুন</string>
+    <string name="already_registered">ইতিমধ্যে রেজিস্টার্ড?</string>
+    <string name="login_here">এখানে লগইন করুন</string>
+    <string name="sign_up_google">গুগল দিয়ে সাইন আপ করুন</string>
+    <string name="or_separator"> অথবা </string>
+    <string name="reset_password">পাসওয়ার্ড রিসেট করুন</string>
+    <string name="enter_reset_code">রিসেট কোড লিখুন</string>
+    <string name="reset_password_instruction">আমরা আপনার রোগীর অ্যাকাউন্টের জন্য একটি ৬-সংখ্যার পাসওয়ার্ড রিসেট কোড ইমেল করব।</string>
+    <string name="reset_code_instruction">আপনার ইমেল থেকে রিসেট কোডটি লিখুন এবং একটি নতুন পাসওয়ার্ড বেছে নিন।</string>
+    <string name="new_password_placeholder">নতুন পাসওয়ার্ড</string>
+    <string name="confirm_new_password_placeholder">নতুন পাসওয়ার্ড নিশ্চিত করুন</string>
+    <string name="send_reset_code">রিসেট কোড পাঠান</string>
+    <string name="first_time_sign_in_help">প্রথমবার সাইন-ইন করার জন্য যাচাইকৃত ইমেল অ্যাক্সেস প্রয়োজন। যদি আপনার কোডটির মেয়াদ শেষ হয়ে যায়, তবে এই স্ক্রিন থেকে একটি নতুন কোডের জন্য অনুরোধ করুন।</string>
+    <string name="marked_for_today">আজকের জন্য চিহ্নিত</string>
+    <string name="snooze_instruction">%1$s স্নুজ করার সময় বেছে নিন।</string>
+    <string name="minutes_format">%1$d মিনিট</string>
+    <string name="value_with_unit_format">মান (%1$s)</string>
+    <string name="blood_pressure">রক্তচাপ</string>
+    <string name="heart_rate">হৃদস্পন্দন</string>
+    <string name="temperature">শরীরের তাপমাত্রা</string>
+    <string name="blood_sugar">ব্লাড সুগার</string>
+    <string name="oxygen_level">অক্সিজেনের মাত্রা</string>
+    <string name="vital">ভাইটাল</string>
 </resources>

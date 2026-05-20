@@ -437,7 +437,7 @@ private fun CareDirectoryCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Open",
+                        text = stringResource(R.string.open_label),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = accent
@@ -700,10 +700,10 @@ fun EnhancedChatBotSection(
     onChatbotClick: () -> Unit = {}
 ) {
     val quickOptions = listOf(
-        "🤒 I have fever",
-        "💔 Chest pain",
-        "📅 Book doctor",
-        "💊 Medicine info"
+        "🤒 " + stringResource(R.string.example_fever),
+        "💔 " + stringResource(R.string.chest_pain),
+        "📅 " + stringResource(R.string.book_doctor),
+        "💊 " + stringResource(R.string.medicine_info)
     )
 
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -819,9 +819,9 @@ fun TrustSignalsStrip() {
                 .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            TrustBadge(Icons.Default.Verified, "Verified\nDoctors", Color(0xFF4CAF50))
-            TrustBadge(Icons.Default.Lock, "Data\nEncrypted", SwastikPurple)
-            TrustBadge(Icons.Default.Security, "ABDM\nCompliant", Color(0xFF2196F3))
+            TrustBadge(Icons.Default.Verified, stringResource(R.string.verified_doctors), Color(0xFF4CAF50))
+            TrustBadge(Icons.Default.Lock, stringResource(R.string.data_encrypted), SwastikPurple)
+            TrustBadge(Icons.Default.Security, stringResource(R.string.abdm_compliant), Color(0xFF2196F3))
         }
     }
 }
@@ -904,7 +904,7 @@ fun EmergencyDialog(
         },
         title = {
             Text(
-                "Emergency SOS",
+                stringResource(R.string.emergency_sos),
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -912,7 +912,7 @@ fun EmergencyDialog(
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "Choose an emergency action:",
+                    stringResource(R.string.choose_emergency_action),
                     textAlign = TextAlign.Center,
                     color = Color.Gray
                 )

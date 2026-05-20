@@ -31,11 +31,10 @@ import com.example.swastik.ui.theme.SwastikPurple
 fun NotificationPanelDialog(
     notifications: List<NotificationItem>,
     onDismiss: () -> Unit,
-    onMarkAllRead: () -> Unit = {},
+    onClearAll: () -> Unit = {},
     onMarkAsRead: (String) -> Unit = {},
     onActionClick: (NotificationItem) -> Unit = {}
 ) {
-
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Unread", "Appointments", "Medicines", "Reports")
 
@@ -50,89 +49,150 @@ fun NotificationPanelDialog(
         }
     }
 
-    AlertDialog(
+    // Side Sheet Implementation
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.85f),
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.85f)
+                    .clickable(enabled = false) {}, // prevent click-through
+                shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+                color = Color(0xFF1A1A2E), // Using the dark color from DashboardHeader
+                tonalElevation = 8.dp
             ) {
-                Text(stringResource(R.string.notifications), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Row {
-                    IconButton(onClick = { onMarkAllRead() }) {
-                        Icon(Icons.Outlined.DoneAll, contentDescription = "Mark all read", tint = SwastikPurple)
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.Gray)
-                    }
-                }
-            }
-        },
-        text = {
-            Column {
-                // Filter Chips
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 16.dp)
                 ) {
-                    items(filters) { filter ->
-                        FilterChip(
-                            selected = selectedFilter == filter,
-                            onClick = { selectedFilter = filter },
-                            label = { Text(filter, fontSize = 12.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = SwastikPurple,
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
-                }
-
-                // Notifications List
-                if (filteredNotifications.isEmpty()) {
-                    Box(
+                    // Header
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center
+                            .background(Color(0xFF1A1A2E))
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Outlined.Notifications,
-                                contentDescription = null,
-                                tint = Color.LightGray,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(stringResource(R.string.no_notifications_1), color = Color.Gray, fontSize = 14.sp)
+                        Text(
+                            stringResource(R.string.notifications),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 24.sp,
+                            color = Color.White
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (notifications.isNotEmpty()) {
+                                TextButton(
+                                    onClick = { onClearAll() },
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Text("Clear All", color = SwastikPurple, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            IconButton(onClick = onDismiss) {
+                                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.LightGray)
+                            }
                         }
                     }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+
+                    // Filter Chips
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(filteredNotifications) { notification ->
-                            NotificationCard(
-                                notification = notification,
-                                onMarkAsRead = onMarkAsRead,
-                                onActionClick = onActionClick
+                        items(filters) { filter ->
+                            FilterChip(
+                                selected = selectedFilter == filter,
+                                onClick = { selectedFilter = filter },
+                                label = { Text(filter, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SwastikPurple,
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color.White.copy(alpha = 0.1f),
+                                    labelColor = Color.LightGray
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    borderColor = Color.White.copy(alpha = 0.2f),
+                                    selectedBorderColor = SwastikPurple,
+                                    selected = selectedFilter == filter,
+                                    enabled = true
+                                )
                             )
                         }
+                    }
+
+                    // Notifications List
+                    if (filteredNotifications.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    contentDescription = null,
+                                    tint = Color.DarkGray,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    stringResource(R.string.no_notifications_1),
+                                    color = Color.LightGray,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(filteredNotifications) { notification ->
+                                NotificationCard(
+                                    notification = notification,
+                                    onMarkAsRead = onMarkAsRead,
+                                    onActionClick = { 
+                                        onActionClick(it)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Close")
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.close))
-            }
         }
-    )
+    }
 }
 
 @Composable
@@ -151,9 +211,9 @@ private fun NotificationCard(
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color.White else SwastikPurple.copy(alpha = 0.05f)
+            containerColor = if (notification.isRead) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.1f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 0.dp else 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -163,7 +223,7 @@ private fun NotificationCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(getNotificationTypeColor(notification.type).copy(alpha = 0.15f)),
+                    .background(getNotificationTypeColor(notification.type).copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -185,7 +245,7 @@ private fun NotificationCard(
                         text = notification.title,
                         fontSize = 14.sp,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.SemiBold,
-                        color = Color.Black
+                        color = Color.White
                     )
                     if (!notification.isRead) {
                         Box(
@@ -201,9 +261,10 @@ private fun NotificationCard(
                 Text(
                     text = notification.message,
                     fontSize = 12.sp,
-                    color = Color.Gray,
+                    color = Color.LightGray,
                     lineHeight = 16.sp
                 )
+
 
                 Spacer(modifier = Modifier.height(8.dp))
 

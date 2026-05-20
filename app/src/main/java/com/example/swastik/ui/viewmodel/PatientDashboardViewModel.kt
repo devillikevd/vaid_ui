@@ -253,6 +253,13 @@ class PatientDashboardViewModel @Inject constructor(
         }
     }
 
+    fun clearAllNotifications() {
+        viewModelScope.launch {
+            patientRepository.deleteAllNotifications()
+            // No need to fetch, repository already cleared the flow
+        }
+    }
+
     // ── Profile Update ──────────────────────────────────────────
 
     private val _profileUpdateState = MutableStateFlow<ProfileUpdateState>(ProfileUpdateState.Idle)
