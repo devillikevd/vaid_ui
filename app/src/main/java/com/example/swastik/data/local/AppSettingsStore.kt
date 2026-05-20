@@ -28,7 +28,7 @@ data class NotificationPreferences(
 
 data class AppSettings(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
-    val language: String = "English",
+    val language: String = "en",
     val notificationPreferences: NotificationPreferences = NotificationPreferences(),
     val chatbotLanguage: String = "en",
     val chatbotTtsEnabled: Boolean = true
@@ -63,7 +63,7 @@ object AppSettingsStore {
                     "LIGHT" -> ThemePreference.LIGHT
                     else -> ThemePreference.SYSTEM
                 }
-                val language = prefs[LANGUAGE_KEY] ?: "English"
+                val language = com.example.swastik.util.LanguageConfig.normalizeStoredLanguage(prefs[LANGUAGE_KEY])
                 val notificationPreferences = NotificationPreferences(
                     appointments = prefs[NOTIF_APPOINTMENTS_KEY] ?: true,
                     medicines = prefs[NOTIF_MEDICINES_KEY] ?: true,
