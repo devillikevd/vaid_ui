@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,8 +30,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.Doctor
 import com.example.swastik.data.model.TimeSlot
-import com.example.swastik.ui.theme.SwastikPurple
-import com.example.swastik.ui.theme.SwastikPurpleLight
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.viewmodel.AppointmentViewModel
 import com.example.swastik.ui.viewmodel.AppointmentUiState
 import com.example.swastik.ui.viewmodel.DoctorSearchViewModel
@@ -120,8 +121,9 @@ fun AppointmentBookingScreen(
 
     val stepTitle = when (currentStep) {
         1 -> "Select Doctor"
-        2 -> "Pick Date & Time"
-        3 -> stringResource(R.string.confirm_booking)
+        2 -> "Consultation Details"
+        3 -> "Pick Date & Time"
+        4 -> stringResource(R.string.confirm_booking)
         else -> "Book Appointment"
     }
 
@@ -132,7 +134,7 @@ fun AppointmentBookingScreen(
                     Column {
                         Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
                         Text(
-                            "Step $currentStep of 3",
+                            "Step $currentStep of 4",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -144,11 +146,14 @@ fun AppointmentBookingScreen(
                             1 -> onBackClick()
                             2 -> {
                                 currentStep = 1
+                            }
+                            3 -> {
+                                currentStep = 2
                                 selectedDate = null
                                 selectedTimeSlot = null
                                 appointmentViewModel.resetSlotSelectionState()
                             }
-                            3 -> currentStep = 2
+                            4 -> currentStep = 3
                         }
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -207,7 +212,14 @@ fun AppointmentBookingScreen(
                             showDoctorProfile = doctor
                         }
                     )
-                    2 -> DateTimeSelectionStep(
+                    2 -> ConsultationDetailsStep(
+                        selectedType = selectedType,
+                        notes = notes,
+                        onTypeChanged = { selectedType = it },
+                        onNotesChanged = { notes = it },
+                        onContinue = { currentStep = 3 }
+                    )
+                    3 -> DateTimeSelectionStep(
                         doctor = selectedDoctor!!,
                         availableDates = availableDates,
                         appointmentState = appointmentState,
@@ -227,17 +239,15 @@ fun AppointmentBookingScreen(
                             )
                         },
                         onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
-                        onContinue = { currentStep = 3 }
+                        onContinue = { currentStep = 4 }
                     )
-                    3 -> ConfirmationStep(
+                    4 -> ConfirmationStep(
                         doctor = selectedDoctor!!,
                         date = selectedDate!!,
                         timeSlot = selectedTimeSlot!!,
                         selectedType = selectedType,
                         notes = notes,
                         isBooking = appointmentState.isBooking,
-                        onTypeChanged = { selectedType = it },
-                        onNotesChanged = { notes = it },
                         onConfirm = {
                             val formatted =
                                 selectedDate!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -283,14 +293,14 @@ private fun StepIndicator(currentStep: Int) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        for (step in 1..3) {
+        for (step in 1..4) {
             val isActive = step <= currentStep
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isActive) SwastikPurple
+                        if (isActive) SwastikPrimary
                         else Color.LightGray.copy(alpha = 0.5f)
                     ),
                 contentAlignment = Alignment.Center
@@ -311,7 +321,7 @@ private fun StepIndicator(currentStep: Int) {
                     )
                 }
             }
-            if (step < 3) {
+            if (step < 4) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -319,7 +329,7 @@ private fun StepIndicator(currentStep: Int) {
                         .padding(horizontal = 4.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
-                            if (step < currentStep) SwastikPurple
+                            if (step < currentStep) SwastikPrimary
                             else Color.LightGray.copy(alpha = 0.3f)
                         )
                 )
@@ -384,7 +394,7 @@ private fun DoctorSelectionStep(
                             // ignore
                         }
                     }) {
-                        Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPurple)
+                        Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPrimary)
                     }
                 }
             },
@@ -414,7 +424,7 @@ private fun DoctorSelectionStep(
                     },
                     label = { Text(spec, fontSize = 13.sp) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = SwastikPurple,
+                        selectedContainerColor = SwastikPrimary,
                         selectedLabelColor = Color.White
                     )
                 )
@@ -429,7 +439,7 @@ private fun DoctorSelectionStep(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             }
             uiState.error != null -> {
@@ -498,93 +508,110 @@ private fun DoctorBookingCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.Top) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(SwastikPurpleLight),
+                        .size(64.dp)
+                        .background(SwastikPrimaryLight, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.string_2), fontSize = 28.sp)
+                    Text(stringResource(R.string.string_2), fontSize = 32.sp)
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Verified",
+                        tint = SwastikPrimary,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 6.dp, y = 6.dp)
+                            .background(Color.White, CircleShape)
+                    )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = doctor.name,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = doctor.specialization,
                         fontSize = 14.sp,
-                        color = SwastikPurple
+                        fontWeight = FontWeight.Medium,
+                        color = SwastikPrimary
                     )
-                    doctor.experienceYears?.let {
-                        Text(
-                            text = "$it yrs experience",
-                            fontSize = 13.sp,
-                            color = Color.Gray
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = doctor.experienceYears?.let { "$it+ Yrs Exp" } ?: "8+ Yrs Exp",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // Rating badge
+                Surface(
+                    color = Color(0xFFFFF8E1),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    ) {
                         Icon(
                             Icons.Filled.Star,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(12.dp),
                             tint = Color(0xFFFFB800)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = doctor.averageRating?.let {
                                 String.format(Locale.US, "%.1f", it)
-                            } ?: "N/A",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    if (doctor.distanceKm != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.LocationOn,
-                                contentDescription = "Distance",
-                                tint = SwastikPurple,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${doctor.distanceKm} km",
-                                color = SwastikPurple,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                    doctor.consultationFee?.let {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "₹$it",
-                            color = SwastikPurple,
-                            fontWeight = FontWeight.Bold
+                            } ?: "4.8",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFB28900)
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onSelect,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(stringResource(R.string.view_profile))
+                Column {
+                    Text(
+                        text = "Consultation Fee",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = doctor.consultationFee?.let { "₹$it" } ?: "Free",
+                        color = SwastikPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+                
+                OutlinedButton(
+                    onClick = onSelect,
+                    modifier = Modifier.height(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
+                    border = BorderStroke(1.5.dp, SwastikPrimary)
+                ) {
+                    Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
             }
         }
     }
@@ -600,13 +627,15 @@ private fun DoctorProfileSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White
+        containerColor = Color.White,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 32.dp)
         ) {
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -615,108 +644,138 @@ private fun DoctorProfileSheet(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(SwastikPurpleLight),
+                        .size(88.dp)
+                        .background(SwastikPrimaryLight, RoundedCornerShape(24.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.string_2), fontSize = 40.sp)
+                    Text(stringResource(R.string.string_2), fontSize = 48.sp)
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Verified",
+                        tint = SwastikPrimary,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 6.dp, y = 6.dp)
+                            .background(Color.White, CircleShape)
+                    )
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(20.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = doctor.name,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
+                        fontSize = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = doctor.specialization,
-                        fontSize = 16.sp,
-                        color = SwastikPurple
+                        fontSize = 15.sp,
+                        color = SwastikPrimary,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    doctor.experienceYears?.let {
-                        Text(
-                            text = "$it Years Experience",
-                            fontSize = 14.sp,
-                            color = Color.Gray
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = doctor.qualification ?: "MBBS, MD",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Stats row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                doctor.averageRating?.let {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Star, contentDescription = null, tint = Color(0xFFFFB800), modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(String.format(Locale.US, "%.1f", it), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        }
-                        Text(stringResource(R.string.rating), fontSize = 12.sp, color = Color.Gray)
-                    }
-                }
-                
-                doctor.consultationFee?.let {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("₹$it", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPurple)
-                        Text(stringResource(R.string.consultation_fee), fontSize = 12.sp, color = Color.Gray)
-                    }
-                }
-                
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.english_hindi), fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
-                    Text(stringResource(R.string.languages_spoken), fontSize = 12.sp, color = Color.Gray)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                Text(stringResource(R.string.about_doctor), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "An experienced specialist dedicated to providing excellent patient care and treatment.",
-                    fontSize = 14.sp,
-                    color = Color.DarkGray,
-                    lineHeight = 20.sp
+                DoctorStatCard(
+                    icon = Icons.Filled.Star,
+                    iconTint = Color(0xFFFFB800),
+                    title = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "4.8",
+                    subtitle = stringResource(R.string.rating),
+                    modifier = Modifier.weight(1f)
                 )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (!doctor.qualification.isNullOrBlank()) {
-                    Text(stringResource(R.string.education), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPurple))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(doctor.qualification, fontSize = 14.sp, color = Color.DarkGray)
-                    }
-                }
+                DoctorStatCard(
+                    icon = Icons.Outlined.Work,
+                    iconTint = SwastikPrimary,
+                    title = doctor.experienceYears?.let { "$it+" } ?: "8+",
+                    subtitle = "Years Exp",
+                    modifier = Modifier.weight(1f)
+                )
+                DoctorStatCard(
+                    icon = Icons.Outlined.Payments,
+                    iconTint = Color(0xFF4CAF50),
+                    title = doctor.consultationFee?.let { "₹$it" } ?: "Free",
+                    subtitle = "Fee",
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
+            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(28.dp))
 
+            // About section
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                Text(
+                    stringResource(R.string.about_doctor),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    lineHeight = 22.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            // Book Action
             Button(
                 onClick = onBookClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .height(54.dp),
+                    .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
                 Text(stringResource(R.string.book_appointment), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
+        }
+    }
+}
+
+@Composable
+private fun DoctorStatCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 16.dp, horizontal = 4.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 12.sp, color = Color.Gray)
         }
     }
 }
@@ -751,7 +810,7 @@ private fun DateTimeSelectionStep(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = SwastikPurpleLight.copy(alpha = 0.3f)
+                    containerColor = SwastikPrimaryLight.copy(alpha = 0.3f)
                 )
             ) {
                 Row(
@@ -762,7 +821,7 @@ private fun DateTimeSelectionStep(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(SwastikPurple),
+                            .background(SwastikPrimary),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(stringResource(R.string.string_2), fontSize = 22.sp)
@@ -777,7 +836,7 @@ private fun DateTimeSelectionStep(
                         Text(
                             doctor.specialization,
                             fontSize = 13.sp,
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
                     }
                 }
@@ -801,11 +860,11 @@ private fun DateTimeSelectionStep(
                             .width(68.dp)
                             .clickable { onDateSelected(date) },
                         shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) SwastikPurple
-                        else if (isToday) SwastikPurpleLight.copy(alpha = 0.3f)
+                        color = if (isSelected) SwastikPrimary
+                        else if (isToday) SwastikPrimaryLight.copy(alpha = 0.3f)
                         else MaterialTheme.colorScheme.surfaceVariant,
                         border = if (isToday && !isSelected)
-                            BorderStroke(1.dp, SwastikPurple)
+                            BorderStroke(1.dp, SwastikPrimary)
                         else null
                     ) {
                         Column(
@@ -862,7 +921,7 @@ private fun DateTimeSelectionStep(
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
-                                color = SwastikPurple,
+                                color = SwastikPrimary,
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -940,7 +999,7 @@ private fun DateTimeSelectionStep(
                     .height(52.dp),
                 shape = RoundedCornerShape(14.dp),
                 enabled = selectedDate != null && selectedTimeSlot != null,
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
                 Text(
                     "Continue",
@@ -1033,7 +1092,7 @@ private fun NoSlotsAvailableCard(
                 isSearchingNextAvailable -> {
                     Spacer(modifier = Modifier.height(16.dp))
                     CircularProgressIndicator(
-                        color = SwastikPurple,
+                        color = SwastikPrimary,
                         modifier = Modifier.size(22.dp),
                         strokeWidth = 2.5.dp
                     )
@@ -1049,8 +1108,8 @@ private fun NoSlotsAvailableCard(
                     FilledTonalButton(
                         onClick = { onJumpToSuggestedDate(suggestion) },
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = SwastikPurpleLight.copy(alpha = 0.5f),
-                            contentColor = SwastikPurple
+                            containerColor = SwastikPrimaryLight.copy(alpha = 0.5f),
+                            contentColor = SwastikPrimary
                         )
                     ) {
                         Text(
@@ -1062,7 +1121,7 @@ private fun NoSlotsAvailableCard(
                         Text(
                             "${suggestion.availableSlotCount} open slots from $firstSlot",
                             fontSize = 12.sp,
-                            color = SwastikPurple,
+                            color = SwastikPrimary,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center
                         )
@@ -1144,14 +1203,14 @@ private fun SlotChunkRows(
                             ),
                         shape = RoundedCornerShape(10.dp),
                         color = when {
-                            isSelected -> SwastikPurple
+                            isSelected -> SwastikPrimary
                             !enabled -> Color.LightGray.copy(alpha = 0.3f)
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                         border = if (isSelected) null
                         else BorderStroke(
                             1.dp,
-                            if (enabled) SwastikPurple.copy(alpha = 0.3f)
+                            if (enabled) SwastikPrimary.copy(alpha = 0.3f)
                             else Color.LightGray.copy(alpha = 0.2f)
                         )
                     ) {
@@ -1184,7 +1243,119 @@ private fun SlotChunkRows(
 }
 
 // ────────────────────────────────────────────────────────────────
-// STEP 3 — Confirmation
+// STEP 2 — Consultation Details
+// ────────────────────────────────────────────────────────────────
+@Composable
+private fun ConsultationDetailsStep(
+    selectedType: String,
+    notes: String,
+    onTypeChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
+    onContinue: () -> Unit
+) {
+    val types = listOf(
+        Triple("video", "📹", "Video Consultation"),
+        Triple("in_person", "🏥", "In-Person Visit")
+    )
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text(
+                stringResource(R.string.consultation_type),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                types.forEach { (type, emoji, label) ->
+                    val isSelected = selectedType == type
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onTypeChanged(type) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) SwastikPrimary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        border = if (!isSelected) BorderStroke(
+                            1.dp,
+                            SwastikPrimary.copy(alpha = 0.2f)
+                        ) else null
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(
+                                vertical = 14.dp,
+                                horizontal = 12.dp
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(emoji, fontSize = 24.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = label,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold
+                                else FontWeight.Medium,
+                                color = if (isSelected) Color.White
+                                else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "Notes (optional)",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = notes,
+                onValueChange = onNotesChanged,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                placeholder = {
+                    Text(stringResource(R.string.describe_symptoms_visit))
+                },
+                shape = RoundedCornerShape(12.dp),
+                maxLines = 4
+            )
+        }
+        
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onContinue,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
+                Text(
+                    "Continue",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp
+                )
+            }
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────
+// STEP 4 — Confirmation
 // ────────────────────────────────────────────────────────────────
 @Composable
 private fun ConfirmationStep(
@@ -1194,17 +1365,8 @@ private fun ConfirmationStep(
     selectedType: String,
     notes: String,
     isBooking: Boolean,
-    onTypeChanged: (String) -> Unit,
-    onNotesChanged: (String) -> Unit,
     onConfirm: () -> Unit
 ) {
-    val types = listOf(
-        Triple("video", "📹", "Video Call"),
-        Triple("clinic", "🏥", "Clinic Visit"),
-        Triple("home_visit", "🏠", "Home Visit"),
-        Triple("in_person", "👤", "In Person")
-    )
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -1234,13 +1396,13 @@ private fun ConfirmationStep(
                                 stringResource(R.string.boarding_pass),
                                 fontWeight = FontWeight.Black,
                                 fontSize = 14.sp,
-                                color = SwastikPurple,
+                                color = SwastikPrimary,
                                 letterSpacing = 2.sp
                             )
                             Icon(
                                 Icons.Outlined.CheckCircle,
                                 contentDescription = null,
-                                tint = SwastikPurple,
+                                tint = SwastikPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -1281,7 +1443,20 @@ private fun ConfirmationStep(
                             }
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                 Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                                Text(doctor.consultationFee?.let { "₹$it" } ?: stringResource(R.string.free), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPurple)
+                                Text(doctor.consultationFee?.let { "₹$it" } ?: stringResource(R.string.free), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
+                            }
+                        }
+
+                        if (selectedType.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                    Text(if (selectedType == "video") "📹 Video" else "🏥 In-Person", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
+                                }
                             }
                         }
                     }
@@ -1326,79 +1501,6 @@ private fun ConfirmationStep(
             }
         }
 
-        // Appointment type selector
-        item {
-            Text(
-                stringResource(R.string.consultation_type),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                types.forEach { (type, emoji, label) ->
-                    val isSelected = selectedType == type
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onTypeChanged(type) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) SwastikPurple
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (!isSelected) BorderStroke(
-                            1.dp,
-                            SwastikPurple.copy(alpha = 0.2f)
-                        ) else null
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(
-                                vertical = 12.dp,
-                                horizontal = 4.dp
-                            ),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(emoji, fontSize = 22.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = label,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold
-                                else FontWeight.Normal,
-                                color = if (isSelected) Color.White
-                                else MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Notes
-        item {
-            Text(
-                "Notes (optional)",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = notes,
-                onValueChange = onNotesChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
-                placeholder = {
-                    Text(stringResource(R.string.describe_symptoms_visit))
-                },
-                shape = RoundedCornerShape(12.dp),
-                maxLines = 4
-            )
-        }
-
         // Confirm button
         item {
             Spacer(modifier = Modifier.height(8.dp))
@@ -1410,7 +1512,7 @@ private fun ConfirmationStep(
                 shape = RoundedCornerShape(14.dp),
                 enabled = !isBooking,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SwastikPurple
+                    containerColor = SwastikPrimary
                 )
             ) {
                 if (isBooking) {

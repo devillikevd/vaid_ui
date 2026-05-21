@@ -29,9 +29,11 @@ import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.ui.viewmodel.UploadState
-import com.example.swastik.ui.theme.SwastikPurple
-import com.example.swastik.ui.theme.SwastikPurpleLight
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.components.RecordsListShimmer
+import com.example.swastik.ui.screens.patient.components.LottieEmptyState
+import com.example.swastik.ui.screens.patient.components.BezierCurveChart
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -150,7 +152,7 @@ fun RecordsTabContent(
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = { viewModel.loadRecords() },
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -159,15 +161,15 @@ fun RecordsTabContent(
                         }
                     }
                 } else if (consultations.isEmpty() && prescriptions.isEmpty() && documents.isEmpty()) {
-                    // Empty state
-                    com.example.swastik.ui.components.EmptyStateView(
+                    // Empty state with Lottie
+                    LottieEmptyState(
                         title = stringResource(R.string.no_medical_records_yet),
                         subtitle = stringResource(R.string.upload_reports_or_consult),
-                        icon = Icons.Outlined.FolderOpen
+                        lottieUrl = "https://assets10.lottiefiles.com/packages/lf20_ch9qxg.json"
                     ) {
                         OutlinedButton(
                             onClick = { showUploadDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
                         ) {
                             Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
@@ -281,14 +283,14 @@ private fun RecordsHeader(
             modifier = Modifier
                 .size(45.dp)
                 .clip(CircleShape)
-                .background(SwastikPurple.copy(alpha = 0.2f)),
+                .background(colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 profile?.initials?.ifEmpty { "👤" } ?: "👤",
                 fontSize = if (profile?.initials?.isNotEmpty() == true) 16.sp else 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = SwastikPurple
+                color = colorScheme.onPrimaryContainer
             )
         }
 
@@ -308,7 +310,7 @@ private fun RecordsHeader(
         Spacer(modifier = Modifier.weight(1f))
 
         IconButton(onClick = onUploadClick) {
-            Icon(Icons.Outlined.CloudUpload, contentDescription = stringResource(R.string.upload), tint = SwastikPurple)
+            Icon(Icons.Outlined.CloudUpload, contentDescription = stringResource(R.string.upload), tint = SwastikPrimary)
         }
 
         Box {
@@ -319,7 +321,7 @@ private fun RecordsHeader(
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(Color.Red, CircleShape)
+                        .background(colorScheme.error, CircleShape)
                         .align(Alignment.TopEnd)
                         .offset(x = (-8).dp, y = 8.dp)
                 )
@@ -351,8 +353,8 @@ private fun RecordsFilterRow(
                 onClick = { onFilterSelected(filter) },
                 label = { Text(label, fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White,
+                    selectedContainerColor = colorScheme.primary,
+                    selectedLabelColor = colorScheme.onPrimary,
                     containerColor = colorScheme.surface,
                     labelColor = colorScheme.onSurfaceVariant
                 )
@@ -372,7 +374,7 @@ private fun SectionHeader(title: String, actionText: String?, onAction: (() -> U
         Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
         if (actionText != null) {
             TextButton(onClick = { onAction?.invoke() }) {
-                Text(actionText, color = SwastikPurple, fontSize = 13.sp)
+                Text(actionText, color = SwastikPrimary, fontSize = 13.sp)
             }
         }
     }
@@ -416,7 +418,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
                         modifier = Modifier
                             .size(45.dp)
                             .clip(CircleShape)
-                            .background(SwastikPurple.copy(alpha = 0.1f)),
+                            .background(colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(consultation.doctorEmoji, fontSize = 22.sp)
@@ -433,7 +435,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(consultation.diagnosis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
             }
@@ -465,13 +467,13 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     modifier = Modifier
                         .size(45.dp)
                         .clip(CircleShape)
-                        .background(SwastikPurple.copy(alpha = 0.1f)),
+                        .background(colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Outlined.Medication,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -491,10 +493,10 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = when ((prescription.status ?: "").lowercase()) {
-                        "active" -> Color(0xFFE8F5E9)
-                        "expired", "cancelled" -> Color(0xFFFFEBEE)
-                        "fulfilled", "dispensed" -> Color(0xFFE3F2FD)
-                        else -> SwastikPurple.copy(alpha = 0.1f)
+                        "active" -> colorScheme.primaryContainer
+                        "expired", "cancelled" -> colorScheme.errorContainer
+                        "fulfilled", "dispensed" -> colorScheme.secondaryContainer
+                        else -> colorScheme.surfaceVariant
                     }
                 ) {
                     Text(
@@ -502,10 +504,10 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         fontSize = 11.sp,
                         color = when ((prescription.status ?: "").lowercase()) {
-                            "active" -> Color(0xFF2E7D32)
-                            "expired", "cancelled" -> Color(0xFFC62828)
-                            "fulfilled", "dispensed" -> Color(0xFF1565C0)
-                            else -> SwastikPurple
+                            "active" -> colorScheme.onPrimaryContainer
+                            "expired", "cancelled" -> colorScheme.onErrorContainer
+                            "fulfilled", "dispensed" -> colorScheme.onSecondaryContainer
+                            else -> colorScheme.onSurfaceVariant
                         }
                     )
                 }
@@ -533,7 +535,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     Text(
                         text = stringResource(R.string.more_medicines_format, prescription.medicines.size - 3),
                         fontSize = 12.sp,
-                        color = SwastikPurple,
+                        color = SwastikPrimary,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -559,7 +561,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
-                .background(SwastikPurple),
+                .background(SwastikPrimary),
             contentAlignment = Alignment.Center
         ) {
             Text("$index", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -571,18 +573,18 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
             Text(prescription.medicineName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(color = Color(0xFFE3F2FD), shape = RoundedCornerShape(6.dp)) {
+                Surface(color = colorScheme.secondaryContainer, shape = RoundedCornerShape(6.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Medication, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Outlined.Medication, contentDescription = null, tint = colorScheme.onSecondaryContainer, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(prescription.dosage, fontSize = 11.sp, color = Color(0xFF1976D2))
+                        Text(prescription.dosage, fontSize = 11.sp, color = colorScheme.onSecondaryContainer)
                     }
                 }
-                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(6.dp)) {
+                Surface(color = colorScheme.tertiaryContainer, shape = RoundedCornerShape(6.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Schedule, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Outlined.Schedule, contentDescription = null, tint = colorScheme.onTertiaryContainer, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(prescription.frequency, fontSize = 11.sp, color = Color(0xFF4CAF50))
+                        Text(prescription.frequency, fontSize = 11.sp, color = colorScheme.onTertiaryContainer)
                     }
                 }
             }
@@ -629,13 +631,13 @@ private fun DocumentItem(document: MedicalDocument) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(getDocumentTypeColor(document.type)),
+                    .background(getDocumentTypeColor(document.type, colorScheme)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = getDocumentTypeIcon(document.type),
                     contentDescription = null,
-                    tint = getDocumentTypeIconColor(document.type),
+                    tint = getDocumentTypeIconColor(document.type, colorScheme),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -664,19 +666,19 @@ private fun DocumentItem(document: MedicalDocument) {
                     Toast.makeText(context, context.getString(R.string.no_file_available), Toast.LENGTH_SHORT).show()
                 }
             }) {
-                Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.download), tint = SwastikPurple)
+                Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.download), tint = SwastikPrimary)
             }
         }
     }
 }
 
-private fun getDocumentTypeColor(type: DocumentType): Color = when (type) {
-    DocumentType.LAB_REPORT -> Color(0xFFE3F2FD)
-    DocumentType.PRESCRIPTION -> Color(0xFFE8F5E9)
-    DocumentType.SCAN -> Color(0xFFFFF3E0)
-    DocumentType.DISCHARGE_SUMMARY -> Color(0xFFF3E5F5)
-    DocumentType.VACCINATION -> Color(0xFFE0F7FA)
-    else -> Color(0xFFF5F5F5)
+private fun getDocumentTypeColor(type: DocumentType, colorScheme: ColorScheme): Color = when (type) {
+    DocumentType.LAB_REPORT -> colorScheme.secondaryContainer
+    DocumentType.PRESCRIPTION -> colorScheme.primaryContainer
+    DocumentType.SCAN -> colorScheme.tertiaryContainer
+    DocumentType.DISCHARGE_SUMMARY -> colorScheme.errorContainer
+    DocumentType.VACCINATION -> colorScheme.secondaryContainer
+    else -> colorScheme.surfaceVariant
 }
 
 private fun getDocumentTypeIcon(type: DocumentType) = when (type) {
@@ -688,13 +690,13 @@ private fun getDocumentTypeIcon(type: DocumentType) = when (type) {
     else -> Icons.Outlined.Description
 }
 
-private fun getDocumentTypeIconColor(type: DocumentType): Color = when (type) {
-    DocumentType.LAB_REPORT -> Color(0xFF1976D2)
-    DocumentType.PRESCRIPTION -> Color(0xFF4CAF50)
-    DocumentType.SCAN -> Color(0xFFFF9800)
-    DocumentType.DISCHARGE_SUMMARY -> Color(0xFF6C63FF)
-    DocumentType.VACCINATION -> Color(0xFF00ACC1)
-    else -> Color.Gray
+private fun getDocumentTypeIconColor(type: DocumentType, colorScheme: ColorScheme): Color = when (type) {
+    DocumentType.LAB_REPORT -> colorScheme.onSecondaryContainer
+    DocumentType.PRESCRIPTION -> colorScheme.onPrimaryContainer
+    DocumentType.SCAN -> colorScheme.onTertiaryContainer
+    DocumentType.DISCHARGE_SUMMARY -> colorScheme.onErrorContainer
+    DocumentType.VACCINATION -> colorScheme.onSecondaryContainer
+    else -> colorScheme.onSurfaceVariant
 }
 
 private enum class RecordFilter {
@@ -750,7 +752,7 @@ private fun UploadReportDialog(
                 Icon(
                     Icons.Outlined.CloudUpload,
                     contentDescription = null,
-                    tint = SwastikPurple,
+                    tint = SwastikPrimary,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -843,7 +845,7 @@ private fun UploadReportDialog(
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.uploading), fontSize = 13.sp, color = Color.Gray)
@@ -864,7 +866,7 @@ private fun UploadReportDialog(
                     onUpload(selectedUri, defaultName, selectedType, normalizedUrl)
                 },
                 enabled = (selectedUri != null || manualUrl.isNotBlank()) && !isUploading,
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
                 Text(stringResource(R.string.upload))
             }

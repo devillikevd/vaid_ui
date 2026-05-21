@@ -53,7 +53,7 @@ fun EmergencyContactsDialog(
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Contact",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             }
@@ -64,11 +64,11 @@ fun EmergencyContactsDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.05f)),
-                        border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
+                        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.05f)),
+                        border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(stringResource(R.string.add_emergency_contact), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_emergency_contact), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPrimary)
                             OutlinedTextField(
                                 value = newName, onValueChange = { newName = it },
                                 label = { Text(stringResource(R.string.name)) }, modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun EmergencyContactsDialog(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                                 enabled = newName.isNotBlank() && newPhone.isNotBlank() && newRelation.isNotBlank()
                             ) { Text(stringResource(R.string.add_contact)) }
                         }
@@ -144,7 +144,7 @@ fun EmergencyContactsDialog(
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
@@ -201,7 +201,7 @@ fun FamilyMembersDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.FamilyRestroom, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.FamilyRestroom, null, tint = SwastikPrimary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.family_members), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
@@ -209,7 +209,7 @@ fun FamilyMembersDialog(
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Member",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             }
@@ -220,11 +220,11 @@ fun FamilyMembersDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.05f)),
-                        border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
+                        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.05f)),
+                        border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(stringResource(R.string.add_family_member), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_family_member), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPrimary)
                             OutlinedTextField(
                                 value = newName, onValueChange = { newName = it },
                                 label = { Text(stringResource(R.string.name)) }, modifier = Modifier.fillMaxWidth(),
@@ -251,7 +251,7 @@ fun FamilyMembersDialog(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                                 enabled = newName.isNotBlank() && newRelation.isNotBlank()
                             ) { Text(stringResource(R.string.add_member)) }
                         }
@@ -274,7 +274,7 @@ fun FamilyMembersDialog(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.06f))
+                            colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.06f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -282,10 +282,10 @@ fun FamilyMembersDialog(
                             ) {
                                 Box(
                                     modifier = Modifier.size(40.dp).clip(CircleShape)
-                                        .background(SwastikPurple.copy(alpha = 0.15f)),
+                                        .background(SwastikPrimary.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(member.name.take(1).uppercase(), color = SwastikPurple, fontWeight = FontWeight.Bold)
+                                    Text(member.name.take(1).uppercase(), color = SwastikPrimary, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
@@ -305,7 +305,7 @@ fun FamilyMembersDialog(
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
@@ -358,7 +358,7 @@ fun SavedAddressesDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocationOn, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.LocationOn, null, tint = SwastikPrimary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.saved_addresses), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
@@ -366,7 +366,7 @@ fun SavedAddressesDialog(
                     Icon(
                         if (showAddForm) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Address",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             }
@@ -377,11 +377,11 @@ fun SavedAddressesDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.05f)),
-                        border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.2f))
+                        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.05f)),
+                        border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.2f))
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(stringResource(R.string.add_address), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                            Text(stringResource(R.string.add_address), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPrimary)
                             OutlinedTextField(
                                 value = newLabel, onValueChange = { newLabel = it },
                                 label = { Text(stringResource(R.string.label_e_g_home_office)) },
@@ -403,7 +403,7 @@ fun SavedAddressesDialog(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                                 enabled = newLabel.isNotBlank() && newAddress.isNotBlank()
                             ) { Text(stringResource(R.string.save_address)) }
                         }
@@ -435,7 +435,7 @@ fun SavedAddressesDialog(
                                 Icon(
                                     if (address.label.lowercase() == "home") Icons.Outlined.Home else Icons.Outlined.Business,
                                     null,
-                                    tint = SwastikPurple
+                                    tint = SwastikPrimary
                                 )
                                 Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
@@ -452,7 +452,7 @@ fun SavedAddressesDialog(
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)

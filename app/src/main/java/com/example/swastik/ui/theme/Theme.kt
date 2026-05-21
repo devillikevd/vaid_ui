@@ -17,14 +17,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = SwastikPurple,
+    primary = SwastikPrimary,
     onPrimary = Color.White,
-    primaryContainer = SwastikPurpleLight,
-    onPrimaryContainer = SwastikPurpleDark,
-    secondary = SwastikGreen,
-    onSecondary = Color.White,
-    tertiary = SwastikBlue,
-    onTertiary = Color.White,
+    primaryContainer = SwastikPrimaryLight,
+    onPrimaryContainer = SwastikPrimaryDark,
+    secondary = SwastikSecondary,
+    onSecondary = Color.Black,
+    tertiary = SwastikNeutral,
+    onTertiary = TextPrimary,
     background = BackgroundLight,
     onBackground = TextPrimary,
     surface = SurfaceLight,
@@ -35,21 +35,23 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = SwastikPurple,
-    onPrimary = Color.White,
-    primaryContainer = SwastikPurpleDark,
-    onPrimaryContainer = SwastikPurpleLight,
-    secondary = SwastikGreen,
-    onSecondary = Color.White,
-    tertiary = SwastikBlue,
-    onTertiary = Color.White,
+    primary = SwastikSecondary, // Use lighter teal in dark mode for contrast
+    onPrimary = Color(0xFF00332D),
+    primaryContainer = SwastikPrimary,
+    onPrimaryContainer = Color(0xFFE0F2F1),
+    secondary = SwastikSecondary,
+    onSecondary = Color(0xFF00332D),
+    tertiary = SwastikSecondary,
+    onTertiary = Color(0xFF00332D),
     background = BackgroundDark,
-    onBackground = Color.White,
+    onBackground = Color(0xFFE1E2E4),
     surface = SurfaceDark,
-    onSurface = Color.White,
-    error = SwastikRed,
-    onError = Color.White,
-    outline = TextHint
+    onSurface = Color(0xFFE1E2E4),
+    surfaceVariant = SurfaceElevatedDark,
+    onSurfaceVariant = Color(0xFFB0B3B8),
+    error = Color(0xFFCF6679),
+    onError = Color.Black,
+    outline = Color(0xFF4A4D51)
 )
 
 @Composable

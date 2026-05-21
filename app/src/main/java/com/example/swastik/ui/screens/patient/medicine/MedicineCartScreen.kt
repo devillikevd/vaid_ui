@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.CartItem
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.utils.NavigationHelper
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
@@ -61,7 +61,7 @@ fun MedicineCartScreen(
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = SwastikPurple.copy(alpha = 0.08f)
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Column(
                             modifier = Modifier
@@ -71,7 +71,7 @@ fun MedicineCartScreen(
                             Text(
                                 text = "Selected Pharmacy",
                                 fontSize = 12.sp,
-                                color = SwastikPurple
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -115,7 +115,7 @@ fun MedicineCartScreen(
                         viewModel.resetOrderSuccess()
                         onOrderComplete()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
@@ -154,7 +154,7 @@ fun MedicineCartScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = MaterialTheme.colorScheme.surface, navigationIconContentColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         }
     ) { padding ->
@@ -175,7 +175,7 @@ fun MedicineCartScreen(
                     Spacer(Modifier.height(24.dp))
                     Button(
                         onClick = onBackClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                     ) { Text(stringResource(R.string.browse_medicines)) }
                 }
             }
@@ -197,15 +197,15 @@ fun MedicineCartScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.05f))
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.LocalPharmacy, null, tint = SwastikPurple)
+                                    Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(name, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
+                                    Text(name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 }
                             }
                             Spacer(Modifier.height(8.dp))
@@ -262,6 +262,7 @@ fun MedicineCartScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(8.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
@@ -271,7 +272,7 @@ fun MedicineCartScreen(
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(stringResource(R.string.total), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPurple)
+                            Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
                         }
                         Spacer(Modifier.height(12.dp))
 
@@ -286,7 +287,7 @@ fun MedicineCartScreen(
                                 .fillMaxWidth()
                                 .height(52.dp),
                             enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && cartState.deliveryAddress.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             if (cartState.isOrdering) {
@@ -313,6 +314,7 @@ private fun CartItemCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(
@@ -323,10 +325,10 @@ private fun CartItemCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Medication, null, tint = SwastikPurple, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Medication, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -354,7 +356,7 @@ private fun CartItemCard(
                 }
             }
             Spacer(Modifier.width(4.dp))
-            Text("₹${item.totalPrice.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple)
+            Text("₹${item.totalPrice.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary)
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Close, "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }

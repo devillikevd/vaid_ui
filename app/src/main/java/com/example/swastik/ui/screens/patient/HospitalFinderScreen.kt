@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.example.swastik.ui.screens.patient.components.shimmerEffect
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -39,7 +40,7 @@ import com.example.swastik.data.remote.dto.ClinicDoctorDto
 import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.ui.viewmodel.HospitalFinderViewModel
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.utils.NavigationHelper
 import com.example.swastik.ui.components.OsmMapView
 import com.example.swastik.ui.components.MapMarkerData
@@ -179,10 +180,11 @@ fun HospitalFinderScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Colors based on mode
-    val backgroundColor = if (resolvedDarkMode) Color(0xFF121212) else Color.White
-    val surfaceColor = if (resolvedDarkMode) Color(0xFF1E1E1E) else Color.White
-    val textColor = if (resolvedDarkMode) Color.White else Color.Black
+    // Colors based on MaterialTheme
+    val colorScheme = MaterialTheme.colorScheme
+    val backgroundColor = colorScheme.background
+    val surfaceColor = colorScheme.surface
+    val textColor = colorScheme.onBackground
     val resetFilters = {
         selectedFacilityTypeOverride = null
         searchQuery = ""
@@ -342,17 +344,19 @@ fun HospitalFinderScreen(
                 }
 
                 if (hospitalState.isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = SwastikPurple)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                "Finding nearby facilities...",
-                                color = textColor,
-                                fontSize = 14.sp
+                        repeat(4) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .shimmerEffect(baseColor = MaterialTheme.colorScheme.surfaceVariant, highlightColor = Color.Gray.copy(alpha=0.1f))
                             )
                         }
                     }
@@ -381,7 +385,7 @@ fun HospitalFinderScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = { viewModel.fetchLocationAndLoad(selectedFacilityType) },
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) {
                                 Text(stringResource(R.string.retry))
                             }
@@ -407,7 +411,7 @@ fun HospitalFinderScreen(
                                 .padding(16.dp)
                                 .padding(bottom = 180.dp),
                             containerColor = surfaceColor,
-                            contentColor = SwastikPurple
+                            contentColor = MaterialTheme.colorScheme.primary
                         ) {
                             Icon(Icons.Default.MyLocation, contentDescription = "My Location")
                         }
@@ -506,7 +510,7 @@ fun HospitalFinderScreen(
                         confirmButton = {
                             Button(
                                 onClick = { medicineViewModel.resolvePharmacyConflict(true) },
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) { Text(stringResource(R.string.clear_and_add)) }
                         },
                         dismissButton = {
@@ -763,8 +767,9 @@ private fun FilterBottomSheet(
     onApplyFilters: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val textColor = if (isDarkMode) Color.White else Color.Black
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val colorScheme = MaterialTheme.colorScheme
+    val textColor = colorScheme.onSurface
+    val cardColor = colorScheme.surfaceVariant
 
     Column(
         modifier = Modifier
@@ -791,7 +796,7 @@ private fun FilterBottomSheet(
                 onHospitalTypeChange(null)
                 onEmergencyServicesChange(false)
             }) {
-                Text(stringResource(R.string.reset), color = SwastikPurple)
+                Text(stringResource(R.string.reset), color = SwastikPrimary)
             }
         }
 
@@ -813,7 +818,7 @@ private fun FilterBottomSheet(
                         "${distanceFilter.toInt()} km",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = SwastikPurple
+                        color = SwastikPrimary
                     )
                     Text("${MAX_DISCOVERY_RADIUS_KM.toInt()} km", fontSize = 12.sp, color = Color.Gray)
                 }
@@ -823,8 +828,8 @@ private fun FilterBottomSheet(
                     valueRange = 1f..MAX_DISCOVERY_RADIUS_KM,
                     steps = 23,
                     colors = SliderDefaults.colors(
-                        thumbColor = SwastikPurple,
-                        activeTrackColor = SwastikPurple
+                        thumbColor = SwastikPrimary,
+                        activeTrackColor = SwastikPrimary
                     )
                 )
             }
@@ -853,7 +858,7 @@ private fun FilterBottomSheet(
                     onCheckedChange = onOpenNowChange,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = SwastikPurple
+                        checkedTrackColor = SwastikPrimary
                     )
                 )
             }
@@ -892,7 +897,7 @@ private fun FilterBottomSheet(
                             }
                         } else null,
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SwastikPurple,
+                            selectedContainerColor = SwastikPrimary,
                             selectedLabelColor = Color.White
                         )
                     )
@@ -920,7 +925,7 @@ private fun FilterBottomSheet(
                             onClick = { onHospitalTypeChange(type) },
                             label = { Text(type ?: "All", fontSize = 13.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = SwastikPurple,
+                                selectedContainerColor = SwastikPrimary,
                                 selectedLabelColor = Color.White
                             ),
                             modifier = Modifier.weight(1f)
@@ -968,7 +973,7 @@ private fun FilterBottomSheet(
                 .fillMaxWidth()
                 .height(52.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
             Icon(Icons.Default.FilterList, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
@@ -994,7 +999,7 @@ private fun FilterSectionCard(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = SwastikPurple,
+                    tint = SwastikPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1002,7 +1007,7 @@ private fun FilterSectionCard(
                     title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -1100,7 +1105,7 @@ private fun FacilityDetailSheet(
                 Icon(
                     Icons.Outlined.LocationOn,
                     contentDescription = null,
-                    tint = SwastikPurple,
+                    tint = SwastikPrimary,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
@@ -1134,7 +1139,7 @@ private fun FacilityDetailSheet(
             QuickActionButton(
                 icon = Icons.Default.CalendarMonth,
                 label = stringResource(R.string.book),
-                color = SwastikPurple,
+                color = SwastikPrimary,
                 modifier = Modifier.weight(1f),
                 onClick = onBookAppointment
             )
@@ -1202,7 +1207,7 @@ private fun FacilityDetailSheet(
                 Icon(
                     Icons.Outlined.Place,
                     contentDescription = null,
-                    tint = SwastikPurple
+                    tint = SwastikPrimary
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -1224,7 +1229,7 @@ private fun FacilityDetailSheet(
                     Icon(
                         Icons.Default.Directions,
                         contentDescription = "Directions",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             }
@@ -1284,13 +1289,13 @@ private fun FacilityDetailSheet(
                 items(facility.departments) { department ->
                     Box(
                         modifier = Modifier
-                            .background(SwastikPurple.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                            .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = department,
                             fontSize = 12.sp,
-                            color = SwastikPurple,
+                            color = SwastikPrimary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -1310,7 +1315,7 @@ private fun FacilityDetailSheet(
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
@@ -1441,7 +1446,7 @@ private fun DoctorCard(
                 modifier = Modifier
                     .size(60.dp)
                     .clip(CircleShape)
-                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                    .background(SwastikPrimary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(doctor.imageEmoji, fontSize = 28.sp)
@@ -1496,7 +1501,7 @@ private fun DoctorCard(
                     Text(
                         "₹${doctor.consultationFee}",
                         fontSize = 14.sp,
-                        color = SwastikPurple,
+                        color = SwastikPrimary,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -1531,7 +1536,7 @@ private fun DoctorCard(
                 onClick = onBook,
                 modifier = Modifier.height(40.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                 contentPadding = PaddingValues(horizontal = 20.dp)
             ) {
                 Text(stringResource(R.string.book), fontSize = 14.sp)
@@ -1752,27 +1757,27 @@ private fun MedicalStoreDetailSheet(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .clickable { onViewCart() },
-                colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.1f)),
+                colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.1f)),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = SwastikPurple)
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = SwastikPrimary)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "$cartItemCount item(s) in cart",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp,
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
-                        Text("From ${facility.name}", fontSize = 12.sp, color = SwastikPurple.copy(alpha = 0.7f))
+                        Text("From ${facility.name}", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
                     }
                     Button(
                         onClick = onViewCart,
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -1844,12 +1849,12 @@ private fun MedicalStoreDetailSheet(
                 .padding(horizontal = 20.dp),
             shape = RoundedCornerShape(12.dp),
             border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = Brush.linearGradient(listOf(SwastikPurple, SwastikPurple))
+                brush = Brush.linearGradient(listOf(SwastikPrimary, SwastikPrimary))
             )
         ) {
-            Icon(Icons.Default.History, contentDescription = null, tint = SwastikPurple)
+            Icon(Icons.Default.History, contentDescription = null, tint = SwastikPrimary)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.my_orders), color = SwastikPurple)
+            Text(stringResource(R.string.my_orders), color = SwastikPrimary)
         }
     }
 }
@@ -1989,7 +1994,7 @@ private fun PharmacyInventoryCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(
-                                if (showAdded) Color(0xFF4CAF50) else SwastikPurple
+                                if (showAdded) Color(0xFF4CAF50) else SwastikPrimary
                             )
                             .clickable {
                                 onAddToCart()
@@ -2124,7 +2129,7 @@ private fun ClinicDetailSheet(
                 onClick = { NavigationHelper.openDirections(clinicContext, facility.latitude, facility.longitude, facility.name) }
             )
             QuickActionButton(
-                icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPurple,
+                icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPrimary,
                 modifier = Modifier.weight(1f),
                 onClick = onBookAppointment
             )
@@ -2919,7 +2924,7 @@ private fun EmptyStateView(
         Box(
             modifier = Modifier
                 .size(150.dp)
-                .background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
+                .background(SwastikPrimary.copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -2951,7 +2956,7 @@ private fun EmptyStateView(
         Button(
             onClick = onRefreshNearby,
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
             Icon(
                 Icons.Default.MyLocation,
@@ -2968,16 +2973,16 @@ private fun EmptyStateView(
             onClick = onResetFilters,
             shape = RoundedCornerShape(12.dp),
             border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = Brush.linearGradient(listOf(SwastikPurple, SwastikPurple))
+                brush = Brush.linearGradient(listOf(SwastikPrimary, SwastikPrimary))
             )
         ) {
             Icon(
                 Icons.Default.Refresh,
                 contentDescription = null,
-                tint = SwastikPurple
+                tint = SwastikPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.reset_filters), color = SwastikPurple)
+            Text(stringResource(R.string.reset_filters), color = SwastikPrimary)
         }
     }
 }
@@ -3027,7 +3032,7 @@ private fun MapEmptyStateCard(
                 Button(
                     onClick = onRefreshNearby,
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.MyLocation, contentDescription = null)
@@ -3039,9 +3044,9 @@ private fun MapEmptyStateCard(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPurple)
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.reset), color = SwastikPurple)
+                    Text(stringResource(R.string.reset), color = SwastikPrimary)
                 }
             }
         }
@@ -3104,7 +3109,7 @@ private fun SearchBarSection(
                     Icon(
                         Icons.Default.Mic,
                         contentDescription = "Voice Search",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             },
@@ -3114,7 +3119,7 @@ private fun SearchBarSection(
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedBorderColor = Color.Transparent,
-                focusedBorderColor = SwastikPurple,
+                focusedBorderColor = SwastikPrimary,
                 unfocusedContainerColor = containerColor,
                 focusedContainerColor = containerColor
             ),
@@ -3134,7 +3139,7 @@ private fun SearchBarSection(
             Icon(
                 Icons.Default.Tune,
                 contentDescription = "Filter",
-                tint = SwastikPurple
+                tint = SwastikPrimary
             )
         }
     }
@@ -3167,7 +3172,7 @@ private fun FilterChipsSection(
                     }
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
+                    selectedContainerColor = SwastikPrimary,
                     selectedLabelColor = Color.White
                 )
             )
@@ -3366,7 +3371,7 @@ private fun FacilityMapCard(
                         .weight(1f)
                         .clip(RoundedCornerShape(8.dp))
                         .clickable { onClick() },
-                    color = SwastikPurple.copy(alpha = 0.1f),
+                    color = SwastikPrimary.copy(alpha = 0.1f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
@@ -3377,7 +3382,7 @@ private fun FacilityMapCard(
                         Icon(
                             Icons.Default.ChevronRight,
                             contentDescription = "Details",
-                            tint = SwastikPurple,
+                            tint = SwastikPrimary,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -3385,7 +3390,7 @@ private fun FacilityMapCard(
                             "Details",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
                     }
                 }
@@ -3469,7 +3474,7 @@ private fun FacilityListCard(
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = null,
-                            tint = SwastikPurple,
+                            tint = SwastikPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
@@ -3625,7 +3630,7 @@ private fun InfoCard(
             Icon(
                 icon,
                 contentDescription = null,
-                tint = SwastikPurple,
+                tint = SwastikPrimary,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))

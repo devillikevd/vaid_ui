@@ -26,8 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikGreen
-import com.example.swastik.ui.theme.SwastikPurple
-import com.example.swastik.ui.theme.SwastikPurpleLight
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
 
 @Composable
 fun HomeScreen(
@@ -52,9 +52,9 @@ fun HomeScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        SwastikPurple,
-                        SwastikPurple.copy(alpha = 0.85f),
-                        SwastikPurpleLight.copy(alpha = 0.7f)
+                        SwastikPrimary,
+                        SwastikPrimary.copy(alpha = 0.85f),
+                        SwastikPrimaryLight.copy(alpha = 0.7f)
                     )
                 )
             )
@@ -171,7 +171,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .height(60.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                 ) {
                     Row(
@@ -200,9 +200,9 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
                     border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple.copy(alpha = 0.28f))
+                        brush = androidx.compose.ui.graphics.SolidColor(SwastikPrimary.copy(alpha = 0.28f))
                     )
                 ) {
                     Row(
@@ -240,7 +240,7 @@ fun HomeScreen(
                             "Login here",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
                     }
                 }

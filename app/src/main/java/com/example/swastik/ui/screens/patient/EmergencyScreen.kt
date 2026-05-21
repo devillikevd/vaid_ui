@@ -308,7 +308,7 @@ private fun EmergencyTypeSelection(
                 "Choose the emergency lane",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = EmergencyInk,
+                color = colorScheme.onSurface,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -450,7 +450,7 @@ private fun EmergencyTypeCard(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else EmergencySurface
+            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
         ),
         border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else null,
         elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 1.dp)
@@ -493,20 +493,20 @@ private fun EmergencyTypeCard(
                 item.label,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
-                color = if (isSelected) item.color else EmergencyInk
+                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 item.description,
                 fontSize = 12.sp,
                 lineHeight = 17.sp,
-                color = EmergencyMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 minLines = 2
             )
             Text(
                 if (isSelected) "Selected for dispatch" else "Tap to choose",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isSelected) item.color else EmergencyMuted.copy(alpha = 0.8f)
+                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
             )
         }
     }

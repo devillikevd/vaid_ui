@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 @Composable
 internal fun authOutlinedTextFieldColors(): TextFieldColors {
@@ -24,16 +24,16 @@ internal fun authOutlinedTextFieldColors(): TextFieldColors {
         unfocusedContainerColor = colorScheme.surface,
         disabledContainerColor = colorScheme.surface,
         errorContainerColor = colorScheme.surface,
-        cursorColor = SwastikPurple,
-        focusedBorderColor = SwastikPurple,
+        cursorColor = SwastikPrimary,
+        focusedBorderColor = SwastikPrimary,
         unfocusedBorderColor = borderColor,
         disabledBorderColor = borderColor,
         errorBorderColor = Color.Red,
-        focusedLeadingIconColor = SwastikPurple,
+        focusedLeadingIconColor = SwastikPrimary,
         unfocusedLeadingIconColor = colorScheme.onSurfaceVariant,
         disabledLeadingIconColor = colorScheme.onSurfaceVariant,
         errorLeadingIconColor = Color.Red,
-        focusedTrailingIconColor = SwastikPurple,
+        focusedTrailingIconColor = SwastikPrimary,
         unfocusedTrailingIconColor = colorScheme.onSurfaceVariant,
         disabledTrailingIconColor = colorScheme.onSurfaceVariant,
         errorTrailingIconColor = Color.Red,

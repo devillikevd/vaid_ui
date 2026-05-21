@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.NotificationItem
 import com.example.swastik.data.model.NotificationType
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 
 @Composable
@@ -106,7 +106,7 @@ fun NotificationPanelDialog(
                                     onClick = { onClearAll() },
                                     contentPadding = PaddingValues(horizontal = 12.dp)
                                 ) {
-                                    Text(stringResource(R.string.clear_all), color = SwastikPurple, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.clear_all), color = SwastikPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = onDismiss) {
@@ -128,14 +128,14 @@ fun NotificationPanelDialog(
                                 onClick = { selectedFilter = filter },
                                 label = { Text(filter, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SwastikPurple,
+                                    selectedContainerColor = SwastikPrimary,
                                     selectedLabelColor = MaterialTheme.colorScheme.surface,
                                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
                                     labelColor = MaterialTheme.colorScheme.outlineVariant
                                 ),
                                 border = FilterChipDefaults.filterChipBorder(
                                     borderColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                    selectedBorderColor = SwastikPurple,
+                                    selectedBorderColor = SwastikPrimary,
                                     selected = selectedFilter == filter,
                                     enabled = true
                                 )
@@ -176,7 +176,7 @@ fun NotificationPanelDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(stringResource(R.string.close))
@@ -243,7 +243,7 @@ private fun NotificationCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(SwastikPurple, CircleShape)
+                                .background(SwastikPrimary, CircleShape)
                         )
                     }
                 }
@@ -279,7 +279,7 @@ private fun NotificationCard(
                             Text(
                                 text = notification.actionLabel,
                                 fontSize = 12.sp,
-                                color = SwastikPurple,
+                                color = SwastikPrimary,
                                 fontWeight = FontWeight.Medium
                             )
                         }

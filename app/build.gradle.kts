@@ -54,7 +54,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.swastik"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -199,6 +199,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.7")
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Location & OpenStreetMap
@@ -271,6 +272,9 @@ dependencies {
 
     // Lottie for animations
     implementation("com.airbnb.android:lottie-compose:6.3.0")
+
+    // Health Connect
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

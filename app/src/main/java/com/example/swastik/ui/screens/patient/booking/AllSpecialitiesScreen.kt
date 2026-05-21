@@ -51,7 +51,7 @@ fun AllSpecialitiesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SwastikPurple,
+                    containerColor = SwastikPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )

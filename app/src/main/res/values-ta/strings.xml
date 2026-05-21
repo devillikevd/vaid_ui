@@ -1,118 +1,102 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">VAIDIDEA [ta]</string>
-
-    
-    <string name="medicine_finder">Medicine Finder</string>
-    <string name="search_medicines">Search medicines…</string>
-    <string name="available_near_you">Available Near You 📍</string>
-    <string name="global_catalog_popular">Global Catalog (Popular)</string>
-    <string name="in_stock">In stock</string>
-    <string name="out_of_stock">Out of Stock</string>
-    <string name="no_medicines_found">No medicines found</string>
-    <string name="try_different_search">Try a different search or clear filters</string>
-    <string name="clear_filters">Clear Filters</string>
-    <string name="retry">Retry</string>
-    <string name="something_went_wrong">Something went wrong</string>
+    <string name="app_name">VAIDIDEA</string>
+    <string name="medicine_finder">மருந்து கண்டுபிடிப்பான்</string>
+    <string name="search_medicines">மருந்துகளைத் தேடு…</string>
+    <string name="available_near_you">உங்களுக்கு அருகில் கிடைக்கும் 📍</string>
+    <string name="global_catalog_popular">உலகளாவிய பட்டியல் (பிரபலமானது)</string>
+    <string name="in_stock">இருப்பில் உள்ளது</string>
+    <string name="out_of_stock">கையிருப்பில் இல்லை</string>
+    <string name="no_medicines_found">மருந்துகள் எதுவும் கிடைக்கவில்லை</string>
+    <string name="try_different_search">வேறு தேடலை முயற்சிக்கவும் அல்லது வடிப்பான்களை அழிக்கவும்</string>
+    <string name="clear_filters">வடிகட்டிகளை அழி</string>
+    <string name="retry">மீண்டும் முயற்சிக்கவும்</string>
+    <string name="something_went_wrong">ஏதோ தவறாகிவிட்டது</string>
     <string name="left_in_stock">%d Left in Stock</string>
-    <string name="local_pharmacy">Local Pharmacy</string>
+    <string name="local_pharmacy">உள்ளூர் மருந்தகம்</string>
     <string name="change_pharmacy_title">மருந்தகத்தை மாற்றவா?</string>
-    <string name="pharmacy_conflict_message">உங்கள் வண்டியில் ஏற்கனவே மற்றொரு மருந்தகத்தில் இருந்து மருந்துகள் உள்ளன. அதை அழித்து %1$s இலிருந்து இந்த மருந்தைச் சேர்க்கவா?</string>
+    <string name="pharmacy_conflict_message">Your cart already has medicines from another pharmacy. Clear it and add this medicine from %1$s?</string>
     <string name="pharmacy_conflict_fallback">புதிய மருந்தகம்</string>
     <string name="clear_and_add">அழி &amp; சேர்</string>
-
-    
-    <string name="medicine_details">Medicine Details</string>
-    <string name="description">Description</string>
-    <string name="no_description">No description available</string>
-    <string name="select_pharmacy_to_order">Select a Pharmacy to Order</string>
-    <string name="no_pharmacy_data">No pharmacy availability data</string>
-    <string name="medicine_not_found">Medicine not found</string>
-    <string name="price">Price</string>
-    <string name="price_unavailable">Price unavailable</string>
-    <string name="view_cart">View Cart</string>
-    <string name="rx_required">Rx Required</string>
-    <string name="available">Available</string>
-
-    
-    <string name="medicine_cart">Medicine Cart</string>
-    <string name="place_order">Place Order</string>
-    <string name="delivery_address">Delivery Address</string>
-    <string name="enter_delivery_address">Enter delivery address</string>
-    <string name="cart_empty">Your cart is empty</string>
-    <string name="order_placed_successfully">Order placed successfully!</string>
-    <string name="total">Total</string>
-    <string name="items">Items</string>
-
-    
-    <string name="order_history">Order History</string>
-    <string name="no_orders_found">No orders found</string>
-    <string name="cancel_order">Cancel Order</string>
-
-    
-    <string name="todays_reminders">Today\'s Reminders</string>
-    <string name="view_all">View All</string>
-    <string name="no_reminders_today">No reminders for today</string>
-    <string name="reminders_description">Your upcoming appointments and medicine reminders will appear here</string>
-    <string name="quick_actions">Quick Actions</string>
-    <string name="ambulance">Ambulance</string>
-    <string name="vitals">Vitals</string>
-    <string name="prescription">Prescription</string>
-    <string name="help">Help</string>
-    <string name="my_orders">My Orders</string>
-    <string name="my_tests">My Tests</string>
-    <string name="care_services">Care Services</string>
-    <string name="care_services_desc">Hospitals, clinics, pharmacy, and diagnostic booking in separate flows.</string>
-    <string name="hospitals">Hospitals</string>
-    <string name="hospitals_subtitle">Beds, emergency care, specialists</string>
-    <string name="nearby_hospitals">Nearby hospitals</string>
-    <string name="clinics">Clinics</string>
-    <string name="clinics_subtitle">OPD visits and local doctors</string>
-    <string name="clinic_visits">Clinic visits</string>
-    <string name="pharmacy">Pharmacy</string>
-    <string name="pharmacy_subtitle">Check stores and medicine access</string>
-    <string name="medical_stores">Medical stores</string>
-    <string name="diagnostics">Diagnostics</string>
-    <string name="diagnostics_subtitle">Book tests and find centers</string>
-    <string name="labs_and_scans">Labs and scans</string>
-    <string name="open">Open</string>
-    <string name="recommended_for_you">Recommended for You</string>
-    <string name="see_all">See All</string>
-    <string name="no_doctor_recommendations">No doctor recommendations available</string>
-    <string name="recommendations_description">Recommendations will appear after your activity is synced</string>
-    <string name="book">Book</string>
-
-    
-    <string name="ai_health_assistant">AI Health Assistant</string>
-    <string name="how_can_i_help">How can I help you today?</string>
-    <string name="describe_symptoms">Describe your symptoms or ask a question</string>
-
-    
-    <string name="verified_doctors">Verified\nDoctors</string>
-    <string name="data_encrypted">Data\nEncrypted</string>
-    <string name="abdm_compliant">ABDM\nCompliant</string>
-
-    
-    <string name="profile">Profile</string>
-    <string name="edit_profile">Edit Profile</string>
-    <string name="personal_info">Personal Information</string>
-    <string name="language">Language</string>
-    <string name="appearance">Appearance</string>
-    <string name="notifications">Notifications</string>
-    <string name="feedback">Feedback</string>
-    <string name="emergency_contacts">Emergency Contacts</string>
-    <string name="family_members">Family Members</string>
-    <string name="addresses">Addresses</string>
-    <string name="privacy">Privacy</string>
-    <string name="help_center">Help Center</string>
-    <string name="change_password">Change Password</string>
-    <string name="logout">Logout</string>
+    <string name="medicine_details">மருந்து விவரங்கள்</string>
+    <string name="description">விளக்கம்</string>
+    <string name="no_description">விளக்கம் இல்லை</string>
+    <string name="select_pharmacy_to_order">ஆர்டர் செய்ய ஒரு மருந்தகத்தைத் தேர்ந்தெடுக்கவும்</string>
+    <string name="no_pharmacy_data">மருந்தகம் கிடைக்கும் தரவு இல்லை</string>
+    <string name="medicine_not_found">மருந்து கிடைக்கவில்லை</string>
+    <string name="price">விலை</string>
+    <string name="price_unavailable">விலை கிடைக்கவில்லை</string>
+    <string name="view_cart">வண்டியைப் பார்க்கவும்</string>
+    <string name="rx_required">Rx தேவை</string>
+    <string name="available">கிடைக்கும்</string>
+    <string name="medicine_cart">மருந்து வண்டி</string>
+    <string name="place_order">ஆர்டர் வைக்கவும்</string>
+    <string name="delivery_address">டெலிவரி முகவரி</string>
+    <string name="enter_delivery_address">டெலிவரி முகவரியை உள்ளிடவும்</string>
+    <string name="cart_empty">உங்கள் வண்டி காலியாக உள்ளது</string>
+    <string name="order_placed_successfully">ஆர்டர் வெற்றிகரமாக முடிந்தது!</string>
+    <string name="total">மொத்தம்</string>
+    <string name="items">பொருட்கள்</string>
+    <string name="order_history">ஆர்டர் வரலாறு</string>
+    <string name="no_orders_found">ஆர்டர்கள் எதுவும் இல்லை</string>
+    <string name="cancel_order">ஆர்டரை ரத்து செய்</string>
+    <string name="todays_reminders">இன்றைய நினைவூட்டல்கள்</string>
+    <string name="view_all">அனைத்தையும் பார்க்கவும்</string>
+    <string name="no_reminders_today">இன்று நினைவூட்டல்கள் இல்லை</string>
+    <string name="reminders_description">உங்களின் வரவிருக்கும் சந்திப்புகள் மற்றும் மருந்து நினைவூட்டல்கள் இங்கே தோன்றும்</string>
+    <string name="quick_actions">விரைவான செயல்கள்</string>
+    <string name="ambulance">ஆம்புலன்ஸ்</string>
+    <string name="vitals">உயிர்கள்</string>
+    <string name="prescription">மருந்துச்சீட்டு</string>
+    <string name="help">உதவி</string>
+    <string name="my_orders">எனது ஆர்டர்கள்</string>
+    <string name="my_tests">எனது சோதனைகள்</string>
+    <string name="care_services">பராமரிப்பு சேவைகள்</string>
+    <string name="care_services_desc">மருத்துவமனைகள், கிளினிக்குகள், மருந்தகம் மற்றும் நோயறிதலுக்கான முன்பதிவு தனி ஓட்டங்களில்.</string>
+    <string name="hospitals">மருத்துவமனைகள்</string>
+    <string name="hospitals_subtitle">படுக்கைகள், அவசர சிகிச்சை, நிபுணர்கள்</string>
+    <string name="nearby_hospitals">அருகிலுள்ள மருத்துவமனைகள்</string>
+    <string name="clinics">கிளினிக்குகள்</string>
+    <string name="clinics_subtitle">OPD வருகைகள் மற்றும் உள்ளூர் மருத்துவர்கள்</string>
+    <string name="clinic_visits">கிளினிக் வருகைகள்</string>
+    <string name="pharmacy">மருந்தகம்</string>
+    <string name="pharmacy_subtitle">கடைகள் மற்றும் மருந்து அணுகலை சரிபார்க்கவும்</string>
+    <string name="medical_stores">மருத்துவக் கடைகள்</string>
+    <string name="diagnostics">நோய் கண்டறிதல்</string>
+    <string name="diagnostics_subtitle">சோதனைகளை பதிவு செய்து மையங்களைக் கண்டறியவும்</string>
+    <string name="labs_and_scans">ஆய்வகங்கள் மற்றும் ஸ்கேன்</string>
+    <string name="open">திற</string>
+    <string name="recommended_for_you">உங்களுக்காகப் பரிந்துரைக்கப்படுகிறது</string>
+    <string name="see_all">அனைத்தையும் பார்க்கவும்</string>
+    <string name="no_doctor_recommendations">மருத்துவரின் பரிந்துரைகள் எதுவும் இல்லை</string>
+    <string name="recommendations_description">உங்கள் செயல்பாடு ஒத்திசைக்கப்பட்ட பிறகு, பரிந்துரைகள் தோன்றும்</string>
+    <string name="book">புத்தகம்</string>
+    <string name="ai_health_assistant">AI சுகாதார உதவியாளர்</string>
+    <string name="how_can_i_help">இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?</string>
+    <string name="describe_symptoms">உங்கள் அறிகுறிகளை விவரிக்கவும் அல்லது கேள்வி கேட்கவும்</string>
+    <string name="verified_doctors">சரிபார்க்கப்பட்ட\nமருத்துவர்கள்</string>
+    <string name="data_encrypted">தரவு\nகுறியாக்கம் செய்யப்பட்டது</string>
+    <string name="abdm_compliant">ABDM\nஇணக்கமானது</string>
+    <string name="profile">சுயவிவரம்</string>
+    <string name="edit_profile">சுயவிவரத்தைத் திருத்து</string>
+    <string name="personal_info">தனிப்பட்ட தகவல்</string>
+    <string name="language">மொழி</string>
+    <string name="appearance">தோற்றம்</string>
+    <string name="notifications">அறிவிப்புகள்</string>
+    <string name="feedback">பின்னூட்டம்</string>
+    <string name="emergency_contacts">அவசரத் தொடர்புகள்</string>
+    <string name="family_members">குடும்ப உறுப்பினர்கள்</string>
+    <string name="addresses">முகவரிகள்</string>
+    <string name="privacy">தனியுரிமை</string>
+    <string name="help_center">உதவி மையம்</string>
+    <string name="change_password">கடவுச்சொல்லை மாற்றவும்</string>
+    <string name="logout">வெளியேறு</string>
     <string name="failed_to_process_image">படத்தைச் செயலாக்க முடியவில்லை</string>
     <string name="default_user_name">ஸ்வஸ்திக் பயனர்</string>
     <string name="share_profile">சுயவிவரத்தைப் பகிரவும்</string>
-    <string name="profile_share_phone">தொலைபேசி: %1$s</string>
-    <string name="profile_share_email">மின்னஞ்சல்: %1$s</string>
-    <string name="profile_share_blood">இரத்தம்: %1$s</string>
+    <string name="profile_share_phone">Phone: %1$s</string>
+    <string name="profile_share_email">Email: %1$s</string>
+    <string name="profile_share_blood">Blood: %1$s</string>
     <string name="profile_share_footer">VAIDEA Health ஆப் மூலம் பகிரப்பட்டது</string>
     <string name="health_identity">சுகாதார அடையாளம்</string>
     <string name="verified">சரிபார்க்கப்பட்டது</string>
@@ -125,11 +109,9 @@
     <string name="made_with_love">இந்தியாவில் காதலால் உருவாக்கப்பட்டது</string>
     <string name="logout_title">வெளியேறு</string>
     <string name="logout_message">நிச்சயமாக வெளியேற விரும்புகிறீர்களா? உங்கள் கணக்கை அணுக மீண்டும் உள்நுழைய வேண்டும்.</string>
-
-    
-    <string name="records">Records</string>
-    <string name="reports">Reports</string>
-    <string name="prescriptions">Prescriptions</string>
+    <string name="records">பதிவுகள்</string>
+    <string name="reports">அறிக்கைகள்</string>
+    <string name="prescriptions">மருந்துச்சீட்டுகள்</string>
     <string name="medical_records_title">மருத்துவ பதிவுகள்</string>
     <string name="medical_records_subtitle">உங்கள் முழுமையான சுகாதார வரலாறு</string>
     <string name="failed_to_load_records">பதிவுகளை ஏற்ற முடியவில்லை</string>
@@ -151,8 +133,8 @@
     <string name="filter_reports">அறிக்கைகள்</string>
     <string name="doctor_prescription_fallback">மருத்துவர் பரிந்துரை</string>
     <string name="prescription_details_fallback">மருந்து விவரங்கள்</string>
-    <string name="more_medicines_format">மேலும் %d மருந்துகள்</string>
-    <string name="duration_format">கால அளவு: %1$s</string>
+    <string name="more_medicines_format">+%d more medicines</string>
+    <string name="duration_format">Duration: %1$s</string>
     <string name="cannot_open_document">ஆவணத்தைத் திறக்க முடியாது</string>
     <string name="no_file_available_report">இந்த அறிக்கைக்கான கோப்பு எதுவும் இல்லை</string>
     <string name="cannot_download_file">கோப்பைப் பதிவிறக்க முடியவில்லை</string>
@@ -166,7 +148,7 @@
     <string name="report_name_placeholder">அறிக்கையின் பெயரை உள்ளிடவும்</string>
     <string name="report_type_label">அறிக்கை வகை</string>
     <string name="report_type_blood_test">இரத்த பரிசோதனை</string>
-    <string name="report_type_urine_test">சிறுநீர் சோதனை</string>
+    <string name="report_type_urine_test">சிறுநீர் பரிசோதனை</string>
     <string name="report_type_x_ray">எக்ஸ்-ரே</string>
     <string name="report_type_mri">எம்.ஆர்.ஐ</string>
     <string name="report_type_ct_scan">CT ஸ்கேன்</string>
@@ -176,52 +158,40 @@
     <string name="uploading">பதிவேற்றுகிறது…</string>
     <string name="shared_report">பகிரப்பட்ட அறிக்கை</string>
     <string name="status_active">செயலில்</string>
-
-    
-    <string name="appointments">Appointments</string>
-    <string name="appointment_history">Appointment History</string>
-    <string name="book_appointment">Book Appointment</string>
-    <string name="upcoming">Upcoming</string>
-    <string name="completed">Completed</string>
-    <string name="cancelled">Cancelled</string>
+    <string name="appointments">நியமனங்கள்</string>
+    <string name="appointment_history">நியமன வரலாறு</string>
+    <string name="book_appointment">புத்தக நியமனம்</string>
+    <string name="upcoming">வரவிருக்கிறது</string>
+    <string name="completed">முடிக்கப்பட்டது</string>
+    <string name="cancelled">ரத்து செய்யப்பட்டது</string>
     <string name="cancel_appointment">அப்பாயிண்ட்மெண்ட்டை ரத்து செய்</string>
     <string name="keep_appointment">நியமனத்தை வைத்திருங்கள்</string>
-    <string name="cancel_appointment_confirmation">%1$s உடனான உங்கள் சந்திப்பை நிச்சயமாக ரத்துசெய்ய விரும்புகிறீர்களா?</string>
-    <string name="appointment_date_time_format">தேதி: %2$s இல் %1$s</string>
+    <string name="cancel_appointment_confirmation">Are you sure you want to cancel your appointment with %1$s?</string>
+    <string name="appointment_date_time_format">Date: %1$s at %2$s</string>
     <string name="appointment_doctor_fallback">மருத்துவர்</string>
-
-    
-    <string name="emergency">Emergency</string>
-    <string name="call_ambulance">Call Ambulance</string>
-
-    
-    <string name="vitals_reminders">Vitals &amp; Reminders</string>
-    <string name="add_reminder">Add Reminder</string>
-    <string name="record_vitals">Record Vitals</string>
-
-    
-    <string name="diagnostic_booking">Diagnostic Booking</string>
-    <string name="booking_history">Booking History</string>
-
-    
-    <string name="chatbot">Health Assistant</string>
-    <string name="type_message">Type your message…</string>
-
-    
-    <string name="back">Back</string>
-    <string name="save">Save</string>
-    <string name="cancel">Cancel</string>
-    <string name="confirm">Confirm</string>
-    <string name="loading">Loading…</string>
-    <string name="no_data">No data available</string>
-    <string name="error">Error</string>
-    <string name="success">Success</string>
-    <string name="close">Close</string>
+    <string name="emergency">அவசரநிலை</string>
+    <string name="call_ambulance">ஆம்புலன்ஸை அழைக்கவும்</string>
+    <string name="vitals_reminders">உயிர் மற்றும் நினைவூட்டல்கள்</string>
+    <string name="add_reminder">நினைவூட்டலைச் சேர்க்கவும்</string>
+    <string name="record_vitals">பதிவு உயிர்கள்</string>
+    <string name="diagnostic_booking">கண்டறியும் முன்பதிவு</string>
+    <string name="booking_history">முன்பதிவு வரலாறு</string>
+    <string name="chatbot">சுகாதார உதவியாளர்</string>
+    <string name="type_message">உங்கள் செய்தியை உள்ளிடவும்…</string>
+    <string name="back">மீண்டும்</string>
+    <string name="save">சேமிக்கவும்</string>
+    <string name="cancel">ரத்து செய்</string>
+    <string name="confirm">உறுதிப்படுத்தவும்</string>
+    <string name="loading">ஏற்றுகிறது…</string>
+    <string name="no_data">தரவு எதுவும் கிடைக்கவில்லை</string>
+    <string name="error">பிழை</string>
+    <string name="success">வெற்றி</string>
+    <string name="close">மூடு</string>
     <string name="upload">பதிவேற்றவும்</string>
     <string name="download">பதிவிறக்கவும்</string>
     <string name="user_label">பயனர்</string>
     <string name="patient_label">நோயாளி</string>
-<string name="search_for_medicines">மருந்துகளைத் தேடுங்கள்</string>
+    <string name="search_for_medicines">மருந்துகளைத் தேடுங்கள்</string>
     <string name="voice_search_unavailable">குரல் தேடல் கிடைக்கவில்லை</string>
     <string name="refresh_catalog">அட்டவணையைப் புதுப்பிக்கவும்</string>
     <string name="welcome">வரவேற்கிறோம்</string>
@@ -276,8 +246,8 @@
     <string name="tap_to_add_contacts">தொடர்புகளைச் சேர்க்க தட்டவும்</string>
     <string name="delete_contact">தொடர்பை நீக்கு</string>
     <string name="delete">நீக்கு</string>
-    <string name="language_set_to">மொழி %1$s க்கு அமைக்கப்பட்டது</string>
-    <string name="theme_set_to">தீம் %1$s க்கு அமைக்கப்பட்டது</string>
+    <string name="language_set_to">Language set to %1$s</string>
+    <string name="theme_set_to">Theme set to %1$s</string>
     <string name="video">வீடியோ</string>
     <string name="in_person">நேரில்</string>
     <string name="start_video_consultation">வீடியோ ஆலோசனையைத் தொடங்கவும்</string>
@@ -294,7 +264,7 @@
     <string name="describe_symptoms_visit">வருகையின் அறிகுறிகளை விவரிக்கவும்</string>
     <string name="emergency_network">அவசர நெட்வொர்க்</string>
     <string name="tell_dispatch">அனுப்பச் சொல்லுங்கள்</string>
-    <string name="dispatch_placeholder">பெட்டியை அனுப்பவும்</string>
+    <string name="dispatch_placeholder">ப்ளாஸ்ஹோல்டரை அனுப்பவும்</string>
     <string name="dispatch_ambulance_now">இப்போது ஆம்புலன்ஸ் அனுப்பவும்</string>
     <string name="call_108_directly">108க்கு நேரடியாக அழைக்கவும்</string>
     <string name="confirm_emergency_request">அவசர கோரிக்கையை உறுதிப்படுத்தவும்</string>
@@ -315,7 +285,7 @@
     <string name="no_reminders_set">நினைவூட்டல்கள் எதுவும் அமைக்கப்படவில்லை</string>
     <string name="tap_to_create_reminder">நினைவூட்டலை உருவாக்க தட்டவும்</string>
     <string name="taken">எடுக்கப்பட்டது</string>
-    <string name="snooze">உறக்கநிலையில் வைக்கவும்</string>
+    <string name="snooze">உறக்கநிலை</string>
     <string name="skip">தவிர்க்கவும்</string>
     <string name="snooze_reminder">உறக்கநிலை நினைவூட்டல்</string>
     <string name="record_vital">பதிவு உயிர்</string>
@@ -330,7 +300,7 @@
     <string name="ok">சரி</string>
     <string name="request_submitted">கோரிக்கை சமர்ப்பிக்கப்பட்டது</string>
     <string name="booking_request_sent">முன்பதிவு கோரிக்கை அனுப்பப்பட்டது</string>
-    <string name="view_my_tests">எனது சோதனைகளைப் பார்க்கவும்</string>
+    <string name="view_my_tests">எனது சோதனைகளைக் காண்க</string>
     <string name="diagnostic_centers">நோய் கண்டறிதல் மையங்கள்</string>
     <string name="search_centers_tests">தேடல் மையங்கள் சோதனைகள்</string>
     <string name="no_diagnostic_centers">நோய் கண்டறியும் மையங்கள் இல்லை</string>
@@ -398,17 +368,17 @@
     <string name="try_again">மீண்டும் முயற்சிக்கவும்</string>
     <string name="n_1_km">1 கி.மீ</string>
     <string name="search_inventory_1">சரக்குகளைத் தேடு...</string>
-    <string name="string">📦</string>
+    <string name="string" />
     <string name="rx">Rx</string>
-    <string name="string_1"> • </string>
-    <string name="string_2">👨‍⚕️</string>
+    <string name="string_1" />
+    <string name="string_2" />
     <string name="no_doctors_listed_at_this_clinic_yet">இந்த கிளினிக்கில் இதுவரை மருத்துவர்கள் யாரும் பட்டியலிடப்படவில்லை</string>
     <string name="n_24_7_emergency_diagnostic_services">24/7 அவசரகால கண்டறியும் சேவைகள்</string>
     <string name="book_a_test_1">ஒரு சோதனைக்கு முன்பதிவு செய்யுங்கள்</string>
     <string name="emergency_ready_facility_1">அவசரத் தயாரான வசதி</string>
     <string name="quick_call_and_turn_by_turn_navigation">விரைவான அழைப்பு மற்றும் டர்ன்-பை-டர்ன் வழிசெலுத்தல்</string>
-    <string name="string_3">🏥</string>
-    <string name="string_4">❓</string>
+    <string name="string_3" />
+    <string name="string_4" />
     <string name="sos_1">SOS</string>
     <string name="emergency_n24_7">அவசரநிலை\n24/7</string>
     <string name="your_review_optional_1">உங்கள் மதிப்புரை (விரும்பினால்)</string>
@@ -424,8 +394,8 @@
     <string name="appointment">📅 நியமனம்</string>
     <string name="test">🧪 சோதனை</string>
     <string name="english_hindi">ஆங்கிலம், ஹிந்தி</string>
-    <string name="string_5">☝️</string>
-    <string name="string_6">😔</string>
+    <string name="string_5" />
+    <string name="string_6" />
     <string name="my_bookings">எனது முன்பதிவுகள்</string>
     <string name="booking_cancelled_successfully">முன்பதிவு வெற்றிகரமாக ரத்து செய்யப்பட்டது</string>
     <string name="no_bookings_found_1">முன்பதிவுகள் எதுவும் இல்லை</string>
@@ -439,7 +409,7 @@
     <string name="add_a_description_optional">விளக்கத்தைச் சேர்க்கவும் (விரும்பினால்)</string>
     <string name="describe_symptoms_or_concern">அறிகுறிகள் அல்லது கவலையை விவரிக்கவும்</string>
     <string name="u2695_ufe0f_ai_will_analyze_for_skin_conditions_wounds_or_abnormalities_always_consult_a_doctor">\u2695\uFE0F AI தோல் நிலைகள், காயங்கள் அல்லது அசாதாரணங்களை ஆய்வு செய்யும். எப்போதும் மருத்துவரை அணுகவும்.</string>
-    <string name="analyze">பகுப்பாய்வு செய்யுங்கள்</string>
+    <string name="analyze">பகுப்பாய்வு செய்யவும்</string>
     <string name="ud83e_ude7a">\uD83E\uDE7A</string>
     <string name="ud83d_udc64">\uD83D\uDC64</string>
     <string name="symptom_checker">அறிகுறி சரிபார்ப்பு</string>
@@ -455,7 +425,7 @@
     <string name="my_prescriptions">எனது மருந்துச்சீட்டுகள்</string>
     <string name="sent_to_pharmacy">மருந்தகத்திற்கு அனுப்பப்பட்டது</string>
     <string name="call_pharmacy">மருந்தகத்தை அழைக்கவும்</string>
-    <string name="view_my_orders">எனது ஆர்டர்களைக் காண்க</string>
+    <string name="view_my_orders">எனது ஆர்டர்களைப் பார்க்கவும்</string>
     <string name="prescription_details">மருந்துச் சீட்டு விவரங்கள்</string>
     <string name="choose_pharmacy">மருந்தகத்தைத் தேர்வுசெய்க</string>
     <string name="search_pharmacy_by_name">பெயரால் மருந்தகத்தைத் தேடுங்கள்</string>
@@ -466,9 +436,9 @@
     <string name="your_medical_reports_will_appear_here">உங்கள் மருத்துவ அறிக்கைகள் இங்கே தோன்றும்</string>
     <string name="no_notifications_1">அறிவிப்புகள் இல்லை</string>
     <string name="n_24_7_available">24/7 கிடைக்கும்</string>
-    <string name="string_7">🩺</string>
-    <string name="string_8">📅</string>
-    <string name="string_9">🤖</string>
+    <string name="string_7" />
+    <string name="string_8" />
+    <string name="string_9" />
     <string name="call_ambulance_108_1">ஆம்புலன்ஸை அழைக்கவும் (108)</string>
     <string name="name">பெயர்</string>
     <string name="no_emergency_contacts_added">அவசரகால தொடர்புகள் எதுவும் சேர்க்கப்படவில்லை</string>
@@ -503,8 +473,8 @@
     <string name="edit">திருத்தவும்</string>
     <string name="profile_completion">சுயவிவரத்தை நிறைவு செய்தல்</string>
     <string name="abha_number">ABHA எண்</string>
-    <string name="string_10">👳</string>
-    <string name="string_11">💊</string>
+    <string name="string_10" />
+    <string name="string_11" />
     <string name="order_cancelled_successfully">ஆர்டர் வெற்றிகரமாக ரத்து செய்யப்பட்டது</string>
     <string name="your_medicine_orders_will_appear_here">உங்கள் மருந்து ஆர்டர்கள் இங்கே தோன்றும்</string>
     <string name="items_1">பொருட்கள்:</string>
@@ -514,46 +484,6 @@
     <string name="browse_medicines">மருந்துகளை உலாவவும்</string>
     <string name="enter_your_delivery_address">உங்கள் டெலிவரி முகவரியை உள்ளிடவும்</string>
     <string name="thank_you_feedback">உங்கள் கருத்துக்கு நன்றி!</string>
-    
-    <string name="flight_ticket_boarding_pass">போர்டிங் பாஸ்</string>
-    <string name="flight_ticket_flight">விமானம்</string>
-    <string name="flight_ticket_seat">இருக்கை</string>
-    <string name="flight_ticket_swastik_air">ஸ்வஸ்திக் ஏர்</string>
-    <string name="empty_records_title">எந்தப் பதிவுகளும் இல்லை</string>
-    <string name="empty_records_desc">நீங்கள் இன்னும் எந்த மருத்துவப் பதிவும் அல்லது மருந்துச் சீட்டையும் பதிவேற்றவில்லை.</string>
-    <string name="empty_appointments_title">இன்னும் எந்த அப்பாயின்ட்மென்ட்டும் இல்லை</string>
-    <string name="empty_appointments_desc">நீங்கள் முன்பதிவு செய்த பிறகு உங்களின் அடுத்தடுத்த அப்பாயின்ட்மென்ட்கள் இங்கே தோன்றும்.</string>
-    <string name="empty_notifications_title">அனைத்தும் பார்க்கப்பட்டது!</string>
-    <string name="empty_notifications_desc">உங்களிடம் தற்போது புதிய அறிவிப்புகள் எதுவும் இல்லை.</string>
-    <string name="add_record_button">பதிவைச் சேர்</string>
-    <string name="book_appointment_button">அப்பாயின்ட்மென்ட்டைப் பதிவு செய்</string>
-    <string name="book_now">இப்போது பதிவு செய்</string>
-    <string name="instant">உடனடி</string>
-    <string name="connect_with_doctors_online">மருத்துவர்களுடன் ஆன்லைனில் இணையுங்கள்</string>
-    <string name="most_searched_specialities">அதிகம் தேடப்பட்ட சிறப்புகள்</string>
-    <string name="view_all_specialities">அனைத்து சிறப்புகளையும் பார்க்க</string>
-    <string name="surgery_conditions">அறுவை சிகிச்சை மூலம் சிகிச்சையளிக்கக்கூடிய நிலைமைகள்</string>
-    <string name="common_symptoms">மிகவும் பொதுவான அறிகுறிகள்</string>
-    <string name="book_doctor_by_speciality">சிறப்பு வாரியாக மருத்துவர்களைத் தேடு</string>
-    <string name="all_specialities">அனைத்து சிறப்புகள்</string>
-    <string name="search_doctors">மருத்துவர்களைத் தேடு…</string>
-    <string name="doctors_available">மருத்துவர்கள் உள்ளனர்</string>
-    <string name="try_adjusting_filters">உங்கள் ஃபில்டர்களை அல்லது தேடலை மாற்றிப் பார்க்கவும்.</string>
-    <string name="book_clinic_visit">கிளினிக் வருகையைப் பதிவு செய்</string>
-    <string name="book_video_consult">வீடியோ ஆலோசனையைப் பதிவு செய்</string>
-    <string name="next_available_at">அடுத்த கிடைக்கும் நேரம்</string>
-    <string name="select_date_time">தேதி மற்றும் நேரத்தைத் தேர்ந்தெடு</string>
-    <string name="clinic_visit">கிளினிக் வருகை</string>
-    <string name="video_consult">வீடியோ ஆலோசனை</string>
-    <string name="fee">கட்டணம்</string>
-    <string name="consultation_type">ஆலோசனையின் வகை</string>
-    <string name="booking_ellipsis">முன்பதிவு செய்யப்படுகிறது…</string>
-    <string name="in_person_consultation_desc">நேரடி ஆலோசனை — அருகிலுள்ள மருத்துவர்களைத் தேடு</string>
-    <string name="video_consultation_desc">வீடியோ ஆலோசனை — மருத்துவர்களுடன் ஆன்லைனில் இணையுங்கள்</string>
-    <string name="learn_how_to_book">அப்பாயின்ட்மென்ட்டை எவ்வாறு பதிவு செய்வது என்பதை அறியுங்கள்</string>
-    <string name="search_symptoms_specialities">அறிகுறிகள் / சிறப்புகளைத் தேடு</string>
-
-
     <string name="blood">இரத்தம்</string>
     <string name="type_unit">வகை</string>
     <string name="weight">எடை</string>
@@ -565,10 +495,10 @@
     <string name="upload_profile_photo">சுயவிவரப் புகைப்படத்தைப் பதிவேற்றவும்</string>
     <string name="add_emergency_contact_step">அவசரகால தொடர்பைச் சேர்க்கவும்</string>
     <string name="complete_your_profile">உங்கள் சுயவிவரத்தை முடிக்கவும்</string>
-    <string name="next_step">💡 அடுத்த படி: %1$s</string>
+    <string name="next_step">💡 Next step: %1$s</string>
     <string name="consultations">ஆலோசனைகள்</string>
     <string name="not_linked">இணைக்கப்படவில்லை</string>
-    <string name="linked_hospitals">இணைக்கப்பட்டவை: %1$d மருத்துவமனைகள்</string>
+    <string name="linked_hospitals">Linked: %1$d hospitals</string>
     <string name="tap_to_link_abha">உங்கள் ABHA ஐ இணைக்க தட்டவும்</string>
     <string name="name_dob_gender">பெயர், DOB, பாலினம்</string>
     <string name="home_office">வீடு, அலுவலகம்</string>
@@ -645,9 +575,9 @@
     <string name="send_reset_code">மீட்டமைக் குறியீட்டை அனுப்பவும்</string>
     <string name="first_time_sign_in_help">முதல் முறையாக உள்நுழைவதற்கு சரிபார்க்கப்பட்ட மின்னஞ்சல் அணுகல் தேவை. உங்கள் குறியீடு காலாவதியானால், இந்தத் திரையில் இருந்து புதிய ஒன்றைக் கோரவும்.</string>
     <string name="marked_for_today">இன்றைக்கு குறிக்கப்பட்டது</string>
-    <string name="snooze_instruction">%1$s எவ்வளவு நேரம் உறக்கநிலையில் வைக்க வேண்டும் என்பதைத் தேர்வு செய்யவும்.</string>
-    <string name="minutes_format">%1$d நிமிடம்</string>
-    <string name="value_with_unit_format">மதிப்பு (%1$s)</string>
+    <string name="snooze_instruction">Choose how long to snooze %1$s.</string>
+    <string name="minutes_format">%1$d min</string>
+    <string name="value_with_unit_format">Value (%1$s)</string>
     <string name="blood_pressure">இரத்த அழுத்தம்</string>
     <string name="heart_rate">இதய துடிப்பு</string>
     <string name="temperature">வெப்பநிலை</string>
@@ -668,7 +598,16 @@
     <string name="you">நீங்கள்</string>
     <string name="free">இலவசம்</string>
     <string name="swastik_healthcare">ஸ்வஸ்டிக் ஹெல்த்கேர்</string>
+    <string name="book_now">இப்போதே முன்பதிவு செய்யுங்கள்</string>
+    <string name="instant">உடனடி</string>
+    <string name="connect_with_doctors_online">ஆன்லைனில் மருத்துவர்களுடன் இணையுங்கள்</string>
+    <string name="most_searched_specialities">அதிகம் தேடப்பட்ட சிறப்புகள்</string>
+    <string name="view_all_specialities">அனைத்து 25+ சிறப்புகளையும் காண்க</string>
     <string name="what_are_you_looking_for">நீங்கள் என்ன தேடுகிறீர்கள்?</string>
+    <string name="surgery_conditions">அறுவை சிகிச்சை நிலைமைகள்</string>
+    <string name="common_symptoms">பொதுவான அறிகுறிகள்</string>
+    <string name="book_doctor_by_speciality">சிறப்பு மூலம் டாக்டர் புத்தகம்</string>
+    <string name="all_specialities">அனைத்து சிறப்புகளும்</string>
     <string name="all_caught_up">நீங்கள் அனைவரும் பிடித்துவிட்டீர்கள்! புதுப்பிப்பு இருக்கும்போது நாங்கள் உங்களுக்குத் தெரிவிப்போம்.</string>
     <string name="filter_unread">படிக்காதது</string>
     <string name="clear_all">அனைத்தையும் அழி</string>
@@ -677,4 +616,11 @@
     <string name="specialty">சிறப்பு</string>
     <string name="date">தேதி</string>
     <string name="time">நேரம்</string>
+    <string name="fee">கட்டணம்</string>
+    <string name="consultation_type">ஆலோசனை வகை</string>
+    <string name="booking_ellipsis">முன்பதிவு…</string>
+    <string name="in_person_consultation_desc">நேரில் ஆலோசனை - அருகிலுள்ள மருத்துவர்களைக் கண்டறியவும்</string>
+    <string name="video_consultation_desc">வீடியோ ஆலோசனை - ஆன்லைனில் மருத்துவர்களுடன் இணையுங்கள்</string>
+    <string name="learn_how_to_book">சந்திப்பை எவ்வாறு பதிவு செய்வது என்பதை அறிக</string>
+    <string name="search_symptoms_specialities">அறிகுறிகள் / சிறப்புகளைத் தேடுங்கள்</string>
 </resources>

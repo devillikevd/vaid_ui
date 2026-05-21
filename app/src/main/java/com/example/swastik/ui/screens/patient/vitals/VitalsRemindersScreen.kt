@@ -29,7 +29,7 @@ import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 
-private val SwastikPurple = Color(0xFF6C63FF)
+private val SwastikPrimary = Color(0xFF6C63FF)
 
 /**
  * Vitals & Reminders Screen — record vitals, manage health reminders.
@@ -56,7 +56,7 @@ fun VitalsRemindersScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
             )
         },
         snackbarHost = {
@@ -68,7 +68,7 @@ fun VitalsRemindersScreen(
                     if (selectedTab == 0) showRecordVitalDialog = true
                     else showAddReminderDialog = true
                 },
-                containerColor = SwastikPurple
+                containerColor = SwastikPrimary
             ) {
                 Icon(Icons.Default.Add, "Add", tint = Color.White)
             }
@@ -83,7 +83,7 @@ fun VitalsRemindersScreen(
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = SwastikPurple
+                contentColor = SwastikPrimary
             ) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
                     Row(
@@ -109,7 +109,7 @@ fun VitalsRemindersScreen(
 
             if (uiState.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             } else {
                 when (selectedTab) {
@@ -304,7 +304,7 @@ private fun ReminderCard(
     }
     val typeColor = when (reminder.type.lowercase()) {
         "medicine" -> Color(0xFF4CAF50)
-        "appointment" -> SwastikPurple
+        "appointment" -> SwastikPrimary
         else -> Color(0xFFFF9800)
     }
 
@@ -395,7 +395,7 @@ private fun ReminderCard(
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = Color(0xFFEFF3FF),
-                            contentColor = SwastikPurple
+                            contentColor = SwastikPrimary
                         )
                     ) {
                         Text(stringResource(R.string.snooze))
@@ -413,8 +413,8 @@ private fun ReminderCard(
             if (actionInProgress) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
-                    color = SwastikPurple,
-                    trackColor = SwastikPurple.copy(alpha = 0.16f)
+                    color = SwastikPrimary,
+                    trackColor = SwastikPrimary.copy(alpha = 0.16f)
                 )
             }
         }
@@ -516,7 +516,7 @@ private fun RecordVitalDialog(
             Button(
                 onClick = { onRecord(selectedType, value, notes.ifBlank { null }) },
                 enabled = value.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.record)) }
         },
         dismissButton = {
@@ -566,14 +566,14 @@ private fun AddReminderDialog(
                     enabled = false,
                     trailingIcon = {
                         IconButton(onClick = { showTimePicker = true }) {
-                            Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPurple)
+                            Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPrimary)
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
                         disabledTextColor = Color.Black,
                         disabledLabelColor = Color.Gray,
                         disabledBorderColor = Color.Gray,
-                        disabledTrailingIconColor = SwastikPurple
+                        disabledTrailingIconColor = SwastikPrimary
                     ),
                     singleLine = true
                 )
@@ -583,7 +583,7 @@ private fun AddReminderDialog(
             Button(
                 onClick = { onAdd(title, type, time) },
                 enabled = title.isNotBlank() && time.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.add)) }
         },
         dismissButton = {
@@ -608,7 +608,7 @@ private fun AddReminderDialog(
                     val hour12 = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
                     time = String.format(Locale.US, "%02d:%02d %s", hour12, minute, amPm)
                     showTimePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
             },
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }

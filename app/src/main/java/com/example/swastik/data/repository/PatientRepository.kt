@@ -750,6 +750,19 @@ class PatientRepository @Inject constructor(
         }
     }
 
+    suspend fun syncHealthConnectData(payload: List<Map<String, String>>): Result<Unit> {
+        return try {
+            val response = apiService.syncHealthConnectData(SyncVitalsRequest(vitals = payload))
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to sync vitals")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     private suspend fun fetchRecommendedDoctors(limit: Int = 8): Result<List<Doctor>> {
         return try {
             val response = apiService.getRecommendedDoctors(limit)

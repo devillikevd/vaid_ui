@@ -190,7 +190,7 @@ fun FindDoctorsCategoriesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SwastikPurple,
+                    containerColor = SwastikPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -208,30 +208,39 @@ fun FindDoctorsCategoriesScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.horizontalGradient(
-                            if (mode == "in_person")
-                                listOf(SwastikPurple, SwastikPurpleDark)
-                            else
-                                listOf(CardBlue, Color(0xFF2962FF))
-                        )
-                    )
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
+                    .background(SwastikPrimaryLight)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (mode == "in_person") Icons.Outlined.PersonPinCircle else Icons.Outlined.Videocam,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = if (mode == "in_person") stringResource(R.string.in_person_consultation_desc) else stringResource(R.string.video_consultation_desc),
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(SwastikPrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            if (mode == "in_person") Icons.Outlined.PersonPinCircle else Icons.Outlined.Videocam,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (mode == "in_person") "In-Person Consultation" else "Video Consultation",
+                            color = SwastikPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = if (mode == "in_person") stringResource(R.string.in_person_consultation_desc) else stringResource(R.string.video_consultation_desc),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
 
@@ -256,7 +265,7 @@ fun FindDoctorsCategoriesScreen(
                     Icon(
                         Icons.Outlined.Help,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = SwastikPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -296,14 +305,14 @@ fun FindDoctorsCategoriesScreen(
                     Icon(
                         Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = SwastikPurple,
+                        tint = SwastikPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 },
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
-                    focusedBorderColor = SwastikPurple,
+                    focusedBorderColor = SwastikPrimary,
                     unfocusedContainerColor = Color.White,
                     focusedContainerColor = Color.White
                 ),
@@ -315,12 +324,12 @@ fun FindDoctorsCategoriesScreen(
             // ── Most Searched Specialities ──
             SectionHeader(title = stringResource(R.string.most_searched_specialities))
             Spacer(modifier = Modifier.height(16.dp))
-            SpecialitiesGrid(
+            SpecialitiesChipsRow(
                 items = mostSearchedSpecialities,
                 onItemClick = { onSpecialityClick(it.name.replace("\n", " ")) }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // ── View All Specialities Button ──
             OutlinedButton(
@@ -330,11 +339,11 @@ fun FindDoctorsCategoriesScreen(
                     .padding(horizontal = 16.dp)
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, SwastikPurple)
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, SwastikPrimary)
             ) {
                 Text(
                     stringResource(R.string.view_all_specialities),
-                    color = SwastikPurple,
+                    color = SwastikPrimary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp
                 )
@@ -344,6 +353,7 @@ fun FindDoctorsCategoriesScreen(
 
             // ── Conditions treated through surgeries ──
             SectionHeader(title = stringResource(R.string.surgery_conditions))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 "Find top surgeons near you for your surgical procedure",
                 fontSize = 13.sp,
@@ -351,7 +361,7 @@ fun FindDoctorsCategoriesScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
-            SurgeryConditionsRow(
+            SurgeryConditionsChipsRow(
                 items = surgeryConditions,
                 onItemClick = { onSpecialityClick(it.name.replace("\n", " ")) }
             )
@@ -361,7 +371,7 @@ fun FindDoctorsCategoriesScreen(
             // ── Most Common Symptoms ──
             SectionHeader(title = stringResource(R.string.common_symptoms))
             Spacer(modifier = Modifier.height(16.dp))
-            SpecialitiesGrid(
+            SpecialitiesChipsRow(
                 items = mostCommonSymptoms.map {
                     SpecialityItem(it.name, it.icon, it.bgColor, it.bgColor.copy(alpha = 1f).let { c ->
                         // Derive a darker tint for the icon
@@ -403,134 +413,96 @@ private fun SectionHeader(title: String) {
     )
 }
 
-// ====== 4-Column Specialities Grid ======
+// ====== Horizontal Chips Grid ======
 
 @Composable
-private fun SpecialitiesGrid(
+private fun SpecialitiesChipsRow(
     items: List<SpecialityItem>,
     onItemClick: (SpecialityItem) -> Unit
 ) {
-    val rows = items.chunked(4)
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                row.forEach { item ->
-                    SpecialityCircleItem(
-                        item = item,
-                        onClick = { onItemClick(item) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                // Fill remaining space if row is incomplete
-                repeat(4 - row.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+        items(items) { item ->
+            SpecialityChip(
+                item = item,
+                onClick = { onItemClick(item) }
+            )
         }
     }
 }
 
 @Composable
-private fun SpecialityCircleItem(
+private fun SpecialityChip(
     item: SpecialityItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clickable { onClick() }
-            .padding(horizontal = 4.dp)
+    Surface(
+        modifier = modifier.clickable { onClick() },
+        color = item.bgColor.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .shadow(4.dp, CircleShape)
-                .clip(CircleShape)
-                .background(item.bgColor),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = item.icon,
-                contentDescription = item.name,
+                contentDescription = item.name.replace("\n", " "),
                 tint = item.iconTint,
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = item.name.replace("\n", " "),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = item.name,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            lineHeight = 14.sp,
-            color = TextPrimary,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
-// ====== Surgery Conditions Horizontal Scroll ======
+// ====== Surgery Conditions Chips Grid ======
 
 @Composable
-private fun SurgeryConditionsRow(
+private fun SurgeryConditionsChipsRow(
     items: List<SurgeryCondition>,
     onItemClick: (SurgeryCondition) -> Unit
 ) {
-    val rows = items.chunked(4)
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+        items(items) { item ->
+            Surface(
+                modifier = Modifier.clickable { onItemClick(item) },
+                color = item.bgColor.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                row.forEach { item ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onItemClick(item) }
-                            .padding(horizontal = 4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .shadow(4.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(item.bgColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.name,
-                                tint = Color(0xFF5D4037),
-                                modifier = Modifier.size(30.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = item.name,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            lineHeight = 14.sp,
-                            color = TextPrimary
-                        )
-                    }
-                }
-                repeat(4 - row.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.name.replace("\n", " "),
+                        tint = Color(0xFF5D4037),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = item.name.replace("\n", " "),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

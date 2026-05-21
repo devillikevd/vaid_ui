@@ -69,7 +69,7 @@ fun EditProfileDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Edit, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(24.dp))
+                Icon(Icons.Outlined.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.edit_profile), fontWeight = FontWeight.Bold)
             }
@@ -235,7 +235,7 @@ fun EditProfileDialog(
                     )
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 enabled = !isSaving
             ) {
                 if (isSaving) {
@@ -269,7 +269,7 @@ fun LanguagePickerDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Language, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.Language, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.select_language), fontWeight = FontWeight.Bold)
             }
@@ -288,7 +288,7 @@ fun LanguagePickerDialog(onDismiss: () -> Unit) {
                         RadioButton(
                             selected = selectedTag == lang.tag,
                             onClick = { selectedTag = lang.tag },
-                            colors = RadioButtonDefaults.colors(selectedColor = SwastikPurple)
+                            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(label, fontSize = 15.sp, fontWeight = if (selectedTag == lang.tag) FontWeight.SemiBold else FontWeight.Normal)
@@ -305,7 +305,7 @@ fun LanguagePickerDialog(onDismiss: () -> Unit) {
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) { Text(stringResource(R.string.apply)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
@@ -326,7 +326,7 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.DarkMode, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.DarkMode, null, tint = colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.appearance), fontWeight = FontWeight.Bold)
             }
@@ -343,20 +343,20 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (selected == mode) {
-                                SwastikPurple.copy(alpha = 0.1f)
+                                colorScheme.primary.copy(alpha = 0.1f)
                             } else {
                                 colorScheme.surfaceVariant.copy(alpha = 0.55f)
                             }
                         ),
-                        border = if (selected == mode) BorderStroke(1.5.dp, SwastikPurple) else null
+                        border = if (selected == mode) BorderStroke(1.5.dp, colorScheme.primary) else null
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(icon, null, tint = if (selected == mode) SwastikPurple else colorScheme.onSurfaceVariant)
+                            Icon(icon, null, tint = if (selected == mode) colorScheme.primary else colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(label, fontWeight = if (selected == mode) FontWeight.SemiBold else FontWeight.Normal)
                             Spacer(Modifier.weight(1f))
                             if (selected == mode) {
-                                Icon(Icons.Default.CheckCircle, null, tint = SwastikPurple)
+                                Icon(Icons.Default.CheckCircle, null, tint = colorScheme.primary)
                             }
                         }
                     }
@@ -371,7 +371,7 @@ fun AppearanceDialog(onDismiss: () -> Unit) {
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) { Text(stringResource(R.string.apply)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
@@ -396,7 +396,7 @@ fun NotificationSettingsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Notifications, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.Notifications, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.notification_settings), fontWeight = FontWeight.Bold)
             }
@@ -427,7 +427,7 @@ fun NotificationSettingsDialog(onDismiss: () -> Unit) {
                     onDismiss()
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
@@ -447,7 +447,7 @@ fun NotifToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = SwastikPurple)
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = colorScheme.primary)
         )
     }
 }
@@ -464,7 +464,7 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Security, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.Security, null, tint = colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.privacy_security), fontWeight = FontWeight.Bold)
             }
@@ -477,13 +477,13 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
                     colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.5f))
                 ) {
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Lock, null, tint = SwastikPurple, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Outlined.Lock, null, tint = colorScheme.primary, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.change_password), fontSize = 14.sp, fontWeight = FontWeight.Medium)
                             Text(stringResource(R.string.update_account_password), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.Default.ChevronRight, null, tint = SwastikPurple)
+                        Icon(Icons.Default.ChevronRight, null, tint = colorScheme.primary)
                     }
                 }
                 Spacer(Modifier.height(4.dp))
@@ -501,7 +501,7 @@ fun PrivacySecurityDialog(onDismiss: () -> Unit, onChangePassword: () -> Unit) {
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
             ) { Text(stringResource(R.string.done)) }
         },
         shape = RoundedCornerShape(20.dp)
@@ -530,7 +530,7 @@ fun ChangePasswordDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Lock, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.Lock, null, tint = colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.change_password), fontWeight = FontWeight.Bold)
             }
@@ -616,7 +616,7 @@ fun ChangePasswordDialog(
                     }
                 },
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary),
                 enabled = !isSaving && currentPassword.isNotBlank() && newPassword.isNotBlank() && confirmPassword.isNotBlank()
             ) {
                 if (isSaving) {

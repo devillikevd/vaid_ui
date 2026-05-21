@@ -27,7 +27,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 enum class CancellationStep {
     CONFIRM, SELECT_REASON, SUCCESS
@@ -251,10 +251,10 @@ private fun CancellationReasonContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(50.dp).background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
+                    modifier = Modifier.size(50.dp).background(SwastikPrimary.copy(alpha = 0.1f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = SwastikPurple)
+                    Icon(Icons.Default.Person, contentDescription = null, tint = SwastikPrimary)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -290,7 +290,7 @@ private fun CancellationReasonContent(
                     RadioButton(
                         selected = (reason == selectedReason),
                         onClick = null,
-                        colors = RadioButtonDefaults.colors(selectedColor = SwastikPurple)
+                        colors = RadioButtonDefaults.colors(selectedColor = SwastikPrimary)
                     )
                     Text(
                         text = reason,
@@ -429,9 +429,9 @@ private fun CancellationSuccessContent(
             onClick = onBookAgain,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Book Again", color = SwastikPurple)
+            Text("Book Again", color = SwastikPrimary)
             Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.Replay, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Replay, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -440,7 +440,7 @@ private fun CancellationSuccessContent(
             onClick = onFindAnotherSpecialist,
             modifier = Modifier.fillMaxWidth().height(54.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
             Text("Find Another Specialist")
             Spacer(Modifier.width(8.dp))

@@ -88,6 +88,7 @@ sealed class Screen(val route: String) {
         }
     }
     object VitalsReminders : Screen("vitals_reminders")
+    object HealthCard : Screen("health_card")
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")
     object BookingHistory : Screen("booking_history")

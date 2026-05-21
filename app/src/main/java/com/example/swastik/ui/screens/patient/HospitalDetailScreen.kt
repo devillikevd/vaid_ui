@@ -28,7 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikOrange
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.utils.NavigationHelper
 import java.util.Locale
@@ -86,7 +86,7 @@ fun HospitalDetailScreen(
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             }
 
@@ -188,7 +188,7 @@ fun HospitalDetailScreen(
                                             Icon(
                                                 Icons.Outlined.LocationOn,
                                                 contentDescription = null,
-                                                tint = SwastikPurple,
+                                                tint = SwastikPrimary,
                                                 modifier = Modifier.size(20.dp)
                                             )
                                             Text(" ${facility.distance}", fontSize = 14.sp)
@@ -263,7 +263,7 @@ fun HospitalDetailScreen(
 
                                 // Address
                                 Row(modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Outlined.Place, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Outlined.Place, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(facility.address, fontSize = 14.sp, modifier = Modifier.weight(1f))
                                 }
@@ -271,7 +271,7 @@ fun HospitalDetailScreen(
                                 if (facility.phone.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(modifier = Modifier.fillMaxWidth()) {
-                                        Icon(Icons.Outlined.Phone, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(20.dp))
+                                        Icon(Icons.Outlined.Phone, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(facility.phone, fontSize = 14.sp)
                                     }
@@ -588,14 +588,14 @@ private fun HospitalReviewSection(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                                    .background(SwastikPrimary.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     (review.patientName?.firstOrNull() ?: 'A').uppercase(),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
-                                    color = SwastikPurple
+                                    color = SwastikPrimary
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -666,7 +666,7 @@ private fun DoctorDetailCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                    .background(SwastikPrimary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(doctor.imageEmoji, fontSize = 24.sp)

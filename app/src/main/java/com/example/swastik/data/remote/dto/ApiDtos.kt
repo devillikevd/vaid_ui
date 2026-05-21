@@ -1025,6 +1025,10 @@ data class CreateVitalRequest(
     val notes: String? = null
 )
 
+data class SyncVitalsRequest(
+    val vitals: List<Map<String, String>>
+)
+
 // ==================== REMINDER DTOs (CRUD) ====================
 
 data class CreateReminderRequest(

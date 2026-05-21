@@ -231,6 +231,7 @@ fun SwastikApp(tokenManager: TokenManager) {
                     navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.DIAGNOSTIC_CENTER))
                 },
                 onNavigateToVitals = { navController.navigate(Screen.VitalsReminders.route) },
+                onNavigateToHealthCard = { navController.navigate(Screen.HealthCard.route) },
                 onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) },
                 onNavigateToBookingHistory = { navController.navigate(Screen.BookingHistory.route) },
                 onNavigateToMedicineDetail = { medicineId ->
@@ -661,6 +662,24 @@ fun SwastikApp(tokenManager: TokenManager) {
             AuthGuard(navController, tokenManager) {
                 VitalsRemindersScreen(
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.HealthCard.route,
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "vaididea://health-card" },
+                navDeepLink { uriPattern = "https://vaididea.in/health-card" }
+            )
+        ) {
+            AuthGuard(navController, tokenManager) {
+                val dashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val recordsViewModel: com.example.swastik.ui.viewmodel.RecordsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.HealthCardScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    dashboardViewModel = dashboardViewModel,
+                    recordsViewModel = recordsViewModel
                 )
             }
         }

@@ -60,6 +60,7 @@ fun PatientDashboardScreen(
     onNavigateToVitals: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
+    onNavigateToHealthCard: () -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
     onStartInPersonConsultation: () -> Unit = {},
@@ -158,6 +159,7 @@ fun PatientDashboardScreen(
                             onNavigateToVitals = onNavigateToVitals,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
                             onNavigateToBookingHistory = onNavigateToBookingHistory,
+                            onNavigateToHealthCard = onNavigateToHealthCard,
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToBooking = onNavigateToBooking,
                             onNavigateToMedicineDetail = onNavigateToMedicineDetail,
@@ -198,8 +200,8 @@ fun PatientDashboardScreen(
                 PullToRefreshContainer(
                     state = pullToRefreshState,
                     modifier = Modifier.align(Alignment.TopCenter),
-                    containerColor = SwastikPurpleLight,
-                    contentColor = SwastikPurple
+                    containerColor = SwastikPrimaryLight,
+                    contentColor = SwastikPrimary
                 )
             }
         }
@@ -210,13 +212,7 @@ fun PatientDashboardScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // Emergency SOS Button
-        EmergencySOSButton(
-            onClick = onNavigateToEmergency,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 100.dp)
-        )
+        // Emergency SOS Button removed - users can use the Quick Action "Ambulance" or Emergency feature within the dashboard.
 
         // Notification Panel
         if (showNotificationPanel) {

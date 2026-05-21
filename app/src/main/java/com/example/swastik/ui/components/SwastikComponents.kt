@@ -25,7 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 /**
  * Swastik branded primary button
@@ -46,8 +46,8 @@ fun SwastikButton(
         enabled = enabled && !isLoading,
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = SwastikPurple,
-            disabledContainerColor = SwastikPurple.copy(alpha = 0.5f)
+            containerColor = SwastikPrimary,
+            disabledContainerColor = SwastikPrimary.copy(alpha = 0.5f)
         )
     ) {
         if (isLoading) {
@@ -147,7 +147,7 @@ fun OtpInputField(
                     .border(
                         BorderStroke(
                             width = if (value.isNotEmpty()) 2.dp else 1.dp,
-                            color = if (value.isNotEmpty()) SwastikPurple else Color.LightGray
+                            color = if (value.isNotEmpty()) SwastikPrimary else Color.LightGray
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )

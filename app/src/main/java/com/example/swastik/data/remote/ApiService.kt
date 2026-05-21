@@ -424,6 +424,9 @@ interface ApiService {
     @POST("patients/vitals")
     suspend fun recordVital(@Body request: CreateVitalRequest): Response<ApiResponse<VitalDto>>
 
+    @POST("patients/vitals/sync")
+    suspend fun syncHealthConnectData(@Body request: SyncVitalsRequest): Response<ApiResponse<Unit>>
+
     // ==================== REMINDERS ====================
 
     @GET("patients/reminders")

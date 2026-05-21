@@ -14,16 +14,20 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 // ==================== BOTTOM NAVIGATION ====================
 @Composable
@@ -31,72 +35,103 @@ fun PatientBottomNavigation(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        tonalElevation = 0.dp,
+        modifier = Modifier.shadow(
+            elevation = 16.dp,
+            spotColor = Color.Black.copy(alpha = 0.05f),
+            ambientColor = Color.Transparent
+        )
     ) {
         NavigationBarItem(
             selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onTabSelected(0) 
+            },
             icon = {
                 Icon(
                     if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
                     contentDescription = "Home"
                 )
             },
-            label = { Text(stringResource(R.string.home), fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.home), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
-                indicatorColor = SwastikPurple.copy(alpha = 0.1f)
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
+                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
             )
         )
         NavigationBarItem(
             selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onTabSelected(1) 
+            },
             icon = {
                 Icon(
                     if (selectedTab == 1) Icons.Filled.MedicalServices else Icons.Outlined.MedicalServices,
                     contentDescription = "Medicine"
                 )
             },
-            label = { Text(stringResource(R.string.medicine), fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.medicine), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
-                indicatorColor = SwastikPurple.copy(alpha = 0.1f)
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
+                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
             )
         )
         NavigationBarItem(
             selected = selectedTab == 2,
-            onClick = { onTabSelected(2) },
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onTabSelected(2) 
+            },
             icon = {
                 Icon(
                     if (selectedTab == 2) Icons.Filled.Folder else Icons.Outlined.Folder,
                     contentDescription = "Records"
                 )
             },
-            label = { Text(stringResource(R.string.records), fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.records), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
-                indicatorColor = SwastikPurple.copy(alpha = 0.1f)
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
+                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
             )
         )
         NavigationBarItem(
             selected = selectedTab == 3,
-            onClick = { onTabSelected(3) },
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onTabSelected(3) 
+            },
             icon = {
                 Icon(
                     if (selectedTab == 3) Icons.Filled.Person else Icons.Outlined.Person,
                     contentDescription = "Profile"
                 )
             },
-            label = { Text(stringResource(R.string.profile), fontSize = 11.sp) },
+            label = { Text(stringResource(R.string.profile), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
-                indicatorColor = SwastikPurple.copy(alpha = 0.1f)
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
+                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
             )
         )
     }
@@ -122,7 +157,7 @@ fun CommonScreenHeader(
             modifier = Modifier
                 .size(45.dp)
                 .clip(CircleShape)
-                .background(SwastikPurple.copy(alpha = 0.2f)),
+                .background(SwastikPrimary.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
             Text(userEmoji, fontSize = 24.sp)
@@ -151,7 +186,7 @@ fun CommonScreenHeader(
                 Icon(
                     Icons.Outlined.CloudUpload,
                     contentDescription = "Upload",
-                    tint = SwastikPurple
+                    tint = SwastikPrimary
                 )
             }
         }
@@ -228,7 +263,7 @@ fun EmptyStateView(
             Button(
                 onClick = onAction,
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
                 Text(actionText)
             }
@@ -309,11 +344,44 @@ fun NoInternetView(onRetry: () -> Unit) {
         Button(
             onClick = onRetry,
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
             Icon(Icons.Default.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.try_again))
         }
+    }
+}
+
+// ==================== PULSE ANIMATION ====================
+@Composable
+fun PulseAnimation(
+    modifier: Modifier = Modifier,
+    color: Color = SwastikPrimary,
+    content: @Composable () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    Box(
+        modifier = modifier.scale(scale),
+        contentAlignment = Alignment.Center
+    ) {
+        // Outer glow
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.2f))
+        )
+        content()
     }
 }

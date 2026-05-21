@@ -27,7 +27,7 @@ import com.example.swastik.data.model.Medicine
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikRed
 import java.util.Locale
 
@@ -85,7 +85,7 @@ fun MedicineDetailScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (detailState.isLoading) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 } else {
                     Text(stringResource(R.string.medicine_not_found), color = colorScheme.onSurfaceVariant)
                 }
@@ -148,7 +148,7 @@ fun MedicineDetailScreen(
                     Box(
                         modifier = Modifier
                             .size(100.dp)
-                            .background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
+                            .background(SwastikPrimary.copy(alpha = 0.1f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -175,7 +175,7 @@ fun MedicineDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .background(
-                                        SwastikOrange.copy(alpha = 0.14f),
+                                        colorScheme.tertiaryContainer,
                                         RoundedCornerShape(6.dp)
                                     )
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -183,7 +183,7 @@ fun MedicineDetailScreen(
                                 Text(
                                     "Rx Required",
                                     fontSize = 12.sp,
-                                    color = SwastikOrange,
+                                    color = colorScheme.onTertiaryContainer,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -209,12 +209,12 @@ fun MedicineDetailScreen(
                         InfoChip(
                             icon = Icons.Outlined.Category,
                             label = medicine.category.name.lowercase().replaceFirstChar { it.uppercase() },
-                            color = SwastikPurple
+                            color = SwastikPrimary
                         )
                         InfoChip(
                             icon = if (medicine.inStock) Icons.Default.CheckCircle else Icons.Default.Cancel,
                             label = if (medicine.inStock) "In Stock" else "Out of Stock",
-                            color = if (medicine.inStock) SwastikGreen else SwastikRed
+                            color = if (medicine.inStock) colorScheme.primary else colorScheme.error
                         )
                     }
                 }
@@ -253,7 +253,7 @@ fun MedicineDetailScreen(
                 stringResource(R.string.select_pharmacy_to_order),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = SwastikPurple,
+                color = SwastikPrimary,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -267,7 +267,7 @@ fun MedicineDetailScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SwastikPurple, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(24.dp))
                 }
             } else if (pharmacies.isEmpty()) {
                 Text(
@@ -356,13 +356,13 @@ private fun PharmacyAvailabilityCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(SwastikGreen.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
+                    .background(colorScheme.secondaryContainer, RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.LocalPharmacy,
                     contentDescription = null,
-                    tint = SwastikGreen,
+                    tint = colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -394,7 +394,7 @@ private fun PharmacyAvailabilityCard(
                         modifier = Modifier
                             .size(6.dp)
                             .background(
-                                if (pharmacy.available) SwastikGreen else SwastikRed,
+                                if (pharmacy.available) colorScheme.primary else colorScheme.error,
                                 CircleShape
                             )
                     )
@@ -402,7 +402,7 @@ private fun PharmacyAvailabilityCard(
                     Text(
                         if (pharmacy.available) "Available" else "Out of Stock",
                         fontSize = 12.sp,
-                        color = if (pharmacy.available) SwastikGreen else SwastikRed
+                        color = if (pharmacy.available) colorScheme.primary else colorScheme.error
                     )
                 }
             }
@@ -413,7 +413,7 @@ private fun PharmacyAvailabilityCard(
                     pharmacy.price,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
                 Icon(
                     Icons.Default.ChevronRight,
@@ -453,7 +453,7 @@ private fun MedicineDetailBottomBar(
                     price?.let { "₹$it" } ?: stringResource(R.string.price_unavailable),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
             }
 
@@ -467,7 +467,7 @@ private fun MedicineDetailBottomBar(
                     .width(180.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (inStock) SwastikPurple else colorScheme.outline
+                    containerColor = if (inStock) SwastikPrimary else colorScheme.outline
                 )
             ) {
                 Icon(

@@ -46,7 +46,7 @@ fun FeedbackDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Feedback, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.Feedback, null, tint = SwastikPrimary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.send_feedback), fontWeight = FontWeight.Bold)
             }
@@ -87,7 +87,7 @@ fun FeedbackDialog(onDismiss: () -> Unit) {
                 },
                 enabled = rating > 0,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.submit)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
@@ -112,7 +112,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.HelpOutline, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.HelpOutline, null, tint = SwastikPrimary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.help_center), fontWeight = FontWeight.Bold)
             }
@@ -128,7 +128,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
                         },
                         shape = RoundedCornerShape(10.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (expandedIndex == index) SwastikPurple.copy(alpha = 0.06f) else Color(0xFFF5F5F5)
+                            containerColor = if (expandedIndex == index) SwastikPrimary.copy(alpha = 0.06f) else Color(0xFFF5F5F5)
                         )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -136,7 +136,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
                                 Text(question, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                                 Icon(
                                     if (expandedIndex == index) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    null, tint = SwastikPurple
+                                    null, tint = SwastikPrimary
                                 )
                             }
                             if (expandedIndex == index) {
@@ -152,7 +152,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.close)) }
         },
         shape = RoundedCornerShape(20.dp)
@@ -208,7 +208,7 @@ fun QrCodeDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.QrCode2, null, tint = SwastikPurple)
+                Icon(Icons.Outlined.QrCode2, null, tint = SwastikPrimary)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.health_qr_code), fontWeight = FontWeight.Bold)
             }
@@ -223,14 +223,14 @@ fun QrCodeDialog(
                         .size(220.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White)
-                        .border(2.dp, SwastikPurple.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                        .border(2.dp, SwastikPrimary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
                         .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     when {
                         healthCardState.isLoading -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(modifier = Modifier.size(48.dp), color = SwastikPurple)
+                                CircularProgressIndicator(modifier = Modifier.size(48.dp), color = SwastikPrimary)
                                 Spacer(Modifier.height(8.dp))
                                 Text(stringResource(R.string.checking_health_card), fontSize = 12.sp, color = Color.Gray)
                             }
@@ -268,16 +268,16 @@ fun QrCodeDialog(
                 if (healthCardState.hasActiveCard && healthCardState.expiresAt != null) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Icon(Icons.Outlined.Schedule, null, tint = SwastikPurple, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Valid until $formattedExpiry", fontSize = 11.sp, color = SwastikPurple)
+                        Text("Valid until $formattedExpiry", fontSize = 11.sp, color = SwastikPrimary)
                     }
                 } else if (healthCardState.hasActiveCard) {
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Icon(Icons.Outlined.VerifiedUser, null, tint = SwastikPurple, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Outlined.VerifiedUser, null, tint = SwastikPrimary, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(stringResource(R.string.active_health_card_ready_to_share), fontSize = 11.sp, color = SwastikPurple)
+                        Text(stringResource(R.string.active_health_card_ready_to_share), fontSize = 11.sp, color = SwastikPrimary)
                     }
                 }
 
@@ -313,7 +313,7 @@ fun QrCodeDialog(
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, SwastikPurple.copy(alpha = 0.5f))
+                            border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.5f))
                         ) {
                             Icon(Icons.Outlined.Share, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
@@ -338,7 +338,7 @@ fun QrCodeDialog(
                             onClick = { viewModel?.generateHealthCard() },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                         ) {
                             Icon(Icons.Outlined.QrCode2, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
@@ -352,7 +352,7 @@ fun QrCodeDialog(
             Button(
                 onClick = onDismiss,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) { Text(stringResource(R.string.close)) }
         },
         shape = RoundedCornerShape(20.dp)

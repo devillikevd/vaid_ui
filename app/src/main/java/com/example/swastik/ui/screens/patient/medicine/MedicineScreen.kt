@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import com.example.swastik.ui.screens.patient.components.shimmerEffect
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,7 +36,7 @@ import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.data.model.MedicineCategory
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import java.util.Locale
 
 /**
@@ -73,7 +75,7 @@ fun MedicineScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.resolvePharmacyConflict(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.clear_and_add)) }
             },
             dismissButton = {
@@ -181,11 +183,19 @@ fun MedicineScreen(
 
                     // Medicine List
                     if (state.isLoading) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            CircularProgressIndicator(color = SwastikPurple)
+                            repeat(5) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(100.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .shimmerEffect()
+                                )
+                            }
                         }
                     } else if (filteredMedicines.isEmpty() && filteredNearbyMedicines.isEmpty()) {
                         MedicineEmptyState(
@@ -207,7 +217,7 @@ fun MedicineScreen(
                                         stringResource(id = R.string.available_near_you),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 18.sp,
-                                        color = SwastikPurple,
+                                        color = SwastikPrimary,
                                         modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
                                     )
                                 }
@@ -290,10 +300,10 @@ private fun MedicineScreenHeader(
             modifier = Modifier
                 .size(45.dp)
                 .clip(CircleShape)
-                .background(SwastikPurple.copy(alpha = 0.2f)),
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Text(stringResource(R.string.string_10), fontSize = 24.sp)
+            Text(stringResource(R.string.string_10), fontSize = 24.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -327,7 +337,7 @@ private fun MedicineScreenHeader(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color.Red, CircleShape)
+                        .background(MaterialTheme.colorScheme.error, CircleShape)
                         .align(Alignment.TopEnd)
                         .offset(x = (-4).dp, y = 4.dp),
                     contentAlignment = Alignment.Center
@@ -356,7 +366,7 @@ private fun MedicineScreenHeader(
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(Color.Red, CircleShape)
+                        .background(MaterialTheme.colorScheme.error, CircleShape)
                         .align(Alignment.TopEnd)
                         .offset(x = (-8).dp, y = 8.dp)
                 )
@@ -402,7 +412,7 @@ private fun MedicineSearchBar(
                     Icon(
                         Icons.Default.Mic,
                         contentDescription = "Voice Search",
-                        tint = SwastikPurple
+                        tint = SwastikPrimary
                     )
                 }
             }
@@ -414,7 +424,7 @@ private fun MedicineSearchBar(
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            focusedBorderColor = SwastikPurple,
+            focusedBorderColor = SwastikPrimary,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             focusedContainerColor = MaterialTheme.colorScheme.surface
         ),
@@ -438,8 +448,8 @@ private fun MedicineCategoryFilter(
                 onClick = { onCategorySelected(null) },
                 label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = MaterialTheme.colorScheme.surface
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         }
@@ -454,8 +464,8 @@ private fun MedicineCategoryFilter(
                     )
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = MaterialTheme.colorScheme.surface
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         }
@@ -545,14 +555,14 @@ private fun MedicineListItem(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = SwastikPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = medicine.nearbyPharmacy ?: "",
                         fontSize = 13.sp,
-                        color = SwastikPurple,
+                        color = SwastikPrimary,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -599,7 +609,7 @@ private fun NearbyMedicineCard(
                     text = "₹${nearbyMed.price}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
             }
             
@@ -652,10 +662,10 @@ private fun MedicineEmptyState(
         Box(
             modifier = Modifier
                 .size(120.dp)
-                .background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
+                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(stringResource(R.string.string_11), fontSize = 50.sp)
+            Text(stringResource(R.string.string_11), fontSize = 50.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -684,10 +694,10 @@ private fun MedicineEmptyState(
             Icon(
                 Icons.Default.Refresh,
                 contentDescription = null,
-                tint = SwastikPurple
+                tint = SwastikPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.reset_filters), color = SwastikPurple)
+            Text(stringResource(R.string.reset_filters), color = SwastikPrimary)
         }
     }
 }
@@ -715,8 +725,8 @@ private fun MedicineBottomNavBar(
             },
             label = { Text(stringResource(R.string.home), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 indicatorColor = MaterialTheme.colorScheme.surface
@@ -731,7 +741,7 @@ private fun MedicineBottomNavBar(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            if (selectedTab == 1) SwastikPurple.copy(alpha = 0.1f) else Color.Transparent,
+                            if (selectedTab == 1) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                             RoundedCornerShape(10.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -739,7 +749,7 @@ private fun MedicineBottomNavBar(
                     Icon(
                         Icons.Filled.Medication,
                         contentDescription = "Medicine",
-                        tint = if (selectedTab == 1) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (selectedTab == 1) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -747,7 +757,7 @@ private fun MedicineBottomNavBar(
                 Text(
                     "Medicine",
                     fontSize = 11.sp,
-                    color = if (selectedTab == 1) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (selectedTab == 1) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             colors = NavigationBarItemDefaults.colors(
@@ -764,7 +774,7 @@ private fun MedicineBottomNavBar(
                     modifier = Modifier
                         .size(50.dp)
                         .offset(y = (-10).dp)
-                        .background(SwastikPurple, CircleShape),
+                        .background(SwastikPrimary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -792,8 +802,8 @@ private fun MedicineBottomNavBar(
             },
             label = { Text(stringResource(R.string.records), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 indicatorColor = MaterialTheme.colorScheme.surface
@@ -811,8 +821,8 @@ private fun MedicineBottomNavBar(
             },
             label = { Text(stringResource(R.string.profile), fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPurple,
-                selectedTextColor = SwastikPurple,
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 indicatorColor = MaterialTheme.colorScheme.surface

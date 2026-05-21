@@ -15,7 +15,11 @@ import com.example.swastik.data.repository.RecordsRepository
 import com.example.swastik.data.remote.dto.ConsultationDto
 import com.example.swastik.data.remote.dto.ReportDto
 import com.example.swastik.utils.LocationHelper
+import com.example.swastik.data.health.HealthConnectManager
+import com.example.swastik.data.health.VitalsData
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +42,8 @@ data class RecordsUiState(
     val prescriptionForwardSuccess: PrescriptionForwardSuccess? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val uploadState: UploadState = UploadState.Idle
+    val uploadState: UploadState = UploadState.Idle,
+    val vitalsData: VitalsData? = null
 )
 
 data class PrescriptionForwardSuccess(
@@ -58,8 +63,11 @@ class RecordsViewModel @Inject constructor(
     private val recordsRepository: RecordsRepository,
     private val hospitalRepository: HospitalRepository,
     private val locationHelper: LocationHelper,
-    private val socketManager: SocketManager
+    private val socketManager: SocketManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val healthConnectManager = HealthConnectManager(context)
 
     private val _uiState = MutableStateFlow(RecordsUiState())
     val uiState: StateFlow<RecordsUiState> = _uiState.asStateFlow()
@@ -92,10 +100,24 @@ class RecordsViewModel @Inject constructor(
                         _uiState.update { it.copy(error = e.message ?: "Failed to load reports") }
                     }
                 }
+                launch {
+                    try { loadVitals() }
+                    catch (e: Exception) {
+                        // ignore vitals fetch error
+                    }
+                }
             }
             _uiState.update { it.copy(isLoading = false) }
         }
     }
+
+    private suspend fun loadVitals() {
+        if (healthConnectManager.hasAllPermissions()) {
+            val vitals = healthConnectManager.fetchVitalsData()
+            _uiState.update { it.copy(vitalsData = vitals) }
+        }
+    }
+
 
     private suspend fun loadConsultations() {
         val dtos = recordsRepository.getAllConsultations()

@@ -29,7 +29,7 @@ import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 import com.example.swastik.ui.components.MedicineListShimmer
 
@@ -73,7 +73,7 @@ fun MedicineTabContent(
             confirmButton = {
                 Button(
                     onClick = { viewModel.resolvePharmacyConflict(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) {
                     Text(stringResource(R.string.clear_and_add))
                 }
@@ -165,7 +165,7 @@ fun MedicineTabContent(
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = { viewModel.loadPopularMedicines() },
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -226,14 +226,14 @@ private fun MedicineFinderHeader(
             modifier = Modifier
                 .size(45.dp)
                 .clip(CircleShape)
-                .background(SwastikPurple.copy(alpha = 0.2f)),
+                .background(colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 profile?.initials?.ifEmpty { "👤" } ?: "👤",
                 fontSize = if (profile?.initials?.isNotEmpty() == true) 16.sp else 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = SwastikPurple
+                color = colorScheme.onPrimaryContainer
             )
         }
 
@@ -315,7 +315,7 @@ private fun MedicineSearchBar(
                 IconButton(onClick = {
                     android.widget.Toast.makeText(context, context.getString(R.string.voice_search_unavailable), android.widget.Toast.LENGTH_SHORT).show()
                 }) {
-                    Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPurple)
+                    Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPrimary)
                 }
             }
         },
@@ -334,7 +334,7 @@ private fun MedicineSearchBar(
             focusedTrailingIconColor = colorScheme.onSurfaceVariant,
             unfocusedTrailingIconColor = colorScheme.onSurfaceVariant,
             unfocusedBorderColor = colorScheme.outline.copy(alpha = 0.6f),
-            focusedBorderColor = SwastikPurple,
+            focusedBorderColor = SwastikPrimary,
             unfocusedContainerColor = colorScheme.surface,
             focusedContainerColor = colorScheme.surface
         ),
@@ -358,8 +358,8 @@ private fun MedicineCategoryFilter(
                 onClick = { onCategorySelected(null) },
                 label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White,
+                    selectedContainerColor = colorScheme.primary,
+                    selectedLabelColor = colorScheme.onPrimary,
                     containerColor = colorScheme.surface,
                     labelColor = colorScheme.onSurfaceVariant
                 )
@@ -376,8 +376,8 @@ private fun MedicineCategoryFilter(
                     )
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White,
+                    selectedContainerColor = colorScheme.primary,
+                    selectedLabelColor = colorScheme.onPrimary,
                     containerColor = colorScheme.surface,
                     labelColor = colorScheme.onSurfaceVariant
                 )
@@ -508,7 +508,7 @@ private fun NearbyMedicineCard(
                     text = "₹${nearbyMed.price}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
             }
 
@@ -537,13 +537,13 @@ private fun NearbyMedicineCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             Surface(
-                color = Color(0xFFE8F5E9),
+                color = colorScheme.secondaryContainer,
                 shape = RoundedCornerShape(6.dp)
             ) {
                 Text(
                     text = "${nearbyMed.quantity} left in stock",
                     fontSize = 11.sp,
-                    color = Color(0xFF2E7D32),
+                    color = colorScheme.onSecondaryContainer,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
@@ -607,13 +607,13 @@ private fun EmptyMedicineState(
             Spacer(modifier = Modifier.height(16.dp))
             if (hasActiveFilters) {
                 TextButton(onClick = onClearFilters) {
-                    Text(stringResource(R.string.clear_filters_1), color = SwastikPurple)
+                    Text(stringResource(R.string.clear_filters_1), color = SwastikPrimary)
                 }
             }
             OutlinedButton(onClick = onReloadCatalog) {
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPurple)
+                Icon(Icons.Default.Refresh, contentDescription = null, tint = SwastikPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.refresh_catalog_1), color = SwastikPurple)
+                Text(stringResource(R.string.refresh_catalog_1), color = SwastikPrimary)
             }
         }
     }
@@ -651,13 +651,13 @@ private fun MedicineListItem(
                     if (medicine.requiresPrescription) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
-                            color = Color(0xFFFFF3E0),
+                            color = colorScheme.tertiaryContainer,
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(
                                 text = "Rx",
                                 fontSize = 10.sp,
-                                color = Color(0xFFE67E22),
+                                color = colorScheme.onTertiaryContainer,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
@@ -684,7 +684,7 @@ private fun MedicineListItem(
                     text = if (medicine.inStock) "In stock" else "Out of stock",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (medicine.inStock) Color(0xFF4CAF50) else Color(0xFFE53935)
+                    color = if (medicine.inStock) colorScheme.primary else colorScheme.error
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -694,14 +694,14 @@ private fun MedicineListItem(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = SwastikPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = medicine.nearbyPharmacy ?: "Find pharmacy",
                         fontSize = 13.sp,
-                        color = SwastikPurple,
+                        color = SwastikPrimary,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

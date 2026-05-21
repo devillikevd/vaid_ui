@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.DiagnosticBookingDto
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
@@ -67,7 +67,7 @@ fun BookingHistoryScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SwastikPurple,
+                    containerColor = SwastikPrimary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White,
                     actionIconContentColor = Color.White
@@ -83,8 +83,8 @@ fun BookingHistoryScreen(
             // Tab filter row
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = SwastikPurple.copy(alpha = 0.05f),
-                contentColor = SwastikPurple,
+                containerColor = SwastikPrimary.copy(alpha = 0.05f),
+                contentColor = SwastikPrimary,
                 edgePadding = 8.dp
             ) {
                 tabs.forEachIndexed { index, title ->
@@ -145,7 +145,7 @@ fun BookingHistoryScreen(
             when {
                 historyState.isLoading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPurple)
+                        CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
                 historyState.bookings.isEmpty() -> {
@@ -261,7 +261,7 @@ private fun BookingHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CalendarMonth, null, tint = SwastikPurple, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.CalendarMonth, null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(
                         formatBookingDate(booking.bookingDate),
@@ -273,7 +273,7 @@ private fun BookingHistoryCard(
                     }
                 }
                 booking.test?.price?.let {
-                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 15.sp)
+                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 15.sp)
                 }
             }
 
@@ -380,7 +380,7 @@ private fun BookingHistoryCard(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(18.dp))

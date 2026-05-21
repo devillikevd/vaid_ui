@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.AppointmentViewModel
 
 enum class AppointmentFilter {
@@ -96,7 +96,7 @@ fun AppointmentHistoryScreen(
             when {
                 uiState.isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPurple)
+                        CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
                 uiState.error != null -> {
@@ -114,7 +114,7 @@ fun AppointmentHistoryScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = { viewModel.loadAppointments() },
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                         ) {
                             Text(stringResource(R.string.retry))
                         }
@@ -180,14 +180,14 @@ private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: 
                     )
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = SwastikPurple,
+                    selectedContainerColor = SwastikPrimary,
                     selectedLabelColor = MaterialTheme.colorScheme.surface,
                     containerColor = colorScheme.surface,
                     labelColor = colorScheme.onSurfaceVariant
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     borderColor = colorScheme.outline.copy(alpha = 0.5f),
-                    selectedBorderColor = SwastikPurple,
+                    selectedBorderColor = SwastikPrimary,
                     enabled = true,
                     selected = selectedFilter == filter
                 )
@@ -235,7 +235,7 @@ private fun AppointmentCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 val (bgColor, txtColor, statusText) = when {
                     isCompleted -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary, "Completed")
-                    isUpcoming -> Triple(Color(0xFFE3F2FD), SwastikPurple, "Upcoming")
+                    isUpcoming -> Triple(Color(0xFFE3F2FD), SwastikPrimary, "Upcoming")
                     isCancelled -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.error, "Cancelled")
                     else -> Triple(colorScheme.surfaceVariant, colorScheme.onSurfaceVariant, appointment.status.replaceFirstChar { it.uppercase() })
                 }
@@ -250,8 +250,8 @@ private fun AppointmentCard(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.1f)).border(2.dp, SwastikPurple.copy(alpha = 0.3f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Person, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(30.dp))
+                Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.1f)).border(2.dp, SwastikPrimary.copy(alpha = 0.3f), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Person, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(30.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -263,14 +263,14 @@ private fun AppointmentCard(
                             Icon(
                                 if (appointment.clinic != null) Icons.Default.MedicalServices else Icons.Default.LocalHospital,
                                 contentDescription = null,
-                                tint = SwastikPurple,
+                                tint = SwastikPrimary,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "$facilityLabel • $facilityName",
                                 fontSize = 12.sp,
-                                color = SwastikPurple,
+                                color = SwastikPrimary,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -282,12 +282,12 @@ private fun AppointmentCard(
             Spacer(modifier = Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = appointment.date, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                 }
@@ -295,7 +295,7 @@ private fun AppointmentCard(
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (isVideo) {
-                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
+                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.start_video_consultation), fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -310,7 +310,7 @@ private fun AppointmentCard(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.EventAvailable, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.EventAvailable, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = inPersonVisitLabel,
@@ -336,15 +336,15 @@ private fun AppointmentCard(
             if (isCompleted) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onPrescriptionClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple))) {
-                        Icon(Icons.Outlined.Description, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                    OutlinedButton(onClick = onPrescriptionClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPrimary))) {
+                        Icon(Icons.Outlined.Description, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.prescription), color = SwastikPurple, fontSize = 12.sp)
+                        Text(stringResource(R.string.prescription), color = SwastikPrimary, fontSize = 12.sp)
                     }
-                    OutlinedButton(onClick = onBookAgainClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPurple))) {
-                        Icon(Icons.Outlined.Replay, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                    OutlinedButton(onClick = onBookAgainClick, modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(SwastikPrimary))) {
+                        Icon(Icons.Outlined.Replay, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.book_again), color = SwastikPurple, fontSize = 12.sp)
+                        Text(stringResource(R.string.book_again), color = SwastikPrimary, fontSize = 12.sp)
                     }
                 }
             }
@@ -378,7 +378,7 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
             fontSize = 14.sp, color = colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onBookClick, modifier = Modifier.fillMaxWidth(0.6f).height(50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)) {
+        Button(onClick = onBookClick, modifier = Modifier.fillMaxWidth(0.6f).height(50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.book_appointment), fontSize = 15.sp)
@@ -390,12 +390,12 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
 private fun AppointmentEmptyIcon() {
     Box(modifier = Modifier.size(140.dp), contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(color = SwastikPurple, radius = 5.dp.toPx(), center = Offset(size.width * 0.85f, size.height * 0.15f))
-            drawCircle(color = SwastikPurple, radius = 3.dp.toPx(), center = Offset(size.width * 0.75f, size.height * 0.22f))
-            drawCircle(color = SwastikPurple, radius = 4.dp.toPx(), center = Offset(size.width * 0.12f, size.height * 0.7f))
+            drawCircle(color = SwastikPrimary, radius = 5.dp.toPx(), center = Offset(size.width * 0.85f, size.height * 0.15f))
+            drawCircle(color = SwastikPrimary, radius = 3.dp.toPx(), center = Offset(size.width * 0.75f, size.height * 0.22f))
+            drawCircle(color = SwastikPrimary, radius = 4.dp.toPx(), center = Offset(size.width * 0.12f, size.height * 0.7f))
         }
-        Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(90.dp).clip(CircleShape).background(SwastikPurple), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(90.dp).clip(CircleShape).background(SwastikPrimary), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(45.dp))
             }
         }

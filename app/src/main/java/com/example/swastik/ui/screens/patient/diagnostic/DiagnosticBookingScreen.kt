@@ -33,7 +33,7 @@ import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 
-private val SwastikPurple = Color(0xFF6C63FF)
+private val SwastikPrimary = Color(0xFF6C63FF)
 
 /**
  * Diagnostic Booking Screen — search centers, view tests, and book.
@@ -104,7 +104,7 @@ fun DiagnosticBookingScreen(
                         viewModel.resetBooking()
                         onBackClick()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.done)) }
             },
             dismissButton = {
@@ -132,7 +132,7 @@ fun DiagnosticBookingScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
             )
         }
     ) { padding ->
@@ -159,7 +159,7 @@ fun DiagnosticBookingScreen(
 
             if (uiState.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             } else if (uiState.selectedCenter != null) {
                 // Show tests for selected center
@@ -207,7 +207,7 @@ fun DiagnosticBookingScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
                     uiState.selectedTest!!.price?.let {
-                        Text("Price: ₹${it.toInt()}", color = SwastikPurple, fontWeight = FontWeight.Bold)
+                        Text("Price: ₹${it.toInt()}", color = SwastikPrimary, fontWeight = FontWeight.Bold)
                     }
 
                     OutlinedTextField(
@@ -218,14 +218,14 @@ fun DiagnosticBookingScreen(
                         enabled = false,
                         trailingIcon = {
                             IconButton(onClick = { showDatePicker = true }) {
-                                Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = SwastikPurple)
+                                Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = SwastikPrimary)
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             disabledTextColor = Color.Black,
                             disabledLabelColor = Color.Gray,
                             disabledBorderColor = Color.Gray,
-                            disabledTrailingIconColor = SwastikPurple
+                            disabledTrailingIconColor = SwastikPrimary
                         ),
                         singleLine = true
                     )
@@ -237,14 +237,14 @@ fun DiagnosticBookingScreen(
                         enabled = false,
                         trailingIcon = {
                             IconButton(onClick = { showTimePicker = true }) {
-                                Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPurple)
+                                Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPrimary)
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             disabledTextColor = Color.Black,
                             disabledLabelColor = Color.Gray,
                             disabledBorderColor = Color.Gray,
-                            disabledTrailingIconColor = SwastikPurple
+                            disabledTrailingIconColor = SwastikPrimary
                         ),
                         singleLine = true
                     )
@@ -286,7 +286,7 @@ fun DiagnosticBookingScreen(
                         showBookingDialog = false
                     },
                     enabled = bookingDate.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.confirm_booking)) }
             },
             dismissButton = {
@@ -324,7 +324,7 @@ fun DiagnosticBookingScreen(
                         )
                     }
                     showDatePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
@@ -347,7 +347,7 @@ fun DiagnosticBookingScreen(
                 TextButton(onClick = {
                     bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
                     showTimePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPurple) }
+                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
             },
             dismissButton = {
                 TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }
@@ -372,10 +372,10 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(50.dp)
                     .clip(CircleShape)
-                    .background(SwastikPurple.copy(alpha = 0.1f)),
+                    .background(SwastikPrimary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Biotech, null, tint = SwastikPurple, modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Biotech, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -450,7 +450,7 @@ private fun CenterTestsView(
                         .fillMaxWidth()
                         .padding(16.dp)
                         .height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.EventAvailable, null)
@@ -471,9 +471,9 @@ private fun TestCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        border = if (isSelected) BorderStroke(2.dp, SwastikPurple) else null,
+        border = if (isSelected) BorderStroke(2.dp, SwastikPrimary) else null,
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) SwastikPurple.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) SwastikPrimary.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surface
         ),
         onClick = onSelect
     ) {
@@ -482,7 +482,7 @@ private fun TestCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = SwastikPurple, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
             } else {
                 Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
             }
@@ -498,7 +498,7 @@ private fun TestCard(
                 test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = Color.Gray, fontSize = 12.sp) }
             }
             test.price?.let {
-                Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 16.sp)
+                Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)
             }
         }
     }

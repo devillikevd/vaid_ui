@@ -14,7 +14,10 @@ import com.example.swastik.data.repository.EmergencyRepository
 import com.example.swastik.data.repository.AuthRepository
 import com.example.swastik.notifications.PushNotificationCoordinator
 import com.example.swastik.utils.NetworkObserver
+import com.example.swastik.data.health.HealthConnectManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,8 +46,11 @@ class PatientDashboardViewModel @Inject constructor(
     private val emergencyRepository: EmergencyRepository,
     private val socketManager: SocketManager,
     private val pushNotificationCoordinator: PushNotificationCoordinator,
-    networkObserver: NetworkObserver
+    networkObserver: NetworkObserver,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    val healthConnectManager = HealthConnectManager(context)
 
     private val _uiState = MutableStateFlow(PatientDashboardUiState())
     val uiState: StateFlow<PatientDashboardUiState> = _uiState.asStateFlow()
@@ -502,6 +508,54 @@ class PatientDashboardViewModel @Inject constructor(
                 is Result.Loading -> {}
             }
         }
+    }
+
+    // ── Health Connect ──────────────────────────────────────────
+    private val _healthConnectSyncState = MutableStateFlow<ProfileUpdateState>(ProfileUpdateState.Idle)
+    val healthConnectSyncState: StateFlow<ProfileUpdateState> = _healthConnectSyncState.asStateFlow()
+
+    fun syncHealthConnectData() {
+        viewModelScope.launch {
+            _healthConnectSyncState.value = ProfileUpdateState.Loading
+            if (!healthConnectManager.hasAllPermissions()) {
+                _healthConnectSyncState.value = ProfileUpdateState.Error("Permissions not granted")
+                return@launch
+            }
+            try {
+                val vitals = healthConnectManager.fetchVitalsData()
+                // Convert to Vitals list for backend
+                val payload = mutableListOf<Map<String, String>>()
+                
+                if (vitals.totalSteps > 0) {
+                    payload.add(mapOf("type" to "steps", "value" to vitals.totalSteps.toString()))
+                }
+                vitals.recentHeartRates.lastOrNull()?.let {
+                    payload.add(mapOf("type" to "heart_rate", "value" to it.toString()))
+                }
+                vitals.recentTemperatures.lastOrNull()?.let {
+                    payload.add(mapOf("type" to "temperature", "value" to it.toString()))
+                }
+
+                if (payload.isNotEmpty()) {
+                    when (val result = patientRepository.syncHealthConnectData(payload)) {
+                        is Result.Success -> {
+                            _healthConnectSyncState.value = ProfileUpdateState.Success("Health Connect data synced!")
+                            refresh()
+                        }
+                        is Result.Error -> _healthConnectSyncState.value = ProfileUpdateState.Error(result.message)
+                        is Result.Loading -> {}
+                    }
+                } else {
+                    _healthConnectSyncState.value = ProfileUpdateState.Success("No new health data found.")
+                }
+            } catch (e: Exception) {
+                _healthConnectSyncState.value = ProfileUpdateState.Error(e.message ?: "Sync failed")
+            }
+        }
+    }
+
+    fun resetHealthConnectSyncState() {
+        _healthConnectSyncState.value = ProfileUpdateState.Idle
     }
 }
 

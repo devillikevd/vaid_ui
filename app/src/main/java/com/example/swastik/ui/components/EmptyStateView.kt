@@ -27,7 +27,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 @Composable
 fun EmptyStateView(
@@ -100,7 +100,7 @@ fun EmptyStateView(
                         .background(
                             Brush.radialGradient(
                                 colors = listOf(
-                                    SwastikPurple.copy(alpha = 0.15f),
+                                    SwastikPrimary.copy(alpha = 0.15f),
                                     Color.Transparent
                                 )
                             )
@@ -114,8 +114,8 @@ fun EmptyStateView(
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(
-                                    SwastikPurple.copy(alpha = 0.12f),
-                                    SwastikPurple.copy(alpha = 0.06f)
+                                    SwastikPrimary.copy(alpha = 0.12f),
+                                    SwastikPrimary.copy(alpha = 0.06f)
                                 )
                             )
                         ),
@@ -125,7 +125,7 @@ fun EmptyStateView(
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(40.dp),
-                        tint = SwastikPurple.copy(alpha = 0.7f)
+                        tint = SwastikPrimary.copy(alpha = 0.7f)
                     )
                 }
             }

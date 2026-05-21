@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.MedicineOrderDto
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.res.stringResource
@@ -76,8 +76,8 @@ fun OrderHistoryScreen(
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = SwastikPurple,
-                    contentColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(12.dp)
                 )
             }
@@ -96,10 +96,10 @@ fun OrderHistoryScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SwastikPurple,
-                    titleContentColor = MaterialTheme.colorScheme.surface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.surface,
-                    actionIconContentColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         }
@@ -112,8 +112,8 @@ fun OrderHistoryScreen(
             // Tab filter row
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = SwastikPurple.copy(alpha = 0.05f),
-                contentColor = SwastikPurple,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.primary,
                 edgePadding = 8.dp
             ) {
                 tabs.forEachIndexed { index, title ->
@@ -174,7 +174,7 @@ fun OrderHistoryScreen(
             when {
                 historyState.isLoading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPurple)
+                        CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
                 historyState.orders.isEmpty() -> {
@@ -212,12 +212,12 @@ private fun OrderHistoryCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val statusColor = when (order.status) {
-        "pending" -> Color(0xFFFFA000)
-        "confirmed" -> Color(0xFF3949AB)
-        "processing" -> Color(0xFF1976D2)
-        "ready" -> Color(0xFFFB8C00)
-        "dispatched" -> Color(0xFF00897B)
-        "delivered" -> MaterialTheme.colorScheme.secondary
+        "pending" -> MaterialTheme.colorScheme.tertiary
+        "confirmed" -> MaterialTheme.colorScheme.primary
+        "processing" -> MaterialTheme.colorScheme.secondary
+        "ready" -> MaterialTheme.colorScheme.tertiary
+        "dispatched" -> MaterialTheme.colorScheme.secondary
+        "delivered" -> MaterialTheme.colorScheme.primary
         "cancelled" -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -273,12 +273,12 @@ private fun OrderHistoryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Medication, null, tint = SwastikPurple, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Medication, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 order.totalAmount?.let {
-                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 15.sp)
+                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
                 }
             }
 

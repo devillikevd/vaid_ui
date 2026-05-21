@@ -69,7 +69,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.MedicalFacility
 import com.example.swastik.data.model.Prescription
 import com.example.swastik.data.model.PrescriptionItem
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.utils.NavigationHelper
 import java.time.LocalDate
@@ -127,7 +127,7 @@ fun PrescriptionsScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SwastikPurple),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Row(
@@ -142,18 +142,18 @@ fun PrescriptionsScreen(
                             text = "${prescriptions.size}",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Text(
                             text = "${prescriptions.count { prescriptionMatchesFilter(it, "Active") }} active prescriptions",
                             fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                         )
                     }
                     Icon(
                         Icons.Outlined.Receipt,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.6f),
+                        tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
                         modifier = Modifier.size(60.dp)
                     )
                 }
@@ -169,8 +169,10 @@ fun PrescriptionsScreen(
                         onClick = { selectedFilter = filter },
                         label = { Text(filter, fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SwastikPurple,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -181,7 +183,7 @@ fun PrescriptionsScreen(
             when {
                 uiState.isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPurple)
+                        CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
                 uiState.error != null -> {
@@ -195,7 +197,7 @@ fun PrescriptionsScreen(
                         Icon(
                             Icons.Outlined.Warning,
                             contentDescription = null,
-                            tint = Color.LightGray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(80.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -203,13 +205,13 @@ fun PrescriptionsScreen(
                             "Unable to Load Prescriptions",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             uiState.error ?: "Something went wrong while loading your prescriptions.",
                             fontSize = 14.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -225,7 +227,7 @@ fun PrescriptionsScreen(
                         Icon(
                             Icons.Outlined.Receipt,
                             contentDescription = null,
-                            tint = Color.LightGray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(80.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -233,13 +235,13 @@ fun PrescriptionsScreen(
                             if (prescriptions.isEmpty()) "No Prescriptions Yet" else "No Prescriptions in This Filter",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             "Your real prescriptions from completed consultations will appear here.",
                             fontSize = 14.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -286,13 +288,13 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
                     modifier = Modifier
                         .size(50.dp)
                         .clip(CircleShape)
-                        .background(SwastikPurple.copy(alpha = 0.1f)),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Outlined.Medication,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -302,30 +304,30 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
                         text = prescription.doctor?.name ?: "Doctor prescription",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = prescription.doctor?.specialization ?: "Consultation prescription",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = prescription.createdAt.take(10),
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = prescriptionStatusContainerColor(prescription)
+                        color = prescriptionStatusContainerColor(prescription, MaterialTheme.colorScheme)
                     ) {
                         Text(
                             text = prescriptionStatusLabel(prescription),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = prescriptionStatusTextColor(prescription),
+                            color = prescriptionStatusTextColor(prescription, MaterialTheme.colorScheme),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -334,21 +336,21 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
 
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 12.dp),
-                color = Color.LightGray.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Outlined.LocalHospital,
                     contentDescription = null,
-                    tint = SwastikPurple,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = prescription.diagnosis.ifBlank { "Prescription details" },
                     fontSize = 13.sp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -361,12 +363,12 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
                     prescription.medicines.orEmpty().take(3).forEach { medicine ->
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFF5F5F5)
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = medicine.medicineName.split(" ").first(),
                                 fontSize = 11.sp,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
@@ -374,12 +376,12 @@ private fun PrescriptionListCard(prescription: Prescription, onClick: () -> Unit
                     if (medicineCount > 3) {
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = SwastikPurple.copy(alpha = 0.1f)
+                            color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
                                 text = "+${medicineCount - 3}",
                                 fontSize = 11.sp,
-                                color = SwastikPurple,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
@@ -425,7 +427,7 @@ fun PrescriptionDetailScreen(
                 Icon(
                     Icons.Outlined.CheckCircle,
                     contentDescription = null,
-                    tint = Color(0xFF2E7D32),
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(36.dp)
                 )
             },
@@ -436,7 +438,7 @@ fun PrescriptionDetailScreen(
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = SwastikPurple.copy(alpha = 0.08f)
+                        color = MaterialTheme.colorScheme.primaryContainer
                     ) {
                         Column(
                             modifier = Modifier
@@ -446,14 +448,14 @@ fun PrescriptionDetailScreen(
                             Text(
                                 text = "Selected Pharmacy",
                                 fontSize = 12.sp,
-                                color = SwastikPurple
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = selectedPharmacyName ?: "Chosen pharmacy",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.Black
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             selectedPharmacyPhone
                                 ?.takeIf { it.isNotBlank() }
@@ -462,7 +464,7 @@ fun PrescriptionDetailScreen(
                                     Text(
                                         text = phone,
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                         }
@@ -471,13 +473,13 @@ fun PrescriptionDetailScreen(
                     if (!successState.orderId.isNullOrBlank()) {
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFFF5F5F5)
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = "Order ID: ${successState.orderId.take(8)}",
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                 fontSize = 13.sp,
-                                color = Color.Black,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -491,7 +493,7 @@ fun PrescriptionDetailScreen(
                         showForwardSheet = false
                         viewModel.clearPrescriptionPharmacies()
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
                 ) {
                     Text(stringResource(R.string.done))
                 }
@@ -635,13 +637,13 @@ fun PrescriptionDetailScreen(
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(CircleShape)
-                                .background(SwastikPurple.copy(alpha = 0.1f)),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Outlined.Medication,
                                 contentDescription = null,
-                                tint = SwastikPurple,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(30.dp)
                             )
                         }
@@ -651,26 +653,26 @@ fun PrescriptionDetailScreen(
                                 text = prescription.doctor?.name ?: "Doctor prescription",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Black
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = prescription.doctor?.specialization ?: "Consultation prescription",
                                 fontSize = 14.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Outlined.CalendarMonth,
                                     contentDescription = null,
-                                    tint = SwastikPurple,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = prescription.createdAt.take(10),
                                     fontSize = 12.sp,
-                                    color = SwastikPurple
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -682,7 +684,7 @@ fun PrescriptionDetailScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -691,7 +693,7 @@ fun PrescriptionDetailScreen(
                         Icon(
                             Icons.Outlined.LocalHospital,
                             contentDescription = null,
-                            tint = Color(0xFF1976D2),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -699,13 +701,13 @@ fun PrescriptionDetailScreen(
                             Text(
                                 text = "Diagnosis",
                                 fontSize = 12.sp,
-                                color = Color(0xFF1976D2)
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
                                 text = prescription.diagnosis.ifBlank { "Prescription details" },
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0D47A1)
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     }
@@ -716,7 +718,7 @@ fun PrescriptionDetailScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = prescriptionStatusContainerColor(prescription))
+                    colors = CardDefaults.cardColors(containerColor = prescriptionStatusContainerColor(prescription, MaterialTheme.colorScheme))
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -725,7 +727,7 @@ fun PrescriptionDetailScreen(
                         Icon(
                             Icons.Outlined.Verified,
                             contentDescription = null,
-                            tint = prescriptionStatusTextColor(prescription),
+                            tint = prescriptionStatusTextColor(prescription, MaterialTheme.colorScheme),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -733,13 +735,13 @@ fun PrescriptionDetailScreen(
                             Text(
                                 text = "Status",
                                 fontSize = 12.sp,
-                                color = prescriptionStatusTextColor(prescription)
+                                color = prescriptionStatusTextColor(prescription, MaterialTheme.colorScheme)
                             )
                             Text(
                                 text = prescriptionStatusLabel(prescription),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = prescriptionStatusTextColor(prescription)
+                                color = prescriptionStatusTextColor(prescription, MaterialTheme.colorScheme)
                             )
                         }
                     }
@@ -769,7 +771,7 @@ fun PrescriptionDetailScreen(
                     text = "Prescribed Medicines",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -777,7 +779,7 @@ fun PrescriptionDetailScreen(
                 item {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
                             text = "No medicines were attached to this prescription.",
@@ -785,7 +787,7 @@ fun PrescriptionDetailScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             fontSize = 13.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -800,7 +802,7 @@ fun PrescriptionDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -809,7 +811,7 @@ fun PrescriptionDetailScreen(
                             Icon(
                                 Icons.Outlined.Info,
                                 contentDescription = null,
-                                tint = Color(0xFFFF9800),
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -818,13 +820,13 @@ fun PrescriptionDetailScreen(
                                     text = "Doctor's Notes",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFE65100)
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = prescription.notes.orEmpty(),
                                     fontSize = 13.sp,
-                                    color = Color(0xFF5D4037)
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                         }
@@ -837,7 +839,7 @@ fun PrescriptionDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -846,7 +848,7 @@ fun PrescriptionDetailScreen(
                             Icon(
                                 Icons.Outlined.Rule,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -855,13 +857,13 @@ fun PrescriptionDetailScreen(
                                     text = "Instructions",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF2E7D32)
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = prescription.instructions.orEmpty(),
                                     fontSize = 13.sp,
-                                    color = Color(0xFF1B5E20)
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
@@ -874,7 +876,7 @@ fun PrescriptionDetailScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.1f))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -883,7 +885,7 @@ fun PrescriptionDetailScreen(
                             Icon(
                                 Icons.Outlined.Event,
                                 contentDescription = null,
-                                tint = SwastikPurple,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -891,13 +893,13 @@ fun PrescriptionDetailScreen(
                                 Text(
                                     text = "Follow-up Appointment",
                                     fontSize = 12.sp,
-                                    color = SwastikPurple
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                                 Text(
                                     text = prescription.followUpDate,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = SwastikPurple
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                             }
                         }
@@ -919,7 +921,7 @@ fun PrescriptionDetailScreen(
                             Icon(
                                 Icons.Outlined.Schedule,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -927,13 +929,13 @@ fun PrescriptionDetailScreen(
                                 Text(
                                     text = "Valid Until",
                                     fontSize = 12.sp,
-                                    color = Color.Gray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     text = prescription.validUntil,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -957,7 +959,7 @@ private fun PrescriptionForwardCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (canForwardToPharmacy) Color(0xFFF1F8E9) else Color(0xFFF5F5F5)
+            containerColor = if (canForwardToPharmacy) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -965,7 +967,7 @@ private fun PrescriptionForwardCard(
                 Icon(
                     Icons.Outlined.LocalPharmacy,
                     contentDescription = null,
-                    tint = if (canForwardToPharmacy) Color(0xFF2E7D32) else Color.Gray,
+                    tint = if (canForwardToPharmacy) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -974,7 +976,7 @@ private fun PrescriptionForwardCard(
                         text = "Send To Pharmacy",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -984,7 +986,7 @@ private fun PrescriptionForwardCard(
                             "Only active prescriptions with medicines can be sent to a pharmacy."
                         },
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -996,8 +998,10 @@ private fun PrescriptionForwardCard(
                 enabled = canForwardToPharmacy,
                 modifier = Modifier.fillMaxWidth(),
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = SwastikPurple,
-                    disabledContainerColor = Color.LightGray
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
                 Text(stringResource(R.string.choose_pharmacy))
@@ -1032,20 +1036,20 @@ private fun ForwardPrescriptionSheet(
             text = "Send Prescription",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "Pick a pharmacy and optionally add a delivery address.",
             fontSize = 13.sp,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         if (!sourceLabel.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = SwastikPurple.copy(alpha = 0.08f)
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1054,14 +1058,14 @@ private fun ForwardPrescriptionSheet(
                     Icon(
                         Icons.Outlined.NearMe,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = sourceLabel,
                         fontSize = 12.sp,
-                        color = SwastikPurple,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1077,12 +1081,12 @@ private fun ForwardPrescriptionSheet(
             singleLine = true,
             placeholder = { Text(stringResource(R.string.search_pharmacy_by_name)) },
             leadingIcon = {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.Gray)
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SwastikPurple,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
 
@@ -1090,13 +1094,13 @@ private fun ForwardPrescriptionSheet(
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFFFEBEE)
+                color = MaterialTheme.colorScheme.errorContainer
             ) {
                 Text(
                     text = pharmacyLookupError,
                     modifier = Modifier.padding(12.dp),
                     fontSize = 12.sp,
-                    color = Color(0xFFC62828)
+                    color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
         }
@@ -1111,14 +1115,14 @@ private fun ForwardPrescriptionSheet(
                         .padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SwastikPurple)
+                    CircularProgressIndicator(color = SwastikPrimary)
                 }
             }
 
             pharmacies.isEmpty() -> {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
                         text = "No pharmacies available for this search yet.",
@@ -1126,7 +1130,7 @@ private fun ForwardPrescriptionSheet(
                             .fillMaxWidth()
                             .padding(18.dp),
                         fontSize = 13.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1163,8 +1167,8 @@ private fun ForwardPrescriptionSheet(
             },
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SwastikPurple,
-                unfocusedBorderColor = Color.LightGray
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
 
@@ -1172,13 +1176,13 @@ private fun ForwardPrescriptionSheet(
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFFFEBEE)
+                color = MaterialTheme.colorScheme.errorContainer
             ) {
                 Text(
                     text = forwardError,
                     modifier = Modifier.padding(12.dp),
                     fontSize = 12.sp,
-                    color = Color(0xFFC62828)
+                    color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
         }
@@ -1189,11 +1193,11 @@ private fun ForwardPrescriptionSheet(
             onClick = onSubmit,
             enabled = !isSubmitting && !selectedPharmacyId.isNullOrBlank(),
             modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
         ) {
             if (isSubmitting) {
                 CircularProgressIndicator(
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp
                 )
@@ -1216,12 +1220,12 @@ private fun PharmacySelectionCard(
             .clickable { onClick() }
             .border(
                 width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) SwastikPurple else Color(0xFFE0E0E0),
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                 shape = RoundedCornerShape(14.dp)
             ),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) SwastikPurple.copy(alpha = 0.06f) else Color.White
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -1229,7 +1233,7 @@ private fun PharmacySelectionCard(
                 Icon(
                     Icons.Outlined.LocalPharmacy,
                     contentDescription = null,
-                    tint = if (isSelected) SwastikPurple else Color(0xFF4CAF50),
+                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -1238,19 +1242,19 @@ private fun PharmacySelectionCard(
                         text = pharmacy.name,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = pharmacy.distance,
                         fontSize = 12.sp,
-                        color = if (pharmacy.distanceKm > 0.0) SwastikPurple else Color.Gray
+                        color = if (pharmacy.distanceKm > 0.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (isSelected) {
                     Icon(
                         Icons.Outlined.CheckCircle,
                         contentDescription = null,
-                        tint = SwastikPurple,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -1262,14 +1266,14 @@ private fun PharmacySelectionCard(
                     Icon(
                         Icons.Outlined.LocationOn,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = pharmacy.address,
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -1280,14 +1284,14 @@ private fun PharmacySelectionCard(
                     Icon(
                         Icons.Outlined.Call,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = pharmacy.phone,
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -1319,21 +1323,21 @@ private fun prescriptionStatusLabel(prescription: Prescription): String {
     return status.replaceFirstChar { it.uppercase() }
 }
 
-private fun prescriptionStatusContainerColor(prescription: Prescription): Color {
+private fun prescriptionStatusContainerColor(prescription: Prescription, colorScheme: androidx.compose.material3.ColorScheme): Color {
     return when (prescriptionStatusLabel(prescription).lowercase()) {
-        "active" -> Color(0xFFE8F5E9)
-        "dispensed", "fulfilled", "completed" -> Color(0xFFE3F2FD)
-        "expired", "cancelled" -> Color(0xFFFFEBEE)
-        else -> SwastikPurple.copy(alpha = 0.1f)
+        "active" -> colorScheme.primaryContainer
+        "dispensed", "fulfilled", "completed" -> colorScheme.secondaryContainer
+        "expired", "cancelled" -> colorScheme.errorContainer
+        else -> colorScheme.surfaceVariant
     }
 }
 
-private fun prescriptionStatusTextColor(prescription: Prescription): Color {
+private fun prescriptionStatusTextColor(prescription: Prescription, colorScheme: androidx.compose.material3.ColorScheme): Color {
     return when (prescriptionStatusLabel(prescription).lowercase()) {
-        "active" -> Color(0xFF2E7D32)
-        "dispensed", "fulfilled", "completed" -> Color(0xFF1565C0)
-        "expired", "cancelled" -> Color(0xFFC62828)
-        else -> SwastikPurple
+        "active" -> colorScheme.onPrimaryContainer
+        "dispensed", "fulfilled", "completed" -> colorScheme.onSecondaryContainer
+        "expired", "cancelled" -> colorScheme.onErrorContainer
+        else -> colorScheme.onSurfaceVariant
     }
 }
 
@@ -1369,13 +1373,13 @@ private fun MedicineDetailCard(medicine: PrescriptionItem) {
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFE8F5E9)),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Medication,
                     contentDescription = null,
-                    tint = Color(0xFF4CAF50),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -1385,7 +1389,7 @@ private fun MedicineDetailCard(medicine: PrescriptionItem) {
                     text = medicine.medicineName,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -1396,21 +1400,21 @@ private fun MedicineDetailCard(medicine: PrescriptionItem) {
                         Icon(
                             Icons.Outlined.Medication,
                             contentDescription = null,
-                            tint = SwastikPurple,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = medicine.dosage, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = medicine.dosage, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Outlined.Schedule,
                             contentDescription = null,
-                            tint = SwastikPurple,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = medicine.frequency, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = medicine.frequency, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -1418,14 +1422,14 @@ private fun MedicineDetailCard(medicine: PrescriptionItem) {
                     Icon(
                         Icons.Outlined.DateRange,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Duration: ${medicine.duration}",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

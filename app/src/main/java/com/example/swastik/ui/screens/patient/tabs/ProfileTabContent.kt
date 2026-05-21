@@ -95,10 +95,6 @@ fun ProfileTabContent(
             .background(MaterialTheme.colorScheme.background)
     ) {
         ProfileHeader(
-            onQrClick = {
-                viewModel?.checkHealthCardStatus()
-                showQrDialog = true
-            },
             onSettingsClick = { showNotificationDialog = true }
         )
 
@@ -151,11 +147,12 @@ fun ProfileTabContent(
                 }
                 item { ProfileCompletionCard(profile = profile) }
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
+
                 item {
                     SectionTitleWithBadge(
                         stringResource(R.string.health_identity),
                         if (profile?.isVerified == true) stringResource(R.string.verified) else stringResource(R.string.not_verified),
-                        if (profile?.isVerified == true) Color(0xFF4CAF50) else Color.Gray
+                        if (profile?.isVerified == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 item { HealthIdCard(profile = profile) }
@@ -202,8 +199,8 @@ fun ProfileTabContent(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFFEBEE),
-                            contentColor = Color(0xFFD32F2F)
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
                         )
                     ) {
                         Icon(Icons.Outlined.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -247,6 +244,8 @@ fun ProfileTabContent(
     if (showAppearanceDialog) {
         AppearanceDialog(onDismiss = { showAppearanceDialog = false })
     }
+
+
 
     if (showNotificationDialog) {
         NotificationSettingsDialog(onDismiss = { showNotificationDialog = false })
@@ -329,7 +328,7 @@ fun ProfileTabContent(
             onDismissRequest = { showLogoutDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Logout, null, tint = Color(0xFFD32F2F))
+                    Icon(Icons.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.logout_title), fontWeight = FontWeight.Bold)
                 }
@@ -352,7 +351,7 @@ fun ProfileTabContent(
                         }
                     },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
                 ) { Text(stringResource(R.string.logout)) }
             },
             dismissButton = {
@@ -378,8 +377,8 @@ fun ProfileTabContent(
                     )
                     if (profile?.profileImageUrl?.isNotEmpty() == true) {
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.remove_photo), color = Color.Red) },
-                            leadingContent = { Icon(Icons.Outlined.Delete, null, tint = Color.Red) },
+                            headlineContent = { Text(stringResource(R.string.remove_photo), color = MaterialTheme.colorScheme.error) },
+                            leadingContent = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) },
                             modifier = Modifier.clickable {
                                 showPhotoOptions = false
                                 viewModel?.deleteProfileImage()
@@ -486,3 +485,4 @@ fun ProfileTabContent(
         }
     }
 }
+

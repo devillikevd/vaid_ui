@@ -69,7 +69,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.local.AppSettingsStore
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 @Composable
 fun PatientRegisterScreen(
@@ -139,7 +139,7 @@ fun PatientRegisterScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(SwastikPurple, SwastikPurple.copy(alpha = 0.78f), Color(0xFF6A5AE0))
+                    listOf(SwastikPrimary, SwastikPrimary.copy(alpha = 0.78f), Color(0xFF6A5AE0))
                 )
             )
     ) {
@@ -244,13 +244,13 @@ fun PatientRegisterScreen(
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
-                                    .background(SwastikPurple.copy(alpha = 0.12f), CircleShape),
+                                    .background(SwastikPrimary.copy(alpha = 0.12f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = null,
-                                    tint = SwastikPurple,
+                                    tint = SwastikPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -451,7 +451,7 @@ fun PatientRegisterScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     enabled = canSubmit
                 ) {
                     if (uiState.isLoading) {

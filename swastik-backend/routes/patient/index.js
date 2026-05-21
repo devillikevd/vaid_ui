@@ -238,6 +238,65 @@ router.post('/vitals',
   })
 );
 
+// Sync vitals from Google Health Connect
+router.post('/vitals/sync',
+  [
+    body('vitals').isArray().withMessage('vitals array is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id, city, state')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient profile not found' });
+
+    const vitals = req.body.vitals;
+    let feverTriggered = false;
+
+    const insertPayload = vitals.map(v => {
+      const val = parseFloat(v.value);
+      const row = { patient_id: patient.id, recorded_by: req.user.id, recorded_at: new Date().toISOString(), source: 'health_connect' };
+      
+      switch (v.type) {
+        case 'heart_rate': row.heart_rate = Math.round(val); break;
+        case 'temperature': 
+          row.temperature = val; 
+          if (val > 100.4 || val > 38.0) feverTriggered = true;
+          break;
+        case 'steps': row.notes = `Steps: ${val}`; break;
+      }
+      return row;
+    }).filter(r => Object.keys(r).length > 4); // Only insert if we added a metric
+
+    if (insertPayload.length > 0) {
+      // In Supabase, the table doesn't have a 'source' column natively for patient_vitals, so we remove it if not needed, 
+      // but let's safely insert just the standard columns.
+      const safePayload = insertPayload.map(p => {
+          const { source, ...rest } = p; // ignore source to avoid schema error
+          return rest;
+      })
+      await supabaseAdmin.from('patient_vitals').insert(safePayload);
+    }
+
+    // Smart Outbreak Integration: Automatically flag fever clusters
+    if (feverTriggered) {
+      const { recordHealthEvent } = require('../../services/outbreakService');
+      recordHealthEvent({
+        source: 'health_connect',
+        patientId: patient.id,
+        symptoms: ['fever_cluster'],
+        city: patient.city,
+        state: patient.state
+      });
+    }
+
+    res.status(201).json({ success: true, message: 'Health Connect data synced securely' });
+  })
+);
+
 // ============ REMINDERS ============
 router.get('/reminders',
   asyncHandler(async (req, res) => {

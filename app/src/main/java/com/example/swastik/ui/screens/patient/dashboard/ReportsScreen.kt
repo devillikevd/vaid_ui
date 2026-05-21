@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.MedicalDocument
 import com.example.swastik.data.model.DocumentType
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
@@ -71,9 +71,9 @@ fun ReportsScreen(
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ReportSummaryItem(count = reports.size.toString(), label = "Total", color = SwastikPurple)
-                    ReportSummaryItem(count = reports.count { it.type == DocumentType.LAB_REPORT }.toString(), label = "Lab", color = Color(0xFFE53935))
-                    ReportSummaryItem(count = reports.count { it.type == DocumentType.SCAN }.toString(), label = "Scans", color = Color(0xFF1976D2))
+                    ReportSummaryItem(count = reports.size.toString(), label = "Total", color = MaterialTheme.colorScheme.primary)
+                    ReportSummaryItem(count = reports.count { it.type == DocumentType.LAB_REPORT }.toString(), label = "Lab", color = MaterialTheme.colorScheme.error)
+                    ReportSummaryItem(count = reports.count { it.type == DocumentType.SCAN }.toString(), label = "Scans", color = MaterialTheme.colorScheme.secondary)
                 }
             }
 
@@ -83,7 +83,12 @@ fun ReportsScreen(
                     FilterChip(
                         selected = selectedFilter == filter, onClick = { selectedFilter = filter },
                         label = { Text(filter, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SwastikPurple, selectedLabelColor = Color.White)
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary, 
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
@@ -93,7 +98,7 @@ fun ReportsScreen(
             when {
                 uiState.isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPurple)
+                        CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
                 uiState.error != null -> {
@@ -102,20 +107,20 @@ fun ReportsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
+                        Icon(Icons.Outlined.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(80.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(stringResource(R.string.unable_to_load_reports), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(stringResource(R.string.unable_to_load_reports), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(uiState.error ?: "Something went wrong while loading your reports.", fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text(uiState.error ?: "Something went wrong while loading your reports.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
                 filteredReports.isEmpty() -> {
                     Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Outlined.Description, contentDescription = null, tint = Color.LightGray, modifier = Modifier.size(80.dp))
+                        Icon(Icons.Outlined.Description, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(80.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(stringResource(R.string.no_reports_found), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(stringResource(R.string.no_reports_found), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(stringResource(R.string.your_medical_reports_will_appear_here), fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.your_medical_reports_will_appear_here), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
                 else -> {
@@ -149,23 +154,23 @@ fun ReportsScreen(
 private fun ReportSummaryItem(count: String, label: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = count, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = color)
-        Text(text = label, fontSize = 12.sp, color = Color.Gray)
+        Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
     val iconBg = when (report.type) {
-        DocumentType.LAB_REPORT -> Color(0xFFFFEBEE)
-        DocumentType.SCAN -> Color(0xFFE3F2FD)
-        DocumentType.PRESCRIPTION -> Color(0xFFE8F5E9)
-        else -> Color(0xFFF3E5F5)
+        DocumentType.LAB_REPORT -> MaterialTheme.colorScheme.errorContainer
+        DocumentType.SCAN -> MaterialTheme.colorScheme.secondaryContainer
+        DocumentType.PRESCRIPTION -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
     }
     val iconTint = when (report.type) {
-        DocumentType.LAB_REPORT -> Color(0xFFE53935)
-        DocumentType.SCAN -> Color(0xFF1976D2)
-        DocumentType.PRESCRIPTION -> Color(0xFF4CAF50)
-        else -> SwastikPurple
+        DocumentType.LAB_REPORT -> MaterialTheme.colorScheme.onErrorContainer
+        DocumentType.SCAN -> MaterialTheme.colorScheme.onSecondaryContainer
+        DocumentType.PRESCRIPTION -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onTertiaryContainer
     }
     val icon = when (report.type) {
         DocumentType.LAB_REPORT -> Icons.Outlined.Bloodtype
@@ -185,22 +190,22 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+                Text(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(2.dp))
                 if (report.doctorName != null) {
-                    Text(text = report.doctorName, fontSize = 12.sp, color = Color.Gray)
+                    Text(text = report.doctorName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = report.date, fontSize = 11.sp, color = Color.Gray)
+                    Text(text = report.date, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFF5F5F5)) {
+            Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                 Text(
                     text = report.type.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
-                    fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color.Gray,
+                    fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }

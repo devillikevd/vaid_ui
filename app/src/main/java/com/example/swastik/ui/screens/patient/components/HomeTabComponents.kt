@@ -60,7 +60,7 @@ fun SmartReminderSection(
                 color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(onClick = onViewAllClick) {
-                Text(stringResource(R.string.view_all), color = SwastikPurple, fontSize = 14.sp)
+                Text(stringResource(R.string.view_all), color = SwastikPrimary, fontSize = 14.sp)
             }
         }
 
@@ -104,14 +104,14 @@ private fun ReminderItem(reminder: Reminder) {
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .background(
                     when (reminder.type) {
-                        ReminderType.MEDICINE -> MaterialTheme.colorScheme.secondaryContainer
-                        ReminderType.APPOINTMENT -> Color(0xFFE3F2FD)
-                        ReminderType.TEST -> MaterialTheme.colorScheme.secondaryContainer
+                        ReminderType.MEDICINE -> Color(0xFFF3E5F5)
+                        ReminderType.APPOINTMENT -> SwastikPrimaryLight
+                        ReminderType.TEST -> Color(0xFFE0F2F1)
                     },
-                    CircleShape
+                    RoundedCornerShape(12.dp)
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -123,15 +123,15 @@ private fun ReminderItem(reminder: Reminder) {
                 },
                 contentDescription = "${reminder.type.name} reminder",
                 tint = when (reminder.type) {
-                    ReminderType.MEDICINE -> MaterialTheme.colorScheme.secondary
-                    ReminderType.APPOINTMENT -> SwastikPurple
-                    ReminderType.TEST -> MaterialTheme.colorScheme.tertiary
+                    ReminderType.MEDICINE -> Color(0xFF8E24AA)
+                    ReminderType.APPOINTMENT -> SwastikPrimary
+                    ReminderType.TEST -> Color(0xFF00897B)
                 },
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -221,8 +221,8 @@ fun QuickActionsSection(
             QuickActionButton(
                 icon = Icons.Outlined.HelpOutline,
                 label = stringResource(R.string.help),
-                iconTint = SwastikPurple,
-                bgColor = SwastikPurple.copy(alpha = 0.12f),
+                iconTint = SwastikPrimary,
+                bgColor = SwastikPrimary.copy(alpha = 0.12f),
                 onClick = { onHelpClick() }
             )
             QuickActionButton(
@@ -253,22 +253,13 @@ fun CareDirectorySection(
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
-            text = stringResource(R.string.care_services),
+            text = "Healthcare Services",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = stringResource(R.string.care_services_desc),
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            lineHeight = 18.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -276,22 +267,16 @@ fun CareDirectorySection(
         ) {
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = stringResource(R.string.hospitals),
-                subtitle = stringResource(R.string.hospitals_subtitle),
-                tag = stringResource(R.string.nearby_hospitals),
+                title = "Hospitals",
+                subtitle = "Multi-speciality",
                 icon = Icons.Outlined.LocalHospital,
-                accent = Color(0xFFD84315),
-                container = Color(0xFFFFF3EE),
                 onClick = onHospitalClick
             )
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = stringResource(R.string.clinics),
-                subtitle = stringResource(R.string.clinics_subtitle),
-                tag = stringResource(R.string.clinic_visits),
+                title = "Clinics",
+                subtitle = "Primary Care",
                 icon = Icons.Outlined.MedicalServices,
-                accent = MaterialTheme.colorScheme.onSecondaryContainer,
-                container = Color(0xFFF2FBF3),
                 onClick = onClinicClick
             )
         }
@@ -304,22 +289,16 @@ fun CareDirectorySection(
         ) {
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = stringResource(R.string.pharmacy),
-                subtitle = stringResource(R.string.pharmacy_subtitle),
-                tag = stringResource(R.string.medical_stores),
+                title = "Pharmacy",
+                subtitle = "Medicines & Care",
                 icon = Icons.Outlined.LocalPharmacy,
-                accent = Color(0xFF1565C0),
-                container = Color(0xFFEFF6FF),
                 onClick = onPharmacyClick
             )
             CareDirectoryCard(
                 modifier = Modifier.weight(1f),
-                title = stringResource(R.string.diagnostics),
-                subtitle = stringResource(R.string.diagnostics_subtitle),
-                tag = stringResource(R.string.labs_and_scans),
+                title = "Diagnostics",
+                subtitle = "Tests & Scans",
                 icon = Icons.Outlined.Science,
-                accent = Color(0xFF6A1B9A),
-                container = Color(0xFFF7F0FF),
                 onClick = onDiagnosticClick
             )
         }
@@ -331,106 +310,54 @@ private fun CareDirectoryCard(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String,
-    tag: String,
-    icon: ImageVector,
-    accent: Color,
-    container: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
-    BoxWithConstraints(modifier = modifier) {
-        val isCompactWidth = maxWidth < 170.dp
-        Card(
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = if (isCompactWidth) 180.dp else 164.dp)
-                .animateContentSize()
-                .clickable { onClick() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(if (isCompactWidth) 12.dp else 14.dp)
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SwastikNeutral),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Surface(
-                        color = container,
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(
-                            icon,
-                            contentDescription = title,
-                            tint = accent,
-                            modifier = Modifier
-                                .padding(if (isCompactWidth) 10.dp else 12.dp)
-                                .size(if (isCompactWidth) 22.dp else 24.dp)
-                        )
-                    }
-
-                    Surface(
-                        color = accent.copy(alpha = 0.10f),
-                        shape = RoundedCornerShape(999.dp)
-                    ) {
-                        Text(
-                            text = tag,
-                            color = accent,
-                            fontSize = if (isCompactWidth) 9.sp else 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .widthIn(max = if (isCompactWidth) 88.dp else 108.dp)
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
+                Icon(
+                    icon,
+                    contentDescription = title,
+                    tint = SwastikPrimary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = if (isCompactWidth) 16.sp else 17.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
-                    lineHeight = 17.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = if (isCompactWidth) 3 else 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.open_label),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = accent
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
             }
         }
     }
@@ -519,7 +446,7 @@ fun DoctorRecommendationSection(
                 color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(onClick = onSeeAllClick) {
-                Text(stringResource(R.string.see_all), color = SwastikPurple, fontSize = 14.sp)
+                Text(stringResource(R.string.see_all), color = SwastikPrimary, fontSize = 14.sp)
             }
         }
 
@@ -590,98 +517,115 @@ private fun DoctorCard(
 ) {
     Card(
         modifier = Modifier
-            .width(160.dp)
+            .width(200.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.Start
         ) {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .background(SwastikPurple.copy(alpha = 0.1f), CircleShape),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Text(doctor.imageEmoji, fontSize = 30.sp)
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(SwastikPrimaryLight, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(doctor.imageEmoji, fontSize = 28.sp)
+                    // Verified Badge overlay
+                    Icon(
+                        Icons.Default.Verified,
+                        contentDescription = "Verified",
+                        tint = SwastikPrimary,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+                
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(100.dp)
+                ) {
+                    Text(
+                        "Today", 
+                        fontSize = 10.sp, 
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = doctor.name,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
+            
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = doctor.specialty,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 13.sp,
+                color = SwastikPrimary,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
-            doctor.recommendationReason?.takeIf { it.isNotBlank() }?.let { reason ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    color = SwastikPurple.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(999.dp)
-                ) {
-                    Text(
-                        text = reason,
-                        fontSize = 10.sp,
-                        lineHeight = 13.sp,
-                        color = SwastikPurple,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(8.dp))
-
-            val ratingText = doctor.rating
-            val experienceText = doctor.experience
-            if (ratingText != null || experienceText != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (ratingText != null) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = "Doctor rating",                    tint = Color(0xFFFFC107),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = ratingText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    if (experienceText != null) {
-                        Text(
-                            text = if (ratingText != null) " • $experienceText" else experienceText,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = "Doctor rating",
+                    tint = Color(0xFFFFC107),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = doctor.rating ?: "4.8",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = " • ${doctor.experience ?: "8+ Yrs"}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
+            OutlinedButton(
                 onClick = onBookClick,
-                modifier = Modifier.fillMaxWidth().height(36.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
+                border = androidx.compose.foundation.BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.5f)),
                 contentPadding = PaddingValues(0.dp)
             ) {
-                Text(stringResource(R.string.book), fontSize = 12.sp)
+                Text(stringResource(R.string.book), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -692,107 +636,73 @@ private fun DoctorCard(
 fun EnhancedChatBotSection(
     onChatbotClick: () -> Unit = {}
 ) {
-    val quickOptions = listOf(
-        "🤒 " + stringResource(R.string.example_fever),
-        "💔 " + stringResource(R.string.chest_pain),
-        "📅 " + stringResource(R.string.book_doctor),
-        "💊 " + stringResource(R.string.medicine_info)
-    )
-
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Text(
-            text = stringResource(R.string.ai_health_assistant),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onChatbotClick() },
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            colors = CardDefaults.cardColors(containerColor = SwastikPrimaryDark),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(60.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB))
-                                )
-                            ),
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(stringResource(R.string.string_9), fontSize = 32.sp)
+                        Icon(Icons.Outlined.SmartToy, contentDescription = "AI Assistant", tint = Color.White, modifier = Modifier.size(28.dp))
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.how_can_i_help),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "Swastik AI Assistant",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                         Text(
-                            text = stringResource(R.string.describe_symptoms),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Check symptoms, book doctors, ask anything.",
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.8f),
+                            lineHeight = 18.sp
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Chat bubble preview
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    quickOptions.take(2).forEach { option ->
-                        ChatOptionChip(text = option, onClick = onChatbotClick, modifier = Modifier.weight(1f))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    quickOptions.drop(2).forEach { option ->
-                        ChatOptionChip(text = option, onClick = onChatbotClick, modifier = Modifier.weight(1f))
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Hi, how are you feeling today?",
+                            fontSize = 14.sp,
+                            color = TextPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(SwastikPrimaryLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Voice", tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ChatOptionChip(text: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() },
-        color = SwastikPurple.copy(alpha = 0.1f),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            fontSize = 13.sp,
-            color = SwastikPurple,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center
-        )
     }
 }
 
@@ -804,7 +714,7 @@ fun TrustSignalsStrip() {
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.06f))
+        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.06f))
     ) {
         Row(
             modifier = Modifier
@@ -813,7 +723,7 @@ fun TrustSignalsStrip() {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             TrustBadge(Icons.Default.Verified, stringResource(R.string.verified_doctors), MaterialTheme.colorScheme.secondary)
-            TrustBadge(Icons.Default.Lock, stringResource(R.string.data_encrypted), SwastikPurple)
+            TrustBadge(Icons.Default.Lock, stringResource(R.string.data_encrypted), SwastikPrimary)
             TrustBadge(Icons.Default.Security, stringResource(R.string.abdm_compliant), Color(0xFF2196F3))
         }
     }
@@ -956,9 +866,9 @@ fun EmergencyDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.People, contentDescription = "Alert emergency contacts", tint = SwastikPurple)
+                    Icon(Icons.Default.People, contentDescription = "Alert emergency contacts", tint = SwastikPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.alert_emergency_contacts), color = SwastikPurple)
+                    Text(stringResource(R.string.alert_emergency_contacts), color = SwastikPrimary)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -975,9 +885,9 @@ fun EmergencyDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Share live location", tint = SwastikPurple)
+                    Icon(Icons.Default.LocationOn, contentDescription = "Share live location", tint = SwastikPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.share_live_location), color = SwastikPurple)
+                    Text(stringResource(R.string.share_live_location), color = SwastikPrimary)
                 }
             }
         },
@@ -988,4 +898,62 @@ fun EmergencyDialog(
             }
         }
     )
+}
+
+// ==================== EMERGENCY DOCK ====================
+@Composable
+fun EmergencySOSDock(onEmergencyClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clickable { onEmergencyClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SwastikRed.copy(alpha = 0.08f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(SwastikRed.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Emergency,
+                    contentDescription = "Emergency",
+                    tint = SwastikRed,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Emergency / SOS",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SwastikRed
+                )
+                Text(
+                    text = "Tap to call ambulance or alert contacts",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                Icons.Default.ArrowForwardIos,
+                contentDescription = null,
+                tint = SwastikRed.copy(alpha = 0.6f),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
 }

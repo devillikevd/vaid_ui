@@ -12,8 +12,9 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -22,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.Medicine
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 /**
  * Reusable components for Medicine screens
@@ -56,7 +57,7 @@ fun MedicineCard(
                 Box(
                     modifier = Modifier
                         .size(50.dp)
-                        .background(SwastikPurple.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                        .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(getMedicineEmoji(medicine.category.name), fontSize = 24.sp)
@@ -102,7 +103,7 @@ fun MedicineCard(
                     "₹${medicine.price}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = SwastikPurple
+                    color = SwastikPrimary
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -146,7 +147,7 @@ fun CompactMedicineItem(
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .background(SwastikPurple.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(getMedicineEmoji(medicine.category.name), fontSize = 20.sp)
@@ -183,13 +184,13 @@ fun CompactMedicineItem(
                 Icon(
                     Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = SwastikPurple,
+                    tint = SwastikPrimary,
                     modifier = Modifier.size(12.dp)
                 )
                 Text(
                     medicine.nearbyPharmacy ?: "",
                     fontSize = 11.sp,
-                    color = SwastikPurple,
+                    color = SwastikPrimary,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -265,7 +266,7 @@ fun PharmacyChip(
 ) {
     Row(
         modifier = Modifier
-            .background(SwastikPurple.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
+            .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
             .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -273,21 +274,21 @@ fun PharmacyChip(
         Icon(
             Icons.Default.LocationOn,
             contentDescription = null,
-            tint = SwastikPurple,
+            tint = SwastikPrimary,
             modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             pharmacyName,
             fontSize = 13.sp,
-            color = SwastikPurple,
+            color = SwastikPrimary,
             fontWeight = FontWeight.Medium
         )
         if (distance != null) {
             Text(
                 " • $distance",
                 fontSize = 12.sp,
-                color = SwastikPurple.copy(alpha = 0.7f)
+                color = SwastikPrimary.copy(alpha = 0.7f)
             )
         }
     }
@@ -322,7 +323,7 @@ fun CategoryFilterChip(
             }
         } else null,
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = SwastikPurple,
+            selectedContainerColor = SwastikPrimary,
             selectedLabelColor = MaterialTheme.colorScheme.surface,
             selectedLeadingIconColor = MaterialTheme.colorScheme.surface
         )
@@ -340,6 +341,7 @@ fun QuantitySelector(
     minQuantity: Int = 1,
     maxQuantity: Int = 10
 ) {
+    val haptic = LocalHapticFeedback.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -347,14 +349,19 @@ fun QuantitySelector(
             .padding(4.dp)
     ) {
         IconButton(
-            onClick = { if (quantity > minQuantity) onQuantityChange(quantity - 1) },
+            onClick = { 
+                if (quantity > minQuantity) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onQuantityChange(quantity - 1) 
+                }
+            },
             enabled = quantity > minQuantity,
             modifier = Modifier.size(32.dp)
         ) {
             Icon(
                 Icons.Default.Remove,
                 contentDescription = "Decrease",
-                tint = if (quantity > minQuantity) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (quantity > minQuantity) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -367,14 +374,19 @@ fun QuantitySelector(
         )
 
         IconButton(
-            onClick = { if (quantity < maxQuantity) onQuantityChange(quantity + 1) },
+            onClick = { 
+                if (quantity < maxQuantity) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onQuantityChange(quantity + 1) 
+                }
+            },
             enabled = quantity < maxQuantity,
             modifier = Modifier.size(32.dp)
         ) {
             Icon(
                 Icons.Default.Add,
                 contentDescription = "Increase",
-                tint = if (quantity < maxQuantity) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (quantity < maxQuantity) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -398,7 +410,7 @@ fun PriceDisplay(
             "₹$price",
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
-            color = SwastikPurple
+            color = SwastikPrimary
         )
         if (originalPrice != null && originalPrice > price) {
             Spacer(modifier = Modifier.width(8.dp))

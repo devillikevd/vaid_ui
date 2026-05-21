@@ -2,39 +2,35 @@ package com.example.swastik.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary brand colors
-val SwastikPurple = Color(0xFF6C63FF)
-val SwastikPurpleLight = Color(0xFFEEECFF)
-val SwastikPurpleDark = Color(0xFF4A42D4)
+// Primary brand colors (Deep Medical Teal)
+val SwastikPrimary = Color(0xFF006D77) // Calm, professional teal
+val SwastikPrimaryLight = Color(0xFFE0F2F1) // Soft teal background
+val SwastikPrimaryDark = Color(0xFF004D55)
 
-// Semantic colors
-val SwastikGreen = Color(0xFF4CAF50)
-val SwastikRed = Color(0xFFE53935)
-val SwastikOrange = Color(0xFFFF9800)
-val SwastikBlue = Color(0xFF2196F3)
+// Secondary & Neutral Shades
+val SwastikSecondary = Color(0xFF83C5BE) // Soft secondary teal
+val SwastikNeutral = Color(0xFFEDF2F4) // Light grayish blue
 
-// Card colors (vibrant for white text contrast)
-val CardBlue = Color(0xFF4A8CFF)
-val CardYellow = Color(0xFFFFA726)
-val CardOrange = Color(0xFFFF7043)
-val CardGreen = Color(0xFF66BB6A)
-val CardPurple = Color(0xFFAB47BC)
-val CardRed = Color(0xFFEF5350)
+// Semantic colors (muted, professional)
+val SwastikGreen = Color(0xFF2D6A4F) // Success, verified
+val SwastikRed = Color(0xFFD62828) // Emergency only
+val SwastikOrange = Color(0xFFE07A5F) // Warnings, pending
+val SwastikBlue = Color(0xFF3A86FF) // Info, highlights
 
 // Background & Surface
-val BackgroundLight = Color(0xFFF8F9FA)
+val BackgroundLight = Color(0xFFF8F9FA) // Very soft off-white
 val SurfaceLight = Color(0xFFFFFFFF)
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 
-// Elevated surface for cards that need more contrast
+// Elevated surfaces for cards
 val SurfaceElevatedLight = Color(0xFFFFFFFF)
 val SurfaceElevatedDark = Color(0xFF2A2A2A)
 
 // Text colors
-val TextPrimary = Color(0xFF1A1A2E)
-val TextSecondary = Color(0xFF6C757D)
-val TextHint = Color(0xFFADB5BD)
+val TextPrimary = Color(0xFF2B2D42) // Deep navy/gray instead of pure black
+val TextSecondary = Color(0xFF8D99AE) // Soft cool gray
+val TextHint = Color(0xFFD3D9DE)
 
 // Soft shadow tint for premium glassmorphism-style shadows
-val ShadowPurple = Color(0x1A6C63FF) // 10% alpha purple shadow
+val ShadowTint = Color(0x1A006D77) // 10% alpha primary shadow

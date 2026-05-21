@@ -58,7 +58,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.swastik.data.remote.dto.ChatSession
 import com.example.swastik.data.remote.dto.HealthTip
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.ChatLanguage
 import com.example.swastik.ui.viewmodel.ChatUiMessage
 import java.io.File
@@ -351,7 +351,7 @@ fun ChatbotScreen(
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
-                                        colors = listOf(SwastikPurple, Color(0xFF9C27B0))
+                                        colors = listOf(SwastikPrimary, Color(0xFF9C27B0))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -376,14 +376,14 @@ fun ChatbotScreen(
                     // Language toggle chip
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = SwastikPurple.copy(alpha = 0.12f),
+                        color = SwastikPrimary.copy(alpha = 0.12f),
                         modifier = Modifier.clickable { viewModel.toggleLanguage() }
                     ) {
                         Text(
                             text = if (selectedLanguage == ChatLanguage.ENGLISH) "EN \uD83C\uDDEC\uD83C\uDDE7" else "HI \uD83C\uDDEE\uD83C\uDDF3",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = SwastikPurple,
+                            color = SwastikPrimary,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         )
                     }
@@ -392,7 +392,7 @@ fun ChatbotScreen(
                         Icon(
                             imageVector = if (uiState.ttsEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.Filled.VolumeOff,
                             contentDescription = "Toggle voice output",
-                            tint = if (uiState.ttsEnabled) SwastikPurple else Color.Gray
+                            tint = if (uiState.ttsEnabled) SwastikPrimary else Color.Gray
                         )
                     }
                     // Clear chat
@@ -673,11 +673,11 @@ private fun SessionStatusCard(
                 if (!sessionId.isNullOrBlank()) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = SwastikPurple.copy(alpha = 0.08f)
+                        color = SwastikPrimary.copy(alpha = 0.08f)
                     ) {
                         Text(
                             text = "Active",
-                            color = SwastikPurple,
+                            color = SwastikPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -702,7 +702,7 @@ private fun SessionStatusCard(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(action.icon, contentDescription = action.label, tint = SwastikPurple, modifier = Modifier.size(18.dp))
+                            Icon(action.icon, contentDescription = action.label, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                             Text(action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             Text(action.helper, fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
                         }
@@ -847,7 +847,7 @@ private fun ImagePreviewDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onSend, colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple), shape = RoundedCornerShape(12.dp)) {
+            Button(onClick = onSend, colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary), shape = RoundedCornerShape(12.dp)) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.analyze))
@@ -877,11 +877,11 @@ private fun SeverityBadge(severity: String) {
 
 @Composable
 private fun SpecialistChip(specialist: String) {
-    Surface(shape = RoundedCornerShape(12.dp), color = SwastikPurple.copy(alpha = 0.1f), modifier = Modifier.padding(top = 4.dp)) {
+    Surface(shape = RoundedCornerShape(12.dp), color = SwastikPrimary.copy(alpha = 0.1f), modifier = Modifier.padding(top = 4.dp)) {
         Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.ud83e_ude7a), fontSize = 11.sp)
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = specialist, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SwastikPurple)
+            Text(text = specialist, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
         }
     }
 }
@@ -895,8 +895,8 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
             if (!message.isUser) {
                 Box(
                     modifier = Modifier.size(32.dp).clip(CircleShape).background(
-                        if (message.isEmergency) Color(0xFFD32F2F).copy(alpha = 0.1f)
-                        else SwastikPurple.copy(alpha = 0.1f)
+                        if (message.isEmergency) MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                     ),
                     contentAlignment = Alignment.Center
                 ) { Text(if (message.isEmergency) "\uD83D\uDEA8" else "\uD83E\uDD16", fontSize = 16.sp) }
@@ -905,15 +905,15 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
 
             Card(
                 shape = RoundedCornerShape(
-                    topStart = 16.dp, topEnd = 16.dp,
-                    bottomStart = if (message.isUser) 16.dp else 4.dp,
-                    bottomEnd = if (message.isUser) 4.dp else 16.dp
+                    topStart = 18.dp, topEnd = 18.dp,
+                    bottomStart = if (message.isUser) 18.dp else 4.dp,
+                    bottomEnd = if (message.isUser) 4.dp else 18.dp
                 ),
                 colors = CardDefaults.cardColors(
                     containerColor = when {
-                        message.isUser -> SwastikPurple
-                        message.isEmergency -> Color(0xFFFFEBEE)
-                        else -> Color.White
+                        message.isUser -> MaterialTheme.colorScheme.primary
+                        message.isEmergency -> MaterialTheme.colorScheme.errorContainer
+                        else -> MaterialTheme.colorScheme.surfaceVariant
                     }
                 ),
                 elevation = CardDefaults.cardElevation(2.dp),
@@ -943,7 +943,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                         Spacer(modifier = Modifier.height(6.dp))
                     }
 
-                    Text(text = message.content, fontSize = 14.sp, color = if (message.isUser) Color.White else Color.Black, lineHeight = 20.sp)
+                    Text(text = message.content, fontSize = 15.sp, color = if (message.isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 22.sp)
 
                     if (!message.isUser) {
                         if (message.severity != null && message.severity != "low") { SeverityBadge(severity = message.severity) }
@@ -960,7 +960,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                         }
                         if (message.followUpQuestion != null) {
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(text = message.followUpQuestion, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = SwastikPurple)
+                            Text(text = message.followUpQuestion, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
                         }
                         // Speaker button on AI messages
                         Spacer(modifier = Modifier.height(4.dp))
@@ -970,14 +970,14 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = SwastikPurple.copy(alpha = 0.08f),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                                 modifier = Modifier.size(28.dp).clickable { onSpeakClick(message.id) }
                             ) {
                                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                     Icon(
                                         Icons.AutoMirrored.Filled.VolumeUp,
                                         contentDescription = "Read aloud",
-                                        tint = SwastikPurple,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -989,7 +989,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
 
             if (message.isUser) {
                 Spacer(modifier = Modifier.width(8.dp))
-                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.ud83d_udc64), fontSize = 16.sp)
                 }
             }
@@ -1089,7 +1089,7 @@ private fun SymptomCheckerSheet(
                 },
                 enabled = selectedSymptoms.isNotEmpty() || customSymptoms.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Text(stringResource(R.string.analyze_symptoms))
@@ -1224,7 +1224,7 @@ private fun ChatHistorySheet(
                             shape = RoundedCornerShape(14.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (session.sessionId == activeSessionId) {
-                                    SwastikPurple.copy(alpha = 0.08f)
+                                    SwastikPrimary.copy(alpha = 0.08f)
                                 } else {
                                     Color.White
                                 }
@@ -1239,7 +1239,7 @@ private fun ChatHistorySheet(
                                 Text(preview, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
                                 Text(
                                     "${session.messageCount ?: 0} messages",
-                                    color = SwastikPurple,
+                                    color = SwastikPrimary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -1275,8 +1275,8 @@ private fun QuickActionCard(action: ChatQuickAction, onClick: () -> Unit, modifi
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                Icon(action.icon, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(20.dp))
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Icon(action.icon, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.Black)
@@ -1303,7 +1303,7 @@ private fun TypingDot(delay: Int) {
         animationSpec = infiniteRepeatable(animation = tween(600, delayMillis = delay), repeatMode = RepeatMode.Reverse),
         label = "alpha"
     )
-    Box(modifier = Modifier.size(8.dp).background(SwastikPurple.copy(alpha = alpha), CircleShape))
+    Box(modifier = Modifier.size(8.dp).background(SwastikPrimary.copy(alpha = alpha), CircleShape))
 }
 
 @Composable
@@ -1317,7 +1317,7 @@ private fun ChatInputBar(
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Camera/attach button
             IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) SwastikPurple else Color.LightGray)
+                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) SwastikPrimary else Color.LightGray)
             }
             // Input field
             Box(
@@ -1370,7 +1370,7 @@ private fun ChatInputBar(
                 IconButton(
                     onClick = onSend, enabled = inputEnabled && value.isNotBlank() && !isLoading,
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(
-                        if (inputEnabled && value.isNotBlank() && !isLoading) SwastikPurple else Color.LightGray
+                        if (inputEnabled && value.isNotBlank() && !isLoading) SwastikPrimary else Color.LightGray
                     )
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))

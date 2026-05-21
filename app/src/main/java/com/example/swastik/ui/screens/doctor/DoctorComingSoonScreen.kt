@@ -12,7 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 /**
  * Info screen shown when doctors try to log in via the app.
@@ -47,14 +47,14 @@ fun DoctorPortalScreen(
                 imageVector = Icons.Outlined.MedicalServices,
                 contentDescription = null,
                 modifier = Modifier.size(96.dp),
-                tint = SwastikPurple
+                tint = SwastikPrimary
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Doctor Portal",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = SwastikPurple
+                color = SwastikPrimary
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(

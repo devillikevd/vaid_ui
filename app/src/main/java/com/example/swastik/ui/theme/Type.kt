@@ -8,6 +8,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 
+import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.text.googlefonts.Font
+
 // ─── Poppins Font Family ───
 val PoppinsFontFamily = FontFamily(
     Font(R.font.poppins_light, FontWeight.Light),

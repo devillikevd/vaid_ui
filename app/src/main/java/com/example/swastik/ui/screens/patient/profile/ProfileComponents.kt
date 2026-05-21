@@ -36,7 +36,7 @@ import com.example.swastik.R
 // ==================== HEADER ====================
 
 @Composable
-fun ProfileHeader(onQrClick: () -> Unit, onSettingsClick: () -> Unit) {
+fun ProfileHeader(onSettingsClick: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
@@ -52,9 +52,6 @@ fun ProfileHeader(onQrClick: () -> Unit, onSettingsClick: () -> Unit) {
         ) {
             Text(stringResource(R.string.my_profile), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.surface)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = onQrClick) {
-                    Icon(Icons.Outlined.QrCode2, contentDescription = "QR", tint = MaterialTheme.colorScheme.surface)
-                }
                 IconButton(onClick = onSettingsClick) {
                     Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.surface)
                 }
@@ -88,8 +85,8 @@ fun ProfileInfoCard(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                SwastikPurple.copy(alpha = 0.1f),
-                                SwastikPurpleLight.copy(alpha = 0.05f)
+                                colorScheme.primary.copy(alpha = 0.1f),
+                                colorScheme.primaryContainer.copy(alpha = 0.3f)
                             )
                         )
                     )
@@ -104,8 +101,8 @@ fun ProfileInfoCard(
                         modifier = Modifier
                             .size(90.dp)
                             .clip(CircleShape)
-                            .background(SwastikPurple.copy(alpha = 0.15f))
-                            .border(3.dp, SwastikPurple, CircleShape)
+                            .background(colorScheme.primaryContainer)
+                            .border(3.dp, colorScheme.primary, CircleShape)
                             .clickable { profile?.profileImageUrl?.let { if(it.isNotEmpty()) onImageClick(it) } },
                         contentAlignment = Alignment.Center
                     ) {
@@ -127,7 +124,7 @@ fun ProfileInfoCard(
                                 profile?.initials?.ifEmpty { "?" } ?: "?",
                                 fontSize = if (profile?.initials?.isNotEmpty() == true) 32.sp else 45.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = SwastikPurple
+                                color = colorScheme.primary
                             )
                         }
                     }
@@ -137,7 +134,7 @@ fun ProfileInfoCard(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(SwastikGreen)
+                                .background(MaterialTheme.colorScheme.primary)
                                 .border(2.dp, colorScheme.surface, CircleShape)
                                 .align(Alignment.BottomEnd),
                             contentAlignment = Alignment.Center
@@ -205,17 +202,17 @@ fun ProfileInfoCard(
                         onClick = onEditClick,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SwastikPurple)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colorScheme.primary)
                     ) {
-                        Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = SwastikPurple)
+                        Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp), tint = colorScheme.primary)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.edit), color = SwastikPurple, fontSize = 13.sp)
+                        Text(stringResource(R.string.edit), color = colorScheme.primary, fontSize = 13.sp)
                     }
                     Button(
                         onClick = onShareClick,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                        colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary, contentColor = colorScheme.onPrimary)
                     ) {
                         Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -232,7 +229,7 @@ private fun ProfileStat(value: String, label: String, unit: String) {
     val colorScheme = MaterialTheme.colorScheme
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SwastikPurple)
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colorScheme.primary)
             if (unit != "Type") {
                 Text(
                     unit,
@@ -295,7 +292,7 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SwastikPurple.copy(alpha = 0.06f))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -303,15 +300,15 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.profile_completion), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = SwastikPurple)
-                Text("${(percentage * 100).toInt()}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = SwastikPurple)
+                Text(stringResource(R.string.profile_completion), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onPrimaryContainer)
+                Text("${(percentage * 100).toInt()}%", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorScheme.onPrimaryContainer)
             }
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
                 progress = { percentage },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = SwastikPurple,
-                trackColor = SwastikPurple.copy(alpha = 0.15f),
+                color = colorScheme.primary,
+                trackColor = colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(stringResource(R.string.next_step, missingField), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
@@ -327,9 +324,9 @@ fun QuickStatsSection(stats: PatientStats) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), SwastikPurple, Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
         QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), Color(0xFF2196F3), Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
     }
 }
 
@@ -376,7 +373,7 @@ fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
 fun HealthIdCard(profile: PatientProfile?) {
     val colorScheme = MaterialTheme.colorScheme
     val hasAbha = profile?.abhaNumber?.isNotEmpty() == true
-    val accentColor = if (hasAbha) SwastikGreen else SwastikOrange
+    val accentColor = if (hasAbha) colorScheme.primary else colorScheme.tertiary
     val accentTextColor = if (hasAbha) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
 
     Card(
@@ -514,7 +511,7 @@ fun SupportCard(
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface)
     ) {
         Column {
-            SettingsMenuItem(Icons.Outlined.Headphones, stringResource(R.string.support_24_7), stringResource(R.string.chat_with_us_anytime), badgeText = stringResource(R.string.online), badgeColor = SwastikGreen, onClick = onSupportClick)
+            SettingsMenuItem(Icons.Outlined.Headphones, stringResource(R.string.support_24_7), stringResource(R.string.chat_with_us_anytime), badgeText = stringResource(R.string.online), badgeColor = colorScheme.primary, onClick = onSupportClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.AutoMirrored.Outlined.HelpOutline, stringResource(R.string.help_center), stringResource(R.string.faqs_tutorials), onClick = onHelpClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
@@ -533,10 +530,11 @@ fun SettingsMenuItem(
     title: String,
     subtitle: String,
     badgeText: String? = null,
-    badgeColor: Color = SwastikPurple,
+    badgeColor: Color? = null,
     onClick: () -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val resolvedBadgeColor = badgeColor ?: colorScheme.primary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -548,10 +546,10 @@ fun SettingsMenuItem(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(SwastikPurple.copy(alpha = 0.1f)),
+                .background(colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = SwastikPurple, modifier = Modifier.size(22.dp))
+            Icon(icon, contentDescription = null, tint = colorScheme.primary, modifier = Modifier.size(22.dp))
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -564,8 +562,8 @@ fun SettingsMenuItem(
         }
 
         if (badgeText != null) {
-            Surface(color = badgeColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
-                Text(badgeText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = badgeColor, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            Surface(color = resolvedBadgeColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)) {
+                Text(badgeText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = resolvedBadgeColor, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
             Spacer(modifier = Modifier.width(8.dp))
         }

@@ -69,7 +69,7 @@ import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 @Composable
 fun PatientLoginScreen(
@@ -137,7 +137,7 @@ fun PatientLoginScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(SwastikPurple, SwastikPurple.copy(alpha = 0.78f), Color(0xFF6A5AE0))
+                    listOf(SwastikPrimary, SwastikPrimary.copy(alpha = 0.78f), Color(0xFF6A5AE0))
                 )
             )
     ) {
@@ -262,7 +262,7 @@ fun PatientLoginScreen(
                                 Icon(
                                     imageVector = Icons.Default.MarkEmailRead,
                                     contentDescription = null,
-                                    tint = SwastikPurple
+                                    tint = SwastikPrimary
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
@@ -296,14 +296,14 @@ fun PatientLoginScreen(
                             Button(
                                 onClick = { viewModel.verifyEmailOtp(normalizedEmail, verificationOtp) },
                                 enabled = normalizedEmail.isNotBlank() && verificationOtp.length == 6 && !uiState.isLoading,
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple)
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) {
                                 Text(stringResource(R.string.verify_email_otp))
                             }
                             OutlinedButton(
                                 onClick = { viewModel.resendVerification(normalizedEmail) },
                                 enabled = normalizedEmail.isNotBlank() && emailError == null && !uiState.isLoading,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
                             ) {
                                 Text(stringResource(R.string.resend_verification_code))
                             }
@@ -424,7 +424,7 @@ fun PatientLoginScreen(
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     enabled = canSubmit
                 ) {
                     if (uiState.isLoading) {

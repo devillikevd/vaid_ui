@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.ui.components.SwastikButton
 import com.example.swastik.ui.components.SwastikTopBar
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 import kotlinx.coroutines.delay
 
 /**
@@ -61,14 +61,14 @@ fun EmailVerificationPendingScreen(
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(SwastikPurple.copy(alpha = 0.12f), CircleShape)
+                .background(SwastikPrimary.copy(alpha = 0.12f), CircleShape)
                 .align(Alignment.CenterHorizontally),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Email,
                 contentDescription = null,
-                tint = SwastikPurple,
+                tint = SwastikPrimary,
                 modifier = Modifier.size(48.dp)
             )
         }
@@ -123,7 +123,7 @@ fun EmailVerificationPendingScreen(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = SwastikPurple.copy(alpha = 0.7f),
+                tint = SwastikPrimary.copy(alpha = 0.7f),
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))

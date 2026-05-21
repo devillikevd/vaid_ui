@@ -25,7 +25,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.swastik.ui.theme.SwastikPurple
+import com.example.swastik.ui.theme.SwastikPrimary
 
 // SwastikTopBar is defined in SwastikComponents.kt — use that version
 
@@ -51,7 +51,7 @@ fun OtpInputField(
                     .size(65.dp)
                     .border(
                         width = 1.5.dp,
-                        color = if (char.isNotEmpty()) SwastikPurple else Color.LightGray,
+                        color = if (char.isNotEmpty()) SwastikPrimary else Color.LightGray,
                         shape = RoundedCornerShape(12.dp)
                     )
                     .clip(RoundedCornerShape(12.dp))
@@ -91,7 +91,7 @@ fun OtpInputField(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        color = SwastikPurple
+                        color = SwastikPrimary
                     ),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
@@ -113,7 +113,7 @@ fun QuickActionItem(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
-    iconTint: Color = SwastikPurple
+    iconTint: Color = SwastikPrimary
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
