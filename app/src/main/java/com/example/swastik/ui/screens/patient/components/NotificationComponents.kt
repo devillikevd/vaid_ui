@@ -39,7 +39,7 @@ fun NotificationPanelDialog(
     val filterAll = stringResource(R.string.filter_all)
     val filterUnread = stringResource(R.string.filter_unread)
     val filterAppointments = stringResource(R.string.appointments)
-    val filterMedicines = stringResource(R.string.filter_medicines)
+    val filterMedicines = stringResource(R.string.medicine_reminders)
     val filterReports = stringResource(R.string.reports)
 
     var selectedFilter by remember { mutableStateOf(filterAll) }
@@ -67,7 +67,7 @@ fun NotificationPanelDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                .background(Color.Black.copy(alpha = 0.5f))
                 .clickable { onDismiss() },
             contentAlignment = Alignment.CenterEnd
         ) {
@@ -77,7 +77,7 @@ fun NotificationPanelDialog(
                     .fillMaxWidth(0.85f)
                     .clickable(enabled = false) {}, // prevent click-through
                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-                color = MaterialTheme.colorScheme.surface, // Responsive
+                color = Color.White, // Forced White Background
                 tonalElevation = 8.dp
             ) {
                 Column(
@@ -89,7 +89,7 @@ fun NotificationPanelDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(Color.White)
                             .padding(20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -98,7 +98,7 @@ fun NotificationPanelDialog(
                             stringResource(R.string.notifications),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 24.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color(0xFF1A1A2E)
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (notifications.isNotEmpty()) {
@@ -106,16 +106,17 @@ fun NotificationPanelDialog(
                                     onClick = { onClearAll() },
                                     contentPadding = PaddingValues(horizontal = 12.dp)
                                 ) {
-                                    Text(stringResource(R.string.clear_all), color = SwastikPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    // Use a hardcoded string if resource is missing or for clarity
+                                    Text("Clear All", color = SwastikPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = onDismiss) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.outlineVariant)
+                                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.Gray)
                             }
                         }
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f))
+                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
 
                     // Filter Chips
                     LazyRow(
@@ -129,28 +130,37 @@ fun NotificationPanelDialog(
                                 label = { Text(filter, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = SwastikPrimary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.surface,
-                                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f),
-                                    labelColor = MaterialTheme.colorScheme.outlineVariant
+                                    selectedLabelColor = Color.White,
+                                    containerColor = Color(0xFFF3F4F6)
                                 ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    borderColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
-                                    selectedBorderColor = SwastikPrimary,
-                                    selected = selectedFilter == filter,
-                                    enabled = true
-                                )
+                                border = null
                             )
                         }
                     }
 
                     // Notifications List
                     if (filteredNotifications.isEmpty()) {
-                        com.example.swastik.ui.components.EmptyStateView(
-                            title = stringResource(R.string.no_notifications_1),
-                            subtitle = stringResource(R.string.all_caught_up),
-                            icon = Icons.Outlined.Notifications,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Outlined.Notifications,
+                                    contentDescription = null,
+                                    tint = Color.LightGray,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    stringResource(R.string.no_notifications_1),
+                                    color = Color.Gray,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
                     } else {
                         LazyColumn(
                             modifier = Modifier.weight(1f),
@@ -203,9 +213,9 @@ private fun NotificationCard(
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+            containerColor = if (notification.isRead) Color.White else SwastikPrimary.copy(alpha = 0.05f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 0.dp else 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -215,7 +225,7 @@ private fun NotificationCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(getNotificationTypeColor(notification.type).copy(alpha = 0.2f)),
+                    .background(getNotificationTypeColor(notification.type).copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -237,7 +247,7 @@ private fun NotificationCard(
                         text = notification.title,
                         fontSize = 14.sp,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = Color.Black
                     )
                     if (!notification.isRead) {
                         Box(
@@ -253,7 +263,7 @@ private fun NotificationCard(
                 Text(
                     text = notification.message,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = Color.Gray,
                     lineHeight = 16.sp
                 )
 
@@ -268,7 +278,7 @@ private fun NotificationCard(
                     Text(
                         text = notification.time,
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.outlineVariant
+                        color = Color.LightGray
                     )
 
                     if (notification.actionLabel != null) {
@@ -299,12 +309,11 @@ private fun getNotificationTypeIcon(type: NotificationType) = when (type) {
     NotificationType.SYSTEM -> Icons.Outlined.Info
 }
 
-@Composable
 private fun getNotificationTypeColor(type: NotificationType) = when (type) {
     NotificationType.APPOINTMENT -> Color(0xFF2196F3)
-    NotificationType.MEDICINE_REMINDER -> MaterialTheme.colorScheme.secondary
-    NotificationType.REPORT_READY -> MaterialTheme.colorScheme.tertiary
+    NotificationType.MEDICINE_REMINDER -> Color(0xFF4CAF50)
+    NotificationType.REPORT_READY -> Color(0xFFFF9800)
     NotificationType.PRESCRIPTION -> Color(0xFF6C63FF)
     NotificationType.OFFER -> Color(0xFFE91E63)
-    NotificationType.SYSTEM -> MaterialTheme.colorScheme.onSurfaceVariant
+    NotificationType.SYSTEM -> Color.Gray
 }

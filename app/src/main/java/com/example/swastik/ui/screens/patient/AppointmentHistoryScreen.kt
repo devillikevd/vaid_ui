@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -163,8 +164,12 @@ fun AppointmentHistoryScreen(
 @Composable
 private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: (AppointmentFilter) -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppointmentFilter.entries.forEach { filter ->
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(AppointmentFilter.entries) { filter ->
             FilterChip(
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelected(filter) },
@@ -176,7 +181,8 @@ private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: 
                             AppointmentFilter.COMPLETED -> stringResource(R.string.completed)
                             AppointmentFilter.CANCELLED -> stringResource(R.string.cancelled)
                         },
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        maxLines = 1
                     )
                 },
                 colors = FilterChipDefaults.filterChipColors(

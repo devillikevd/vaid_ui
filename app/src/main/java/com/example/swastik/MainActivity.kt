@@ -654,13 +654,22 @@ fun SwastikApp(tokenManager: TokenManager) {
 
         composable(
             route = Screen.VitalsReminders.route,
+            arguments = listOf(
+                navArgument("tab") {
+                    type = NavType.IntType
+                    defaultValue = 0
+                }
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "vaididea://vitals" },
+                navDeepLink { uriPattern = "vaididea://reminders" },
                 navDeepLink { uriPattern = "https://vaididea.in/vitals" }
             )
-        ) {
+        ) { backStackEntry ->
+            val initialTab = backStackEntry.arguments?.getInt("tab") ?: 0
             AuthGuard(navController, tokenManager) {
                 VitalsRemindersScreen(
+                    initialTab = initialTab,
                     onBackClick = { navController.popBackStack() }
                 )
             }

@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
+import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -81,10 +83,30 @@ class PatientDashboardViewModel @Inject constructor(
     }
 
     val patientProfile = patientRepository.patientProfile
-    val notifications = patientRepository.notifications
     val stats = patientRepository.stats
     val reminders = patientRepository.reminders
     val recommendedDoctors = patientRepository.recommendedDoctors
+
+    val notifications: StateFlow<List<NotificationItem>> = patientRepository.notifications
+        .combine(patientRepository.reminders) { notifs, rems ->
+            val uncompleted = rems.filter { !it.isCompleted }
+            if (uncompleted.isNotEmpty()) {
+                val summaryNotif = NotificationItem(
+                    id = "reminders_summary_virtual",
+                    title = "Today's Reminders",
+                    message = "You have ${uncompleted.size} pending health tasks. Tap to view.",
+                    time = "Today",
+                    type = NotificationType.MEDICINE_REMINDER,
+                    isRead = false,
+                    actionLabel = "View Reminders",
+                    actionRoute = Screen.VitalsReminders.createRoute(tab = 1)
+                )
+                // Filter out any existing virtual summary and prepend the new one
+                listOf(summaryNotif) + notifs.filter { it.id != "reminders_summary_virtual" }
+            } else {
+                notifs.filter { it.id != "reminders_summary_virtual" }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
      * Collect real-time notifications from Socket.IO and merge into notification list

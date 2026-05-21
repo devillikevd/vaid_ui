@@ -31,8 +31,8 @@ import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPrimary
 
+import com.example.swastik.ui.screens.patient.components.DashboardHeader
 import com.example.swastik.ui.components.MedicineListShimmer
-
 import com.example.swastik.data.model.PatientProfile
 
 /**
@@ -92,12 +92,13 @@ fun MedicineTabContent(
             .background(colorScheme.background)
     ) {
         // Header
-        MedicineFinderHeader(
+        DashboardHeader(
             profile = profile,
-            unreadCount = unreadNotificationsCount,
+            unreadNotificationsCount = unreadNotificationsCount,
             cartItemCount = cartState.totalItems,
             onNotificationClick = onNotificationClick,
-            onCartClick = onNavigateToCart
+            onCartClick = onNavigateToCart,
+            isHomeTab = false
         )
 
         // Main Content Card

@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -24,7 +27,6 @@ import com.example.swastik.data.model.Doctor
 fun HomeTabContent(
     profile: PatientProfile?,
     unreadNotificationsCount: Int,
-    reminders: List<Reminder> = emptyList(),
     doctors: List<Doctor> = emptyList(),
     paddingValues: PaddingValues,
     onNotificationClick: () -> Unit,
@@ -39,10 +41,10 @@ fun HomeTabContent(
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToChatbot: () -> Unit,
     onNavigateToDiagnostic: () -> Unit = {},
-    onNavigateToVitals: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
+    onNavigateToVitals: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
@@ -53,95 +55,127 @@ fun HomeTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color.White)
             .padding(paddingValues)
             .verticalScroll(rememberScrollState())
     ) {
-        // 1. Greeting + profile + location
+        // Redesigned Header for Home Tab
         DashboardHeader(
             profile = profile,
             unreadNotificationsCount = unreadNotificationsCount,
             onNotificationClick = onNotificationClick,
             onProfileClick = onProfileClick,
-            onLocationUpdate = onLocationUpdate
+            onLocationUpdate = onLocationUpdate,
+            isHomeTab = true
         )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Large Search Bar
+        SearchBar(onSearchClick = onSearchClick)
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. Search doctors / symptoms
-        SearchBar(onSearchClick = onSearchClick)
-        
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 3. Emergency / SOS access
-        EmergencySOSDock(onEmergencyClick = onNavigateToEmergency)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 4. Digital Health Card
-        DigitalHealthCardSection(
-            onCardClick = onNavigateToHealthCard
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 5. Main consultation cards
-        MainCardsSection(
-            onStartInPersonConsultation = onStartInPersonConsultation,
-            onStartVideoConsultation = onStartVideoConsultation,
-            onNavigateToAppointments = onNavigateToAppointments,
-            onNavigateToReports = onNavigateToReports,
-            onFindDoctors = onSearchClick
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 5. Doctor by speciality
-        FindDoctorsBySpecialitySection(
-            onSpecialityClick = onFindDoctorSpecialityClick
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 6. Upcoming appointments/reminders
-        SmartReminderSection(
-            reminders = reminders,
-            onViewAllClick = onNavigateToVitals
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 7. AI Assistant
+        // AI Assistant Section (Moved here and updated)
         EnhancedChatBotSection(
             onChatbotClick = onNavigateToChatbot
         )
         
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 8. Healthcare services
-        CareDirectorySection(
-            onHospitalClick = onNavigateToHospitals,
-            onClinicClick = onNavigateToClinics,
-            onPharmacyClick = onNavigateToPharmacies,
-            onDiagnosticClick = onNavigateToDiagnostic
-        )
-        
+        // Row 1: Emergency & Health Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            EmergencyQuickCard(
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToEmergency
+            )
+            HealthCardQuickCard(
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToHealthCard
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 9. Recommended doctors
+        // Row 2: In-Person & Video Consult
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InPersonFeatureCard(
+                modifier = Modifier.weight(1f),
+                onClick = onSearchClick // Changed from onNavigateToClinics to onSearchClick
+            )
+            VideoConsultFeatureCard(
+                modifier = Modifier.weight(1f),
+                onClick = onStartVideoConsultation
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Row 3: My Reports & My Appointments
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SummaryActionCard(
+                title = "MY REPORTS",
+                description = "Medical History",
+                buttonText = "VIEW ALL",
+                icon = Icons.Outlined.Folder,
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToReports
+            )
+            SummaryActionCard(
+                title = "MY APPOINTMENTS",
+                description = "Past & Upcoming",
+                buttonText = "MANAGE",
+                icon = Icons.Outlined.CalendarMonth,
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToAppointments
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Re-adding Book Doctor by Speciality
+        FindDoctorsBySpecialitySection(
+            onSpecialityClick = onFindDoctorSpecialityClick
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
         DoctorRecommendationSection(
             doctors = doctors,
             onDoctorClick = { doctor -> onNavigateToBooking(doctor.id) },
             onBookClick = { doctor -> onNavigateToBooking(doctor.id) },
             onSeeAllClick = onNavigateToAppointments
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
+
+        CareDirectorySection(
+            onHospitalClick = onNavigateToHospitals,
+            onClinicClick = onNavigateToClinics,
+            onPharmacyClick = onNavigateToPharmacies,
+            onDiagnosticClick = onNavigateToDiagnostic
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
         
-        // 10. Health insights / Trust signals
         TrustSignalsStrip()
 
-        // Extra bottom spacing for bottom nav
-        Spacer(modifier = Modifier.height(140.dp))
+        // Reduced bottom spacing to prevent over-scrolling
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }

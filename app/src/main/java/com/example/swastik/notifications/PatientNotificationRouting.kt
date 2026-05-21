@@ -103,8 +103,8 @@ fun resolvePatientNotificationDestination(
         normalizedType.contains("medicine") || normalizedType.contains("care_plan") || normalizedType.contains("health_task") -> {
             PatientNotificationDestination(
                 actionLabel = "View Reminders",
-                route = Screen.VitalsReminders.route,
-                deepLink = "vaididea://vitals"
+                route = Screen.VitalsReminders.createRoute(tab = 1),
+                deepLink = "vaididea://reminders"
             )
         }
 

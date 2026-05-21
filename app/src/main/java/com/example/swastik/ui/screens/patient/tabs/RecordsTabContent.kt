@@ -29,6 +29,7 @@ import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.ui.viewmodel.UploadState
+import com.example.swastik.ui.screens.patient.components.DashboardHeader
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.components.RecordsListShimmer
@@ -82,11 +83,12 @@ fun RecordsTabContent(
             .fillMaxSize()
             .background(colorScheme.background)
     ) {
-        RecordsHeader(
-            profile,
-            unreadNotificationsCount,
-            onNotificationClick,
-            onUploadClick = { showUploadDialog = true }
+        // Header
+        DashboardHeader(
+            profile = profile,
+            unreadNotificationsCount = unreadNotificationsCount,
+            onNotificationClick = onNotificationClick,
+            isHomeTab = false
         )
 
         Card(

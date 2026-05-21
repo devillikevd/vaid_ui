@@ -87,7 +87,9 @@ sealed class Screen(val route: String) {
             }
         }
     }
-    object VitalsReminders : Screen("vitals_reminders")
+    object VitalsReminders : Screen("vitals_reminders?tab={tab}") {
+        fun createRoute(tab: Int = 0): String = "vitals_reminders?tab=$tab"
+    }
     object HealthCard : Screen("health_card")
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")

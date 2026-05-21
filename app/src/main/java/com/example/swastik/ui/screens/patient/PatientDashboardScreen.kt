@@ -28,6 +28,7 @@ import com.example.swastik.ui.screens.patient.components.*
 import com.example.swastik.ui.screens.patient.tabs.*
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
+import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.delay
 
 /**
@@ -57,12 +58,12 @@ fun PatientDashboardScreen(
     onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToDiagnostic: () -> Unit = {},
-    onNavigateToVitals: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
+    onNavigateToVitals: () -> Unit = {},
     onStartInPersonConsultation: () -> Unit = {},
     onStartVideoConsultation: () -> Unit = {},
     onSearchClick: () -> Unit = {},
@@ -97,7 +98,6 @@ fun PatientDashboardScreen(
     val profile by viewModel.patientProfile.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
     val stats by viewModel.stats.collectAsState()
-    val reminders by viewModel.reminders.collectAsState()
     val doctors by viewModel.recommendedDoctors.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
@@ -141,7 +141,6 @@ fun PatientDashboardScreen(
                         0 -> HomeTabContent(
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
-                            reminders = reminders,
                             doctors = doctors,
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
@@ -156,10 +155,10 @@ fun PatientDashboardScreen(
                             onNavigateToEmergency = onNavigateToEmergency,
                             onNavigateToChatbot = onNavigateToChatbot,
                             onNavigateToDiagnostic = onNavigateToDiagnostic,
-                            onNavigateToVitals = onNavigateToVitals,
                             onNavigateToOrderHistory = onNavigateToOrderHistory,
                             onNavigateToBookingHistory = onNavigateToBookingHistory,
                             onNavigateToHealthCard = onNavigateToHealthCard,
+                            onNavigateToVitals = onNavigateToVitals,
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToBooking = onNavigateToBooking,
                             onNavigateToMedicineDetail = onNavigateToMedicineDetail,
@@ -190,7 +189,10 @@ fun PatientDashboardScreen(
                             modifier = Modifier.padding(paddingValues),
                             profile = profile,
                             stats = stats,
+                            unreadNotificationsCount = unreadCount,
+                            onNotificationClick = { showNotificationPanel = true },
                             onLogout = onLogout,
+                            onNavigateToVitals = onNavigateToVitals,
                             viewModel = viewModel
                         )
                     }
@@ -227,7 +229,11 @@ fun PatientDashboardScreen(
                 },
                 onActionClick = { notification ->
                     viewModel.markNotificationRead(notification.id)
-                    notification.actionRoute?.let(onNotificationActionRoute)
+                    if (notification.actionRoute == Screen.VitalsReminders.route) {
+                        onNavigateToVitals()
+                    } else {
+                        notification.actionRoute?.let(onNotificationActionRoute)
+                    }
                     showNotificationPanel = false
                 }
             )

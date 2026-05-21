@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.graphicsLayer
 import java.util.Locale
 
 import com.example.swastik.R
@@ -33,215 +38,69 @@ import com.example.swastik.data.model.Doctor
 import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.ReminderType
 import com.example.swastik.ui.theme.*
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material.icons.filled.Emergency
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.CalendarMonth
+
+@Composable
+fun EmergencyQuickCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(84.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFFD62828), Color(0xFFE07A5F))
+                    )
+                )
+                .padding(12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Emergency,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Emergency\n/ SOS",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
 
 // Extension for UI compatibility
 val Doctor.imageEmoji: String get() = "👨‍⚕️"
 val Doctor.specialty: String get() = specialization
 val Doctor.experience: String? get() = experienceYears?.takeIf { it > 0 }?.let { "$it years" }
 val Doctor.rating: String? get() = averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) }
-
-// ==================== SMART REMINDERS ====================
-@Composable
-fun SmartReminderSection(
-    reminders: List<Reminder>,
-    onViewAllClick: () -> Unit = {}
-) {
-
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.todays_reminders),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            TextButton(onClick = onViewAllClick) {
-                Text(stringResource(R.string.view_all), color = SwastikPrimary, fontSize = 14.sp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (reminders.isEmpty()) {
-            // Empty state
-            com.example.swastik.ui.components.EmptyStateView(
-                title = stringResource(R.string.no_reminders_today),
-                subtitle = stringResource(R.string.reminders_description),
-                icon = Icons.Outlined.Notifications
-            )
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    reminders.take(3).forEachIndexed { index, reminder ->
-                        ReminderItem(reminder)
-                        if (index < minOf(reminders.size - 1, 2)) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReminderItem(reminder: Reminder) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .background(
-                    when (reminder.type) {
-                        ReminderType.MEDICINE -> Color(0xFFF3E5F5)
-                        ReminderType.APPOINTMENT -> SwastikPrimaryLight
-                        ReminderType.TEST -> Color(0xFFE0F2F1)
-                    },
-                    RoundedCornerShape(12.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = when (reminder.type) {
-                    ReminderType.MEDICINE -> Icons.Outlined.Medication
-                    ReminderType.APPOINTMENT -> Icons.Outlined.Event
-                    ReminderType.TEST -> Icons.Outlined.Science
-                },
-                contentDescription = "${reminder.type.name} reminder",
-                tint = when (reminder.type) {
-                    ReminderType.MEDICINE -> Color(0xFF8E24AA)
-                    ReminderType.APPOINTMENT -> SwastikPrimary
-                    ReminderType.TEST -> Color(0xFF00897B)
-                },
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = reminder.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (reminder.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = reminder.time,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (reminder.isCompleted) {
-            Icon(
-                Icons.Default.CheckCircle,
-                contentDescription = "Completed",
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(24.dp)
-            )
-        } else {
-            Icon(
-                Icons.Outlined.Circle,
-                contentDescription = "Pending",
-                tint = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
-
-// ==================== QUICK ACTIONS ====================
-@Composable
-fun QuickActionsSection(
-    onAmbulanceClick: () -> Unit = {},
-    onHelpClick: () -> Unit = {},
-    onVitalsClick: () -> Unit = {},
-    onOrderHistoryClick: () -> Unit = {},
-    onBookingHistoryClick: () -> Unit = {},
-    onPrescriptionClick: () -> Unit = {}
-) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Text(
-            text = stringResource(R.string.quick_actions),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            QuickActionButton(
-                icon = Icons.Outlined.DirectionsCar,
-                label = stringResource(R.string.ambulance),
-                iconTint = MaterialTheme.colorScheme.error,
-                bgColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
-                onClick = { onAmbulanceClick() }
-            )
-            QuickActionButton(
-                icon = Icons.Outlined.MonitorHeart,
-                label = stringResource(R.string.vitals),
-                iconTint = MaterialTheme.colorScheme.secondary,
-                bgColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                onClick = { onVitalsClick() }
-            )
-            QuickActionButton(
-                icon = Icons.Outlined.Receipt,
-                label = stringResource(R.string.prescription),
-                iconTint = MaterialTheme.colorScheme.tertiary,
-                bgColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
-                onClick = onPrescriptionClick
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            QuickActionButton(
-                icon = Icons.Outlined.HelpOutline,
-                label = stringResource(R.string.help),
-                iconTint = SwastikPrimary,
-                bgColor = SwastikPrimary.copy(alpha = 0.12f),
-                onClick = { onHelpClick() }
-            )
-            QuickActionButton(
-                icon = Icons.Outlined.ShoppingBag,
-                label = stringResource(R.string.my_orders),
-                iconTint = Color(0xFF00897B),
-                bgColor = Color(0xFF00897B).copy(alpha = 0.12f),
-                onClick = { onOrderHistoryClick() }
-            )
-            QuickActionButton(
-                icon = Icons.Outlined.Science,
-                label = stringResource(R.string.my_tests),
-                iconTint = Color(0xFF5C6BC0),
-                bgColor = Color(0xFF5C6BC0).copy(alpha = 0.12f),
-                onClick = { onBookingHistoryClick() }
-            )
-        }
-    }
-}
 
 // ==================== CARE DIRECTORY ====================
 @Composable
@@ -389,35 +248,6 @@ private fun PrescriptionQuickAction(onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(stringResource(R.string.prescription), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun QuickActionButton(
-    icon: ImageVector,
-    label: String,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    bgColor: Color = MaterialTheme.colorScheme.surface,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(bgColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = label, tint = iconTint, modifier = Modifier.size(26.dp))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -636,75 +466,219 @@ private fun DoctorCard(
 fun EnhancedChatBotSection(
     onChatbotClick: () -> Unit = {}
 ) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Card(
+    val infiniteTransition = rememberInfiniteTransition(label = "mic_glow")
+    
+    val fullText = "Hi, how are you feeling today?"
+    var displayedText by remember { mutableStateOf("") }
+    
+    LaunchedEffect(Unit) {
+        while(true) {
+            for (i in 0..fullText.length) {
+                displayedText = fullText.substring(0, i)
+                kotlinx.coroutines.delay(100)
+            }
+            kotlinx.coroutines.delay(2000)
+            displayedText = ""
+        }
+    }
+
+    val micScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mic_scale"
+    )
+    
+    val ringAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ring_alpha"
+    )
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onChatbotClick() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = SwastikPrimaryDark),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    spotColor = Color(0xFF00F2FE).copy(alpha = 0.2f)
+                )
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.1f),
+                            Color(0xFF00F2FE).copy(alpha = 0.2f),
+                            Color.White.copy(alpha = 0.05f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clickable { onChatbotClick() }
+                .padding(8.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+            // Decorative particles
+            Canvas(modifier = Modifier.matchParentSize()) {
+                drawCircle(Color.White.copy(alpha = 0.05f), radius = 1f, center = center.copy(x = size.width * 0.15f, y = size.height * 0.15f))
+                drawCircle(Color(0xFF00F2FE).copy(alpha = 0.05f), radius = 1.2f, center = center.copy(x = size.width * 0.85f, y = size.height * 0.2f))
+            }
+
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Outlined.SmartToy, contentDescription = "AI Assistant", tint = Color.White, modifier = Modifier.size(28.dp))
+                        // Left Top Icon Badge (Reduced)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .shadow(2.dp, CircleShape, spotColor = Color(0xFF00F2FE))
+                                .background(Color(0xFF2C5364).copy(alpha = 0.6f), CircleShape)
+                                .border(1.dp, Color(0xFF00F2FE).copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ai_icon),
+                                contentDescription = "AI Assistant",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Title Text Block (More Compact)
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Vaididea AI Assistant",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("✨", fontSize = 10.sp)
+                            }
+                            Text(
+                                text = "Your personal health companion",
+                                fontSize = 9.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    // Mic Action Button Section (Reduced)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(IntrinsicSize.Min)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            // Outer Glow rings
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .graphicsLayer {
+                                        scaleX = 1f + (1f - ringAlpha) * 0.15f
+                                        scaleY = 1f + (1f - ringAlpha) * 0.15f
+                                        alpha = ringAlpha * 0.15f
+                                    }
+                                    .border(1.dp, Color(0xFF00F2FE).copy(alpha = 0.2f), CircleShape)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .graphicsLayer {
+                                        val delayAlpha = (ringAlpha + 0.5f).let { if (it > 1f) it - 1f else it }
+                                        scaleX = 1f + (1f - delayAlpha) * 0.12f
+                                        scaleY = 1f + (1f - delayAlpha) * 0.12f
+                                        alpha = delayAlpha * 0.25f
+                                    }
+                                    .border(1.dp, Color(0xFF4FACFE).copy(alpha = 0.2f), CircleShape)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .graphicsLayer {
+                                        scaleX = micScale
+                                        scaleY = micScale
+                                    }
+                                    .shadow(3.dp, CircleShape, spotColor = Color(0xFF00F2FE))
+                                    .background(Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = "Voice",
+                                    tint = Color(0xFF203A43),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Swastik AI Assistant",
-                            fontSize = 17.sp,
+                            "Tap to talk",
+                            fontSize = 8.sp,
+                            color = Color(0xFF00F2FE),
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Check symptoms, book doctors, ask anything.",
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.8f),
-                            lineHeight = 18.sp
+                            maxLines = 1,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                // Chat bubble preview
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Query/Input Bubble (Reduced)
                 Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    color = Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp),
+                    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.06f))
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = "Hi, how are you feeling today?",
-                            fontSize = 14.sp,
-                            color = TextPrimary,
-                            modifier = Modifier.weight(1f)
+                            text = displayedText,
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.8f)
                         )
-                        Box(
-                            modifier = Modifier.size(36.dp).clip(CircleShape).background(SwastikPrimaryLight),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = "Voice", tint = SwastikPrimary, modifier = Modifier.size(20.dp))
-                        }
                     }
                 }
             }
         }
     }
 }
+
+
+
+
 
 // ==================== TRUST SIGNALS ====================
 @Composable
@@ -900,60 +874,412 @@ fun EmergencyDialog(
     )
 }
 
-// ==================== EMERGENCY DOCK ====================
 @Composable
-fun EmergencySOSDock(onEmergencyClick: () -> Unit) {
-    Card(
+fun SearchBar(onSearchClick: () -> Unit = {}) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .clickable { onEmergencyClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SwastikRed.copy(alpha = 0.08f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .padding(horizontal = 16.dp)
+            .clickable { onSearchClick() }
     ) {
-        Row(
+        OutlinedTextField(
+            value = "",
+            onValueChange = { },
+            enabled = false,
+            placeholder = {
+                Text("Search Specialists & Conditions", color = Color.Gray, fontSize = 15.sp)
+            },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledBorderColor = Color.Transparent,
+                disabledContainerColor = Color.White,
+                disabledTextColor = Color.Black,
+                disabledPlaceholderColor = Color.Gray,
+                disabledLeadingIconColor = Color.Gray
+            ),
+            singleLine = true
+        )
+    }
+}
+
+@Composable
+fun HealthCardQuickCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(76.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFF264653), Color(0xFF2A9D8F)) // Teal gradient
+                    )
+                )
+                .padding(12.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.QrCode,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Digital\nHealth Card",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun VitalsQuickCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(76.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFF4361EE), Color(0xFF4CC9F0)) // Blue/Azure gradient
+                    )
+                )
+                .padding(12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Outlined.MonitorHeart,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Vitals &\nReminders",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun InPersonFeatureCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(260.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color(0xFFE3F2FD), Color(0xFF90CAF9)) // Light Blue gradient
+                    )
+                )
+        ) {
+            // Header Tag
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "IN-PERSON\nVISIT",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF1565C0),
+                    lineHeight = 14.sp
+                )
+                Surface(
+                    color = Color(0xFF1565C0).copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(99.dp)
+                ) {
+                    Text(
+                        "NEARBY",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1565C0)
+                    )
+                }
+            }
+
+            // Illustration Placeholder
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(SwastikRed.copy(alpha = 0.15f), CircleShape),
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Emergency,
-                    contentDescription = "Emergency",
-                    tint = SwastikRed,
-                    modifier = Modifier.size(24.dp)
-                )
+                // Use a hospital icon or emoji as illustration
+                Text("🏥", fontSize = 64.sp)
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            // Content Area
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    "IN-PERSON VISIT",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.Black
+                )
+                Text(
+                    "Find doctors with open appointments nearby",
+                    fontSize = 11.sp,
+                    color = Color.DarkGray,
+                    lineHeight = 13.sp,
+                    maxLines = 2
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(99.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("SEE SLOTS TODAY", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowForward, null, tint = Color.Black, modifier = Modifier.size(12.dp))
+                    }
+                }
+            }
+        }
+    }
+}
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Emergency / SOS",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SwastikRed
+@Composable
+fun VideoConsultFeatureCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(260.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color(0xFFE8F5E9), Color(0xFFA5D6A7)) // Light Green gradient
+                    )
                 )
+        ) {
+            // Header Tag
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = "Tap to call ambulance or alert contacts",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "INSTANT\nVIDEO CONSULT",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF2E7D32),
+                    lineHeight = 14.sp
                 )
+                Surface(
+                    color = Color(0xFF2E7D32).copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(99.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.size(6.dp).background(Color(0xFF2E7D32), CircleShape))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "LIVE NOW",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2E7D32)
+                        )
+                    }
+                }
             }
 
-            Icon(
-                Icons.Default.ArrowForwardIos,
-                contentDescription = null,
-                tint = SwastikRed.copy(alpha = 0.6f),
-                modifier = Modifier.size(16.dp)
+            // Illustration Placeholder
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("👨‍⚕️📱", fontSize = 64.sp)
+            }
+
+            // Content Area
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Text(
+                    "VIDEO CONSULT",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.Black
+                )
+                Text(
+                    "Connect with a specialist instantly online",
+                    fontSize = 11.sp,
+                    color = Color.DarkGray,
+                    lineHeight = 13.sp,
+                    maxLines = 2
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(99.dp)
+                ) {
+                    Text("START CONSULTATION", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SummaryActionCard(
+    title: String,
+    description: String,
+    buttonText: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .height(130.dp) // Fixed height to ensure both cards are exactly the same size
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Text(
+                title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.Black
             )
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFF3F4F6), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = SwastikPrimary, modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    description,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    lineHeight = 16.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                Surface(
+                    onClick = onClick,
+                    color = Color(0xFFF3F4F6),
+                    shape = RoundedCornerShape(99.dp)
+                ) {
+                    Text(
+                        buttonText,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray
+                    )
+                }
+            }
         }
     }
 }

@@ -37,11 +37,12 @@ private val SwastikPrimary = Color(0xFF6C63FF)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VitalsRemindersScreen(
+    initialTab: Int = 0,
     onBackClick: () -> Unit,
     viewModel: VitalsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
     var showRecordVitalDialog by remember { mutableStateOf(false) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
     var reminderToSnooze by remember { mutableStateOf<ReminderDto?>(null) }

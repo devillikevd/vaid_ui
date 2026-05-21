@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.swastik.R
+import com.example.swastik.ui.screens.patient.components.DashboardHeader
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.profile.*
 import com.example.swastik.ui.theme.*
@@ -41,7 +42,10 @@ fun ProfileTabContent(
     modifier: Modifier = Modifier,
     profile: PatientProfile? = null,
     stats: PatientStats? = null,
+    unreadNotificationsCount: Int = 0,
+    onNotificationClick: () -> Unit = {},
     onLogout: () -> Unit = {},
+    onNavigateToVitals: () -> Unit = {},
     viewModel: PatientDashboardViewModel? = null
 ) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -88,14 +92,17 @@ fun ProfileTabContent(
         }
     }
 
-    // ── Main UI ─────────────────────────────────────────────────
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        ProfileHeader(
-            onSettingsClick = { showNotificationDialog = true }
+        DashboardHeader(
+            profile = profile,
+            unreadNotificationsCount = unreadNotificationsCount,
+            onNotificationClick = onNotificationClick,
+            onProfileClick = {}, // already on profile page
+            isHomeTab = false
         )
 
         Card(
@@ -147,6 +154,16 @@ fun ProfileTabContent(
                 }
                 item { ProfileCompletionCard(profile = profile) }
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
+
+                item {
+                    SettingsItem(
+                        title = stringResource(R.string.vitals_reminders),
+                        subtitle = "Track health vitals & medicine alerts",
+                        icon = Icons.Outlined.MonitorHeart,
+                        onClick = onNavigateToVitals,
+                        iconColor = SwastikPrimary
+                    )
+                }
 
                 item {
                     SectionTitleWithBadge(
@@ -482,6 +499,48 @@ fun ProfileTabContent(
                 Toast.makeText(context, (changePwdState?.value as ProfileUpdateState.Error).message, Toast.LENGTH_SHORT).show()
             }
             else -> {}
+        }
+    }
+}
+
+@Composable
+private fun SettingsItem(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    iconColor: Color = MaterialTheme.colorScheme.primary
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(iconColor.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(
+                Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
