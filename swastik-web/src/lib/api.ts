@@ -1065,6 +1065,9 @@ export const consultationsApi = {
     getDetails: (consultationId: string) =>
         fetchWithAuth(`/consultations/${consultationId}`),
 
+    getIceServers: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/ice-servers`),
+
     addPrescription: (consultationId: string, data: Record<string, unknown>) =>
         fetchWithAuth(`/consultations/${consultationId}/prescription`, {
             method: 'POST',

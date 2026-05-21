@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -56,7 +57,7 @@ fun SmartReminderSection(
                 text = stringResource(R.string.todays_reminders),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(onClick = onViewAllClick) {
                 Text(stringResource(R.string.view_all), color = SwastikPurple, fontSize = 14.sp)
@@ -67,36 +68,16 @@ fun SmartReminderSection(
 
         if (reminders.isEmpty()) {
             // Empty state
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(stringResource(R.string.string_8), fontSize = 40.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.no_reminders_today),
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                    Text(
-                        stringResource(R.string.reminders_description),
-                        fontSize = 12.sp,
-                        color = Color.LightGray,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
+            com.example.swastik.ui.components.EmptyStateView(
+                title = stringResource(R.string.no_reminders_today),
+                subtitle = stringResource(R.string.reminders_description),
+                icon = Icons.Outlined.Notifications
+            )
         } else {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -105,7 +86,7 @@ fun SmartReminderSection(
                         if (index < minOf(reminders.size - 1, 2)) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 12.dp),
-                                color = Color.LightGray.copy(alpha = 0.5f)
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -126,9 +107,9 @@ private fun ReminderItem(reminder: Reminder) {
                 .size(40.dp)
                 .background(
                     when (reminder.type) {
-                        ReminderType.MEDICINE -> Color(0xFFE8F5E9)
+                        ReminderType.MEDICINE -> MaterialTheme.colorScheme.secondaryContainer
                         ReminderType.APPOINTMENT -> Color(0xFFE3F2FD)
-                        ReminderType.TEST -> Color(0xFFFFF3E0)
+                        ReminderType.TEST -> MaterialTheme.colorScheme.secondaryContainer
                     },
                     CircleShape
                 ),
@@ -142,9 +123,9 @@ private fun ReminderItem(reminder: Reminder) {
                 },
                 contentDescription = "${reminder.type.name} reminder",
                 tint = when (reminder.type) {
-                    ReminderType.MEDICINE -> Color(0xFF4CAF50)
+                    ReminderType.MEDICINE -> MaterialTheme.colorScheme.secondary
                     ReminderType.APPOINTMENT -> SwastikPurple
-                    ReminderType.TEST -> Color(0xFFFF9800)
+                    ReminderType.TEST -> MaterialTheme.colorScheme.tertiary
                 },
                 modifier = Modifier.size(20.dp)
             )
@@ -157,12 +138,12 @@ private fun ReminderItem(reminder: Reminder) {
                 text = reminder.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (reminder.isCompleted) Color.Gray else Color.Black
+                color = if (reminder.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = reminder.time,
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -170,14 +151,14 @@ private fun ReminderItem(reminder: Reminder) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = "Completed",
-                tint = Color(0xFF4CAF50),
+                tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(24.dp)
             )
         } else {
             Icon(
                 Icons.Outlined.Circle,
                 contentDescription = "Pending",
-                tint = Color.LightGray,
+                tint = MaterialTheme.colorScheme.outlineVariant,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -199,7 +180,7 @@ fun QuickActionsSection(
             text = stringResource(R.string.quick_actions),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -211,22 +192,22 @@ fun QuickActionsSection(
             QuickActionButton(
                 icon = Icons.Outlined.DirectionsCar,
                 label = stringResource(R.string.ambulance),
-                iconTint = Color(0xFFE53935),
-                bgColor = Color(0xFFE53935).copy(alpha = 0.12f),
+                iconTint = MaterialTheme.colorScheme.error,
+                bgColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
                 onClick = { onAmbulanceClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.MonitorHeart,
                 label = stringResource(R.string.vitals),
-                iconTint = Color(0xFF4CAF50),
-                bgColor = Color(0xFF4CAF50).copy(alpha = 0.12f),
+                iconTint = MaterialTheme.colorScheme.secondary,
+                bgColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
                 onClick = { onVitalsClick() }
             )
             QuickActionButton(
                 icon = Icons.Outlined.Receipt,
                 label = stringResource(R.string.prescription),
-                iconTint = Color(0xFFFF9800),
-                bgColor = Color(0xFFFF9800).copy(alpha = 0.12f),
+                iconTint = MaterialTheme.colorScheme.tertiary,
+                bgColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
                 onClick = onPrescriptionClick
             )
         }
@@ -275,7 +256,7 @@ fun CareDirectorySection(
             text = stringResource(R.string.care_services),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -283,7 +264,7 @@ fun CareDirectorySection(
         Text(
             text = stringResource(R.string.care_services_desc),
             fontSize = 13.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 18.sp
         )
 
@@ -309,7 +290,7 @@ fun CareDirectorySection(
                 subtitle = stringResource(R.string.clinics_subtitle),
                 tag = stringResource(R.string.clinic_visits),
                 icon = Icons.Outlined.MedicalServices,
-                accent = Color(0xFF2E7D32),
+                accent = MaterialTheme.colorScheme.onSecondaryContainer,
                 container = Color(0xFFF2FBF3),
                 onClick = onClinicClick
             )
@@ -365,7 +346,7 @@ private fun CareDirectoryCard(
                 .animateContentSize()
                 .clickable { onClick() },
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(
@@ -417,7 +398,7 @@ private fun CareDirectoryCard(
                     text = title,
                     fontSize = if (isCompactWidth) 16.sp else 17.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF101418),
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -428,7 +409,7 @@ private fun CareDirectoryCard(
                     text = subtitle,
                     fontSize = 12.sp,
                     lineHeight = 17.sp,
-                    color = Color(0xFF5F6B7A),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = if (isCompactWidth) 3 else 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -467,20 +448,20 @@ private fun PrescriptionQuickAction(onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .border(1.5.dp, Color.LightGray, CircleShape)
+                .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                 .clip(CircleShape)
-                .background(Color.White),
+                .background(MaterialTheme.colorScheme.surface),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Outlined.Receipt,
                 contentDescription = "Prescription",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(26.dp)
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(stringResource(R.string.prescription), fontSize = 11.sp, color = Color.Gray)
+        Text(stringResource(R.string.prescription), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -488,8 +469,8 @@ private fun PrescriptionQuickAction(onClick: () -> Unit) {
 private fun QuickActionButton(
     icon: ImageVector,
     label: String,
-    iconTint: Color = Color.Gray,
-    bgColor: Color = Color.White,
+    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    bgColor: Color = MaterialTheme.colorScheme.surface,
     onClick: () -> Unit
 ) {
     Column(
@@ -509,7 +490,7 @@ private fun QuickActionButton(
             Icon(icon, contentDescription = label, tint = iconTint, modifier = Modifier.size(26.dp))
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(label, fontSize = 12.sp, color = Color.DarkGray, fontWeight = FontWeight.Medium)
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -517,6 +498,7 @@ private fun QuickActionButton(
 @Composable
 fun DoctorRecommendationSection(
     doctors: List<Doctor>,
+    isLoading: Boolean = false,
     onDoctorClick: (Doctor) -> Unit = {},
     onBookClick: (Doctor) -> Unit = {},
     onSeeAllClick: () -> Unit = {}
@@ -534,7 +516,7 @@ fun DoctorRecommendationSection(
                 text = stringResource(R.string.recommended_for_you),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(onClick = onSeeAllClick) {
                 Text(stringResource(R.string.see_all), color = SwastikPurple, fontSize = 14.sp)
@@ -543,14 +525,25 @@ fun DoctorRecommendationSection(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (doctors.isEmpty()) {
+        if (isLoading) {
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp)
+            ) {
+                items(3) {
+                    Box(modifier = Modifier.width(280.dp)) {
+                        com.example.swastik.ui.components.DoctorCardShimmer()
+                    }
+                }
+            }
+        } else if (doctors.isEmpty()) {
             // Empty state
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
@@ -562,12 +555,12 @@ fun DoctorRecommendationSection(
                     Text(
                         stringResource(R.string.no_doctor_recommendations),
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         stringResource(R.string.recommendations_description),
                         fontSize = 12.sp,
-                        color = Color.LightGray,
+                        color = MaterialTheme.colorScheme.outlineVariant,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -600,7 +593,7 @@ private fun DoctorCard(
             .width(160.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
@@ -622,14 +615,14 @@ private fun DoctorCard(
                 text = doctor.name,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
             Text(
                 text = doctor.specialty,
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             doctor.recommendationReason?.takeIf { it.isNotBlank() }?.let { reason ->
@@ -673,7 +666,7 @@ private fun DoctorCard(
                         Text(
                             text = if (ratingText != null) " • $experienceText" else experienceText,
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -711,7 +704,7 @@ fun EnhancedChatBotSection(
             text = stringResource(R.string.ai_health_assistant),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -721,7 +714,7 @@ fun EnhancedChatBotSection(
                 .fillMaxWidth()
                 .clickable { onChatbotClick() },
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -747,12 +740,12 @@ fun EnhancedChatBotSection(
                             text = stringResource(R.string.how_can_i_help),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = stringResource(R.string.describe_symptoms),
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -819,7 +812,7 @@ fun TrustSignalsStrip() {
                 .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            TrustBadge(Icons.Default.Verified, stringResource(R.string.verified_doctors), Color(0xFF4CAF50))
+            TrustBadge(Icons.Default.Verified, stringResource(R.string.verified_doctors), MaterialTheme.colorScheme.secondary)
             TrustBadge(Icons.Default.Lock, stringResource(R.string.data_encrypted), SwastikPurple)
             TrustBadge(Icons.Default.Security, stringResource(R.string.abdm_compliant), Color(0xFF2196F3))
         }
@@ -839,7 +832,7 @@ private fun TrustBadge(icon: ImageVector, text: String, color: Color) {
         Text(
             text = text,
             fontSize = 10.sp,
-            color = Color.DarkGray,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             lineHeight = 12.sp
         )
@@ -873,14 +866,14 @@ fun EmergencySOSButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Icon(
                 Icons.Default.LocalHospital,
                 contentDescription = "Emergency SOS",
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.size(24.dp)
             )
             Text(
                 "SOS",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface
             )
         }
     }
@@ -914,7 +907,7 @@ fun EmergencyDialog(
                 Text(
                     stringResource(R.string.choose_emergency_action),
                     textAlign = TextAlign.Center,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 

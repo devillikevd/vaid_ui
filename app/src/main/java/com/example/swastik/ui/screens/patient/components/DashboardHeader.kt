@@ -303,14 +303,19 @@ fun SearchBar(onSearchClick: () -> Unit = {}) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(4.dp, RoundedCornerShape(16.dp)),
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(16.dp),
+                    spotColor = SwastikPurple.copy(alpha = 0.10f),
+                    ambientColor = SwastikPurple.copy(alpha = 0.06f)
+                ),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 disabledBorderColor = Color.Transparent,
-                disabledContainerColor = Color.White,
-                disabledTextColor = Color.Black,
-                disabledPlaceholderColor = Color.Gray,
-                disabledLeadingIconColor = Color.Gray,
+                disabledContainerColor = MaterialTheme.colorScheme.surface,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 disabledTrailingIconColor = SwastikPurple
             ),
             singleLine = true

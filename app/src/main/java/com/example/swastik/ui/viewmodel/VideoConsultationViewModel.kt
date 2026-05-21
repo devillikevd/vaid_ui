@@ -711,7 +711,10 @@ class VideoConsultationViewModel @Inject constructor(
 
         patientOfferFallbackJob?.cancel()
         patientOfferFallbackJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(1500)
+            // Let the doctor web client be the normal offer initiator. A longer
+            // fallback avoids SDP glare while still recovering if the doctor
+            // missed the join event because of a socket reconnect/race.
+            kotlinx.coroutines.delay(5000)
             if (_uiState.value.session?.sessionId != session.sessionId) return@launch
             if (_uiState.value.isConnected || hasSentLocalOffer || hasReceivedRemoteOffer || hasReceivedRemoteAnswer) return@launch
             android.util.Log.d("VideoConsultationVM", "Creating delayed patient offer fallback")

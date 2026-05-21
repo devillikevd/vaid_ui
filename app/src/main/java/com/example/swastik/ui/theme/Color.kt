@@ -27,7 +27,14 @@ val SurfaceLight = Color(0xFFFFFFFF)
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 
+// Elevated surface for cards that need more contrast
+val SurfaceElevatedLight = Color(0xFFFFFFFF)
+val SurfaceElevatedDark = Color(0xFF2A2A2A)
+
 // Text colors
 val TextPrimary = Color(0xFF1A1A2E)
 val TextSecondary = Color(0xFF6C757D)
 val TextHint = Color(0xFFADB5BD)
+
+// Soft shadow tint for premium glassmorphism-style shadows
+val ShadowPurple = Color(0x1A6C63FF) // 10% alpha purple shadow

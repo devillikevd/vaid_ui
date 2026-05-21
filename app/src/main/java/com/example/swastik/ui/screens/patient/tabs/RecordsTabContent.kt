@@ -160,39 +160,18 @@ fun RecordsTabContent(
                     }
                 } else if (consultations.isEmpty() && prescriptions.isEmpty() && documents.isEmpty()) {
                     // Empty state
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    com.example.swastik.ui.components.EmptyStateView(
+                        title = stringResource(R.string.no_medical_records_yet),
+                        subtitle = stringResource(R.string.upload_reports_or_consult),
+                        icon = Icons.Outlined.FolderOpen
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Outlined.FolderOpen,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = colorScheme.outline
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = stringResource(R.string.no_medical_records_yet),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = stringResource(R.string.upload_reports_or_consult),
-                                fontSize = 13.sp,
-                                color = colorScheme.outline
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            OutlinedButton(
-                                onClick = { showUploadDialog = true },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
-                            ) {
-                                Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.upload_report))
-                            }
+                        OutlinedButton(
+                            onClick = { showUploadDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPurple)
+                        ) {
+                            Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.upload_report))
                         }
                     }
                 } else {

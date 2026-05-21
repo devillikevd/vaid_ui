@@ -621,4 +621,40 @@
     <string name="get_started">Get Started</string>
     <string name="enter_your_password">Enter your password</string>
     <string name="vital">Vital</string>
+    
+    <!-- Added UI Strings -->
+    <string name="boarding_pass">BOARDING PASS</string>
+    <string name="patient_uppercase">PATIENT</string>
+    <string name="doctor_uppercase">DOCTOR</string>
+    <string name="date_uppercase">DATE</string>
+    <string name="time_uppercase">TIME</string>
+    <string name="fee_uppercase">FEE</string>
+    <string name="you">You</string>
+    <string name="free">Free</string>
+    <string name="swastik_healthcare">SWASTIK HEALTHCARE</string>
+    <string name="book_now">Book Now</string>
+    <string name="instant">Instant</string>
+    <string name="connect_with_doctors_online">Connect with doctors online</string>
+    <string name="most_searched_specialities">Most Searched Specialities</string>
+    <string name="view_all_specialities">View all 25+ specialities</string>
+    <string name="what_are_you_looking_for">What are you looking for?</string>
+    <string name="surgery_conditions">Surgery Conditions</string>
+    <string name="common_symptoms">Common Symptoms</string>
+    <string name="book_doctor_by_speciality">Book Doctor by Speciality</string>
+    <string name="all_specialities">All Specialities</string>
+    <string name="all_caught_up">You\'re all caught up! We\'ll let you know when there\'s an update.</string>
+    <string name="filter_unread">Unread</string>
+    <string name="clear_all">Clear All</string>
+    <string name="filter_medicines">Medicines</string>
+    <string name="booking_summary">Booking Summary</string>
+    <string name="specialty">Specialty</string>
+    <string name="date">Date</string>
+    <string name="time">Time</string>
+    <string name="fee">Fee</string>
+    <string name="consultation_type">Consultation Type</string>
+    <string name="booking_ellipsis">Booking…</string>
+    <string name="in_person_consultation_desc">In-Person Consultation — Find nearby doctors</string>
+    <string name="video_consultation_desc">Video Consultation — Connect with doctors online</string>
+    <string name="learn_how_to_book">Learn how to book an appointment</string>
+    <string name="search_symptoms_specialities">Search Symptoms / Specialities</string>
 </resources>

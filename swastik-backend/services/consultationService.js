@@ -549,6 +549,91 @@ const deriveReminderTimes = (frequency = '') => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const buildLocalClinicalFallback = ({ query, vitalsData, patientHistory, doctor }) => {
+  const alerts = [];
+  const pushAlert = (code, metric, severity, message, threshold = null, currentValue = null) => {
+    alerts.push({
+      code,
+      metric,
+      severity,
+      threshold,
+      current_value: currentValue,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  if (vitalsData) {
+    if (vitalsData.heart_rate > 120) {
+      pushAlert('TACHYCARDIA', 'heart_rate', 'warning', `Tachycardia detected: ${vitalsData.heart_rate} bpm`, 120, vitalsData.heart_rate);
+    }
+    if (vitalsData.heart_rate && vitalsData.heart_rate < 50) {
+      pushAlert('BRADYCARDIA', 'heart_rate', 'warning', `Bradycardia detected: ${vitalsData.heart_rate} bpm`, 50, vitalsData.heart_rate);
+    }
+    if (vitalsData.spo2 && vitalsData.spo2 < 92) {
+      pushAlert('LOW_SPO2', 'spo2', 'critical', `Low SpO2 detected: ${vitalsData.spo2}%`, 92, vitalsData.spo2);
+    }
+    if (vitalsData.respiration_rate > 25) {
+      pushAlert('TACHYPNEA', 'respiration_rate', 'warning', `Elevated respiratory rate: ${vitalsData.respiration_rate}/min`, 25, vitalsData.respiration_rate);
+    }
+    if (vitalsData.fall_detected) {
+      pushAlert('FALL_DETECTED', 'fall_detected', 'critical', 'Fall detected during consultation', null, true);
+    }
+    if (vitalsData.pain_score >= 7) {
+      pushAlert('SEVERE_PAIN', 'pain_score', 'critical', `Severe pain score detected: ${vitalsData.pain_score}/10`, 7, vitalsData.pain_score);
+    }
+    if (vitalsData.facial_asymmetry_score > 0.35) {
+      pushAlert('FACIAL_ASYMMETRY', 'facial_asymmetry_score', 'critical', 'Significant facial asymmetry detected; consider urgent neuro screen', 0.35, vitalsData.facial_asymmetry_score);
+    }
+  }
+
+  const vitalsLine = vitalsData
+    ? [
+        vitalsData.heart_rate ? `HR ${vitalsData.heart_rate} bpm` : null,
+        vitalsData.respiration_rate ? `RR ${vitalsData.respiration_rate}/min` : null,
+        vitalsData.spo2 ? `SpO2 ${vitalsData.spo2}%` : null,
+        vitalsData.temperature ? `Temp ${vitalsData.temperature}°C` : null,
+      ].filter(Boolean).join(', ') || 'No numeric live vitals available'
+    : 'No live vitals available';
+
+  const highRisk = alerts.some((alert) => alert.severity === 'critical');
+  const answer = [
+    'Local clinical fallback is active because the external AI reasoning service is unavailable.',
+    `Request: ${String(query || '').slice(0, 240)}`,
+    `Live context: ${vitalsLine}.`,
+    patientHistory ? `Patient context: ${patientHistory}.` : null,
+    alerts.length > 0
+      ? `Immediate flags: ${alerts.map((alert) => alert.message).join('; ')}.`
+      : 'No rule-based danger signs were detected from the available vitals.',
+    highRisk
+      ? 'Prioritize direct clinical assessment and escalation before routine prescribing.'
+      : 'Use this as a safety checklist while continuing the consultation.',
+  ].filter(Boolean).join('\n\n');
+
+  return {
+    response: {
+      answer,
+      alerts,
+      possible_conditions: [],
+      suggested_questions: [
+        'Can you describe onset, duration, and severity of the main symptom?',
+        'Any chest pain, breathlessness, weakness, confusion, or fainting?',
+        'Any allergies, pregnancy, chronic illness, or current medicines?',
+      ],
+      summary: alerts.length > 0 ? 'Rule-based fallback found vitals requiring review.' : 'Rule-based fallback found no critical vitals from available data.',
+      clinical_notes: `Fallback generated locally in Node for Dr. ${doctor?.name || 'Doctor'}; verify clinically before acting.`,
+      risk_indicators: alerts.map((alert) => alert.message),
+      severity_assessment: highRisk ? 'critical' : alerts.length > 0 ? 'warning' : 'mild',
+      suggested_medications: [],
+      differential_diagnoses: [],
+      recommended_tests: highRisk ? ['Repeat vitals with clinical-grade device', 'Focused physical examination'] : [],
+      vitals_interpretation: vitalsLine,
+    },
+    provider: 'local-rule-fallback',
+    latencyMs: 0,
+  };
+};
+
 const generateAndUploadPrescriptionPdfWithRetry = async ({
   prescription,
   doctor,
@@ -946,34 +1031,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     throw new Error('FastAPI returned unsuccessful response');
   } catch (err) {
     console.error('[ConsultationService] FastAPI AI call failed:', err.message);
-
-    // Fallback: Return a basic response with vitals alerts if FastAPI is down
-    const vitalsAlerts = [];
-    if (vitalsData) {
-      if (vitalsData.heart_rate > 120) vitalsAlerts.push('Tachycardia detected');
-      if (vitalsData.heart_rate && vitalsData.heart_rate < 50) vitalsAlerts.push('Bradycardia detected');
-      if (vitalsData.spo2 && vitalsData.spo2 < 92) vitalsAlerts.push('Low SpO2');
-      if (vitalsData.fall_detected) vitalsAlerts.push('Fall detected');
-    }
-
-    return {
-      response: {
-        answer: 'AI assistant is temporarily unavailable. Please try again in a moment.',
-        alerts: vitalsAlerts,
-        possible_conditions: [],
-        suggested_questions: [],
-        summary: '',
-        clinical_notes: '',
-        risk_indicators: vitalsAlerts,
-        severity_assessment: vitalsAlerts.length > 0 ? 'warning' : 'mild',
-        suggested_medications: [],
-        differential_diagnoses: [],
-        recommended_tests: [],
-        vitals_interpretation: vitalsData ? `Live vitals: HR ${vitalsData.heart_rate || '-'} bpm, RR ${vitalsData.respiration_rate || '-'}/min` : 'No vitals',
-      },
-      provider: 'fallback',
-      latencyMs: 0,
-    };
+    return buildLocalClinicalFallback({ query, vitalsData, patientHistory, doctor });
   }
 };
 

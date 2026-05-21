@@ -12,6 +12,18 @@ import { doctorApi, authApi } from '@/lib/api';
 import { loadDoctorNotificationSettings, saveDoctorNotificationSettings } from '@/lib/doctorNotificationSettings';
 import { getResubmissionSuccessMessage, refreshAuthenticatedUser } from '@/lib/authSession';
 
+// Standardized specialization list — must match backend utils/specializations.js
+const SPECIALIZATIONS = [
+    'General Physician', 'Family Medicine', 'Gynecology', 'Obstetrics', 'Dermatology',
+    'Pediatrics', 'Dentistry', 'Ophthalmology', 'ENT', 'Psychiatry', 'Psychology',
+    'Orthopedics', 'Neurology', 'Neurosurgery', 'Urology', 'Nephrology', 'Pulmonology',
+    'Cardiology', 'Cardiac Surgery', 'Gastroenterology', 'Endocrinology', 'Diabetology',
+    'Oncology', 'General Surgery', 'Plastic Surgery', 'Vascular Surgery', 'Physiotherapy',
+    'Radiology', 'Pathology', 'Anesthesiology', 'Emergency Medicine', 'Infectious Disease',
+    'Rheumatology', 'Allergy & Immunology', 'Hematology', 'Geriatrics', 'Sports Medicine',
+    'Pain Management', 'Nutrition & Dietetics', 'Ayurveda', 'Homeopathy', 'Other',
+];
+
 export default function DoctorSettingsPage() {
     const user = useAuthStore((s) => s.user);
     const [isSaving, setIsSaving] = useState(false);
@@ -165,7 +177,19 @@ export default function DoctorSettingsPage() {
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label><Input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><Input value={user?.email || ''} readOnly /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label><Input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+91..." /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label><Input value={profile.specialization} onChange={e => setProfile(p => ({ ...p, specialization: e.target.value }))} placeholder="Enter specialization" /></div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Specialization</label>
+                            <select
+                                value={profile.specialization}
+                                onChange={e => setProfile(p => ({ ...p, specialization: e.target.value }))}
+                                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            >
+                                <option value="">Select specialization</option>
+                                {SPECIALIZATIONS.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Consultation Fee (₹)</label>
                             <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="Enter fee" />
                         </div>

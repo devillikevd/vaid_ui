@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -76,7 +77,7 @@ fun OrderHistoryScreen(
                 Snackbar(
                     snackbarData = data,
                     containerColor = SwastikPurple,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(12.dp)
                 )
             }
@@ -96,9 +97,9 @@ fun OrderHistoryScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = SwastikPurple,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    titleContentColor = MaterialTheme.colorScheme.surface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.surface,
+                    actionIconContentColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -133,16 +134,16 @@ fun OrderHistoryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
+                        Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.order_cancelled_successfully), color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.order_cancelled_successfully), color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -153,16 +154,16 @@ fun OrderHistoryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Error, null, tint = Color(0xFFE53935))
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
-                        Text(error, color = Color(0xFFC62828), modifier = Modifier.weight(1f))
+                        Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearOrderHistoryError() }) {
                             Text(stringResource(R.string.dismiss))
                         }
@@ -179,10 +180,10 @@ fun OrderHistoryScreen(
                 historyState.orders.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.ShoppingBag, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
+                            Icon(Icons.Default.ShoppingBag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
-                            Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = Color.Gray, fontSize = 14.sp)
+                            Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -216,9 +217,9 @@ private fun OrderHistoryCard(
         "processing" -> Color(0xFF1976D2)
         "ready" -> Color(0xFFFB8C00)
         "dispatched" -> Color(0xFF00897B)
-        "delivered" -> Color(0xFF4CAF50)
-        "cancelled" -> Color(0xFFE53935)
-        else -> Color.Gray
+        "delivered" -> MaterialTheme.colorScheme.secondary
+        "cancelled" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
@@ -244,7 +245,7 @@ private fun OrderHistoryCard(
                     )
                     Text(
                         "Order #${order.id.take(8)}",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
@@ -274,7 +275,7 @@ private fun OrderHistoryCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Medication, null, tint = SwastikPurple, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = Color.Gray)
+                    Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 order.totalAmount?.let {
                     Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple, fontSize = 15.sp)
@@ -284,7 +285,7 @@ private fun OrderHistoryCard(
             // Date
             order.createdAt?.let {
                 Spacer(Modifier.height(4.dp))
-                Text(formatDateShort(it), fontSize = 12.sp, color = Color.Gray)
+                Text(formatDateShort(it), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             // Expanded details
@@ -308,9 +309,9 @@ private fun OrderHistoryCard(
                                 modifier = Modifier.weight(1f)
                             )
                             item.subtotal?.let {
-                                Text("₹${it.toInt()}", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${it.toInt()}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } ?: item.price?.let {
-                                Text("₹${(it * item.quantity).toInt()}", fontSize = 13.sp, color = Color.Gray)
+                                Text("₹${(it * item.quantity).toInt()}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -319,9 +320,9 @@ private fun OrderHistoryCard(
                     order.deliveryAddress?.let { addr ->
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Default.LocationOn, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(addr, fontSize = 13.sp, color = Color.Gray)
+                            Text(addr, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -329,9 +330,9 @@ private fun OrderHistoryCard(
                     order.paymentStatus?.let { ps ->
                         Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Payment, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Payment, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Payment: ${ps.replaceFirstChar { it.uppercase() }}", fontSize = 13.sp, color = Color.Gray)
+                            Text("Payment: ${ps.replaceFirstChar { it.uppercase() }}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -341,7 +342,7 @@ private fun OrderHistoryCard(
                         OutlinedButton(
                             onClick = onCancel,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
@@ -356,7 +357,7 @@ private fun OrderHistoryCard(
             Icon(
                 if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 "Toggle details",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }

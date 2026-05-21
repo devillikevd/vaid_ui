@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,155 +30,250 @@ import com.example.swastik.ui.theme.*
 // ==================== MAIN CARDS SECTION ====================
 @Composable
 fun MainCardsSection(
+    onStartInPersonConsultation: () -> Unit = {},
     onStartVideoConsultation: () -> Unit = {},
     onNavigateToAppointments: () -> Unit = {},
-    onNavigateToReports: () -> Unit = {}
+    onNavigateToReports: () -> Unit = {},
+    onFindDoctors: () -> Unit = {}
 ) {
-    BoxWithConstraints(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val isCompactWidth = maxWidth < 360.dp
-        val compactPadding = if (isCompactWidth) 14.dp else 16.dp
-
+        // ── Top Row: In-Person + Video ──
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // In-Person Consultation Card
             Card(
                 modifier = Modifier
-                    .weight(1.15f)
-                    .fillMaxHeight()
+                    .weight(1f)
+                    .height(150.dp)
                     .animateContentSize()
-                    .clickable { onStartVideoConsultation() },
+                    .clickable { onStartInPersonConsultation() },
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = CardBlue)
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(compactPadding)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "Today",
-                                fontSize = 11.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(SwastikPurple, Color(0xFF8B5CF6))
                             )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = "Video Consultation",
-                            fontSize = if (isCompactWidth) 17.sp else 18.sp,
-                            lineHeight = if (isCompactWidth) 21.sp else 23.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
                         )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.CalendarMonth,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.schedule_now), fontSize = 12.sp, color = Color.White)
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Outlined.AccessTime,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.n_24_7_available), fontSize = 12.sp, color = Color.White)
-                        }
-
-                        Spacer(modifier = Modifier.weight(1f))
-
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Top: Tag + Icon
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Your Doctor",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "Video Consult",
-                                    fontSize = 11.sp,
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
                             Box(
                                 modifier = Modifier
-                                    .size(50.dp)
-                                    .border(2.dp, Color.White, CircleShape)
+                                    .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(stringResource(R.string.book_now), fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(SwastikPurple.copy(alpha = 0.3f)),
+                                    .background(Color.White.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(stringResource(R.string.string_7), fontSize = 24.sp)
+                                Icon(Icons.Outlined.PersonPinCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                             }
+                        }
+
+                        // Bottom: Title + Subtitle
+                        Column {
+                            Text(
+                                text = "In-Person",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                lineHeight = 20.sp
+                            )
+                            Text(
+                                text = "Consultation",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                lineHeight = 20.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Find nearby clinics",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
                         }
                     }
                 }
             }
 
-            Column(
+            // Video Consultation Card
+            Card(
                 modifier = Modifier
-                    .weight(0.85f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .weight(1f)
+                    .height(150.dp)
+                    .animateContentSize()
+                    .clickable { onStartVideoConsultation() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                QuickAccessMiniCard(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    title = "Reports",
-                    subtitle = "History",
-                    icon = Icons.Outlined.Description,
-                    containerColor = CardYellow,
-                    compact = isCompactWidth,
-                    onClick = onNavigateToReports
-                )
-                QuickAccessMiniCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    title = "Appointment",
-                    subtitle = "History",
-                    icon = Icons.Outlined.Schedule,
-                    containerColor = CardOrange,
-                    compact = isCompactWidth,
-                    onClick = onNavigateToAppointments
-                )
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(CardBlue, Color(0xFF2962FF))
+                            )
+                        )
+                        .padding(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text(stringResource(R.string.instant), fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.Videocam, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                        }
+
+                        Column {
+                            Text(stringResource(R.string.video), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 20.sp)
+                            Text("Consultation", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, lineHeight = 20.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(stringResource(R.string.connect_with_doctors_online), fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+                        }
+                    }
+                }
             }
+        }
+
+        // ── Find Doctors by Speciality Card (replacing FAB) ──
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp)
+                .clickable { onFindDoctors() },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(Color(0xFF00B4D8), Color(0xFF0077B6))
+                        )
+                    )
+                    .padding(horizontal = 20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Outlined.Search,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                text = "Find Doctors by Speciality",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Browse all specialities & categories",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.Outlined.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        // ── Bottom Row: Reports + Appointments ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickAccessMiniCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(94.dp),
+                title = "Reports",
+                subtitle = "History",
+                icon = Icons.Outlined.Description,
+                containerColor = CardYellow,
+                onClick = onNavigateToReports
+            )
+            QuickAccessMiniCard(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(94.dp),
+                title = "Appointments",
+                subtitle = "History",
+                icon = Icons.Outlined.Schedule,
+                containerColor = CardOrange,
+                onClick = onNavigateToAppointments
+            )
         }
     }
 }
@@ -188,12 +285,10 @@ private fun QuickAccessMiniCard(
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     containerColor: Color,
-    compact: Boolean,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
-            .heightIn(min = if (compact) 104.dp else 94.dp)
             .animateContentSize()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
@@ -202,11 +297,11 @@ private fun QuickAccessMiniCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(if (compact) 12.dp else 14.dp)
+                .padding(14.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(if (compact) 30.dp else 32.dp)
+                    .size(32.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color.White.copy(alpha = 0.25f)),
                 contentAlignment = Alignment.Center
@@ -215,14 +310,14 @@ private fun QuickAccessMiniCard(
                     icon,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(if (compact) 18.dp else 20.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
                 text = title,
-                fontSize = if (compact) 14.sp else 15.sp,
-                lineHeight = if (compact) 18.sp else 20.sp,
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 2,
@@ -234,134 +329,6 @@ private fun QuickAccessMiniCard(
                 color = Color.White.copy(alpha = 0.8f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-// ==================== REPORTS & PRESCRIPTIONS QUICK ACCESS (Legacy - not used) ====================
-@Composable
-fun ReportsAndPrescriptionsSection() {
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Text(
-            text = "My Health Records",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ReportQuickAccessCard(
-                modifier = Modifier.weight(1f),
-                onClick = { }
-            )
-            PrescriptionQuickAccessCard(
-                modifier = Modifier.weight(1f),
-                onClick = { }
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReportQuickAccessCard(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .height(120.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CardYellow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White.copy(alpha = 0.25f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.Description,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "Reports",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                text = "History",
-                fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.8f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun PrescriptionQuickAccessCard(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .height(120.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.5f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .border(1.5.dp, Color.LightGray, CircleShape)
-                    .clip(CircleShape)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.Receipt,
-                    contentDescription = null,
-                    tint = Color.Gray,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Prescription",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.Black
             )
         }
     }

@@ -92,7 +92,7 @@ fun ProfileTabContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         ProfileHeader(
             onQrClick = {
@@ -107,7 +107,7 @@ fun ProfileTabContent(
                 .fillMaxSize()
                 .padding(top = 8.dp),
             shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             LazyColumn(
@@ -159,7 +159,7 @@ fun ProfileTabContent(
                     )
                 }
                 item { HealthIdCard(profile = profile) }
-                item { Text(stringResource(R.string.account_settings), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.account_settings), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     SettingsCard(
                         onPersonalInfoClick = { showPersonalInfoDialog = true },
@@ -168,7 +168,7 @@ fun ProfileTabContent(
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
                 }
-                item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     PreferencesCard(
                         onNotificationsClick = { showNotificationDialog = true },
@@ -177,7 +177,7 @@ fun ProfileTabContent(
                         onPrivacyClick = { showPrivacyDialog = true }
                     )
                 }
-                item { Text(stringResource(R.string.support_legal), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Text(stringResource(R.string.support_legal), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     SupportCard(
                         onSupportClick = {
@@ -218,8 +218,8 @@ fun ProfileTabContent(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(stringResource(R.string.app_version), fontSize = 12.sp, color = Color.Gray)
-                        Text(stringResource(R.string.made_with_love), fontSize = 11.sp, color = Color.LightGray)
+                        Text(stringResource(R.string.app_version), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.made_with_love), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                     }
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -338,7 +338,7 @@ fun ProfileTabContent(
                 Text(
                     stringResource(R.string.logout_message),
                     fontSize = 14.sp,
-                    color = Color.DarkGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {

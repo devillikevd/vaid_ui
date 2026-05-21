@@ -59,15 +59,15 @@ fun ReportsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.my_reports), fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5F5)).padding(paddingValues)) {
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(paddingValues)) {
             // Summary Card
             Card(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -176,7 +176,7 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -15,9 +15,9 @@ const router = express.Router();
 router.get('/',
   optionalAuth,
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, specialization, isAvailable, minRating, maxFee, search } = req.query;
+    const { page = 1, limit = 10, specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude } = req.query;
     const result = await doctorService.getAllDoctors(
-      { specialization, isAvailable, minRating, maxFee, search },
+      { specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude },
       parseInt(page),
       parseInt(limit)
     );
@@ -25,11 +25,19 @@ router.get('/',
   })
 );
 
-// Get specialties
+// Get specialties (standardized list)
 router.get('/specialties',
   asyncHandler(async (req, res) => {
-    const specialties = await doctorService.getSpecialties();
-    res.json({ success: true, data: specialties });
+    const { SPECIALIZATIONS } = require('../../utils/specializations');
+    // Return both: the master list AND what's currently active in DB
+    const dbSpecialties = await doctorService.getSpecialties();
+    res.json({ 
+      success: true, 
+      data: {
+        standardized: SPECIALIZATIONS,
+        active: dbSpecialties
+      }
+    });
   })
 );
 

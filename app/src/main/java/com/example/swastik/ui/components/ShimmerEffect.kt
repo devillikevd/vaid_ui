@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -15,15 +16,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Shimmer effect modifier for loading placeholders.
- * Apply this to any Box/Column to give it a shimmering loading appearance.
+ * A reusable shimmer loading effect that replaces boring spinners
+ * with a beautiful, premium animated placeholder.
  */
 @Composable
-fun shimmerBrush(): Brush {
+fun ShimmerEffect(
+    modifier: Modifier = Modifier,
+    widthOfShimmerDp: Dp = 200.dp,
+    content: @Composable (Brush) -> Unit
+) {
     val shimmerColors = listOf(
-        Color(0xFFE0E0E0),
-        Color(0xFFF5F5F5),
-        Color(0xFFE0E0E0)
+        Color(0xFFEBEBF4).copy(alpha = 0.5f),
+        Color(0xFFF4F4F8).copy(alpha = 0.8f),
+        Color(0xFFEBEBF4).copy(alpha = 0.5f)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -40,226 +45,185 @@ fun shimmerBrush(): Brush {
         label = "shimmer_translate"
     )
 
-    return Brush.linearGradient(
+    val brush = Brush.linearGradient(
         colors = shimmerColors,
         start = Offset.Zero,
         end = Offset(x = translateAnimation.value, y = translateAnimation.value)
     )
+
+    content(brush)
 }
 
-/**
- * A rectangular shimmer placeholder
- */
+// ─── Pre-built shimmer shapes ───
+
 @Composable
 fun ShimmerBox(
     modifier: Modifier = Modifier,
-    height: Dp = 20.dp,
+    height: Dp = 16.dp,
     cornerRadius: Dp = 8.dp
 ) {
-    Box(
-        modifier = modifier
-            .height(height)
-            .clip(RoundedCornerShape(cornerRadius))
-            .background(shimmerBrush())
-    )
+    ShimmerEffect { brush ->
+        Box(
+            modifier = modifier
+                .height(height)
+                .clip(RoundedCornerShape(cornerRadius))
+                .background(brush)
+        )
+    }
 }
 
-/**
- * A circular shimmer placeholder
- */
 @Composable
 fun ShimmerCircle(
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp
+    size: Dp = 48.dp
 ) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(shimmerBrush())
-    )
-}
-
-/**
- * Dashboard Home Tab shimmer loading placeholder
- * Mimics the structure of the real home content while loading
- */
-@Composable
-fun HomeDashboardShimmer(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header shimmer
-        Row(modifier = Modifier.fillMaxWidth()) {
-            ShimmerCircle(size = 45.dp)
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.5f), height = 16.dp)
-                Spacer(modifier = Modifier.height(6.dp))
-                ShimmerBox(modifier = Modifier.fillMaxWidth(0.3f), height = 12.dp)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Search bar shimmer
-        ShimmerBox(modifier = Modifier.fillMaxWidth(), height = 48.dp, cornerRadius = 24.dp)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Main cards shimmer (3 cards in a row)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            repeat(3) {
-                ShimmerBox(
-                    modifier = Modifier
-                        .weight(1f),
-                    height = 100.dp,
-                    cornerRadius = 16.dp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Reminders section shimmer
-        ShimmerBox(modifier = Modifier.fillMaxWidth(0.4f), height = 18.dp)
-        Spacer(modifier = Modifier.height(12.dp))
-        ShimmerBox(modifier = Modifier.fillMaxWidth(), height = 70.dp, cornerRadius = 12.dp)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Quick actions grid shimmer (2x3)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            repeat(4) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-                ) {
-                    ShimmerCircle(size = 50.dp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.8f), height = 10.dp)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Doctor recommendation shimmer
-        ShimmerBox(modifier = Modifier.fillMaxWidth(0.5f), height = 18.dp)
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            repeat(2) {
-                ShimmerBox(
-                    modifier = Modifier.weight(1f),
-                    height = 120.dp,
-                    cornerRadius = 16.dp
-                )
-            }
-        }
+    ShimmerEffect { brush ->
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(brush)
+        )
     }
 }
 
 /**
- * Medicine tab shimmer loading placeholder
+ * A full doctor card shimmer placeholder — replaces the loading spinner
+ * on the Home screen and Doctor search results.
  */
 @Composable
-fun MedicineListShimmer(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(20.dp)
-    ) {
-        // Category chips shimmer
+fun DoctorCardShimmer(modifier: Modifier = Modifier) {
+    ShimmerEffect { brush ->
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            repeat(4) {
-                ShimmerBox(
-                    modifier = Modifier.width(80.dp),
-                    height = 32.dp,
-                    cornerRadius = 16.dp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Medicine cards shimmer
-        repeat(4) {
-            Row(
+            // Avatar
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-            ) {
-                ShimmerBox(
-                    modifier = Modifier.size(60.dp),
-                    cornerRadius = 12.dp
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f), height = 16.dp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.5f), height = 12.dp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.3f), height = 14.dp)
-                }
-            }
-        }
-    }
-}
-
-/**
- * Records tab shimmer loading placeholder
- */
-@Composable
-fun RecordsListShimmer(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(20.dp)
-    ) {
-        // Section header shimmer
-        ShimmerBox(modifier = Modifier.fillMaxWidth(0.5f), height = 18.dp)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Consultation cards shimmer
-        repeat(3) {
-            ShimmerBox(
-                modifier = Modifier.fillMaxWidth(),
-                height = 90.dp,
-                cornerRadius = 12.dp
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(brush)
             )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        ShimmerBox(modifier = Modifier.fillMaxWidth(0.4f), height = 18.dp)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        repeat(2) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                ShimmerCircle(size = 40.dp)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f), height = 14.dp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ShimmerBox(modifier = Modifier.fillMaxWidth(0.4f), height = 12.dp)
+                // Name
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(brush)
+                )
+                // Specialization
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(brush)
+                )
+                // Rating row
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.3f)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(brush)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A section of multiple shimmer cards stacked vertically — use as a
+ * loading placeholder for any list screen.
+ */
+@Composable
+fun ShimmerCardList(
+    modifier: Modifier = Modifier,
+    cardCount: Int = 4
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(cardCount) {
+            DoctorCardShimmer()
+        }
+    }
+}
+
+@Composable
+fun MedicineListShimmer(
+    modifier: Modifier = Modifier,
+    count: Int = 4
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        repeat(count) {
+            ShimmerEffect { brush ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.width(150.dp).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                            Box(modifier = Modifier.width(80.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                        }
+                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(brush))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RecordsListShimmer(
+    modifier: Modifier = Modifier,
+    count: Int = 4
+) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(count) {
+            ShimmerEffect { brush ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(brush))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                        Box(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(brush))
+                    }
                 }
             }
         }

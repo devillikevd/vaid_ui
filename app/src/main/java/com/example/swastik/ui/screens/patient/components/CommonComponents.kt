@@ -32,7 +32,7 @@ fun PatientBottomNavigation(
     onTabSelected: (Int) -> Unit
 ) {
     NavigationBar(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
         NavigationBarItem(
@@ -67,9 +67,6 @@ fun PatientBottomNavigation(
                 indicatorColor = SwastikPurple.copy(alpha = 0.1f)
             )
         )
-
-        Spacer(modifier = Modifier.weight(1f))
-
         NavigationBarItem(
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) },

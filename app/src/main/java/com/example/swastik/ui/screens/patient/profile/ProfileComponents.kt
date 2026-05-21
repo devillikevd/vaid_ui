@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -49,13 +50,13 @@ fun ProfileHeader(onQrClick: () -> Unit, onSettingsClick: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(stringResource(R.string.my_profile), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(stringResource(R.string.my_profile), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.surface)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 IconButton(onClick = onQrClick) {
-                    Icon(Icons.Outlined.QrCode2, contentDescription = "QR", tint = Color.White)
+                    Icon(Icons.Outlined.QrCode2, contentDescription = "QR", tint = MaterialTheme.colorScheme.surface)
                 }
                 IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = Color.White)
+                    Icon(Icons.Outlined.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.surface)
                 }
             }
         }
@@ -141,7 +142,7 @@ fun ProfileInfoCard(
                                 .align(Alignment.BottomEnd),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = "Verified", tint = Color.White, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Check, contentDescription = "Verified", tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(16.dp))
                         }
                     }
 
@@ -327,7 +328,7 @@ fun QuickStatsSection(stats: PatientStats) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), SwastikPurple, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), Color(0xFF4CAF50), Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
         QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), Color(0xFF2196F3), Modifier.weight(1f))
     }
 }

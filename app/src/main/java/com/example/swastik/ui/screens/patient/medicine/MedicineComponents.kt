@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -42,7 +43,7 @@ fun MedicineCard(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
@@ -69,7 +70,7 @@ fun MedicineCard(
                             medicine.name,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color.Black,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -81,7 +82,7 @@ fun MedicineCard(
                     Text(
                         medicine.manufacturer ?: "",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -108,14 +109,14 @@ fun MedicineCard(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF4CAF50),
+                        tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         medicine.nearbyPharmacy ?: "",
                         fontSize = 12.sp,
-                        color = Color(0xFF4CAF50),
+                        color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -160,7 +161,7 @@ fun CompactMedicineItem(
                     medicine.name,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (medicine.requiresPrescription) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -170,7 +171,7 @@ fun CompactMedicineItem(
             Text(
                 "₹${medicine.price} • ${medicine.manufacturer ?: ""}",
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -207,7 +208,7 @@ fun PrescriptionBadge(
     Box(
         modifier = Modifier
             .background(
-                Color(0xFFFF9800).copy(alpha = 0.1f),
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
                 RoundedCornerShape(if (small) 4.dp else 6.dp)
             )
             .padding(
@@ -218,7 +219,7 @@ fun PrescriptionBadge(
         Text(
             "Rx",
             fontSize = if (small) 8.sp else 10.sp,
-            color = Color(0xFFFF9800),
+            color = MaterialTheme.colorScheme.tertiary,
             fontWeight = FontWeight.Bold
         )
     }
@@ -235,7 +236,7 @@ fun StockStatusBadge(
     Box(
         modifier = Modifier
             .background(
-                if (inStock) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                if (inStock) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
                 RoundedCornerShape(if (small) 4.dp else 6.dp)
             )
             .padding(
@@ -246,7 +247,7 @@ fun StockStatusBadge(
         Text(
             text = if (inStock) "In Stock" else "Out of Stock",
             fontSize = if (small) 10.sp else 11.sp,
-            color = if (inStock) Color(0xFF4CAF50) else Color(0xFFE53935),
+            color = if (inStock) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
             fontWeight = FontWeight.Medium
         )
     }
@@ -322,8 +323,8 @@ fun CategoryFilterChip(
         } else null,
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = SwastikPurple,
-            selectedLabelColor = Color.White,
-            selectedLeadingIconColor = Color.White
+            selectedLabelColor = MaterialTheme.colorScheme.surface,
+            selectedLeadingIconColor = MaterialTheme.colorScheme.surface
         )
     )
 }
@@ -342,7 +343,7 @@ fun QuantitySelector(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
             .padding(4.dp)
     ) {
         IconButton(
@@ -353,7 +354,7 @@ fun QuantitySelector(
             Icon(
                 Icons.Default.Remove,
                 contentDescription = "Decrease",
-                tint = if (quantity > minQuantity) SwastikPurple else Color.Gray
+                tint = if (quantity > minQuantity) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -373,7 +374,7 @@ fun QuantitySelector(
             Icon(
                 Icons.Default.Add,
                 contentDescription = "Increase",
-                tint = if (quantity < maxQuantity) SwastikPurple else Color.Gray
+                tint = if (quantity < maxQuantity) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -404,7 +405,7 @@ fun PriceDisplay(
             Text(
                 "₹$originalPrice",
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = androidx.compose.ui.text.TextStyle(
                     textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
                 )
@@ -413,13 +414,13 @@ fun PriceDisplay(
             val discount = ((originalPrice - price) * 100 / originalPrice)
             Box(
                 modifier = Modifier
-                    .background(Color(0xFF4CAF50), RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
                     "$discount% OFF",
                     fontSize = 10.sp,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.surface,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -447,12 +448,13 @@ fun getMedicineEmoji(category: String): String {
 /**
  * Get color based on medicine category
  */
+@Composable
 fun getMedicineCategoryColor(category: String): Color {
     return when (category.uppercase()) {
         "TABLET" -> Color(0xFF6C63FF)
-        "CAPSULE" -> Color(0xFF4CAF50)
-        "SYRUP" -> Color(0xFFFF9800)
-        "INJECTION" -> Color(0xFFE53935)
+        "CAPSULE" -> MaterialTheme.colorScheme.secondary
+        "SYRUP" -> MaterialTheme.colorScheme.tertiary
+        "INJECTION" -> MaterialTheme.colorScheme.error
         "OINTMENT" -> Color(0xFF2196F3)
         "DROPS" -> Color(0xFF00BCD4)
         "POWDER" -> Color(0xFF9C27B0)

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +36,7 @@ import com.example.swastik.ui.viewmodel.AppointmentUiState
 import com.example.swastik.ui.viewmodel.DoctorSearchViewModel
 import com.example.swastik.ui.viewmodel.DoctorSearchUiState
 import com.example.swastik.ui.viewmodel.NextAvailableSlotSuggestion
+import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -56,24 +58,34 @@ fun AppointmentBookingScreen(
     preselectedDoctorId: String? = null,
     preselectedHospitalId: String? = null,
     preselectedClinicId: String? = null,
+    preselectedSpecialization: String? = null,
+    consultationMode: String? = null,
     doctorSearchViewModel: DoctorSearchViewModel = hiltViewModel(),
-    appointmentViewModel: AppointmentViewModel = hiltViewModel()
+    appointmentViewModel: AppointmentViewModel = hiltViewModel(),
+    patientDashboardViewModel: PatientDashboardViewModel = hiltViewModel()
 ) {
     // booking wizard state
     var currentStep by remember { mutableIntStateOf(1) }
     var selectedDoctor by remember { mutableStateOf<Doctor?>(null) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
-    var selectedType by remember { mutableStateOf("video") }
+    var selectedType by remember { mutableStateOf(consultationMode ?: "video") }
     var notes by remember { mutableStateOf("") }
     var showDoctorProfile by remember { mutableStateOf<Doctor?>(null) }
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
-    LaunchedEffect(preselectedHospitalId, preselectedClinicId) {
-        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank()) {
+    val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
+
+    LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, patientProfile?.location) {
+        if (consultationMode == "in_person" && patientProfile?.location != null) {
+            doctorSearchViewModel.setPatientLocation(0.0, 0.0, patientProfile?.location)
+        }
+
+        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank()) {
             doctorSearchViewModel.updateFilters(
                 hospitalId = preselectedHospitalId,
-                clinicId = preselectedClinicId
+                clinicId = preselectedClinicId,
+                specialization = preselectedSpecialization
             )
         } else {
             doctorSearchViewModel.searchDoctors(resetList = true)
@@ -523,11 +535,12 @@ private fun DoctorBookingCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Outlined.Star,
+                            Icons.Filled.Star,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
                             tint = Color(0xFFFFB800)
                         )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = doctor.averageRating?.let {
                                 String.format(Locale.US, "%.1f", it)
@@ -536,12 +549,30 @@ private fun DoctorBookingCard(
                             fontWeight = FontWeight.Medium
                         )
                     }
+                    if (doctor.distanceKm != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Outlined.LocationOn,
+                                contentDescription = "Distance",
+                                tint = SwastikPurple,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${doctor.distanceKm} km",
+                                color = SwastikPurple,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                     doctor.consultationFee?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "₹$it",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SwastikPurple
+                            text = "₹$it",
+                            color = SwastikPurple,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -1179,40 +1210,117 @@ private fun ConfirmationStep(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Summary card
+        // Flight Ticket style summary card
         item {
-            Card(
+            androidx.compose.material3.Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = com.example.swastik.ui.components.TicketShape(
+                    cornerRadius = 16.dp,
+                    cutoutRadius = 12.dp,
+                    cutoutPositionRatio = 0.65f
+                ),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                shadowElevation = 2.dp
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        "Booking Summary",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    SummaryRow(
-                        icon = "👨‍⚕️",
-                        label = "Doctor",
-                        value = doctor.name
-                    )
-                    SummaryRow(
-                        icon = "🏷️",
-                        label = "Specialty",
-                        value = doctor.specialization
-                    )
-                    SummaryRow(
-                        icon = "📅",
-                        label = "Date",
-                        value = date.format(
-                            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy")
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Top part of ticket
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                stringResource(R.string.boarding_pass),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp,
+                                color = SwastikPurple,
+                                letterSpacing = 2.sp
+                            )
+                            Icon(
+                                Icons.Outlined.CheckCircle,
+                                contentDescription = null,
+                                tint = SwastikPurple,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                            Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = Color.LightGray)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(
+                                    date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(timeSlot, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            }
+                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                                Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(doctor.consultationFee?.let { "₹$it" } ?: stringResource(R.string.free), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPurple)
+                            }
+                        }
+                    }
+
+                    // Dotted line separator
+                    androidx.compose.foundation.Canvas(
+                        modifier = Modifier.fillMaxWidth().height(1.dp)
+                    ) {
+                        drawLine(
+                            color = Color.Gray.copy(alpha = 0.3f),
+                            start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f),
+                            end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f),
+                            strokeWidth = 2f,
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                         )
-                    )
-                    SummaryRow(icon = "🕐", label = "Time", value = timeSlot)
-                    doctor.consultationFee?.let {
-                        SummaryRow(icon = "💰", label = "Fee", value = "₹$it")
+                    }
+
+                    // Bottom part of ticket (Barcode simulation)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "|||| ||| ||||| |||| || ||| ||||",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Light,
+                            letterSpacing = 4.sp,
+                            color = Color.Gray.copy(alpha = 0.6f),
+                            maxLines = 1
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.swastik_healthcare),
+                            fontSize = 10.sp,
+                            letterSpacing = 2.sp,
+                            color = Color.Gray
+                        )
                     }
                 }
             }
@@ -1221,7 +1329,7 @@ private fun ConfirmationStep(
         // Appointment type selector
         item {
             Text(
-                "Consultation Type",
+                stringResource(R.string.consultation_type),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp
             )
@@ -1313,7 +1421,7 @@ private fun ConfirmationStep(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Booking...",
+                        stringResource(R.string.booking_ellipsis),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )

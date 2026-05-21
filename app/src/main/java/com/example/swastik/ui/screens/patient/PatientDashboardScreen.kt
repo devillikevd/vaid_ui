@@ -62,9 +62,11 @@ fun PatientDashboardScreen(
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
+    onStartInPersonConsultation: () -> Unit = {},
     onStartVideoConsultation: () -> Unit = {},
     onSearchClick: () -> Unit = {},
-    onNotificationActionRoute: (String) -> Unit = {}
+    onNotificationActionRoute: (String) -> Unit = {},
+    onFindDoctorSpecialityClick: (String) -> Unit = {}
 ) {
     var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 3)) }
     var showNotificationPanel by remember { mutableStateOf(false) }
@@ -122,22 +124,7 @@ fun PatientDashboardScreen(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it }
                 )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { onNavigateToBooking(null) },
-                    containerColor = SwastikPurple,
-                    shape = CircleShape,
-                    modifier = Modifier.offset(y = 50.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Book Appointment",
-                        tint = Color.White
-                    )
-                }
-            },
-            floatingActionButtonPosition = FabPosition.Center
+            }
         ) { paddingValues ->
             Box(
                 modifier = Modifier
@@ -158,6 +145,7 @@ fun PatientDashboardScreen(
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
                             onProfileClick = { selectedTab = 3 },
+                            onStartInPersonConsultation = onStartInPersonConsultation,
                             onStartVideoConsultation = onStartVideoConsultation,
                             onNavigateToAppointments = onNavigateToAppointments,
                             onNavigateToReports = onNavigateToReports,
@@ -176,7 +164,8 @@ fun PatientDashboardScreen(
                             onSearchClick = onSearchClick,
                             onLocationUpdate = { newLocation ->
                                 viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
-                            }
+                            },
+                            onFindDoctorSpecialityClick = onFindDoctorSpecialityClick
                         )
                         1 -> MedicineTabContent(
                             modifier = Modifier.padding(paddingValues),

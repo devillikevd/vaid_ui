@@ -180,6 +180,9 @@ interface ApiService {
         @Query("search") search: String? = null,
         @Query("hospitalId") hospitalId: String? = null,
         @Query("clinicId") clinicId: String? = null,
+        @Query("city") city: String? = null,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<Doctor>>

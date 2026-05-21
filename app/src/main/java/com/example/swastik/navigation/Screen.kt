@@ -21,16 +21,26 @@ sealed class Screen(val route: String) {
             return if (filter == null) "appointment_history" else "appointment_history?filter=$filter"
         }
     }
-    object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}") {
+    object FindDoctorsCategories : Screen("find_doctors_categories?mode={mode}") {
+        fun createRoute(mode: String = "in_person"): String = "find_doctors_categories?mode=$mode"
+    }
+    object AllSpecialities : Screen("all_specialities?mode={mode}") {
+        fun createRoute(mode: String = "in_person"): String = "all_specialities?mode=$mode"
+    }
+    object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}&specialization={specialization}&consultationMode={consultationMode}") {
         fun createRoute(
             doctorId: String? = null,
             hospitalId: String? = null,
-            clinicId: String? = null
+            clinicId: String? = null,
+            specialization: String? = null,
+            consultationMode: String? = null
         ): String {
             val params = mutableListOf<String>()
             if (doctorId != null) params.add("doctorId=$doctorId")
             if (hospitalId != null) params.add("hospitalId=$hospitalId")
             if (clinicId != null) params.add("clinicId=$clinicId")
+            if (specialization != null) params.add("specialization=${java.net.URLEncoder.encode(specialization, "UTF-8")}")
+            if (consultationMode != null) params.add("consultationMode=$consultationMode")
             return if (params.isEmpty()) "appointment_booking" else "appointment_booking?${params.joinToString("&")}"
         }
     }

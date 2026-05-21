@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -61,8 +62,8 @@ fun MedicineScreen(
     val filteredNearbyMedicines = viewModel.getFilteredNearbyMedicines()
     val cartState by viewModel.cartState.collectAsState()
     val isDarkMode = isSystemInDarkTheme()
-    val bgColor = if (isDarkMode) Color(0xFF121212) else Color.White
-    val cardColor = if (isDarkMode) Color(0xFF1E1E1E) else Color.White
+    val bgColor = if (isDarkMode) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface
+    val cardColor = if (isDarkMode) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
 
     cartState.pharmacyConflict?.let { conflict ->
         AlertDialog(
@@ -130,7 +131,7 @@ fun MedicineScreen(
                         text = stringResource(id = R.string.medicine_finder),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
 
@@ -278,7 +279,7 @@ private fun MedicineScreenHeader(
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Color.Black
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -302,12 +303,12 @@ private fun MedicineScreenHeader(
                 text = userName,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "Patient",
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -319,7 +320,7 @@ private fun MedicineScreenHeader(
                 Icon(
                     Icons.Outlined.ShoppingCart,
                     contentDescription = "Cart",
-                    tint = Color.Black
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             if (cartItemCount > 0) {
@@ -333,7 +334,7 @@ private fun MedicineScreenHeader(
                 ) {
                     Text(
                         text = "$cartItemCount",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.surface,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -347,7 +348,7 @@ private fun MedicineScreenHeader(
                 Icon(
                     Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.Black
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             // Only show badge when there are cart items (something actionable)
@@ -377,14 +378,14 @@ private fun MedicineSearchBar(
         placeholder = {
             Text(
                 "Search for medicines",
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         leadingIcon = {
             Icon(
                 Icons.Default.Search,
                 contentDescription = null,
-                tint = Color.Gray
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         trailingIcon = {
@@ -393,7 +394,7 @@ private fun MedicineSearchBar(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Clear",
-                        tint = Color.Gray
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
@@ -412,10 +413,10 @@ private fun MedicineSearchBar(
             .shadow(2.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = Color.LightGray,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             focusedBorderColor = SwastikPurple,
-            unfocusedContainerColor = Color.White,
-            focusedContainerColor = Color.White
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedContainerColor = MaterialTheme.colorScheme.surface
         ),
         singleLine = true
     )
@@ -438,7 +439,7 @@ private fun MedicineCategoryFilter(
                 label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -454,7 +455,7 @@ private fun MedicineCategoryFilter(
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White
+                    selectedLabelColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -486,14 +487,14 @@ private fun MedicineListItem(
                         text = medicine.name,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (medicine.requiresPrescription) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(
                             modifier = Modifier
                                 .background(
-                                    Color(0xFFFF9800).copy(alpha = 0.1f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
                                     RoundedCornerShape(4.dp)
                                 )
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -501,7 +502,7 @@ private fun MedicineListItem(
                             Text(
                                 "Rx",
                                 fontSize = 10.sp,
-                                color = Color(0xFFFF9800),
+                                color = MaterialTheme.colorScheme.tertiary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -513,14 +514,14 @@ private fun MedicineListItem(
                     text = "₹${medicine.price}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 // Manufacturer
                 Text(
                     text = medicine.manufacturer ?: "",
                     fontSize = 14.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -531,7 +532,7 @@ private fun MedicineListItem(
                     text = if (medicine.inStock) "In stock" else "Out of stock",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (medicine.inStock) Color(0xFF4CAF50) else Color(0xFFE53935)
+                    color = if (medicine.inStock) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -561,7 +562,7 @@ private fun MedicineListItem(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Divider
-        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = Color(0xFFF5F5F5))
+        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant)
     }
 }
 
@@ -572,14 +573,14 @@ private fun NearbyMedicineCard(
     onClick: () -> Unit,
     onPharmacyClick: () -> Unit
 ) {
-    val cardColor = if (isSystemInDarkTheme()) Color(0xFF1E1E1E) else Color.White
+    val cardColor = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
     Card(
         modifier = Modifier
             .width(260.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -591,7 +592,7 @@ private fun NearbyMedicineCard(
                     text = nearbyMed.name,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
-                    color = Color.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
@@ -608,12 +609,12 @@ private fun NearbyMedicineCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { onPharmacyClick() }
             ) {
-                Icon(Icons.Outlined.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+                Icon(Icons.Outlined.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = nearbyMed.pharmacyName ?: "Local Pharmacy",
                     fontSize = 13.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -622,13 +623,13 @@ private fun NearbyMedicineCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .background(Color(0xFFE8F5E9), RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "${nearbyMed.quantity} Left in Stock",
                         fontSize = 11.sp,
-                        color = Color(0xFF2E7D32),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -663,7 +664,7 @@ private fun MedicineEmptyState(
             "No medicines found",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.DarkGray
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -671,7 +672,7 @@ private fun MedicineEmptyState(
         Text(
             "Try searching with different keywords or reset filters",
             fontSize = 14.sp,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -698,7 +699,7 @@ private fun MedicineBottomNavBar(
     onTabSelected: (Int) -> Unit
 ) {
     NavigationBar(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .shadow(8.dp)
             .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
@@ -716,9 +717,9 @@ private fun MedicineBottomNavBar(
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color.White
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                indicatorColor = MaterialTheme.colorScheme.surface
             )
         )
 
@@ -738,7 +739,7 @@ private fun MedicineBottomNavBar(
                     Icon(
                         Icons.Filled.Medication,
                         contentDescription = "Medicine",
-                        tint = if (selectedTab == 1) SwastikPurple else Color.Gray
+                        tint = if (selectedTab == 1) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -746,7 +747,7 @@ private fun MedicineBottomNavBar(
                 Text(
                     "Medicine",
                     fontSize = 11.sp,
-                    color = if (selectedTab == 1) SwastikPurple else Color.Gray
+                    color = if (selectedTab == 1) SwastikPurple else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             colors = NavigationBarItemDefaults.colors(
@@ -769,7 +770,7 @@ private fun MedicineBottomNavBar(
                     Icon(
                         Icons.Default.Add,
                         contentDescription = "Add",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.surface,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -793,9 +794,9 @@ private fun MedicineBottomNavBar(
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color.White
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                indicatorColor = MaterialTheme.colorScheme.surface
             )
         )
 
@@ -812,9 +813,9 @@ private fun MedicineBottomNavBar(
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPurple,
                 selectedTextColor = SwastikPurple,
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color.White
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                indicatorColor = MaterialTheme.colorScheme.surface
             )
         )
     }

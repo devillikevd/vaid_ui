@@ -27,6 +27,18 @@ import { useAuthStore, type UserRole } from '@/stores/authStore';
 import { authApi } from '@/lib/api';
 import LocationPicker from '@/components/shared/LocationPickerDynamic';
 
+// Standardized specialization list — must match backend utils/specializations.js
+const SPECIALIZATIONS = [
+    'General Physician', 'Family Medicine', 'Gynecology', 'Obstetrics', 'Dermatology',
+    'Pediatrics', 'Dentistry', 'Ophthalmology', 'ENT', 'Psychiatry', 'Psychology',
+    'Orthopedics', 'Neurology', 'Neurosurgery', 'Urology', 'Nephrology', 'Pulmonology',
+    'Cardiology', 'Cardiac Surgery', 'Gastroenterology', 'Endocrinology', 'Diabetology',
+    'Oncology', 'General Surgery', 'Plastic Surgery', 'Vascular Surgery', 'Physiotherapy',
+    'Radiology', 'Pathology', 'Anesthesiology', 'Emergency Medicine', 'Infectious Disease',
+    'Rheumatology', 'Allergy & Immunology', 'Hematology', 'Geriatrics', 'Sports Medicine',
+    'Pain Management', 'Nutrition & Dietetics', 'Ayurveda', 'Homeopathy', 'Other',
+];
+
 // Role configurations (Must match Login Page for consistency)
 // Note: Admin is intentionally excluded — admins are created by existing admins only
 const ROLE_CONFIG: Record<string, {
@@ -448,15 +460,25 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         {/* Role Specific Fields */}
                         {config.role === 'doctor' && (
                             <>
-                                <Input
-                                    label={withRequiredMark('Specialization', true)}
-                                    value={specialization}
-                                    onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter specialization"
-                                    leftIcon={<Briefcase className="h-5 w-5" />}
-                                    error={fieldErrors.specialization}
-                                    required
-                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        {withRequiredMark('Specialization', true)}
+                                    </label>
+                                    <select
+                                        value={specialization}
+                                        onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
+                                        className={`w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${fieldErrors.specialization ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}
+                                        required
+                                    >
+                                        <option value="">Select specialization</option>
+                                        {SPECIALIZATIONS.map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                    {fieldErrors.specialization && (
+                                        <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.specialization}</p>
+                                    )}
+                                </div>
                                 <Input
                                     label={withRequiredMark('Medical License Number', true)}
                                     value={licenseNumber}

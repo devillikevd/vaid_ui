@@ -106,7 +106,8 @@ data class Patient(
     val address: String?,
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     val allergies: List<String>?,
-    @SerializedName("chronic_conditions") val chronicConditions: List<String>?
+    @SerializedName("chronic_conditions") val chronicConditions: List<String>?,
+    val location: String? = null
 )
 
 data class Doctor(
@@ -124,7 +125,21 @@ data class Doctor(
     @SerializedName("total_reviews") val totalReviews: Int?,
     @SerializedName("is_available") val isAvailable: Boolean,
     @SerializedName("hospital_values") val hospitalValues: List<String> = emptyList(),
-    @SerializedName("recommendation_reason") val recommendationReason: String? = null
+    @SerializedName("recommendation_reason") val recommendationReason: String? = null,
+    // Nearby doctor search: distance in km from patient location
+    @SerializedName("distance_km") val distanceKm: Float? = null,
+    // Hospital info (returned when searching via patients/doctors)
+    val hospital: DoctorHospitalInfo? = null
+)
+
+/** Lightweight hospital info embedded in doctor search results */
+data class DoctorHospitalInfo(
+    val id: String? = null,
+    val name: String? = null,
+    val city: String? = null,
+    val address: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class DoctorDetails(

@@ -82,7 +82,7 @@ fun VitalsRemindersScreen(
             // Tab Row
             TabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = SwastikPurple
             ) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {

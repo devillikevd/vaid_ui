@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
 import com.example.swastik.ui.screens.patient.components.*
 import com.example.swastik.ui.theme.SwastikPurple
 import com.example.swastik.data.model.PatientProfile
@@ -28,6 +29,7 @@ fun HomeTabContent(
     paddingValues: PaddingValues,
     onNotificationClick: () -> Unit,
     onProfileClick: () -> Unit,
+    onStartInPersonConsultation: () -> Unit,
     onStartVideoConsultation: () -> Unit,
     onNavigateToAppointments: () -> Unit,
     onNavigateToReports: () -> Unit,
@@ -44,7 +46,8 @@ fun HomeTabContent(
     onNavigateToBooking: (String?) -> Unit = {},
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
-    onLocationUpdate: (String) -> Unit = {}
+    onLocationUpdate: (String) -> Unit = {},
+    onFindDoctorSpecialityClick: (String) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -53,8 +56,8 @@ fun HomeTabContent(
                 Brush.verticalGradient(
                     colors = listOf(
                         SwastikPurple.copy(alpha = 0.04f),
-                        Color(0xFFF8F9FA),
-                        Color.White
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background
                     )
                 )
             )
@@ -79,9 +82,11 @@ fun HomeTabContent(
 
         // Main Cards Section
         MainCardsSection(
+            onStartInPersonConsultation = onStartInPersonConsultation,
             onStartVideoConsultation = onStartVideoConsultation,
             onNavigateToAppointments = onNavigateToAppointments,
-            onNavigateToReports = onNavigateToReports
+            onNavigateToReports = onNavigateToReports,
+            onFindDoctors = onSearchClick
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -128,6 +133,13 @@ fun HomeTabContent(
         // Enhanced ChatBot Section
         EnhancedChatBotSection(
             onChatbotClick = onNavigateToChatbot
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Find Doctors by Speciality (matches screenshots 7-10)
+        FindDoctorsBySpecialitySection(
+            onSpecialityClick = onFindDoctorSpecialityClick
         )
 
         Spacer(modifier = Modifier.height(16.dp))

@@ -33,7 +33,10 @@ data class DoctorSearchFilters(
     val specialization: String? = null,
     val search: String? = null,
     val hospitalId: String? = null,
-    val clinicId: String? = null
+    val clinicId: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val city: String? = null
 )
 
 /**
@@ -78,7 +81,10 @@ class DoctorSearchViewModel @Inject constructor(
                 search = currentFilters.search,
                 hospitalId = currentFilters.hospitalId,
                 clinicId = currentFilters.clinicId,
-                page = page
+                page = page,
+                latitude = currentFilters.latitude,
+                longitude = currentFilters.longitude,
+                city = currentFilters.city
             )) {
                 is Result.Success -> {
                     val newDoctors = if (resetList) {
@@ -123,22 +129,41 @@ class DoctorSearchViewModel @Inject constructor(
         specialization: String? = _filters.value.specialization,
         search: String? = _filters.value.search,
         hospitalId: String? = _filters.value.hospitalId,
-        clinicId: String? = _filters.value.clinicId
+        clinicId: String? = _filters.value.clinicId,
+        latitude: Double? = _filters.value.latitude,
+        longitude: Double? = _filters.value.longitude,
+        city: String? = _filters.value.city
     ) {
         _filters.value = DoctorSearchFilters(
             specialization = specialization,
             search = search,
             hospitalId = hospitalId,
-            clinicId = clinicId
+            clinicId = clinicId,
+            latitude = latitude,
+            longitude = longitude,
+            city = city
         )
         searchDoctors(resetList = true)
+    }
+
+    /**
+     * Set patient location for nearby search
+     */
+    fun setPatientLocation(lat: Double, lng: Double, city: String?) {
+        updateFilters(latitude = lat, longitude = lng, city = city)
     }
 
     /**
      * Clear all filters
      */
     fun clearFilters() {
-        _filters.value = DoctorSearchFilters()
+        // Preserve location when clearing search filters
+        val location = _filters.value
+        _filters.value = DoctorSearchFilters(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            city = location.city
+        )
         searchDoctors(resetList = true)
     }
 
@@ -215,21 +240,16 @@ class DoctorSearchViewModel @Inject constructor(
      */
     fun getSpecializations(): List<String> {
         return listOf(
-            "General Physician",
-            "Cardiologist",
-            "Dermatologist",
-            "Gynecologist",
-            "Neurologist",
-            "Orthopedic",
-            "Pediatrician",
-            "Psychiatrist",
-            "ENT Specialist",
-            "Ophthalmologist",
-            "Dentist",
-            "Pulmonologist",
-            "Gastroenterologist",
-            "Urologist",
-            "Endocrinologist"
+            "General Physician", "Family Medicine", "Gynecology", "Obstetrics",
+            "Dermatology", "Pediatrics", "Dentistry", "Ophthalmology", "ENT",
+            "Psychiatry", "Psychology", "Orthopedics", "Neurology", "Neurosurgery",
+            "Urology", "Nephrology", "Pulmonology", "Cardiology", "Cardiac Surgery",
+            "Gastroenterology", "Endocrinology", "Diabetology", "Oncology",
+            "General Surgery", "Plastic Surgery", "Vascular Surgery", "Physiotherapy",
+            "Radiology", "Pathology", "Anesthesiology", "Emergency Medicine",
+            "Infectious Disease", "Rheumatology", "Allergy & Immunology", "Hematology",
+            "Geriatrics", "Sports Medicine", "Pain Management", "Nutrition & Dietetics",
+            "Ayurveda", "Homeopathy", "Other"
         )
     }
 }

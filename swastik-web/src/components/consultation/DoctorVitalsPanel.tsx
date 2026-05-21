@@ -203,6 +203,14 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     if (!isDoctor) return null;
 
     const activeAlerts = alerts.slice(0, 10);
+    const hasClinicalDetails = (response: AIConsultResponse) =>
+        Boolean(
+            response.suggested_medications?.length ||
+            response.differential_diagnoses?.length ||
+            response.recommended_tests?.length ||
+            response.vitals_interpretation ||
+            response.severity_assessment
+        );
 
     return (
         <>
@@ -430,7 +438,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                             </div>
                                         )}
                                         {/* Expandable clinical details */}
-                                        {(entry.response.suggested_medications?.length || entry.response.differential_diagnoses?.length || entry.response.recommended_tests?.length) && (
+                                        {hasClinicalDetails(entry.response) && (
                                             <div className="border-t border-gray-700/50">
                                                 <button onClick={() => setExpandedAI(expandedAI === idx ? null : idx)}
                                                     className="w-full px-3 py-2 flex items-center justify-between text-[10px] text-gray-400 hover:bg-gray-700/30">

@@ -47,6 +47,22 @@ const ICE_SERVERS: RTCConfiguration = {
     iceTransportPolicy: 'all' as RTCIceTransportPolicy,
 };
 
+function normalizeIceServers(payload: any): RTCConfiguration {
+    const servers = Array.isArray(payload?.iceServers) ? payload.iceServers : [];
+    if (servers.length === 0) return ICE_SERVERS;
+
+    return {
+        iceServers: servers
+            .map((server: any) => ({
+                urls: Array.isArray(server.urls) ? server.urls : [server.urls].filter(Boolean),
+                username: server.username || undefined,
+                credential: server.credential || undefined,
+            }))
+            .filter((server: RTCIceServer) => Array.isArray(server.urls) ? server.urls.length > 0 : Boolean(server.urls)),
+        iceTransportPolicy: 'all',
+    };
+}
+
 // ── Network quality classification ─────────────────────────────────
 type ConnectionMode = ConsultationVideoMode;
 interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; quality: 'excellent' | 'good' | 'poor' | 'critical'; }
@@ -111,6 +127,8 @@ export default function VideoConsultation() {
     const bannerTimerRef = useRef<NodeJS.Timeout | null>(null); // BUG-A3: track banner timeout
     const localBandwidthModeRef = useRef<ConnectionMode>('video'); // BUG-A2: stable ref for quality handler
     const chatEndRef = useRef<HTMLDivElement>(null); // MOD-1: auto-scroll chat
+    const rtcConfigRef = useRef<RTCConfiguration>(ICE_SERVERS);
+    const recoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -123,6 +141,7 @@ export default function VideoConsultation() {
     const [error, setError] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
     const [isPeerReady, setIsPeerReady] = useState(false);
+    const [remoteStreamReady, setRemoteStreamReady] = useState(false);
 
     // ── Network degradation state ──────────────────────────────────
     const [connectionMode, setConnectionMode] = useState<ConnectionMode>('video');
@@ -210,11 +229,13 @@ export default function VideoConsultation() {
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
+        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
         hasRemoteDescriptionRef.current = false;
         pendingIceCandidatesRef.current = [];
         hasInitiatedOfferRef.current = false;
         previousSampleKindRef.current = null;
         cameraUnavailableRef.current = false;
+        setRemoteStreamReady(false);
         setIsPeerReady(false);
     }, []);
 
@@ -245,6 +266,7 @@ export default function VideoConsultation() {
             setIsVideoOn(false);
             setConnectionMode('chat');
             setShowChat(true);
+            setRemoteStreamReady(false);
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
             setModeBannerSafe('Patient left the consultation', 5000);
             hasInitiatedOfferRef.current = false;
@@ -298,6 +320,25 @@ export default function VideoConsultation() {
             initiateCall();
         }
     }, [isConnected, isDoctor, isPeerReady, participants]);
+
+    useEffect(() => {
+        if (!isPeerReady || participants.length === 0 || isConnected) return;
+        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = setTimeout(() => {
+            const pc = peerConnectionRef.current;
+            if (!pc || isConnected) return;
+            if (pc.connectionState === 'failed' || pc.iceConnectionState === 'failed') {
+                pc.restartIce();
+            }
+            if (isDoctor && !hasInitiatedOfferRef.current) {
+                initiateCall();
+            }
+            setModeBannerSafe('Still connecting media. Chat remains available while video recovers.', 5000);
+        }, 8000);
+        return () => {
+            if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+        };
+    }, [isConnected, isDoctor, isPeerReady, participants.length, setModeBannerSafe]);
 
     useEffect(() => {
         if (participants.length > 0) {
@@ -414,6 +455,7 @@ export default function VideoConsultation() {
 
     // ── Initialization: join API → media → peer connection ─────────
     const initializeCall = async () => {
+        let loadedConsultation: any = null;
         try {
             setError(null);
 
@@ -427,11 +469,21 @@ export default function VideoConsultation() {
                 return;
             }
 
-            setConsultationData(response.data);
+            loadedConsultation = response.data;
+            setConsultationData(loadedConsultation);
         } catch {
             setError('Unable to load consultation');
             setIsConnecting(false);
             return;
+        }
+
+        try {
+            const iceResponse = await api.consultations.getIceServers(loadedConsultation?.id || consultationId);
+            rtcConfigRef.current = iceResponse.success && iceResponse.data
+                ? normalizeIceServers(iceResponse.data)
+                : ICE_SERVERS;
+        } catch {
+            rtcConfigRef.current = ICE_SERVERS;
         }
 
         await initializeMedia();
@@ -483,7 +535,7 @@ export default function VideoConsultation() {
     };
 
     const setupPeerConnection = () => {
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        const pc = new RTCPeerConnection(rtcConfigRef.current);
         peerConnectionRef.current = pc;
         setIsPeerReady(true);
 
@@ -496,10 +548,14 @@ export default function VideoConsultation() {
 
         // Handle remote stream
         pc.ontrack = (event) => {
-            if (remoteVideoRef.current && event.streams[0]) {
-                remoteVideoRef.current.srcObject = event.streams[0];
-                setIsConnected(true);
+            const remoteStream = event.streams[0];
+            if (remoteStream) {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = remoteStream;
+                }
+                setRemoteStreamReady(remoteStream.getVideoTracks().length > 0 || remoteStream.getAudioTracks().length > 0);
             }
+            setIsConnected(true);
         };
 
         // Handle ICE candidates
@@ -514,13 +570,14 @@ export default function VideoConsultation() {
             const state = pc.connectionState;
             if (state === 'connected') {
                 setIsConnected(true);
+                setModeBannerSafe(null);
             } else if (state === 'disconnected') {
                 setModeBannerSafe('⚠️ Connection interrupted — reconnecting...', 5000);
             } else if (state === 'failed') {
-                setIsConnected(false);
+                pc.restartIce();
                 setLocalBandwidthMode('chat');
                 applyLocalMediaState('chat');
-                setModeBannerSafe('❌ Connection lost — switched to Chat mode');
+                setModeBannerSafe('Connection lost — switched to Chat mode while media reconnects');
             }
         };
 
@@ -553,6 +610,13 @@ export default function VideoConsultation() {
         try {
             const pc = peerConnectionRef.current;
             if (!pc) return;
+
+            if (pc.signalingState !== 'stable') {
+                await Promise.all([
+                    pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit),
+                ]);
+                hasInitiatedOfferRef.current = false;
+            }
 
             await pc.setRemoteDescription(new RTCSessionDescription(offerData));
             hasRemoteDescriptionRef.current = true;
@@ -812,7 +876,7 @@ export default function VideoConsultation() {
                         />
 
                         {/* Placeholder when no remote video */}
-                        {!isConnected && (
+                        {!remoteStreamReady && (
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center">
                                     <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400">

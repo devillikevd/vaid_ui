@@ -17,7 +17,10 @@ interface DoctorRepository {
         search: String?,
         hospitalId: String?,
         clinicId: String?,
-        page: Int
+        page: Int,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        city: String? = null
     ): Result<PaginatedResponse<Doctor>>
     suspend fun getDoctorDetails(id: String): Result<DoctorDetails>
     suspend fun getDoctorSlots(doctorId: String, date: String): Result<SlotsResponse>
@@ -44,11 +47,23 @@ class DoctorRepositoryImpl @Inject constructor(
         search: String?,
         hospitalId: String?,
         clinicId: String?,
-        page: Int
+        page: Int,
+        latitude: Double?,
+        longitude: Double?,
+        city: String?
     ): Result<PaginatedResponse<Doctor>> {
         // Try network first
         try {
-            val response = apiService.searchDoctors(specialization, search, hospitalId, clinicId, page)
+            val response = apiService.searchDoctors(
+                specialization = specialization,
+                search = search,
+                hospitalId = hospitalId,
+                clinicId = clinicId,
+                city = city,
+                latitude = latitude,
+                longitude = longitude,
+                page = page
+            )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 // Cache doctors from the response (page 1 only to avoid stale data)

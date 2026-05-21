@@ -25,6 +25,7 @@ ENV NODE_ENV=production
 # Build args for API URLs injected at build time
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SOCKET_URL
+ARG NEXT_PUBLIC_AI_WS_URL
 
 RUN npm run build
 

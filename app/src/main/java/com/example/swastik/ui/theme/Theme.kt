@@ -78,6 +78,7 @@ fun SwastikTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = SwastikTypography,
         content = content
     )
 }

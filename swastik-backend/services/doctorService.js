@@ -7,6 +7,24 @@ const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { buildProviderResubmissionFields } = require('../utils/providerApproval');
 const { calculateAge } = require('../utils/patientProfile');
 
+/**
+ * Haversine distance between two lat/lng points in kilometers.
+ * Used for nearby doctor search.
+ */
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10; // rounded to 1 decimal
+}
+
 const getActivePatientRecordGrant = async (patientId, doctorId) => {
   const nowIso = new Date().toISOString();
   const { data: grant } = await supabaseAdmin
@@ -329,6 +347,7 @@ class DoctorService {
   // Get all doctors (for patient search)
   async getAllDoctors(filters = {}, page = 1, limit = 10) {
     const { offset } = paginate(page, limit);
+    const { CATEGORY_TO_SPECIALIZATIONS } = require('../utils/specializations');
     let clinicDoctorIds = null;
 
     if (filters.clinicId) {
@@ -348,17 +367,31 @@ class DoctorService {
       }
     }
 
+    // Resolve category name to actual specialization(s) if needed
+    let specializations = [];
+    if (filters.specialization) {
+      const mapped = CATEGORY_TO_SPECIALIZATIONS[filters.specialization];
+      if (mapped) {
+        specializations = mapped;
+      } else {
+        specializations = [filters.specialization];
+      }
+    }
+
     let query = supabaseAdmin
       .from('doctors')
       .select(`
         id, name, specialization, experience_years, rating, total_reviews,
         consultation_fee, profile_image_url, languages, is_available,
-        hospital:hospitals(id, name, city)
+        hospital_id,
+        hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })
       .eq('is_approved', true);
 
-    if (filters.specialization) {
-      query = query.eq('specialization', filters.specialization);
+    if (specializations.length === 1) {
+      query = query.eq('specialization', specializations[0]);
+    } else if (specializations.length > 1) {
+      query = query.in('specialization', specializations);
     }
 
     if (filters.hospitalId) {
@@ -380,6 +413,55 @@ class DoctorService {
       query = query.lte('consultation_fee', filters.maxFee);
     }
 
+    // City-based filter: match hospital city
+    if (filters.city) {
+      const s = sanitizeSearch(filters.city);
+      if (s) {
+        // Get hospital IDs in this city first
+        const { data: cityHospitals } = await supabaseAdmin
+          .from('hospitals')
+          .select('id')
+          .ilike('city', `%${s}%`)
+          .eq('is_approved', true);
+
+        // Also get clinic doctor IDs in this city
+        const { data: cityClinics } = await supabaseAdmin
+          .from('clinics')
+          .select('id')
+          .ilike('city', `%${s}%`)
+          .eq('is_approved', true);
+
+        const cityHospitalIds = (cityHospitals || []).map(h => h.id);
+        const cityClinicIds = (cityClinics || []).map(c => c.id);
+
+        let cityDoctorIds = [];
+        if (cityClinicIds.length > 0) {
+          const { data: clinicDocLinks } = await supabaseAdmin
+            .from('clinic_doctors')
+            .select('doctor_id')
+            .in('clinic_id', cityClinicIds)
+            .eq('is_active', true);
+          cityDoctorIds = (clinicDocLinks || []).map(l => l.doctor_id);
+        }
+
+        if (cityHospitalIds.length > 0 || cityDoctorIds.length > 0) {
+          // Build OR filter: hospital_id in cityHospitalIds OR id in cityDoctorIds
+          const conditions = [];
+          if (cityHospitalIds.length > 0) {
+            query = query.or(
+              `hospital_id.in.(${cityHospitalIds.join(',')})`
+              + (cityDoctorIds.length > 0 ? `,id.in.(${cityDoctorIds.join(',')})` : '')
+            );
+          } else if (cityDoctorIds.length > 0) {
+            query = query.in('id', cityDoctorIds);
+          }
+        } else {
+          // No hospitals or clinics in this city
+          return paginatedResponse([], 0, page, limit);
+        }
+      }
+    }
+
     if (filters.search) {
       const s = sanitizeSearch(filters.search);
       if (s) query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
@@ -393,7 +475,32 @@ class DoctorService {
       throw new ApiError(400, 'Failed to fetch doctors');
     }
 
-    return paginatedResponse(doctors, count, page, limit);
+    // If patient provided latitude/longitude, compute distance and sort
+    const patLat = parseFloat(filters.latitude);
+    const patLng = parseFloat(filters.longitude);
+    let result = doctors || [];
+
+    if (!isNaN(patLat) && !isNaN(patLng) && (patLat !== 0 || patLng !== 0)) {
+      result = result.map(doc => {
+        const hospLat = doc.hospital?.latitude;
+        const hospLng = doc.hospital?.longitude;
+        let distance = null;
+        if (hospLat && hospLng) {
+          distance = haversineDistance(patLat, patLng, hospLat, hospLng);
+        }
+        return { ...doc, distance_km: distance };
+      });
+
+      // Sort by distance (nearest first), null distances go to the end
+      result.sort((a, b) => {
+        if (a.distance_km === null && b.distance_km === null) return 0;
+        if (a.distance_km === null) return 1;
+        if (b.distance_km === null) return -1;
+        return a.distance_km - b.distance_km;
+      });
+    }
+
+    return paginatedResponse(result, count, page, limit);
   }
 
   // Get doctor by ID

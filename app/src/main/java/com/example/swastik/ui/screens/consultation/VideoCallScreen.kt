@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
@@ -134,7 +136,14 @@ fun VideoCallScreen(
                 )
             }
             ConsultationMode.VIDEO -> {
-                Column(modifier = Modifier.fillMaxSize()) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val compactHeight = maxHeight < 760.dp
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (compactHeight) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                    ) {
                     ConsultationTopBar(
                         title = doctorName,
                         connectionStatus = connectionStatus,
@@ -173,9 +182,15 @@ fun VideoCallScreen(
                     )
 
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                        modifier = if (compactHeight) {
+                            Modifier
+                                .heightIn(min = 420.dp)
+                                .fillMaxWidth()
+                        } else {
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        }
                     ) {
                         if (hasRemoteVideo && remoteVideoTrack != null && eglBaseContext != null) {
                             WebRTCVideoView(
@@ -248,6 +263,7 @@ fun VideoCallScreen(
                         onSwitchMode = onSwitchMode,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    }
                 }
             } // end VIDEO
         } // end when

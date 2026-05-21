@@ -74,7 +74,9 @@ locals {
     { name = "OUTBREAK_CRON_ENABLED", value = "true" }
     ],
     var.turn_enabled ? [
-      { name = "WEBRTC_TURN_SERVER", value = local.turn_url }
+      { name = "WEBRTC_TURN_SERVER", value = local.turn_url },
+      { name = "WEBRTC_TURN_USERNAME", value = var.turn_username },
+      { name = "WEBRTC_TURN_CREDENTIAL", value = var.turn_password }
     ] : []
   )
 

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -180,7 +181,7 @@ private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: 
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = SwastikPurple,
-                    selectedLabelColor = Color.White,
+                    selectedLabelColor = MaterialTheme.colorScheme.surface,
                     containerColor = colorScheme.surface,
                     labelColor = colorScheme.onSurfaceVariant
                 ),
@@ -233,9 +234,9 @@ private fun AppointmentCard(
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 val (bgColor, txtColor, statusText) = when {
-                    isCompleted -> Triple(Color(0xFFE8F5E9), Color(0xFF4CAF50), "Completed")
+                    isCompleted -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary, "Completed")
                     isUpcoming -> Triple(Color(0xFFE3F2FD), SwastikPurple, "Upcoming")
-                    isCancelled -> Triple(Color(0xFFFFEBEE), Color(0xFFE53935), "Cancelled")
+                    isCancelled -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.error, "Cancelled")
                     else -> Triple(colorScheme.surfaceVariant, colorScheme.onSurfaceVariant, appointment.status.replaceFirstChar { it.uppercase() })
                 }
                 Box(modifier = Modifier.background(bgColor, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
@@ -395,7 +396,7 @@ private fun AppointmentEmptyIcon() {
         }
         Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(SwastikPurple.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
             Box(modifier = Modifier.size(90.dp).clip(CircleShape).background(SwastikPurple), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(45.dp))
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(45.dp))
             }
         }
     }

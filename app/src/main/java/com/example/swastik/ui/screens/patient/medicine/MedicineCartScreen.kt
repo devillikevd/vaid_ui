@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -52,7 +53,7 @@ fun MedicineCartScreen(
                 viewModel.resetOrderSuccess()
                 onOrderComplete()
             },
-            icon = { Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(48.dp)) },
+            icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(48.dp)) },
             title = { Text(stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -77,7 +78,7 @@ fun MedicineCartScreen(
                                 text = pharmacyName,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color.Black
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             pharmacyPhone
                                 ?.takeIf { it.isNotBlank() }
@@ -86,7 +87,7 @@ fun MedicineCartScreen(
                                     Text(
                                         text = phone,
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                         }
@@ -95,13 +96,13 @@ fun MedicineCartScreen(
                     orderResult?.id?.takeIf { it.isNotBlank() }?.let { orderId ->
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFFF5F5F5)
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = "Order ID: ${orderId.take(8)}",
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                 fontSize = 13.sp,
-                                color = Color.Black,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -153,7 +154,7 @@ fun MedicineCartScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPurple, titleContentColor = MaterialTheme.colorScheme.surface, navigationIconContentColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
@@ -166,11 +167,11 @@ fun MedicineCartScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.ShoppingCart, null, tint = Color.Gray, modifier = Modifier.size(80.dp))
+                    Icon(Icons.Default.ShoppingCart, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(80.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.cart_empty), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.Gray)
+                    Text(stringResource(R.string.cart_empty), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
-                    Text(stringResource(R.string.add_medicines_from_the_medicine_finder), color = Color.Gray)
+                    Text(stringResource(R.string.add_medicines_from_the_medicine_finder), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(24.dp))
                     Button(
                         onClick = onBackClick,
@@ -213,17 +214,17 @@ fun MedicineCartScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Info, null, tint = Color(0xFFEF6C00))
+                                    Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(Modifier.width(8.dp))
                                     Text(
                                         "Select medicines from a pharmacy inventory to place an order.",
-                                        color = Color(0xFFEF6C00),
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         fontSize = 13.sp
                                     )
                                 }
@@ -265,7 +266,7 @@ fun MedicineCartScreen(
                 ) {
                     Column(Modifier.padding(16.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(R.string.items), color = Color.Gray)
+                            Text(stringResource(R.string.items), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("${cartState.totalItems}")
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -289,7 +290,7 @@ fun MedicineCartScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             if (cartState.isOrdering) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             } else {
                                 Icon(Icons.Default.ShoppingCartCheckout, null)
                                 Spacer(Modifier.width(8.dp))
@@ -330,7 +331,7 @@ private fun CartItemCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.medicine.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price unavailable", color = Color.Gray, fontSize = 12.sp)
+                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             // Quantity controls
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -355,7 +356,7 @@ private fun CartItemCard(
             Spacer(Modifier.width(4.dp))
             Text("₹${item.totalPrice.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPurple)
             IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Close, "Remove", tint = Color(0xFFE53935), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Close, "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }
         }
     }
