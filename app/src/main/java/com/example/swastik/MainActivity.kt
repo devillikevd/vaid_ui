@@ -4,7 +4,12 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavType
@@ -16,11 +21,15 @@ import androidx.navigation.navDeepLink
 import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.local.ThemePreference
 import com.example.swastik.data.model.FacilityType
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+import com.example.swastik.ui.components.SnackbarManager
+import com.example.swastik.utils.NetworkObserver
+
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.navigation.Screen
 import com.example.swastik.ui.screens.auth.*
 import com.example.swastik.ui.screens.consultation.VideoConsultationFlow
-import com.example.swastik.ui.screens.doctor.DoctorPortalScreen
 import com.example.swastik.ui.screens.patient.AppointmentHistoryScreen
 import com.example.swastik.ui.screens.patient.EmergencyScreen
 import com.example.swastik.ui.screens.patient.HospitalFinderScreen
@@ -47,11 +56,12 @@ import kotlinx.coroutines.flow.collectLatest
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     @Inject lateinit var tokenManager: TokenManager
+    @Inject lateinit var networkObserver: NetworkObserver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            SwastikApp(tokenManager)
+            SwastikApp(tokenManager, networkObserver)
         }
     }
 }
@@ -77,8 +87,9 @@ private fun AuthGuard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SwastikApp(tokenManager: TokenManager) {
+fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
     val navController = rememberNavController()
     val appSettings by AppSettingsStore.settings.collectAsState()
     val darkTheme = when (appSettings.themePreference) {
@@ -105,12 +116,35 @@ fun SwastikApp(tokenManager: TokenManager) {
 
     SwastikTheme(darkTheme = darkTheme) {
         val startDestination = remember(tokenManager) {
-            if (tokenManager.isAuthenticated()) Screen.PatientDashboard.createRoute() else Screen.Home.route
+            if (tokenManager.isAuthenticated()) {
+                Screen.PatientDashboard.createRoute()
+            } else {
+                Screen.Home.route
+            }
         }
-        NavHost(
-            navController = navController,
-            startDestination = startDestination
-        ) {
+        val snackbarHostState = remember { SnackbarHostState() }
+        val isNetworkAvailable by networkObserver.observe().collectAsState(initial = true)
+
+        LaunchedEffect(snackbarHostState) {
+            SnackbarManager.messages.collect { message ->
+                snackbarHostState.showSnackbar(message.message)
+            }
+        }
+
+        LaunchedEffect(isNetworkAvailable) {
+            if (!isNetworkAvailable) {
+                SnackbarManager.showError("You are currently offline. Some features may not work.")
+            }
+        }
+
+        Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        ) { paddingValues ->
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                modifier = Modifier.padding(paddingValues)
+            ) {
 
         // ── Auth ──────────────────────────────────────────
         composable(Screen.Home.route) {
@@ -731,12 +765,7 @@ fun SwastikApp(tokenManager: TokenManager) {
             }
         }
 
-        // ── Doctor (Web portal route) ─────────────────────
-        composable(Screen.DoctorLogin.route) {
-            DoctorPortalScreen(
-                onBackClick = { navController.popBackStack() }
-            )
-        }
         }
     }
+}
 }

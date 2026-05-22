@@ -137,7 +137,7 @@ fun HomeScreen(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -150,7 +150,7 @@ fun HomeScreen(
                     "Welcome",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -257,6 +257,8 @@ fun HomeScreen(
                     FeatureItem(icon = "💊", label = "Medicines")
                     FeatureItem(icon = "📋", label = "Records")
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Spacer(modifier = Modifier.weight(1f))
 

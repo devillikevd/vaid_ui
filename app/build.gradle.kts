@@ -182,6 +182,10 @@ android {
 }
 
 dependencies {
+    // Jetpack Paging 3
+    implementation("androidx.paging:paging-runtime-ktx:3.2.1")
+    implementation("androidx.paging:paging-compose:3.2.1")
+
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 

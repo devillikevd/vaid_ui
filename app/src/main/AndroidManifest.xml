@@ -16,6 +16,9 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        
+        <!-- Google Health Connect -->
+        <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
     <!-- Network -->

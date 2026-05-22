@@ -50,12 +50,13 @@ fun HomeTabContent(
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onLocationUpdate: (String) -> Unit = {},
-    onFindDoctorSpecialityClick: (String) -> Unit = {}
+    onFindDoctorSpecialityClick: (String) -> Unit = {},
+    onNavigateToCommunityQA: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .padding(paddingValues)
             .verticalScroll(rememberScrollState())
     ) {
@@ -76,33 +77,21 @@ fun HomeTabContent(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        // AI Assistant Section (Moved here and updated)
+        // Emergency Banner (Full Width)
+        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            EmergencyQuickCard(onClick = onNavigateToEmergency)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // AI Assistant Section
         EnhancedChatBotSection(
             onChatbotClick = onNavigateToChatbot
         )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Row 1: Emergency & Health Card
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            EmergencyQuickCard(
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToEmergency
-            )
-            HealthCardQuickCard(
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToHealthCard
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Row 2: In-Person & Video Consult
+        // Row 1: Clinic Visit | Video Consult | Digital Health Card
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -111,17 +100,21 @@ fun HomeTabContent(
         ) {
             InPersonFeatureCard(
                 modifier = Modifier.weight(1f),
-                onClick = onSearchClick // Changed from onNavigateToClinics to onSearchClick
+                onClick = onSearchClick
             )
             VideoConsultFeatureCard(
                 modifier = Modifier.weight(1f),
                 onClick = onStartVideoConsultation
             )
+            HealthCardQuickCard(
+                modifier = Modifier.weight(1f),
+                onClick = onNavigateToHealthCard
+            )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Row 3: My Reports & My Appointments
+        // Row 2: My Reports & My Appointments
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -146,15 +139,31 @@ fun HomeTabContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Re-adding Book Doctor by Speciality
+        // Book Doctor by Speciality
         FindDoctorsBySpecialitySection(
             onSpecialityClick = onFindDoctorSpecialityClick
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
+        // Healthcare Services
+        CareDirectorySection(
+            onHospitalClick = onNavigateToHospitals,
+            onClinicClick = onNavigateToClinics,
+            onPharmacyClick = onNavigateToPharmacies,
+            onDiagnosticClick = onNavigateToDiagnostic
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Community Q&A
+        CommunityQASection(onClick = onNavigateToCommunityQA)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Recommended for You
         DoctorRecommendationSection(
             doctors = doctors,
             onDoctorClick = { doctor -> onNavigateToBooking(doctor.id) },
@@ -163,15 +172,6 @@ fun HomeTabContent(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        CareDirectorySection(
-            onHospitalClick = onNavigateToHospitals,
-            onClinicClick = onNavigateToClinics,
-            onPharmacyClick = onNavigateToPharmacies,
-            onDiagnosticClick = onNavigateToDiagnostic
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
         
         TrustSignalsStrip()
 

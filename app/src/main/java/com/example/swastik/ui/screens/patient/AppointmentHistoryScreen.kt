@@ -1,5 +1,6 @@
 package com.example.swastik.ui.screens.patient
 
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -261,8 +262,8 @@ private fun AppointmentCard(
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = doctorName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
-                    if (doctorSpecialty.isNotEmpty()) Text(text = doctorSpecialty, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                    Text(text = doctorName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (doctorSpecialty.isNotEmpty()) Text(text = doctorSpecialty, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!facilityName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,7 +278,9 @@ private fun AppointmentCard(
                                 text = "$facilityLabel • $facilityName",
                                 fontSize = 12.sp,
                                 color = SwastikPrimary,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

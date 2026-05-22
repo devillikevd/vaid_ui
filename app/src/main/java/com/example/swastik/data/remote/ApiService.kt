@@ -137,6 +137,12 @@ interface ApiService {
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<ReportDto>>
 
+    @POST("doctors/{id}/reviews")
+    suspend fun submitDoctorReview(
+        @Path("id") doctorId: String,
+        @Body request: ReviewRequest
+    ): Response<ApiResponse<Any>>
+
     @Multipart
     @POST("reports")
     suspend fun createPatientReport(
@@ -571,4 +577,33 @@ interface ApiService {
     suspend fun uploadMedicalReport(
         @Part file: okhttp3.MultipartBody.Part
     ): Response<ApiResponse<UploadResponse>>
+
+    // ==================== COMMUNITY Q&A ====================
+
+    @GET("community/questions")
+    suspend fun getCommunityQuestions(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<CommunityQuestionResponse>
+
+    @GET("community/questions/{id}")
+    suspend fun getQuestionDetails(
+        @Path("id") id: String
+    ): Response<CommunityQuestion>
+
+    @POST("community/questions")
+    suspend fun createQuestion(
+        @Body request: PostQuestionRequest
+    ): Response<CommunityQuestion>
+
+    @POST("community/questions/{id}/answers")
+    suspend fun addAnswer(
+        @Path("id") id: String,
+        @Body request: PostAnswerRequest
+    ): Response<CommunityAnswer>
+
+    @POST("community/questions/{id}/upvote")
+    suspend fun upvoteQuestion(
+        @Path("id") id: String
+    ): Response<ApiResponse<Unit>>
 }

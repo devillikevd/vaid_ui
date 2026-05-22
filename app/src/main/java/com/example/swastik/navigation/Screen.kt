@@ -13,6 +13,10 @@ sealed class Screen(val route: String) {
     }
 
     // Patient Screens
+    object CommunityQA : Screen("community_qa")
+    object CommunityQADetails : Screen("community_qa_details/{questionId}") {
+        fun createRoute(questionId: String): String = "community_qa_details/$questionId"
+    }
     object PatientDashboard : Screen("patient_dashboard?tab={tab}") {
         fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 3)}"
     }
@@ -91,10 +95,9 @@ sealed class Screen(val route: String) {
         fun createRoute(tab: Int = 0): String = "vitals_reminders?tab=$tab"
     }
     object HealthCard : Screen("health_card")
+    object HealthConnectSetup : Screen("health_connect_setup")
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")
     object BookingHistory : Screen("booking_history")
 
-    // Doctor Screens
-    object DoctorLogin : Screen("doctor_login")
 }

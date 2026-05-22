@@ -60,124 +60,21 @@ fun DashboardHeader(
             date.format(formatter).uppercase()
         }
 
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Utility Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Date
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = Color.Gray
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = currentDate,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Gray
-                    )
-                }
-
-                // Language & Notification
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Language
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showLanguageMenu = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Language,
-                                contentDescription = "Language",
-                                tint = SwastikPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedLanguage)),
-                                color = SwastikPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showLanguageMenu,
-                            onDismissRequest = { showLanguageMenu = false }
-                        ) {
-                            com.example.swastik.util.LanguageConfig.options.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(lang.labelResId)) },
-                                    onClick = {
-                                        AppSettingsStore.updateLanguage(lang.tag)
-                                        showLanguageMenu = false
-                                    },
-                                    leadingIcon = if (lang.tag == selectedLanguage) {
-                                        { Icon(Icons.Default.Check, contentDescription = null, tint = SwastikPrimary) }
-                                    } else null
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // Notification
-                    Box {
-                        IconButton(onClick = onNotificationClick, modifier = Modifier.size(32.dp)) {
-                            Icon(
-                                Icons.Outlined.Notifications,
-                                contentDescription = "Notifications",
-                                tint = SwastikPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        if (unreadNotificationsCount > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .background(Color.Red, CircleShape)
-                                    .align(Alignment.TopEnd),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
-                                    color = Color.White,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Profile & Info Row (Greeting and Location)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 // Profile Picture
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF3F4F6))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onProfileClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -201,15 +98,15 @@ fun DashboardHeader(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
-                        text = "Hello, $firstName! 👋",
-                        fontSize = 20.sp,
+                        text = "Hello $firstName! 👋",
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onBackground
                     )
 
                     // Location Picker
@@ -225,26 +122,83 @@ fun DashboardHeader(
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = SwastikPrimary
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Icon(
                             Icons.Default.ArrowDropDown,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = Color.Gray
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
-        }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Health Score Gamification Pill
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SwastikPrimary.copy(alpha = 0.1f))
+                        .clickable { /* TODO: Navigate to Gamification Details */ }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = "Health Score",
+                            tint = Color.Red,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "850",
+                            fontWeight = FontWeight.Bold,
+                            color = SwastikPrimary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Notification Bell
+                Box {
+                IconButton(onClick = onNotificationClick) {
+                    Icon(
+                        Icons.Outlined.Notifications,
+                        contentDescription = "Notifications",
+                        tint = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                if (unreadNotificationsCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .background(Color.Red, CircleShape)
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-4).dp, y = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
+                            color = Color.White,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                }
+            } // Close inner Row
+        } // Close outer Row
     } else {
         // Standard Header for other tabs (Includes Language & Notifications)
         val currentDate = remember {
@@ -394,7 +348,7 @@ fun DashboardHeader(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(SwastikPrimaryLight)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                         .border(2.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                         .clickable { onProfileClick() },
                     contentAlignment = Alignment.Center

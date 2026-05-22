@@ -58,7 +58,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Home"
                 )
             },
-            label = { Text(stringResource(R.string.home), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.home), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -76,11 +76,11 @@ fun PatientBottomNavigation(
             },
             icon = {
                 Icon(
-                    if (selectedTab == 1) Icons.Filled.MedicalServices else Icons.Outlined.MedicalServices,
-                    contentDescription = "Medicine"
+                    if (selectedTab == 1) Icons.Filled.Alarm else Icons.Outlined.Alarm,
+                    contentDescription = "Reminders"
                 )
             },
-            label = { Text(stringResource(R.string.medicine), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.reminders), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -98,11 +98,11 @@ fun PatientBottomNavigation(
             },
             icon = {
                 Icon(
-                    if (selectedTab == 2) Icons.Filled.Folder else Icons.Outlined.Folder,
-                    contentDescription = "Records"
+                    if (selectedTab == 2) Icons.Filled.MedicalServices else Icons.Outlined.MedicalServices,
+                    contentDescription = "Medicine"
                 )
             },
-            label = { Text(stringResource(R.string.records), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.medicine), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -120,11 +120,33 @@ fun PatientBottomNavigation(
             },
             icon = {
                 Icon(
-                    if (selectedTab == 3) Icons.Filled.Person else Icons.Outlined.Person,
+                    if (selectedTab == 3) Icons.Filled.Folder else Icons.Outlined.Folder,
+                    contentDescription = "Records"
+                )
+            },
+            label = { Text(stringResource(R.string.records), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            alwaysShowLabel = false,
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = SwastikPrimary,
+                selectedTextColor = SwastikPrimary,
+                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
+                unselectedIconColor = Color.Gray,
+                unselectedTextColor = Color.Gray
+            )
+        )
+        NavigationBarItem(
+            selected = selectedTab == 4,
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onTabSelected(4) 
+            },
+            icon = {
+                Icon(
+                    if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
                     contentDescription = "Profile"
                 )
             },
-            label = { Text(stringResource(R.string.profile), fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.profile), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,

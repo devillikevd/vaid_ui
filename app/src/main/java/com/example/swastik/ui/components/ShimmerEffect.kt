@@ -14,6 +14,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.Alignment
 
 /**
  * A reusable shimmer loading effect that replaces boring spinners
@@ -224,6 +227,62 @@ fun RecordsListShimmer(
                         Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                         Box(modifier = Modifier.fillMaxWidth(0.4f).height(14.dp).clip(RoundedCornerShape(4.dp)).background(brush))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityQAShimmer(modifier: Modifier = Modifier) {
+    ShimmerEffect { brush ->
+        Card(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(brush))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Box(modifier = Modifier.height(16.dp).fillMaxWidth(0.4f).background(brush, RoundedCornerShape(4.dp)))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(modifier = Modifier.height(12.dp).fillMaxWidth(0.2f).background(brush, RoundedCornerShape(4.dp)))
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(modifier = Modifier.height(20.dp).fillMaxWidth(0.9f).background(brush, RoundedCornerShape(4.dp)))
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.height(14.dp).fillMaxWidth(0.6f).background(brush, RoundedCornerShape(4.dp)))
+                Spacer(modifier = Modifier.height(16.dp))
+                Row {
+                    Box(modifier = Modifier.height(24.dp).width(60.dp).background(brush, RoundedCornerShape(12.dp)))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(modifier = Modifier.height(24.dp).width(80.dp).background(brush, RoundedCornerShape(12.dp)))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReminderShimmer(modifier: Modifier = Modifier) {
+    ShimmerEffect { brush ->
+        Card(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(48.dp).background(brush, RoundedCornerShape(12.dp)))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.height(16.dp).fillMaxWidth(0.7f).background(brush, RoundedCornerShape(4.dp)))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(modifier = Modifier.height(14.dp).fillMaxWidth(0.4f).background(brush, RoundedCornerShape(4.dp)))
                 }
             }
         }

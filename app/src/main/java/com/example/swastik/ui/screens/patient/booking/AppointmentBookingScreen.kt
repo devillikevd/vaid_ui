@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.LoadState
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +21,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -405,33 +410,7 @@ private fun DoctorSelectionStep(
             singleLine = true
         )
 
-        // Specialization chips
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val specializations = doctorSearchViewModel.getSpecializations()
-            items(specializations) { spec ->
-                FilterChip(
-                    selected = selectedSpecialization == spec,
-                    onClick = {
-                        selectedSpecialization =
-                            if (selectedSpecialization == spec) null else spec
-                        doctorSearchViewModel.updateFilters(
-                            search = searchQuery.ifBlank { null },
-                            specialization = selectedSpecialization
-                        )
-                    },
-                    label = { Text(spec, fontSize = 13.sp) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = SwastikPrimary,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
 
         when {
             uiState.isLoading -> {
@@ -460,38 +439,72 @@ private fun DoctorSelectionStep(
                     }
                 }
             }
-            uiState.doctors.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Outlined.PersonSearch,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(stringResource(R.string.no_doctors_found), color = Color.Gray, fontSize = 16.sp)
-                        Text(
-                            "Try a different search",
-                            color = Color.LightGray,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
             else -> {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.doctors) { doctor ->
-                        DoctorBookingCard(
-                            doctor = doctor,
-                            onSelect = { onDoctorSelected(doctor) }
-                        )
+                val pagedDoctors = doctorSearchViewModel.pagedDoctors.collectAsLazyPagingItems()
+                val isLoadingPaging = pagedDoctors.loadState.refresh is LoadState.Loading
+
+                if (isLoadingPaging) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(3) {
+                            // Note: There is no DoctorCardShimmer here, but we can reuse CircularProgressIndicator or build one.
+                            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+                } else if (pagedDoctors.itemCount == 0) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Outlined.PersonSearch,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = Color.Gray
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(stringResource(R.string.no_doctors_found), color = Color.Gray, fontSize = 16.sp)
+                            Text(
+                                "Try a different search",
+                                color = Color.LightGray,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            count = pagedDoctors.itemCount,
+                            key = pagedDoctors.itemKey { it.id },
+                            contentType = pagedDoctors.itemContentType { "Doctor" }
+                        ) { index ->
+                            val doctor = pagedDoctors[index]
+                            if (doctor != null) {
+                                DoctorBookingCard(
+                                    doctor = doctor,
+                                    onSelect = { onDoctorSelected(doctor) }
+                                )
+                            }
+                        }
+                        
+                        if (pagedDoctors.loadState.append is LoadState.Loading) {
+                            item {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp)
+                                        .wrapContentWidth(Alignment.CenterHorizontally)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -520,7 +533,12 @@ private fun DoctorBookingCard(
                         .background(SwastikPrimaryLight, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.string_2), fontSize = 32.sp)
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = "Doctor",
+                        modifier = Modifier.size(32.dp),
+                        tint = SwastikPrimary
+                    )
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = "Verified",

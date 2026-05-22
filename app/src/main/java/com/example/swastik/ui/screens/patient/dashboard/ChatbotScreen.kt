@@ -761,7 +761,7 @@ private fun AttachmentMenu(onDismiss: () -> Unit, onCameraClick: () -> Unit, onG
         Surface(
             modifier = Modifier.fillMaxWidth().clickable { },
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            color = Color.White, shadowElevation = 16.dp
+            color = MaterialTheme.colorScheme.surface, shadowElevation = 16.dp
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Box(modifier = Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.LightGray))
@@ -1226,7 +1226,7 @@ private fun ChatHistorySheet(
                                 containerColor = if (session.sessionId == activeSessionId) {
                                     SwastikPrimary.copy(alpha = 0.08f)
                                 } else {
-                                    Color.White
+                                    MaterialTheme.colorScheme.surface
                                 }
                             )
                         ) {
@@ -1313,7 +1313,7 @@ private fun ChatInputBar(
     onAttachClick: () -> Unit, isLoading: Boolean, inputEnabled: Boolean, isListening: Boolean,
     language: ChatLanguage = ChatLanguage.ENGLISH
 ) {
-    Surface(modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp, color = Color.White) {
+    Surface(modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Camera/attach button
             IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {

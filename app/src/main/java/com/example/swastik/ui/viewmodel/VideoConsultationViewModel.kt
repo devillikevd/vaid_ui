@@ -971,6 +971,7 @@ class VideoConsultationViewModel @Inject constructor(
 
     private fun beginWaitingForDoctor(appointmentId: String) {
         pendingAppointmentId = appointmentId
+        currentAppointmentId = appointmentId
         pendingJoinRetryJob?.cancel()
         releaseWebRTC()
         socketManager.connect()
@@ -1343,5 +1344,29 @@ class VideoConsultationViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun submitReview(rating: Int, comment: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            val appointmentId = pendingAppointmentId ?: currentAppointmentId
+            if (appointmentId == null) {
+                onComplete()
+                return@launch
+            }
+            
+            try {
+                // First get appointment to get doctorId
+                val appointmentResult = appointmentRepository.getAppointmentDetails(appointmentId)
+                if (appointmentResult is Result.Success) {
+                    val doctorId = appointmentResult.data.doctorId
+                    val consultationId = _uiState.value.session?.consultationId?.ifEmpty { _uiState.value.session?.sessionId }
+                    appointmentRepository.submitDoctorReview(doctorId, consultationId, rating, comment.ifBlank { null })
+                }
+            } catch (e: Exception) {
+                // Ignore failure for review
+            } finally {
+                onComplete()
+            }
+        }
     }
 }

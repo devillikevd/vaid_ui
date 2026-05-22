@@ -10,6 +10,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.Watch
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +32,8 @@ import com.example.swastik.ui.screens.patient.components.BezierCurveChart
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
 import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.ui.viewmodel.RecordsViewModel
+import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +46,19 @@ fun HealthCardScreen(
     val syncState by dashboardViewModel.healthConnectSyncState.collectAsState()
     val recordsState by recordsViewModel.uiState.collectAsState()
     val vitalsData = recordsState.vitalsData
+
+    val coroutineScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val permissionsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        if (granted.containsAll(dashboardViewModel.healthConnectManager.permissions)) {
+            dashboardViewModel.syncHealthConnectData()
+        } else {
+            // The ViewModel will show "Permissions not granted" if they were denied
+            dashboardViewModel.syncHealthConnectData()
+        }
+    }
 
     LaunchedEffect(Unit) {
         dashboardViewModel.checkHealthCardStatus()
@@ -72,75 +94,135 @@ fun HealthCardScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "Digital Health Card",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (hcState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.padding(32.dp))
-                    } else if (hcState.hasActiveCard && hcState.url != null) {
-                        Text(
-                            "Show this QR to your doctor for real-time vitals and records access.",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .background(Color.White, RoundedCornerShape(8.dp))
-                                .padding(16.dp)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF90CAF9))
+                            .padding(16.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            AsyncImage(
-                                model = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${Uri.encode(hcState.url)}",
-                                contentDescription = "QR Code",
-                                modifier = Modifier.size(250.dp)
+                            Text(
+                                "Digital Health Card",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
                             )
+                            Text(
+                                "Valid through 12/25",
+                                fontSize = 14.sp,
+                                color = Color.DarkGray
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            if (hcState.isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.padding(32.dp))
+                            } else if (hcState.hasActiveCard && hcState.url != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color.White, RoundedCornerShape(8.dp))
+                                        .padding(8.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${Uri.encode(hcState.url)}",
+                                        contentDescription = "QR Code",
+                                        modifier = Modifier.size(150.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { dashboardViewModel.revokeHealthCard() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("Revoke Access")
+                                }
+                            } else {
+                                Button(
+                                    onClick = { dashboardViewModel.generateHealthCard() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                                ) {
+                                    Text("Generate QR Code")
+                                }
+                            }
+                            
+                            if (hcState.error != null) {
+                                Text(
+                                    hcState.error!!,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.padding(top = 16.dp)
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(
-                            onClick = { dashboardViewModel.revokeHealthCard() },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.fillMaxWidth()
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.align(Alignment.TopEnd)
                         ) {
-                            Text("Revoke Access")
-                        }
-                    } else {
-                        Text(
-                            "Generate a temporary secure QR code to share your health records and real-time vitals.",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
-                        Button(
-                            onClick = { dashboardViewModel.generateHealthCard() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Generate QR Code")
+                            Icon(
+                                Icons.Filled.Person,
+                                contentDescription = "Profile",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Color(0xFF1E88E5), CircleShape)
+                                    .padding(8.dp)
+                            )
+                            Text(
+                                "Patient",
+                                fontSize = 12.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
                         }
                     }
 
-                    if (hcState.error != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                         Text(
-                            hcState.error!!,
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(top = 16.dp)
+                            "How to use Digital Health Card:",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.Black
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("1. Present the QR code at the check-in desk.", fontSize = 12.sp, color = Color.Black)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("2. Your medical profile will be scanned and verified.", fontSize = 12.sp, color = Color.Black)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("3. Access your health records and benefits.", fontSize = 12.sp, color = Color.Black)
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Outlined.Event, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("4. Manage appointments and prescriptions seamlessly.", fontSize = 12.sp, color = Color.Black)
+                            }
+                        }
                     }
                 }
             }
@@ -151,68 +233,117 @@ fun HealthCardScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFB2DFDB)), // Light Teal
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.fillMaxWidth().padding(16.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                         Icon(
                             Icons.Outlined.Favorite,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            tint = Color(0xFF004D40), // Darker Teal
+                            modifier = Modifier.size(40.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Google Health Connect",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                "Sync vitals for Outbreak Intelligence",
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                                fontSize = 12.sp
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            "Google Health Connect",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            fontSize = 20.sp
+                        )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Button(
-                        onClick = { dashboardViewModel.syncHealthConnectData() },
+                        onClick = { 
+                            val status = dashboardViewModel.healthConnectManager.checkAvailability()
+                            if (status != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                intent.setPackage("com.android.vending")
+                                intent.data = android.net.Uri.parse("market://details?id=com.google.android.apps.healthdata")
+                                intent.putExtra("overlay", true)
+                                intent.putExtra("callerId", context.packageName)
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
+                                }
+                                return@Button
+                            }
+
+                            coroutineScope.launch {
+                                if (dashboardViewModel.healthConnectManager.hasAllPermissions()) {
+                                    dashboardViewModel.syncHealthConnectData()
+                                } else {
+                                    permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions)
+                                }
+                            }
+                        },
                         enabled = syncState !is ProfileUpdateState.Loading,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C)), // Dark Teal
+                        shape = RoundedCornerShape(25.dp)
                     ) {
                         if (syncState is ProfileUpdateState.Loading) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Syncing...", color = MaterialTheme.colorScheme.onPrimary)
+                            Text("Syncing...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         } else {
-                            Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary)
+                            Text("Sync Now", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                    
                     if (syncState is ProfileUpdateState.Success) {
                         Text(
                             text = (syncState as ProfileUpdateState.Success).message,
                             color = Color(0xFF4CAF50),
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
                         )
                     } else if (syncState is ProfileUpdateState.Error) {
                         Text(
                             text = (syncState as ProfileUpdateState.Error).message,
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        "How to connect your Smartwatch or Phone:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Outlined.Watch, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("1. Ensure your wearable or phone has Health Connect enabled.", fontSize = 13.sp, color = Color.Black)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Outlined.Favorite, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("2. Open your device's Health app and allow data sharing.", fontSize = 13.sp, color = Color.Black)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("3. Tap 'Sync Now' above to link and import your health data automatically.", fontSize = 13.sp, color = Color.Black)
                     }
                 }
             }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Lock
@@ -256,8 +257,13 @@ fun ConsultationPrepareScreen(
                         )
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.ChatBubbleOutline,
-                            title = "Chat stays available",
-                            description = "If the connection drops in quality, the consultation can continue in chat."
+                            title = "Smart Network Fallback",
+                            description = "If the connection drops, AI smoothly transitions your call to audio or chat without disconnecting."
+                        )
+                        ConsultationPrepFeatureCard(
+                            icon = Icons.Outlined.Analytics,
+                            title = "Real-time AI Vitals",
+                            description = "Our vision AI analyzes your video feed to extract health vitals (pulse, stress, pain levels) for the doctor."
                         )
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.Description,

@@ -34,10 +34,11 @@ data class EmergencyRequest(
 )
 
 data class ReviewRequest(
-    val doctorId: String?,
-    val hospitalId: String?,
+    val doctorId: String? = null,
+    val hospitalId: String? = null,
+    val consultationId: String? = null,
     val rating: Int,
-    val comment: String?
+    val comment: String? = null
 )
 
 data class SymptomAnalysisRequest(

@@ -68,9 +68,10 @@ fun PatientDashboardScreen(
     onStartVideoConsultation: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onNotificationActionRoute: (String) -> Unit = {},
-    onFindDoctorSpecialityClick: (String) -> Unit = {}
+    onFindDoctorSpecialityClick: (String) -> Unit = {},
+    onNavigateToCommunityQA: () -> Unit = {}
 ) {
-    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 3)) }
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 4)) }
     var showNotificationPanel by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -94,13 +95,15 @@ fun PatientDashboardScreen(
         }
     }
 
-    // Collect data from ViewModel
     val profile by viewModel.patientProfile.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val stats by viewModel.stats.collectAsState()
     val doctors by viewModel.recommendedDoctors.collectAsState()
+    val reminders by viewModel.reminders.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+
     val unreadCount = notifications.count { !it.isRead }
 
     // Pull-to-refresh state
@@ -144,7 +147,7 @@ fun PatientDashboardScreen(
                             doctors = doctors,
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
-                            onProfileClick = { selectedTab = 3 },
+                            onProfileClick = { selectedTab = 4 },
                             onStartInPersonConsultation = onStartInPersonConsultation,
                             onStartVideoConsultation = onStartVideoConsultation,
                             onNavigateToAppointments = onNavigateToAppointments,
@@ -166,9 +169,18 @@ fun PatientDashboardScreen(
                             onLocationUpdate = { newLocation ->
                                 viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
                             },
-                            onFindDoctorSpecialityClick = onFindDoctorSpecialityClick
+                            onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
+                            onNavigateToCommunityQA = onNavigateToCommunityQA
                         )
-                        1 -> MedicineTabContent(
+                        1 -> RemindersTabContent(
+                            modifier = Modifier.padding(paddingValues),
+                            profile = profile,
+                            reminders = reminders,
+                            isLoading = uiState.isLoading,
+                            unreadNotificationsCount = unreadCount,
+                            onNotificationClick = { showNotificationPanel = true }
+                        )
+                        2 -> MedicineTabContent(
                             modifier = Modifier.padding(paddingValues),
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
@@ -177,7 +189,7 @@ fun PatientDashboardScreen(
                             onNotificationClick = { showNotificationPanel = true },
                             onNavigateToCart = onNavigateToMedicineCart
                         )
-                        2 -> RecordsTabContent(
+                        3 -> RecordsTabContent(
                             modifier = Modifier.padding(paddingValues),
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
@@ -185,7 +197,7 @@ fun PatientDashboardScreen(
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToReports = onNavigateToReports
                         )
-                        3 -> ProfileTabContent(
+                        4 -> ProfileTabContent(
                             modifier = Modifier.padding(paddingValues),
                             profile = profile,
                             stats = stats,

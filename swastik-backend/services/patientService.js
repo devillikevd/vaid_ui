@@ -612,19 +612,32 @@ class PatientService {
       if (targetSpecializations.size > 0) {
         const { data: matchedDoctors } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, is_available')
+          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .in('specialization', [...targetSpecializations])
           .order('rating', { ascending: false })
           .limit(normalizedLimit * 3);
 
+        const patientCity = patientProfile?.location?.toLowerCase()?.trim();
         recommendedDoctors = (matchedDoctors || [])
-          .map(doc => ({
-            ...doc,
-            recommendation_reason: recommendationReasons[doc.specialization] || 'Recommended for you',
-            _specializationScore: specializationScores.get(doc.specialization) || 0,
-          }))
+          .map(doc => {
+            let reason = recommendationReasons[doc.specialization] || 'Recommended for you';
+            let scoreBoost = 0;
+            const docCity = doc.hospital?.city?.toLowerCase()?.trim();
+            if (patientCity && docCity && patientCity.includes(docCity)) {
+              scoreBoost += 5;
+              reason = `${reason} (Nearby)`;
+            }
+            if (doc.video_consultation_fee != null) {
+              scoreBoost += 1; // Slight boost for video availability
+            }
+            return {
+              ...doc,
+              recommendation_reason: reason,
+              _specializationScore: (specializationScores.get(doc.specialization) || 0) + scoreBoost,
+            };
+          })
           .sort((left, right) => {
             if (right._specializationScore !== left._specializationScore) {
               return right._specializationScore - left._specializationScore;
@@ -642,20 +655,32 @@ class PatientService {
 
         const { data: fallbackPool } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, is_available')
+          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .order('rating', { ascending: false })
           // Pull a slightly larger pool so we can remove duplicates in-memory safely
           .limit(normalizedLimit * 3);
 
+        const patientCity = patientProfile?.location?.toLowerCase()?.trim();
+
         const fallbackDoctors = (fallbackPool || [])
           .filter(doc => !existingIds.includes(doc.id))
+          .map(doc => {
+            const docCity = doc.hospital?.city?.toLowerCase()?.trim();
+            const isNearby = patientCity && docCity && patientCity.includes(docCity);
+            return {
+              ...doc,
+              isNearby,
+              _score: (isNearby ? 5 : 0) + (doc.video_consultation_fee != null ? 1 : 0) + (doc.rating || 0)
+            };
+          })
+          .sort((a, b) => b._score - a._score)
           .slice(0, remaining);
 
-        const fallbackWithReason = (fallbackDoctors || []).map(doc => ({
+        const fallbackWithReason = (fallbackDoctors || []).map(({ isNearby, _score, ...doc }) => ({
           ...doc,
-          recommendation_reason: 'Top rated doctor',
+          recommendation_reason: isNearby ? 'Top rated nearby doctor' : 'Top rated doctor',
         }));
 
         recommendedDoctors = [...recommendedDoctors, ...fallbackWithReason];
@@ -667,7 +692,7 @@ class PatientService {
       // Graceful fallback: return top-rated doctors
       const { data: fallback } = await supabaseAdmin
         .from('doctors')
-        .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, is_available')
+        .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
         .eq('is_approved', true)
         .eq('is_available', true)
         .order('rating', { ascending: false })

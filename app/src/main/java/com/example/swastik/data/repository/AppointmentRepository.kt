@@ -500,6 +500,27 @@ class AppointmentRepository @Inject constructor(
         }
     }
 
+    // ==================== REVIEWS ====================
+
+    suspend fun submitDoctorReview(doctorId: String, consultationId: String?, rating: Int, comment: String? = null): Result<Unit> {
+        return try {
+            val request = ReviewRequest(
+                doctorId = doctorId,
+                consultationId = consultationId,
+                rating = rating,
+                comment = comment
+            )
+            val response = apiService.submitDoctorReview(doctorId, request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to submit review")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     // ==================== Cache Mapping Extensions ====================
 
     private fun Appointment.toCachedAppointment() = CachedAppointment(

@@ -57,7 +57,7 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun SwastikTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

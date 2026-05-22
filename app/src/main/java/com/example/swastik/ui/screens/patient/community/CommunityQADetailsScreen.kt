@@ -1,0 +1,270 @@
+package com.example.swastik.ui.screens.patient.community
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.example.swastik.data.model.CommunityAnswer
+import com.example.swastik.data.model.CommunityQuestion
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
+import com.example.swastik.ui.viewmodel.CommunityViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommunityQADetailsScreen(
+    navController: NavController,
+    questionId: String,
+    viewModel: CommunityViewModel = hiltViewModel()
+) {
+    val question by viewModel.selectedQuestion.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    var answerText by remember { mutableStateOf("") }
+
+    LaunchedEffect(questionId) {
+        viewModel.fetchQuestionDetails(questionId)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Question", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = answerText,
+                        onValueChange = { answerText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Write your answer...") },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SwastikPrimary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            if (answerText.isNotBlank()) {
+                                viewModel.addAnswer(questionId, answerText) {
+                                    answerText = ""
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(SwastikPrimary, CircleShape)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White)
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
+        if (isLoading && question == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = SwastikPrimary)
+            }
+        } else {
+            question?.let { q ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    item {
+                        QuestionDetailsCard(q)
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Answers (${q.answers?.size ?: 0})",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    items(q.answers ?: emptyList()) { answer ->
+                        AnswerCard(answer)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuestionDetailsCard(question: CommunityQuestion) {
+    Column {
+        Text(
+            text = question.title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(SwastikPrimaryLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = question.patient?.name?.take(1) ?: "A",
+                    color = SwastikPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = question.patient?.name ?: "Anonymous",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = " • ${question.createdAt.take(10)}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = question.content,
+            fontSize = 16.sp,
+            lineHeight = 24.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun AnswerCard(answer: CommunityAnswer) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (answer.isDoctorVerified) SwastikPrimaryLight else MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = answer.doctor?.name?.take(1) ?: answer.patient?.name?.take(1) ?: "A",
+                            color = if (answer.isDoctorVerified) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = answer.doctor?.name ?: answer.patient?.name ?: "Anonymous",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (answer.isDoctorVerified) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Verified Doctor",
+                                    tint = SwastikPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                        if (answer.isDoctorVerified && answer.doctor?.specialization != null) {
+                            Text(
+                                text = answer.doctor.specialization,
+                                fontSize = 12.sp,
+                                color = SwastikPrimary
+                            )
+                        } else {
+                            Text(
+                                text = "Answered ${answer.createdAt.take(10)}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                
+                if (answer.isDoctorVerified) {
+                    Surface(
+                        color = SwastikPrimaryLight.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Doctor Verified",
+                            color = SwastikPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = answer.content,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}

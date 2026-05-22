@@ -334,6 +334,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/health-card', healthCardRoutes);
 app.use('/api/vitals', vitalsRoutes);
 app.use('/api/admin/outbreaks', outbreakRoutes);
+app.use('/api/community', require('./routes/communityRoutes'));
 
 // Error handling
 app.use(notFound);

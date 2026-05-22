@@ -38,7 +38,8 @@ private val SwastikPrimary = Color(0xFF6C63FF)
 @Composable
 fun VitalsRemindersScreen(
     initialTab: Int = 0,
-    onBackClick: () -> Unit,
+    isTab: Boolean = false,
+    onBackClick: () -> Unit = {},
     viewModel: VitalsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -53,8 +54,10 @@ fun VitalsRemindersScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.vitals_reminders), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    if (!isTab) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)

@@ -149,6 +149,13 @@ fun VideoConsultationFlow(
                 showCompletionDialog = false
                 viewModel.dismissCompletion()
                 onConsultationComplete()
+            },
+            onSubmitReview = { rating, comment ->
+                viewModel.submitReview(rating, comment) {
+                    showCompletionDialog = false
+                    viewModel.dismissCompletion()
+                    onConsultationComplete()
+                }
             }
         )
     }

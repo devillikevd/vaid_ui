@@ -452,4 +452,68 @@ router.get('/:id/slots',
   })
 );
 
+// Submit a review for a doctor
+router.post('/:id/reviews',
+  authenticate,
+  [
+    param('id').isUUID().withMessage('Invalid doctor ID'),
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    body('comment').optional().isString().trim(),
+    body('consultationId').optional().isUUID().withMessage('Invalid consultation ID'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { id } = req.params;
+    const { rating, comment, consultationId } = req.body;
+    
+    // Get patient id from current user
+    const { data: patient } = await supabaseAdmin.from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+      
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient profile not found' });
+
+    // Check if review already exists for this consultation if provided
+    if (consultationId) {
+        const { data: existing } = await supabaseAdmin.from('doctor_reviews')
+            .select('id')
+            .eq('patient_id', patient.id)
+            .eq('consultation_id', consultationId)
+            .single();
+            
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'Review already submitted for this consultation' });
+        }
+    }
+
+    // Insert review into doctor_reviews
+    const { data: review, error } = await supabaseAdmin.from('doctor_reviews').insert({
+      doctor_id: id,
+      patient_id: patient.id,
+      consultation_id: consultationId || null,
+      rating: rating,
+      comment: comment || null
+    }).select().single();
+
+    if (error) throw error;
+
+    // Recalculate average rating for doctor
+    const { data: allReviews } = await supabaseAdmin.from('doctor_reviews')
+      .select('rating')
+      .eq('doctor_id', id);
+      
+    if (allReviews && allReviews.length > 0) {
+      const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+      await supabaseAdmin.from('doctors').update({ 
+        rating: avg, 
+        total_reviews: allReviews.length 
+      }).eq('id', id);
+    }
+
+    res.status(201).json({ success: true, data: review });
+  })
+);
+
 module.exports = router;

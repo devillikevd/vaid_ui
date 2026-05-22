@@ -83,7 +83,9 @@ fun MedicineCard(
                     Text(
                         medicine.manufacturer ?: "",
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -162,7 +164,9 @@ fun CompactMedicineItem(
                     medicine.name,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 if (medicine.requiresPrescription) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -172,7 +176,9 @@ fun CompactMedicineItem(
             Text(
                 "₹${medicine.price} • ${medicine.manufacturer ?: ""}",
                 fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 

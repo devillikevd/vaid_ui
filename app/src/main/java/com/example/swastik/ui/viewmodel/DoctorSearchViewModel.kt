@@ -10,7 +10,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import com.example.swastik.data.repository.paging.DoctorPagingSource
+import com.example.swastik.data.remote.ApiService
+import kotlinx.coroutines.flow.Flow
+import com.example.swastik.ui.components.SnackbarManager
 import javax.inject.Inject
 
 /**
@@ -20,10 +29,10 @@ data class DoctorSearchUiState(
     val isLoading: Boolean = false,
     val doctors: List<Doctor> = emptyList(),
     val selectedDoctor: DoctorDetails? = null,
+    
+    
     val availableSlots: SlotsResponse? = null,
-    val error: String? = null,
-    val hasMore: Boolean = true,
-    val currentPage: Int = 1
+    val error: String? = null
 )
 
 /**
@@ -42,9 +51,9 @@ data class DoctorSearchFilters(
 /**
  * Doctor Search ViewModel
  */
-@HiltViewModel
 class DoctorSearchViewModel @Inject constructor(
-    private val doctorRepository: DoctorRepository
+    private val doctorRepository: DoctorRepository,
+    private val apiService: ApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoctorSearchUiState())
@@ -56,70 +65,35 @@ class DoctorSearchViewModel @Inject constructor(
     private val _selectedDate = MutableStateFlow("")
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
 
+    val pagedDoctors: Flow<PagingData<Doctor>> = _filters.flatMapLatest { filters ->
+        Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false)
+        ) {
+            DoctorPagingSource(
+                apiService = apiService,
+                specialization = filters.specialization,
+                search = filters.search,
+                hospitalId = filters.hospitalId,
+                clinicId = filters.clinicId,
+                latitude = filters.latitude,
+                longitude = filters.longitude,
+                city = filters.city
+            )
+        }.flow
+    }.cachedIn(viewModelScope)
+
     /**
      * Search doctors with current filters
      */
     fun searchDoctors(resetList: Boolean = false) {
-        viewModelScope.launch {
-            if (resetList) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = true,
-                    doctors = emptyList(),
-                    currentPage = 1,
-                    hasMore = true,
-                    error = null
-                )
-            } else {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            }
-
-            val page = if (resetList) 1 else _uiState.value.currentPage
-            val currentFilters = _filters.value
-
-            when (val result = doctorRepository.searchDoctors(
-                specialization = currentFilters.specialization,
-                search = currentFilters.search,
-                hospitalId = currentFilters.hospitalId,
-                clinicId = currentFilters.clinicId,
-                page = page,
-                latitude = currentFilters.latitude,
-                longitude = currentFilters.longitude,
-                city = currentFilters.city
-            )) {
-                is Result.Success -> {
-                    val newDoctors = if (resetList) {
-                        result.data.data
-                    } else {
-                        _uiState.value.doctors + result.data.data
-                    }
-                    
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        doctors = newDoctors,
-                        currentPage = page + 1,
-                        hasMore = result.data.pagination?.let { pagination ->
-                            page < pagination.totalPages
-                        } ?: result.data.data.isNotEmpty()
-                    )
-                }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-                is Result.Loading -> {}
-            }
-        }
+        // Triggered via updates to _filters which causes PagingSource to refresh via flatMapLatest
     }
 
     /**
      * Load more doctors (pagination)
      */
     fun loadMore() {
-        if (!_uiState.value.isLoading && _uiState.value.hasMore) {
-            searchDoctors(resetList = false)
-        }
+        // Handled by LazyPagingItems in UI
     }
 
     /**
@@ -186,6 +160,7 @@ class DoctorSearchViewModel @Inject constructor(
                         isLoading = false,
                         error = result.message
                     )
+                    SnackbarManager.showError(result.message ?: "Failed to load doctor details")
                 }
                 is Result.Loading -> {}
             }
@@ -222,6 +197,7 @@ class DoctorSearchViewModel @Inject constructor(
                         isLoading = false,
                         error = result.message
                     )
+                    SnackbarManager.showError(result.message ?: "Failed to load doctor slots")
                 }
                 is Result.Loading -> {}
             }

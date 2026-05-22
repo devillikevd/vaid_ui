@@ -551,11 +551,11 @@ class PatientDashboardViewModel @Inject constructor(
                 if (vitals.totalSteps > 0) {
                     payload.add(mapOf("type" to "steps", "value" to vitals.totalSteps.toString()))
                 }
-                vitals.recentHeartRates.lastOrNull()?.let {
-                    payload.add(mapOf("type" to "heart_rate", "value" to it.toString()))
+                vitals.recentHeartRates.forEach { hr ->
+                    payload.add(mapOf("type" to "heart_rate", "value" to hr.toString()))
                 }
-                vitals.recentTemperatures.lastOrNull()?.let {
-                    payload.add(mapOf("type" to "temperature", "value" to it.toString()))
+                vitals.recentTemperatures.forEach { temp ->
+                    payload.add(mapOf("type" to "temperature", "value" to temp.toString()))
                 }
 
                 if (payload.isNotEmpty()) {
