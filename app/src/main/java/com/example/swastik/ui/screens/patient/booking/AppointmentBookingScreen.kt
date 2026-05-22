@@ -3,11 +3,15 @@ package com.example.swastik.ui.screens.patient.booking
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.LoadState
 import androidx.paging.compose.itemContentType
@@ -26,8 +30,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -132,7 +138,13 @@ fun AppointmentBookingScreen(
         else -> "Book Appointment"
     }
 
+    val blurRadius by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (showDoctorProfile != null) 12.dp else 0.dp,
+        label = "blur"
+    )
+
     Scaffold(
+        modifier = Modifier.blur(blurRadius),
         topBar = {
             TopAppBar(
                 title = {
@@ -642,22 +654,30 @@ private fun DoctorProfileSheet(
     onDismiss: () -> Unit,
     onBookClick: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
+        containerColor = Color.White.copy(alpha = 0.9f),
+        scrimColor = Color.Black.copy(alpha = 0.3f),
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(scrollState)
                 .padding(bottom = 32.dp)
         ) {
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp)
+                    .graphicsLayer {
+                        translationY = scrollState.value * 0.4f
+                        alpha = 1f - (scrollState.value / 300f).coerceIn(0f, 1f)
+                    },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(

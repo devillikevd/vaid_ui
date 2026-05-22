@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -29,7 +30,7 @@ import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import com.example.swastik.ui.viewmodel.UploadState
-import com.example.swastik.ui.screens.patient.components.DashboardHeader
+
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.components.RecordsListShimmer
@@ -78,18 +79,19 @@ fun RecordsTabContent(
         }
     }
 
+    val blurRadius by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (showUploadDialog) 12.dp else 0.dp,
+        label = "blur"
+    )
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .blur(blurRadius)
             .background(colorScheme.background)
     ) {
         // Header
-        DashboardHeader(
-            profile = profile,
-            unreadNotificationsCount = unreadNotificationsCount,
-            onNotificationClick = onNotificationClick,
-            isHomeTab = false
-        )
+
 
         Card(
             modifier = Modifier

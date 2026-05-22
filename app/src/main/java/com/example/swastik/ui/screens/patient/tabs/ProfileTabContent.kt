@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -26,7 +28,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.swastik.R
-import com.example.swastik.ui.screens.patient.components.DashboardHeader
+
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.profile.*
 import com.example.swastik.ui.theme.*
@@ -92,18 +94,14 @@ fun ProfileTabContent(
         }
     }
 
+    val listState = rememberLazyListState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        DashboardHeader(
-            profile = profile,
-            unreadNotificationsCount = unreadNotificationsCount,
-            onNotificationClick = onNotificationClick,
-            onProfileClick = {}, // already on profile page
-            isHomeTab = false
-        )
+
 
         Card(
             modifier = Modifier
@@ -114,6 +112,7 @@ fun ProfileTabContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = 24.dp),
@@ -121,7 +120,12 @@ fun ProfileTabContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
+                    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 1000f
                     ProfileInfoCard(
+                        modifier = Modifier.graphicsLayer {
+                            translationY = scrollOffset * 0.4f
+                            alpha = 1f - (scrollOffset / 600f).coerceIn(0f, 1f)
+                        },
                         profile = profile,
                         onEditClick = { showEditProfileDialog = true },
                         onShareClick = {
@@ -156,23 +160,20 @@ fun ProfileTabContent(
                 item { QuickStatsSection(stats = stats ?: PatientStats()) }
 
                 item {
-                    SettingsItem(
-                        title = stringResource(R.string.vitals_reminders),
-                        subtitle = "Track health vitals & medicine alerts",
-                        icon = Icons.Outlined.MonitorHeart,
-                        onClick = onNavigateToVitals,
-                        iconColor = SwastikPrimary
-                    )
-                }
-
-                item {
                     SectionTitleWithBadge(
                         stringResource(R.string.health_identity),
                         if (profile?.isVerified == true) stringResource(R.string.verified) else stringResource(R.string.not_verified),
                         if (profile?.isVerified == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                item { HealthIdCard(profile = profile) }
+                item { 
+                    HealthIdCard(
+                        profile = profile,
+                        onClick = {
+                            Toast.makeText(context, "ABHA Linking is currently in development.", Toast.LENGTH_SHORT).show()
+                        }
+                    ) 
+                }
                 item { Text(stringResource(R.string.account_settings), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     SettingsCard(

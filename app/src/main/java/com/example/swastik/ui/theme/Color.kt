@@ -3,9 +3,9 @@ package com.example.swastik.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Primary brand colors (Deep Medical Teal)
-val SwastikPrimary = Color(0xFF006D77) // Calm, professional teal
+val SwastikPrimary = Color(0xFF00695C) // Calm, professional teal
 val SwastikPrimaryLight = Color(0xFFE0F2F1) // Soft teal background
-val SwastikPrimaryDark = Color(0xFF004D55)
+val SwastikPrimaryDark = Color(0xFF004D40)
 
 // Secondary & Neutral Shades
 val SwastikSecondary = Color(0xFF83C5BE) // Soft secondary teal

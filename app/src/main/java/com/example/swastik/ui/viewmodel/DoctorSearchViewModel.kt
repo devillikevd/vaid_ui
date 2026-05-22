@@ -51,6 +51,7 @@ data class DoctorSearchFilters(
 /**
  * Doctor Search ViewModel
  */
+@HiltViewModel
 class DoctorSearchViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository,
     private val apiService: ApiService

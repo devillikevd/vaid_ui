@@ -278,7 +278,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigate(Screen.AppointmentBooking.createRoute(
                         specialization = speciality
                     ))
-                }
+                },
+                onNavigateToCommunityQA = { navController.navigate(Screen.CommunityQA.route) }
             )
             }
         }

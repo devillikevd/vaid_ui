@@ -5,16 +5,21 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.PatientProfile
 import com.example.swastik.data.model.Reminder
-import com.example.swastik.ui.screens.patient.components.CommonScreenHeader
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
 
 @Composable
 fun RemindersTabContent(
@@ -28,13 +33,22 @@ fun RemindersTabContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Color(0xFFF8F9FA))
     ) {
-        CommonScreenHeader(
-            userName = profile?.name?.split(" ")?.firstOrNull() ?: "Patient",
-            subtitle = "Reminders",
-            onNotificationClick = onNotificationClick
-        )
+        // Simple Header
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 20.dp)
+        ) {
+            Text(
+                text = "My Reminders",
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                color = Color.Black
+            )
+        }
 
         if (isLoading && reminders.isEmpty()) {
             LazyColumn(
@@ -51,11 +65,15 @@ fun RemindersTabContent(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "No upcoming reminders.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.Alarm, null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No upcoming reminders.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Gray
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -75,41 +93,54 @@ fun RemindersTabContent(
 private fun ReminderCard(reminder: Reminder) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = reminder.title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Type: ${reminder.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(SwastikPrimaryLight, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
             ) {
+                Icon(Icons.Filled.Alarm, contentDescription = null, tint = SwastikPrimary)
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = reminder.time,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    text = reminder.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black
                 )
-                if (reminder.isCompleted) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${reminder.time} • ${reminder.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                    fontSize = 13.sp,
+                    color = Color.DarkGray
+                )
+            }
+            
+            if (reminder.isCompleted) {
+                Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = SwastikPrimary,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
                     Text(
-                        text = "Completed",
+                        "Done",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        color = Color.White,
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.with
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -34,6 +36,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun DashboardHeader(
     profile: PatientProfile?,
@@ -143,31 +146,6 @@ fun DashboardHeader(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Health Score Gamification Pill
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SwastikPrimary.copy(alpha = 0.1f))
-                        .clickable { /* TODO: Navigate to Gamification Details */ }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Favorite,
-                            contentDescription = "Health Score",
-                            tint = Color.Red,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "850",
-                            fontWeight = FontWeight.Bold,
-                            color = SwastikPrimary,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
 
                 // Notification Bell
                 Box {
@@ -179,21 +157,38 @@ fun DashboardHeader(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-                if (unreadNotificationsCount > 0) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = unreadNotificationsCount > 0,
+                    enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-4).dp, y = 4.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(14.dp)
-                            .background(Color.Red, CircleShape)
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-4).dp, y = 4.dp),
+                            .size(16.dp)
+                            .background(MaterialTheme.colorScheme.error, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
-                            color = Color.White,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        androidx.compose.animation.AnimatedContent(
+                            targetState = unreadNotificationsCount,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    (androidx.compose.animation.slideInVertically { height -> height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> -height } + androidx.compose.animation.fadeOut())
+                                } else {
+                                    (androidx.compose.animation.slideInVertically { height -> -height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> height } + androidx.compose.animation.fadeOut())
+                                }.using(androidx.compose.animation.SizeTransform(clip = false))
+                            },
+                            label = "unreadCount"
+                        ) { count ->
+                            Text(
+                                text = if (count > 9) "9+" else count.toString(),
+                                color = MaterialTheme.colorScheme.onError,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
                 }
@@ -317,21 +312,38 @@ fun DashboardHeader(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        if (unreadNotificationsCount > 0) {
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = unreadNotificationsCount > 0,
+                            enter = androidx.compose.animation.scaleIn() + androidx.compose.animation.fadeIn(),
+                            exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-4).dp, y = 4.dp)
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(16.dp)
-                                    .background(Color.Red, CircleShape)
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = (-4).dp, y = 4.dp),
+                                    .background(Color.Red, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = if (unreadNotificationsCount > 9) "9+" else unreadNotificationsCount.toString(),
-                                    color = Color.White,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                androidx.compose.animation.AnimatedContent(
+                                    targetState = unreadNotificationsCount,
+                                    transitionSpec = {
+                                        if (targetState > initialState) {
+                                            (androidx.compose.animation.slideInVertically { height -> height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> -height } + androidx.compose.animation.fadeOut())
+                                        } else {
+                                            (androidx.compose.animation.slideInVertically { height -> -height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> height } + androidx.compose.animation.fadeOut())
+                                        }.using(androidx.compose.animation.SizeTransform(clip = false))
+                                    },
+                                    label = "unreadCount2"
+                                ) { count ->
+                                    Text(
+                                        text = if (count > 9) "9+" else count.toString(),
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }

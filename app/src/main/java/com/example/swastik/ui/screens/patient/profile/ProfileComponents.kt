@@ -64,6 +64,7 @@ fun ProfileHeader(onSettingsClick: () -> Unit) {
 
 @Composable
 fun ProfileInfoCard(
+    modifier: Modifier = Modifier,
     profile: PatientProfile?,
     onEditClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -72,7 +73,7 @@ fun ProfileInfoCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -370,14 +371,16 @@ fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
 // ==================== HEALTH ID CARD ====================
 
 @Composable
-fun HealthIdCard(profile: PatientProfile?) {
+fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
     val colorScheme = MaterialTheme.colorScheme
     val hasAbha = profile?.abhaNumber?.isNotEmpty() == true
     val accentColor = if (hasAbha) colorScheme.primary else colorScheme.tertiary
     val accentTextColor = if (hasAbha) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (hasAbha) {

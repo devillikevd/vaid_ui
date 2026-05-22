@@ -5,24 +5,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import com.example.swastik.ui.screens.patient.components.*
-import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.data.model.PatientProfile
-import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.Doctor
 
-/**
- * Home Tab Content
- * Contains the main dashboard view
- */
 @Composable
 fun HomeTabContent(
     profile: PatientProfile?,
@@ -70,112 +59,68 @@ fun HomeTabContent(
             isHomeTab = true
         )
         
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Large Search Bar
-        SearchBar(onSearchClick = onSearchClick)
+        Spacer(modifier = Modifier.height(12.dp))
         
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Emergency Banner (Full Width)
-        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-            EmergencyQuickCard(onClick = onNavigateToEmergency)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // AI Assistant Section
-        EnhancedChatBotSection(
-            onChatbotClick = onNavigateToChatbot
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Row 1: Clinic Visit | Video Consult | Digital Health Card
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            InPersonFeatureCard(
-                modifier = Modifier.weight(1f),
-                onClick = onSearchClick
-            )
-            VideoConsultFeatureCard(
-                modifier = Modifier.weight(1f),
-                onClick = onStartVideoConsultation
-            )
-            HealthCardQuickCard(
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToHealthCard
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Row 2: My Reports & My Appointments
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SummaryActionCard(
-                title = "MY REPORTS",
-                description = "Medical History",
-                buttonText = "VIEW ALL",
-                icon = Icons.Outlined.Folder,
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToReports
-            )
-            SummaryActionCard(
-                title = "MY APPOINTMENTS",
-                description = "Past & Upcoming",
-                buttonText = "MANAGE",
-                icon = Icons.Outlined.CalendarMonth,
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToAppointments
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Book Doctor by Speciality
-        FindDoctorsBySpecialitySection(
-            onSpecialityClick = onFindDoctorSpecialityClick
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Healthcare Services
-        CareDirectorySection(
-            onHospitalClick = onNavigateToHospitals,
-            onClinicClick = onNavigateToClinics,
-            onPharmacyClick = onNavigateToPharmacies,
-            onDiagnosticClick = onNavigateToDiagnostic
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Community Q&A
-        CommunityQASection(onClick = onNavigateToCommunityQA)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Recommended for You
-        DoctorRecommendationSection(
+        // Search Bar overlay
+        GlobalSearchBar(
             doctors = doctors,
-            onDoctorClick = { doctor -> onNavigateToBooking(doctor.id) },
-            onBookClick = { doctor -> onNavigateToBooking(doctor.id) },
-            onSeeAllClick = onNavigateToAppointments
+            onDoctorSelect = { doc -> onNavigateToBooking(doc.id) },
+            onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) }
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        TrustSignalsStrip()
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Reduced bottom spacing to prevent over-scrolling
-        Spacer(modifier = Modifier.height(32.dp))
+        // Emergency SOS
+        EmergencySOSBanner(onClick = onNavigateToEmergency)
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Swastik AI Assistant Banner
+        SwastikAIBanner(onClick = onNavigateToChatbot)
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Primary Actions (Clinic, Video, Health Card)
+        PrimaryActionsGrid(
+            onClinicClick = { onNavigateToBooking(null) },
+            onVideoClick = onStartVideoConsultation,
+            onHealthCardClick = onNavigateToHealthCard
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Secondary Actions (Reports, Appointments, Community Q&A)
+        SecondaryActionsGrid(
+            onReportsClick = onNavigateToReports,
+            onAppointmentsClick = onNavigateToAppointments,
+            onCommunityQAClick = onNavigateToCommunityQA
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Book Doctor by Speciality
+        SpecialitySection(onSpecialityClick = onFindDoctorSpecialityClick)
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Healthcare Services
+        HealthcareServicesSection(
+            onHospitalsClick = onNavigateToHospitals,
+            onClinicsClick = onNavigateToClinics,
+            onPharmacyClick = onNavigateToPharmacies,
+            onDiagnosticsClick = onNavigateToDiagnostic
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Recommended Doctors
+        if (doctors.isNotEmpty()) {
+            RecommendedDoctorsSection(
+                doctors = doctors,
+                onBookClick = { onNavigateToBooking(it.id) }
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
