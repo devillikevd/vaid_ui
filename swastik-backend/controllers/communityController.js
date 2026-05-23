@@ -3,7 +3,14 @@ const communityService = require('../services/communityService');
 exports.getQuestions = async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
-    const offset = parseInt(req.query.offset) || 0;
+    let offset = parseInt(req.query.offset) || 0;
+    
+    // If 'page' is provided, override offset calculation (page is 1-indexed)
+    if (req.query.page) {
+      const page = parseInt(req.query.page) || 1;
+      offset = (page - 1) * limit;
+    }
+    
     const result = await communityService.getQuestions(limit, offset);
     res.json(result);
   } catch (error) {

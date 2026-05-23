@@ -1237,6 +1237,18 @@ export const medicineApi = {
         }),
 };
 
+// ==================== COMMUNITY API ====================
+// Backend: routes/communityRoutes.js
+
+export const communityApi = {
+    getQuestions: (page: number = 1, limit: number = 20) => fetchWithAuth(`/community/questions?page=${page}&limit=${limit}`),
+    addAnswer: (questionId: string, content: string) => fetchWithAuth(`/community/questions/${questionId}/answers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    })
+};
+
 // ==================== Unified Export ====================
 
 export const api = {
@@ -1254,6 +1266,7 @@ export const api = {
     vitals: vitalsApi,
     featureToggles: featureTogglesApi,
     medicine: medicineApi,
+    community: communityApi,
 };
 
 export default api;

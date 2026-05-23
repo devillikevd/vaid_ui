@@ -20,7 +20,7 @@ class CommunityPagingSource(
                 LoadResult.Page(
                     data = questions,
                     prevKey = if (page == 1) null else page - 1,
-                    nextKey = if (questions.isEmpty()) null else page + 1
+                    nextKey = if (questions.isEmpty() || questions.size < params.loadSize) null else page + 1
                 )
             } else {
                 LoadResult.Error(Exception(response.message()))

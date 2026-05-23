@@ -57,7 +57,7 @@ fun RemindersTabContent(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFFF8F9FA),
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showCreateSheet = true },
@@ -266,10 +266,10 @@ private fun ReminderCard(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(SwastikPrimaryLight, RoundedCornerShape(12.dp)),
+                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Alarm, contentDescription = null, tint = SwastikPrimary)
+                    Icon(Icons.Filled.Alarm, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
                 
                 Spacer(modifier = Modifier.width(16.dp))
@@ -292,7 +292,7 @@ private fun ReminderCard(
 
             if (reminder.isCompleted) {
                 Surface(
-                    color = Color(0xFFE8F5E9),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(999.dp)
                 ) {
                     Row(
@@ -303,12 +303,12 @@ private fun ReminderCard(
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF2E7D32),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "Marked for today",
-                            color = Color(0xFF2E7D32),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -323,8 +323,8 @@ private fun ReminderCard(
                         onClick = onMarkDone,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFFE8F5E9),
-                            contentColor = Color(0xFF2E7D32)
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
                         Text("Taken")
@@ -333,8 +333,8 @@ private fun ReminderCard(
                         onClick = onSnooze,
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color(0xFFEFF3FF),
-                            contentColor = SwastikPrimary
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     ) {
                         Text("Snooze")

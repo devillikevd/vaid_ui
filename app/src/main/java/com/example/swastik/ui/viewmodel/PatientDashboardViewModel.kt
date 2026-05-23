@@ -645,7 +645,7 @@ class PatientDashboardViewModel @Inject constructor(
     fun snoozeReminder(reminderId: String, scheduledAt: String, snoozeMinutes: Int = 15) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            when (val result = vitalsRepository.actOnReminder(reminderId, "snoozed", scheduledAt, snoozeMinutes)) {
+            when (val result = vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMinutes)) {
                 is Result.Success -> {
                     com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder snoozed")
                     refresh()
@@ -661,7 +661,7 @@ class PatientDashboardViewModel @Inject constructor(
     fun skipReminder(reminderId: String, scheduledAt: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            when (val result = vitalsRepository.actOnReminder(reminderId, "skipped", scheduledAt)) {
+            when (val result = vitalsRepository.actOnReminder(reminderId, "skip", scheduledAt)) {
                 is Result.Success -> {
                     com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder skipped")
                     refresh()

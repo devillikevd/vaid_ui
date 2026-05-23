@@ -13,6 +13,7 @@ import {
     Activity,
     MailCheck,
     Radar,
+    MessageCircleQuestion,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -36,6 +37,7 @@ const DOCTOR_CONFIG: DashboardConfig = {
         { name: 'Invites', href: '/doctor/invites', icon: MailCheck },
         { name: 'Vitals', href: '/doctor/vitals', icon: Activity },
         { name: 'Health Alerts', href: '/doctor/health-alerts', icon: Radar },
+        { name: 'Community Q&A', href: '/doctor/community', icon: MessageCircleQuestion },
         { name: 'Schedule', href: '/doctor/schedule', icon: Clock },
         { name: 'Settings', href: '/doctor/settings', icon: Settings },
     ],
