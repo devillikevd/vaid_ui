@@ -344,13 +344,17 @@ fun ChatbotScreen(
     }
 
     Scaffold(
+        modifier = Modifier.statusBarsPadding(),
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
@@ -358,49 +362,50 @@ fun ChatbotScreen(
                                     )
                                 ),
                             contentAlignment = Alignment.Center
-                        ) { Text(stringResource(R.string.ud83e_udd16), fontSize = 20.sp) }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        ) { Text(stringResource(R.string.ud83e_udd16), fontSize = 18.sp) }
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
+                                Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("AI \u2022 Voice \u2022 Vision \u2022 ${selectedLanguage.nativeLabel}", fontSize = 12.sp, color = Color(0xFF4CAF50))
+                                Text("AI \u2022 Voice \u2022 Vision", fontSize = 10.sp, color = Color(0xFF4CAF50))
                             }
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                     }
                 },
                 actions = {
                     // Language toggle chip
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = SwastikPrimary.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = SwastikPrimary.copy(alpha = 0.1f),
                         modifier = Modifier.clickable { viewModel.toggleLanguage() }
                     ) {
                         Text(
-                            text = if (selectedLanguage == ChatLanguage.ENGLISH) "EN \uD83C\uDDEC\uD83C\uDDE7" else "HI \uD83C\uDDEE\uD83C\uDDF3",
-                            fontSize = 12.sp,
+                            text = if (selectedLanguage == ChatLanguage.ENGLISH) "EN" else "HI",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPrimary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
                     // TTS toggle
-                    IconButton(onClick = { viewModel.toggleTts() }) {
+                    IconButton(onClick = { viewModel.toggleTts() }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = if (uiState.ttsEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                            contentDescription = "Toggle voice output",
-                            tint = if (uiState.ttsEnabled) SwastikPrimary else Color.Gray
+                            contentDescription = "Toggle voice",
+                            tint = if (uiState.ttsEnabled) SwastikPrimary else Color.Gray,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     // Clear chat
-                    IconButton(onClick = { viewModel.clearChat() }) {
-                        Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear chat")
+                    IconButton(onClick = { viewModel.clearChat() }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear", modifier = Modifier.size(20.dp))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

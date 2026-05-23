@@ -1,5 +1,12 @@
 package com.example.swastik.ui.screens.patient.profile
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.provider.ContactsContract
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -39,6 +47,52 @@ fun EmergencyContactsDialog(
     var newPhone by remember { mutableStateOf("") }
     var newRelation by remember { mutableStateOf("") }
     var contactToDelete by remember { mutableStateOf<EmergencyContact?>(null) }
+    
+    var showRelationDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val contactPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickContact()
+    ) { uri ->
+        uri?.let {
+            val projection = arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+            try {
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    projection,
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                    arrayOf(it.lastPathSegment),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                        val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                        if (nameIndex != -1 && numberIndex != -1) {
+                            newName = cursor.getString(nameIndex)
+                            newPhone = cursor.getString(numberIndex).filter { c -> c.isDigit() || c == '+' }
+                            showRelationDialog = true
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error reading contact details", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            contactPickerLauncher.launch(null)
+        } else {
+            Toast.makeText(context, "Permission to read contacts is required", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val colorScheme = MaterialTheme.colorScheme
 
     AlertDialog(
@@ -49,10 +103,21 @@ fun EmergencyContactsDialog(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.emergency_contacts), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { showAddForm = !showAddForm }) {
+                IconButton(onClick = {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.READ_CONTACTS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    
+                    if (hasPermission) {
+                        contactPickerLauncher.launch(null)
+                    } else {
+                        permissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                    }
+                }) {
                     Icon(
-                        if (showAddForm) Icons.Default.Close else Icons.Default.Add,
-                        contentDescription = if (showAddForm) stringResource(R.string.cancel) else "Add Contact",
+                        Icons.Default.Add,
+                        contentDescription = "Pick from contacts",
                         tint = SwastikPrimary
                     )
                 }
@@ -149,6 +214,42 @@ fun EmergencyContactsDialog(
         },
         shape = RoundedCornerShape(20.dp)
     )
+
+    // Relation Picker Dialog
+    if (showRelationDialog) {
+        val relationOptions = listOf("Father", "Mother", "Spouse", "Brother", "Sister", "Friend", "Other")
+        AlertDialog(
+            onDismissRequest = { showRelationDialog = false },
+            title = { Text("Select Relationship", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    relationOptions.forEach { relation ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    newRelation = relation
+                                    onAddContact(newName, newPhone, newRelation)
+                                    showRelationDialog = false
+                                }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(relation, fontSize = 16.sp)
+                        }
+                        if (relation != relationOptions.last()) {
+                            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.2f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showRelationDialog = false }) { Text("Cancel") }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
 
     // Delete confirmation dialog
     contactToDelete?.let { contact ->

@@ -14,6 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,26 +57,27 @@ fun MainCardsSection(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.in_person_consultation),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(110.dp)
+                            .padding(bottom = 12.dp, end = 12.dp)
+                            .alpha(0.12f),
+                        contentScale = ContentScale.Fit
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFF0F4F8)), // Very soft blue-grey
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Outlined.Domain, contentDescription = null, tint = SwastikPrimary)
-                        }
-                        
                         Surface(
                             color = SwastikPrimary.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(100.dp)
@@ -111,6 +116,7 @@ fun MainCardsSection(
                     }
                 }
             }
+        }
 
             // Video Consultation Card
             Card(
@@ -122,26 +128,27 @@ fun MainCardsSection(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.video_consultation_icon),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(110.dp)
+                            .padding(bottom = 12.dp, end = 12.dp)
+                            .alpha(0.12f),
+                        contentScale = ContentScale.Fit
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFE8F5E9)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Outlined.Videocam, contentDescription = null, tint = Color(0xFF4CAF50))
-                        }
-                        
                         Surface(
                             color = Color(0xFF4CAF50).copy(alpha = 0.1f),
                             shape = RoundedCornerShape(100.dp)
@@ -177,6 +184,7 @@ fun MainCardsSection(
                     }
                 }
             }
+        }
         }
 
         // ── Bottom Row: Reports + Appointments ──
@@ -259,4 +267,3 @@ private fun QuickAccessMiniCard(
         }
     }
 }
-

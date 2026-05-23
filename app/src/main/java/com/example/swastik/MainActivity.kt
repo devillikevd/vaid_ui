@@ -341,6 +341,23 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onViewAllSpecialities = {
                         navController.navigate(Screen.AllSpecialities.createRoute(mode))
+                    },
+                    onViewAllCategories = {
+                        navController.navigate(Screen.AllCategories.route)
+                    }
+                )
+            }
+        }
+
+        composable(route = Screen.AllCategories.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.booking.AllCategoriesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCategoryClick = { specialization, search ->
+                        navController.navigate(Screen.AppointmentBooking.createRoute(
+                            specialization = specialization,
+                            search = search
+                        ))
                     }
                 )
             }

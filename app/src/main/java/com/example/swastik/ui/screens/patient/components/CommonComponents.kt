@@ -38,13 +38,15 @@ fun PatientBottomNavigation(
     val haptic = LocalHapticFeedback.current
 
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        containerColor = MaterialTheme.colorScheme.surface, // Restoring original surface color
         tonalElevation = 0.dp,
-        modifier = Modifier.shadow(
-            elevation = 16.dp,
-            spotColor = Color.Black.copy(alpha = 0.05f),
-            ambientColor = Color.Transparent
-        )
+        modifier = Modifier
+            .height(68.dp)
+            .shadow(
+                elevation = 16.dp,
+                spotColor = Color.Black.copy(alpha = 0.05f),
+                ambientColor = Color.Transparent
+            )
     ) {
         NavigationBarItem(
             selected = selectedTab == 0,

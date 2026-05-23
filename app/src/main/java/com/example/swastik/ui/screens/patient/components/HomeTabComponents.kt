@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -83,14 +87,24 @@ fun SwastikAIBanner(onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .background(androidx.compose.ui.graphics.Brush.linearGradient(
-                    colors = listOf(Color(0xFF00796B), Color(0xFF004D40))
-                ))
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.ai_icon),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(120.dp)
+                    .alpha(0.12f),
+                contentScale = ContentScale.Fit
+            )
+            Column(
+                modifier = Modifier
+                    .background(androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(Color(0xFF00796B), Color(0xFF004D40))
+                    ))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
@@ -114,6 +128,7 @@ fun SwastikAIBanner(onClick: () -> Unit) {
             }
         }
     }
+}
 }
 
 @Composable
@@ -143,24 +158,25 @@ fun PrimaryActionsGrid(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.in_person_consultation),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(100.dp)
+                            .padding(bottom = 8.dp, end = 8.dp)
+                            .alpha(0.14f),
+                        contentScale = ContentScale.Fit
+                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFF0F4F8)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Outlined.Domain, contentDescription = null, tint = SwastikPrimary)
-                        }
-                        
                         Surface(
                             color = SwastikPrimary.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(100.dp)
@@ -196,6 +212,7 @@ fun PrimaryActionsGrid(
                     }
                 }
             }
+        }
 
             // Video Consult
             Card(
@@ -206,24 +223,25 @@ fun PrimaryActionsGrid(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.video_consultation_icon),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(100.dp)
+                            .padding(bottom = 8.dp, end = 8.dp)
+                            .alpha(0.14f),
+                        contentScale = ContentScale.Fit
+                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFE8F5E9)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Outlined.Videocam, contentDescription = null, tint = Color(0xFF4CAF50))
-                        }
-                        
                         Surface(
                             color = Color(0xFF4CAF50).copy(alpha = 0.1f),
                             shape = RoundedCornerShape(100.dp)
@@ -257,6 +275,7 @@ fun PrimaryActionsGrid(
                     }
                 }
             }
+        }
         }
 
         // Right Column (Digital Health Card)
@@ -322,22 +341,35 @@ fun SecondaryActionsGrid(
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFF0F4F8)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.Description, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Outlined.Description, null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text("Reports", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Medical History", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Reports", 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 14.sp, 
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "History", 
+                            fontSize = 11.sp, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -350,22 +382,35 @@ fun SecondaryActionsGrid(
                 elevation = CardDefaults.cardElevation(2.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFF0F4F8)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text("Appointments", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Past & Upcoming", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Appointments", 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 14.sp, 
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "Upcoming", 
+                            fontSize = 11.sp, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -422,9 +467,29 @@ fun SpecialitySection(onSpecialityClick: (String) -> Unit) {
 
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(specialities) { spec ->
+                val imageRes = when (spec.first) {
+                    "General Physician" -> R.drawable.generalphysician
+                    "Women's Health" -> R.drawable.womenhealth
+                    "Skin Specialist" -> R.drawable.skinnspecialist
+                    "Child Care" -> R.drawable.childspecialist
+                    "Dentist" -> R.drawable.dentists
+                    "Eye Specialist" -> R.drawable.eyespecialist
+                    "Ear, Nose & Throat" -> R.drawable.eatspecialist
+                    "Mental Wellness" -> R.drawable.mentalwelnness
+                    else -> null
+                }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(70.dp).clickable { onSpecialityClick(spec.first) }) {
                     Box(modifier = Modifier.size(60.dp).background(spec.third, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(spec.second, null, tint = SwastikPrimary)
+                        if (imageRes != null) {
+                            Image(
+                                painter = painterResource(id = imageRes),
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(spec.second, null, tint = SwastikPrimary)
+                        }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(spec.first, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
@@ -465,25 +530,52 @@ fun HealthcareServicesSection(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Box(
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            painter = painterResource(id = R.drawable.findhospital),
+                            contentDescription = null,
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF0F4F8)),
-                            contentAlignment = Alignment.Center
+                                .align(Alignment.BottomEnd)
+                                .size(90.dp)
+                                .alpha(0.15f) // Matches the style of In-person/Video cards
+                                .padding(bottom = 8.dp, end = 8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            Icon(Icons.Outlined.LocalHospital, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Column {
-                            Text("Find Hospitals", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Book & Visit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF0F4F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.LocalHospital, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Column {
+                                Text("Find Hospitals", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Book & Visit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                
+                                // Added Low Occupancy badge
+                                Surface(
+                                    color = Color(0xFF4CAF50).copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                ) {
+                                    Text(
+                                        "Low occupancy", 
+                                        fontSize = 9.sp, 
+                                        color = Color(0xFF2E7D32), 
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

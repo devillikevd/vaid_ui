@@ -67,7 +67,8 @@ fun DashboardHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 16.dp, vertical = 2.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -214,6 +215,7 @@ fun DashboardHeader(
                         )
                     )
                 )
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 14.dp)
         ) {
             Row(

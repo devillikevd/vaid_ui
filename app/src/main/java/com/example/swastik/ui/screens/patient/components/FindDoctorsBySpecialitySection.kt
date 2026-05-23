@@ -1,5 +1,9 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -9,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
+import com.example.swastik.ui.screens.patient.booking.getSpecialityImage
 
 private data class HomeSpeciality(
     val name: String,
@@ -130,6 +136,7 @@ fun FindDoctorsBySpecialitySection(
                             icon = item.icon,
                             bgColor = item.bgColor,
                             iconTint = item.iconTint,
+                            imageRes = getSpecialityImage(item.name),
                             onClick = { onSpecialityClick(item.name.replace("\n", " ")) }
                         )
                     }
@@ -140,55 +147,77 @@ fun FindDoctorsBySpecialitySection(
 }
 
 @Composable
-private fun SpecialityCard(
+fun SpecialityCard(
     name: String,
     icon: ImageVector,
     bgColor: Color,
     iconTint: Color,
+    imageRes: Int? = null,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
-            .width(110.dp)
-            .height(120.dp)
+            .width(105.dp)
+            .height(115.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(10.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Background Image or Icon
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .shadow(2.dp, CircleShape)
-                    .clip(CircleShape)
-                    .background(bgColor),
+                    .fillMaxSize()
+                    .background(if (imageRes == null) bgColor.copy(alpha = 0.4f) else Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = name,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp)
+                if (imageRes != null) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = name,
+                        tint = iconTint,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+
+            // Seamless Text Overlay at the bottom
+            // Using a subtle gradient to ensure text readability without a "line"
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    )
+                    .padding(bottom = 8.dp, top = 24.dp, start = 4.dp, end = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = name,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = name,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                lineHeight = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }

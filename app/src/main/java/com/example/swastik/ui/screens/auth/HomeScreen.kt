@@ -216,32 +216,79 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            "Sign In",
+                            "Login as Patient",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
-                // Already have account
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // Professional Login Section
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF1F8E9).copy(alpha = 0.5f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF81C784).copy(alpha = 0.3f))
                 ) {
-                    Text(
-                        "Already have an account? ",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                    TextButton(onClick = onPatientLoginClick) {
-                        Text(
-                            "Login here",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SwastikPrimary
-                        )
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.LocalHospital,
+                                contentDescription = null,
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(16.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Are you a Doctor, Hospital, Clinic or Lab?",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                            Text(
+                                "Login to your portal on the website.",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.vaididea.in/"))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.height(36.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32))
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Language, null, modifier = Modifier.size(16.dp), tint = Color(0xFF2E7D32))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Login on Website", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(14.dp), tint = Color(0xFF2E7D32))
+                                }
+                            }
+                        }
                     }
                 }
 

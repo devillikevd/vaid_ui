@@ -32,6 +32,7 @@ sealed class Screen(val route: String) {
     object AllSpecialities : Screen("all_specialities?mode={mode}") {
         fun createRoute(mode: String = "in_person"): String = "all_specialities?mode=$mode"
     }
+    object AllCategories : Screen("all_categories")
     object AppointmentBooking : Screen("appointment_booking?doctorId={doctorId}&hospitalId={hospitalId}&clinicId={clinicId}&specialization={specialization}&consultationMode={consultationMode}&search={search}") {
         fun createRoute(
             doctorId: String? = null,
