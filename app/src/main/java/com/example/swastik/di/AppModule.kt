@@ -215,4 +215,12 @@ object AppModule {
     ): SyncManager {
         return SyncManager(syncQueueDao, apiService, networkObserver)
     }
+
+    // ==================== Alarm Scheduler ====================
+
+    @Provides
+    @Singleton
+    fun provideReminderAlarmScheduler(@ApplicationContext context: Context): com.example.swastik.notifications.ReminderAlarmScheduler {
+        return com.example.swastik.notifications.AndroidAlarmScheduler(context)
+    }
 }

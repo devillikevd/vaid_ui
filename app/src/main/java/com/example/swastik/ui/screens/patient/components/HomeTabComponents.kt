@@ -311,12 +311,12 @@ fun SecondaryActionsGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Reports Card
             Card(
-                modifier = Modifier.weight(1f).clickable(onClick = onReportsClick),
+                modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onReportsClick),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(2.dp)
@@ -344,7 +344,7 @@ fun SecondaryActionsGrid(
 
             // Appointments Card
             Card(
-                modifier = Modifier.weight(1f).clickable(onClick = onAppointmentsClick),
+                modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onAppointmentsClick),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(2.dp)

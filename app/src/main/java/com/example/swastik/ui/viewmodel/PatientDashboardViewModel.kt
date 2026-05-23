@@ -30,6 +30,7 @@ import javax.inject.Inject
 
 import com.example.swastik.data.repository.VitalsRepository
 import com.example.swastik.data.remote.dto.CreateReminderRequest
+import com.example.swastik.notifications.ReminderAlarmScheduler
 
 /**
  * UI State for Patient Dashboard
@@ -52,6 +53,7 @@ class PatientDashboardViewModel @Inject constructor(
     private val emergencyRepository: EmergencyRepository,
     private val socketManager: SocketManager,
     private val pushNotificationCoordinator: PushNotificationCoordinator,
+    private val alarmScheduler: ReminderAlarmScheduler,
     networkObserver: NetworkObserver,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -77,11 +79,13 @@ class PatientDashboardViewModel @Inject constructor(
         collectProviderCatalogUpdates()
         collectPrescriptionUpdates()
         observeSocketReconnects()
+        scheduleAlarms()
     }
 
     fun logout(onComplete: () -> Unit) {
         viewModelScope.launch {
             authRepository.logout()
+            alarmScheduler.cancelAll()
             onComplete()
         }
     }
@@ -111,6 +115,20 @@ class PatientDashboardViewModel @Inject constructor(
                 notifs.filter { it.id != "reminders_summary_virtual" }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun scheduleAlarms() {
+        viewModelScope.launch {
+            reminders.collect { currentReminders ->
+                currentReminders.forEach { reminder ->
+                    if (!reminder.isCompleted) {
+                        alarmScheduler.schedule(reminder)
+                    } else {
+                        alarmScheduler.cancel(reminder)
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Collect real-time notifications from Socket.IO and merge into notification list
@@ -596,6 +614,7 @@ class PatientDashboardViewModel @Inject constructor(
             )
             when (val result = vitalsRepository.createReminder(request)) {
                 is Result.Success -> {
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder created successfully")
                     refresh() // Refresh to update list
                 }
                 is Result.Error -> {
@@ -611,6 +630,7 @@ class PatientDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.actOnReminder(reminderId, "taken", scheduledAt)) {
                 is Result.Success -> {
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder marked as taken")
                     refresh()
                 }
                 is Result.Error -> {
@@ -626,6 +646,7 @@ class PatientDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.actOnReminder(reminderId, "snoozed", scheduledAt, snoozeMinutes)) {
                 is Result.Success -> {
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder snoozed")
                     refresh()
                 }
                 is Result.Error -> {
@@ -641,6 +662,7 @@ class PatientDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.actOnReminder(reminderId, "skipped", scheduledAt)) {
                 is Result.Success -> {
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder skipped")
                     refresh()
                 }
                 is Result.Error -> {
@@ -656,6 +678,7 @@ class PatientDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.deleteReminder(reminderId)) {
                 is Result.Success -> {
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder deleted")
                     refresh()
                 }
                 is Result.Error -> {

@@ -299,6 +299,7 @@ fun AppointmentBookingScreen(
                             val fallbackDates = availableDates
                                 .filter { it.isAfter(date) }
                                 .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
+                                .take(2)
                             appointmentViewModel.loadTimeSlots(
                                 selectedDoctor!!.id,
                                 formatted,

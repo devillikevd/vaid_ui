@@ -87,7 +87,6 @@ fun CommunityQAScreen(
             ) {
                 items(
                     count = pagedQuestions.itemCount,
-                    key = pagedQuestions.itemKey { it.id },
                     contentType = pagedQuestions.itemContentType { "Question" }
                 ) { index ->
                     val question = pagedQuestions[index]
