@@ -245,8 +245,8 @@ fun PatientDashboardScreen(
                 },
                 onActionClick = { notification ->
                     viewModel.markNotificationRead(notification.id)
-                    if (notification.actionRoute == Screen.VitalsReminders.route) {
-                        onNavigateToVitals()
+                    if (notification.actionRoute == "reminders_tab") {
+                        selectedTab = 1
                     } else {
                         notification.actionRoute?.let(onNotificationActionRoute)
                     }

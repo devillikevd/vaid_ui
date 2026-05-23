@@ -64,7 +64,7 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
                 Text(
                     "Tap to call ambulance or alert contacts",
                     fontSize = 12.sp,
-                    color = Color.DarkGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Icon(Icons.Filled.ChevronRight, null, tint = SwastikRed)
@@ -103,12 +103,12 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(40.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp))
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Hi, how are you feeling today?", color = Color.Gray, fontSize = 13.sp)
+                    Text("Hi, how are you feeling today?", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     Icon(Icons.Filled.Mic, null, tint = Color(0xFF00796B), modifier = Modifier.size(18.dp))
                 }
             }
@@ -394,7 +394,7 @@ fun SecondaryActionsGrid(
                     Text("Ask doctors & view discussions", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Filled.ChevronRight, null, tint = Color.Gray)
+                Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -427,7 +427,7 @@ fun SpecialitySection(onSpecialityClick: (String) -> Unit) {
                         Icon(spec.second, null, tint = SwastikPrimary)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(spec.first, fontSize = 11.sp, color = Color.DarkGray, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
+                    Text(spec.first, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, textAlign = androidx.compose.ui.text.style.TextAlign.Center, maxLines = 2)
                 }
             }
         }
@@ -632,19 +632,19 @@ fun DoctorCard(
                     Box(modifier = Modifier.size(50.dp).background(SwastikPrimaryLight, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                         Text("👨‍⚕️", fontSize = 24.sp)
                     }
-                    Icon(Icons.Filled.Verified, null, tint = SwastikPrimary, modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(16.dp).background(Color.White, CircleShape))
+                    Icon(Icons.Filled.Verified, null, tint = SwastikPrimary, modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(16.dp).background(MaterialTheme.colorScheme.surface, CircleShape))
                 }
                 Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(12.dp)) {
                     Text("Today", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = SwastikGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(doctor.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.Black)
+            Text(doctor.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
             Text(doctor.specialization, fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                Text(" ${doctor.averageRating ?: 0.0f} • ${doctor.experienceYears ?: 0} Yrs", fontSize = 12.sp, color = Color.Gray)
+                Text(" ${doctor.averageRating ?: 0.0f} • ${doctor.experienceYears ?: 0} Yrs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(

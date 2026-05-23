@@ -47,7 +47,7 @@ import com.example.swastik.ui.screens.patient.medicine.MedicineCartScreen
 import com.example.swastik.ui.screens.patient.medicine.OrderHistoryScreen
 import com.example.swastik.ui.screens.patient.diagnostic.BookingHistoryScreen
 import com.example.swastik.ui.screens.patient.diagnostic.DiagnosticBookingScreen
-import com.example.swastik.ui.screens.patient.vitals.VitalsRemindersScreen
+
 import com.example.swastik.ui.theme.SwastikTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -264,7 +264,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToDiagnostic = {
                     navController.navigate(Screen.HospitalFinder.createRoute(FacilityType.DIAGNOSTIC_CENTER))
                 },
-                onNavigateToVitals = { navController.navigate(Screen.VitalsReminders.route) },
+                onNavigateToVitals = { /* handled internally or unused */ },
                 onNavigateToHealthCard = { navController.navigate(Screen.HealthCard.route) },
                 onNavigateToOrderHistory = { navController.navigate(Screen.OrderHistory.route) },
                 onNavigateToBookingHistory = { navController.navigate(Screen.BookingHistory.route) },
@@ -729,28 +729,6 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             }
         }
 
-        composable(
-            route = Screen.VitalsReminders.route,
-            arguments = listOf(
-                navArgument("tab") {
-                    type = NavType.IntType
-                    defaultValue = 0
-                }
-            ),
-            deepLinks = listOf(
-                navDeepLink { uriPattern = "vaididea://vitals" },
-                navDeepLink { uriPattern = "vaididea://reminders" },
-                navDeepLink { uriPattern = "https://vaididea.in/vitals" }
-            )
-        ) { backStackEntry ->
-            val initialTab = backStackEntry.arguments?.getInt("tab") ?: 0
-            AuthGuard(navController, tokenManager) {
-                VitalsRemindersScreen(
-                    initialTab = initialTab,
-                    onBackClick = { navController.popBackStack() }
-                )
-            }
-        }
 
         composable(
             route = Screen.HealthCard.route,

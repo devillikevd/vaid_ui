@@ -39,7 +39,7 @@ fun DoctorProfileBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White.copy(alpha = 0.9f),
+        containerColor = MaterialTheme.colorScheme.surface,
         scrimColor = Color.Black.copy(alpha = 0.3f),
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
@@ -75,7 +75,7 @@ fun DoctorProfileBottomSheet(
                             .size(24.dp)
                             .align(Alignment.BottomEnd)
                             .offset(x = 6.dp, y = 6.dp)
-                            .background(Color.White, CircleShape)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
                 Spacer(modifier = Modifier.width(20.dp))
@@ -97,7 +97,7 @@ fun DoctorProfileBottomSheet(
                     Text(
                         text = doctor.qualification ?: "MBBS, MD",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -150,7 +150,7 @@ fun DoctorProfileBottomSheet(
                 Text(
                     text = "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 22.sp
                 )
             }
@@ -193,7 +193,7 @@ private fun DoctorStatCard(
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.height(12.dp))
             Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text(subtitle, fontSize = 12.sp, color = Color.Gray)
+            Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

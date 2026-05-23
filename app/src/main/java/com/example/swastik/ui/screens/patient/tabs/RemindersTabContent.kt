@@ -78,14 +78,14 @@ fun RemindersTabContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 16.dp, vertical = 20.dp)
             ) {
                 Text(
                     text = "My Reminders",
                     fontWeight = FontWeight.Bold,
                     fontSize = 24.sp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
@@ -104,12 +104,12 @@ fun RemindersTabContent(
                             .padding(end = 8.dp, bottom = 8.dp)
                             .clickable { selectedFilter = filter },
                         shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) SwastikPrimary else Color.White,
+                        color = if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surface,
                         border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray) else null
                     ) {
                         Text(
                             text = filter,
-                            color = if (isSelected) Color.White else Color.DarkGray,
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
@@ -139,7 +139,7 @@ fun RemindersTabContent(
                         Text(
                             text = "No upcoming reminders.",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -253,7 +253,7 @@ private fun ReminderCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Column(
@@ -279,13 +279,13 @@ private fun ReminderCard(
                         text = reminder.title,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "${reminder.time} • ${reminder.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
                         fontSize = 13.sp,
-                        color = Color.DarkGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

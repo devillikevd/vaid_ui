@@ -74,7 +74,7 @@ fun FindDoctorsBySpecialitySection(
             text = stringResource(R.string.book_doctor_by_speciality),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = TextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -104,7 +104,7 @@ fun FindDoctorsBySpecialitySection(
                         text = label,
                         fontSize = 14.sp,
                         fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                        color = if (selectedTab == index) TextPrimary else TextSecondary
+                        color = if (selectedTab == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -186,7 +186,7 @@ private fun SpecialityCard(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 lineHeight = 14.sp,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 overflow = TextOverflow.Ellipsis
             )
         }
