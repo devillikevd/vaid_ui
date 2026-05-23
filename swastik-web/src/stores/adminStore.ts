@@ -236,7 +236,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     approveProvider: async (id, type, notes) => {
         try {
             const providerType = normalizeProviderTypeForApi(type);
-            const response = await adminApi.approveProvider(providerType, id, notes);
+            const response = await adminApi.approveProvider(providerType as any, id, notes);
             if (response.success) {
                 await Promise.all([
                     get().fetchPendingApprovals(get().currentApprovalsFilter),
@@ -257,7 +257,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     rejectProvider: async (id, type, reason) => {
         try {
             const providerType = normalizeProviderTypeForApi(type);
-            const response = await adminApi.rejectProvider(providerType, id, reason);
+            const response = await adminApi.rejectProvider(providerType as any, id, reason);
             if (response.success) {
                 await Promise.all([
                     get().fetchPendingApprovals(get().currentApprovalsFilter),
@@ -278,7 +278,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     suspendProvider: async (id, type, reason) => {
         try {
             const providerType = normalizeProviderTypeForApi(type);
-            const response = await adminApi.suspendProvider(providerType, id, reason);
+            const response = await adminApi.suspendProvider(providerType as any, id, reason);
             if (response.success) {
                 await Promise.all([
                     get().fetchPendingApprovals(get().currentApprovalsFilter),
@@ -299,7 +299,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     reactivateProvider: async (id, type, notes) => {
         try {
             const providerType = normalizeProviderTypeForApi(type);
-            const response = await adminApi.reactivateProvider(providerType, id, notes);
+            const response = await adminApi.reactivateProvider(providerType as any, id, notes);
             if (response.success) {
                 await Promise.all([
                     get().fetchPendingApprovals(get().currentApprovalsFilter),

@@ -208,7 +208,7 @@ export default function CompliancePage() {
     const handleApprove = async (document: ComplianceDocument) => {
         setActingId(document.id);
         try {
-            const response = await adminApi.approveProvider(document.provider_type, document.provider_id);
+            const response = await adminApi.approveProvider(document.provider_type as any, document.provider_id);
             if (!response.success) {
                 throw new Error(response.error || 'Failed to approve provider');
             }
@@ -224,7 +224,7 @@ export default function CompliancePage() {
         if (!rejectTarget || !rejectReason.trim()) return;
         setActingId(rejectTarget.id);
         try {
-            const response = await adminApi.rejectProvider(rejectTarget.provider_type, rejectTarget.provider_id, rejectReason.trim());
+            const response = await adminApi.rejectProvider(rejectTarget.provider_type as any, rejectTarget.provider_id, rejectReason.trim());
             if (!response.success) {
                 throw new Error(response.error || 'Failed to reject provider');
             }

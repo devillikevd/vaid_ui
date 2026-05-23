@@ -1,5 +1,8 @@
 package com.example.swastik.ui.screens.patient.dashboard
 
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.swastik.ui.theme.SwastikPrimaryLight
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -1323,7 +1326,7 @@ private fun TypingOrb(delay: Int) {
     Box(
         modifier = Modifier
             .size(8.dp)
-            .androidx.compose.ui.graphics.graphicsLayer {
+            .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
                 this.alpha = alpha

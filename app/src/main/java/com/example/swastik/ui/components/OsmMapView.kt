@@ -106,7 +106,7 @@ fun OsmMapView(
                     position = GeoPoint(userLatitude, userLongitude)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     title = "Your Location"
-                    icon = createCircleDrawable(context, android.graphics.Color.parseColor("#7C3AED"), 20)
+                    icon = createPinDrawable(context, android.graphics.Color.parseColor("#7C3AED"), 20)
                 }
                 mapView.overlays.add(userMarker)
             }
