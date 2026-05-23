@@ -72,24 +72,6 @@ class PatientDashboardViewModel @Inject constructor(
 
     private var hasObservedSocketConnection = false
 
-    init {
-        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
-        loadDashboard()
-        collectRealtimeNotifications()
-        collectProviderCatalogUpdates()
-        collectPrescriptionUpdates()
-        observeSocketReconnects()
-        scheduleAlarms()
-    }
-
-    fun logout(onComplete: () -> Unit) {
-        viewModelScope.launch {
-            authRepository.logout()
-            alarmScheduler.cancelAll()
-            onComplete()
-        }
-    }
-
     val patientProfile = patientRepository.patientProfile
     val stats = patientRepository.stats
     val reminders = patientRepository.reminders
@@ -115,6 +97,25 @@ class PatientDashboardViewModel @Inject constructor(
                 notifs.filter { it.id != "reminders_summary_virtual" }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+        loadDashboard()
+        collectRealtimeNotifications()
+        collectProviderCatalogUpdates()
+        collectPrescriptionUpdates()
+        observeSocketReconnects()
+        scheduleAlarms()
+    }
+
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.logout()
+            alarmScheduler.cancelAll()
+            onComplete()
+        }
+    }
+
 
     private fun scheduleAlarms() {
         viewModelScope.launch {
