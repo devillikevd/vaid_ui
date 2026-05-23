@@ -94,14 +94,14 @@ fun HealthCardScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF90CAF9))
+                            .background(MaterialTheme.colorScheme.primaryContainer)
                             .padding(16.dp)
                     ) {
                         Column(
@@ -112,12 +112,12 @@ fun HealthCardScreen(
                                 "Digital Health Card",
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Black
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
                                 "Valid through 12/25",
                                 fontSize = 14.sp,
-                                color = Color.DarkGray
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -126,7 +126,7 @@ fun HealthCardScreen(
                             } else if (hcState.hasActiveCard && hcState.url != null) {
                                 Box(
                                     modifier = Modifier
-                                        .background(Color.White, RoundedCornerShape(8.dp))
+                                        .background(Color.White, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
                                         .padding(8.dp)
                                 ) {
                                     AsyncImage(
@@ -145,7 +145,7 @@ fun HealthCardScreen(
                             } else {
                                 Button(
                                     onClick = { dashboardViewModel.generateHealthCard() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                 ) {
                                     Text("Generate QR Code")
                                 }
@@ -171,13 +171,13 @@ fun HealthCardScreen(
                                 tint = Color.White,
                                 modifier = Modifier
                                     .size(40.dp)
-                                    .background(Color(0xFF1E88E5), CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
                                     .padding(8.dp)
                             )
                             Text(
                                 "Patient",
                                 fontSize = 12.sp,
-                                color = Color.Black,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
@@ -192,35 +192,35 @@ fun HealthCardScreen(
                             "How to use Digital Health Card:",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("1. Present the QR code at the check-in desk.", fontSize = 12.sp, color = Color.Black)
+                                Text("1. Present the QR code at the check-in desk.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("2. Your medical profile will be scanned and verified.", fontSize = 12.sp, color = Color.Black)
+                                Text("2. Your medical profile will be scanned and verified.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Icon(Icons.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("3. Access your health records and benefits.", fontSize = 12.sp, color = Color.Black)
+                                Text("3. Access your health records and benefits.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Spacer(modifier = Modifier.width(16.dp))
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.Event, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF607D8B))
+                                Icon(Icons.Outlined.Event, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("4. Manage appointments and prescriptions seamlessly.", fontSize = 12.sp, color = Color.Black)
+                                Text("4. Manage appointments and prescriptions seamlessly.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -233,7 +233,7 @@ fun HealthCardScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFB2DFDB)), // Light Teal
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
@@ -247,14 +247,14 @@ fun HealthCardScreen(
                         Icon(
                             Icons.Outlined.Favorite,
                             contentDescription = null,
-                            tint = Color(0xFF004D40), // Darker Teal
+                            tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
                             "Google Health Connect",
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                             fontSize = 20.sp
                         )
                     }
@@ -287,7 +287,7 @@ fun HealthCardScreen(
                         },
                         enabled = syncState !is ProfileUpdateState.Loading,
                         modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00695C)), // Dark Teal
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         shape = RoundedCornerShape(25.dp)
                     ) {
                         if (syncState is ProfileUpdateState.Loading) {
@@ -324,26 +324,26 @@ fun HealthCardScreen(
                         "How to connect your Smartwatch or Phone:",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Watch, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Icon(Icons.Outlined.Watch, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("1. Ensure your wearable or phone has Health Connect enabled.", fontSize = 13.sp, color = Color.Black)
+                        Text("1. Ensure your wearable or phone has Health Connect enabled.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Favorite, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Icon(Icons.Outlined.Favorite, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("2. Open your device's Health app and allow data sharing.", fontSize = 13.sp, color = Color.Black)
+                        Text("2. Open your device's Health app and allow data sharing.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF004D40))
+                        Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("3. Tap 'Sync Now' above to link and import your health data automatically.", fontSize = 13.sp, color = Color.Black)
+                        Text("3. Tap 'Sync Now' above to link and import your health data automatically.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                 }
             }

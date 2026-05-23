@@ -1290,7 +1290,7 @@ private fun QuickActionCard(action: ChatQuickAction, onClick: () -> Unit, modifi
                 Icon(action.icon, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.Black)
+            Text(text = action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -1361,7 +1361,7 @@ private fun ChatInputBar(
                     onValueChange = { if (inputEnabled) onValueChange(it) },
                     enabled = inputEnabled && !isLoading,
                     modifier = Modifier.fillMaxWidth(),
-                    textStyle = TextStyle(fontSize = 14.sp, color = Color.Black),
+                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
                     decorationBox = { innerTextField ->
                         if (value.isEmpty()) {
                             Text(

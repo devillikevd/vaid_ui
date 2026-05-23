@@ -77,7 +77,7 @@ fun GlobalSearchBar(
                 .height(56.dp),
             shape = RoundedCornerShape(24.dp),
             colors = TextFieldDefaults.outlinedTextFieldColors(
-                containerColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = Color.Transparent
             )
@@ -94,7 +94,7 @@ fun GlobalSearchBar(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     LazyColumn(

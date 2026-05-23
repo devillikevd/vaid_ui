@@ -222,7 +222,7 @@ fun DiagnosticBookingScreen(
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color.Black,
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                             disabledLabelColor = Color.Gray,
                             disabledBorderColor = Color.Gray,
                             disabledTrailingIconColor = SwastikPrimary
@@ -241,7 +241,7 @@ fun DiagnosticBookingScreen(
                             }
                         },
                         colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color.Black,
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                             disabledLabelColor = Color.Gray,
                             disabledBorderColor = Color.Gray,
                             disabledTrailingIconColor = SwastikPrimary
