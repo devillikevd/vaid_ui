@@ -364,25 +364,25 @@ export const adminApi = {
     getProviderDetails: (type: string, id: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}`),
 
-    approveProvider: (type: string, id: string, notes?: string) =>
+    approveProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic', id: string, notes?: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/approve`, {
             method: 'POST',
             body: JSON.stringify({ notes }),
         }),
 
-    rejectProvider: (type: string, id: string, reason: string) =>
+    rejectProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic', id: string, reason: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/reject`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
         }),
 
-    suspendProvider: (type: string, id: string, reason: string) =>
+    suspendProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic', id: string, reason: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/suspend`, {
             method: 'POST',
             body: JSON.stringify({ reason }),
         }),
 
-    reactivateProvider: (type: string, id: string, notes?: string) =>
+    reactivateProvider: (type: 'doctor' | 'hospital' | 'pharmacy' | 'diagnostic_center' | 'clinic', id: string, notes?: string) =>
         fetchWithAuth(`/admin/providers/${type}/${id}/reactivate`, {
             method: 'POST',
             body: JSON.stringify({ notes }),

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -128,18 +129,58 @@ fun AppointmentHistoryScreen(
                 )
                 else -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp, start = 8.dp, end = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(uiState.appointments) { appointment ->
-                            AppointmentCard(
-                                appointment = appointment,
-                                onClick = { onAppointmentClick(appointment) },
-                                onStartConsultation = { onStartConsultation(appointment) },
-                                onPrescriptionClick = onNavigateToPrescriptions,
-                                onBookAgainClick = onNavigateToBooking,
-                                onCancelClick = { showCancelDialog = appointment }
-                            )
+                        itemsIndexed(uiState.appointments) { index, appointment ->
+                            val isLast = index == uiState.appointments.size - 1
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .androidx.compose.ui.draw.drawBehind {
+                                        if (!isLast) {
+                                            val strokeWidth = 1.5.dp.toPx()
+                                            val xOffset = 13.dp.toPx()
+                                            val yStart = 24.dp.toPx()
+                                            drawLine(
+                                                color = Color.LightGray.copy(alpha = 0.5f),
+                                                start = Offset(xOffset, yStart),
+                                                end = Offset(xOffset, size.height + 16.dp.toPx()),
+                                                strokeWidth = strokeWidth
+                                            )
+                                        }
+                                    }
+                            ) {
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    // Timeline Node
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 28.dp, start = 8.dp)
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when(appointment.status.lowercase()) {
+                                                    "completed" -> Color(0xFF4CAF50)
+                                                    "cancelled" -> colorScheme.error
+                                                    else -> SwastikPrimary
+                                                }
+                                            )
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        AppointmentCard(
+                                            appointment = appointment,
+                                            onClick = { onAppointmentClick(appointment) },
+                                            onStartConsultation = { onStartConsultation(appointment) },
+                                            onPrescriptionClick = onNavigateToPrescriptions,
+                                            onBookAgainClick = onNavigateToBooking,
+                                            onCancelClick = { showCancelDialog = appointment }
+                                        )
+                                    }
+                                }
+                            }
                         }
                         item { Spacer(modifier = Modifier.height(20.dp)) }
                     }

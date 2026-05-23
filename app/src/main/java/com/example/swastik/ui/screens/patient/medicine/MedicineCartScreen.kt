@@ -22,11 +22,57 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.CartItem
+import androidx.compose.ui.text.style.TextAlign
 import com.example.swastik.ui.viewmodel.MedicineViewModel
-import com.example.swastik.ui.theme.SwastikPrimary
-import com.example.swastik.utils.NavigationHelper
-import androidx.compose.ui.res.stringResource
-import com.example.swastik.R
+
+enum class CheckoutStep(val title: String) {
+    CART("Review Cart"),
+    ADDRESS("Delivery"),
+    PAYMENT("Confirm")
+}
+
+@Composable
+private fun CheckoutStepper(currentStep: CheckoutStep) {
+    val steps = CheckoutStep.entries
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        steps.forEachIndexed { index, step ->
+            val isActive = step.ordinal <= currentStep.ordinal
+            val isCurrent = step == currentStep
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(if (isActive) SwastikPrimary else Color.LightGray),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (step.ordinal < currentStep.ordinal) {
+                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    } else {
+                        Text("${index + 1}", color = if (isActive) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(step.title, fontSize = 12.sp, color = if (isActive) SwastikPrimary else Color.Gray, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
+            }
+            
+            if (index < steps.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(2.dp)
+                        .offset(y = (-10).dp)
+                        .background(if (steps[index + 1].ordinal <= currentStep.ordinal) SwastikPrimary else Color.LightGray)
+                )
+            }
+        }
+    }
+}
 
 /**
  * Medicine Cart & Order Screen — review cart, enter address, place order.
@@ -40,6 +86,7 @@ fun MedicineCartScreen(
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val cartState by viewModel.cartState.collectAsState()
+    var currentStep by remember { mutableStateOf(CheckoutStep.CART) }
     val context = LocalContext.current
 
     // Order success dialog
@@ -185,80 +232,116 @@ fun MedicineCartScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
+                CheckoutStepper(currentStep)
+                
                 // Cart items
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Pharmacy info
-                    item {
-                        cartState.selectedPharmacyName?.let { name ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    when (currentStep) {
+                        CheckoutStep.CART -> {
+                            // Pharmacy info
+                            item {
+                                cartState.selectedPharmacyName?.let { name ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
+                                }
+                                if (cartState.selectedPharmacyName.isNullOrBlank()) {
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                "Select medicines from a pharmacy inventory to place an order.",
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                            Spacer(Modifier.height(8.dp))
+
+                            items(cartState.items) { item ->
+                                val itemKey = item.medicine.inventoryItemId ?: item.medicine.id
+                                CartItemCard(
+                                    item = item,
+                                    onQuantityChange = { viewModel.updateCartQuantity(itemKey, it) },
+                                    onRemove = { viewModel.removeFromCart(itemKey) }
+                                )
+                            }
                         }
-                        if (cartState.selectedPharmacyName.isNullOrBlank()) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        
+                        CheckoutStep.ADDRESS -> {
+                            // Delivery address
+                            item {
+                                Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = cartState.deliveryAddress,
+                                    onValueChange = { viewModel.setDeliveryAddress(it) },
+                                    placeholder = { Text(stringResource(R.string.enter_your_delivery_address)) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 4,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
+                        
+                        CheckoutStep.PAYMENT -> {
+                            item {
+                                Text("Order Summary", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Spacer(Modifier.height(16.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 ) {
-                                    Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        "Select medicines from a pharmacy inventory to place an order.",
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        fontSize = 13.sp
-                                    )
+                                    Column(Modifier.padding(16.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(stringResource(R.string.items), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("${cartState.totalItems}")
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Delivery Address", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(cartState.deliveryAddress.take(20) + if (cartState.deliveryAddress.length > 20) "..." else "", maxLines = 1)
+                                        }
+                                        Spacer(Modifier.height(16.dp))
+                                        HorizontalDivider()
+                                        Spacer(Modifier.height(16.dp))
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(stringResource(R.string.total), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                            Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
+                                        }
+                                    }
                                 }
                             }
-                            Spacer(Modifier.height(8.dp))
                         }
-                    }
-
-                    items(cartState.items) { item ->
-                        val itemKey = item.medicine.inventoryItemId ?: item.medicine.id
-                        CartItemCard(
-                            item = item,
-                            onQuantityChange = { viewModel.updateCartQuantity(itemKey, it) },
-                            onRemove = { viewModel.removeFromCart(itemKey) }
-                        )
-                    }
-
-                    // Delivery address
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = cartState.deliveryAddress,
-                            onValueChange = { viewModel.setDeliveryAddress(it) },
-                            placeholder = { Text(stringResource(R.string.enter_your_delivery_address)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 2,
-                            shape = RoundedCornerShape(12.dp)
-                        )
                     }
                 }
 
-                // Order summary & checkout
+                // Bottom Actions
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
@@ -266,36 +349,59 @@ fun MedicineCartScreen(
                     elevation = CardDefaults.cardElevation(8.dp)
                 ) {
                     Column(Modifier.padding(16.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(R.string.items), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${cartState.totalItems}")
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(R.string.total), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
-                        }
-                        Spacer(Modifier.height(12.dp))
-
                         cartState.orderError?.let {
                             Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(8.dp))
                         }
 
-                        Button(
-                            onClick = { viewModel.placeOrder() },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && cartState.deliveryAddress.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (cartState.isOrdering) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Default.ShoppingCartCheckout, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (currentStep != CheckoutStep.CART) {
+                                OutlinedButton(
+                                    onClick = {
+                                        currentStep = when (currentStep) {
+                                            CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
+                                            CheckoutStep.ADDRESS -> CheckoutStep.CART
+                                            else -> currentStep
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f).height(52.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Back")
+                                }
+                            }
+                            
+                            Button(
+                                onClick = { 
+                                    when (currentStep) {
+                                        CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
+                                        CheckoutStep.ADDRESS -> {
+                                            if (cartState.deliveryAddress.isNotBlank()) {
+                                                currentStep = CheckoutStep.PAYMENT
+                                            }
+                                        }
+                                        CheckoutStep.PAYMENT -> viewModel.placeOrder()
+                                    }
+                                },
+                                modifier = Modifier.weight(2f).height(52.dp),
+                                enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
+                                          (currentStep != CheckoutStep.ADDRESS || cartState.deliveryAddress.isNotBlank()),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                if (cartState.isOrdering) {
+                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else {
+                                    if (currentStep == CheckoutStep.PAYMENT) {
+                                        Icon(Icons.Default.ShoppingCartCheckout, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    } else {
+                                        Text("Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Icon(Icons.Default.ArrowForward, null)
+                                    }
+                                }
                             }
                         }
                     }

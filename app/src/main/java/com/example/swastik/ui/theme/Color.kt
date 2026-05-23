@@ -19,12 +19,12 @@ val SwastikBlue = Color(0xFF3A86FF) // Info, highlights
 
 // Background & Surface
 val BackgroundLight = Color(0xFFF8F9FA) // Very soft off-white
-val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceLight = Color(0xFFF1F7F7) // Premium teal-tinted white
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 
 // Elevated surfaces for cards
-val SurfaceElevatedLight = Color(0xFFFFFFFF)
+val SurfaceElevatedLight = Color(0xFFF1F7F7)
 val SurfaceElevatedDark = Color(0xFF2A2A2A)
 
 // Text colors

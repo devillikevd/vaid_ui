@@ -11,6 +11,7 @@ data class PatientStats(
 )
 
 data class Reminder(
+    val id: String,
     val title: String,
     val time: String,
     val type: ReminderType,

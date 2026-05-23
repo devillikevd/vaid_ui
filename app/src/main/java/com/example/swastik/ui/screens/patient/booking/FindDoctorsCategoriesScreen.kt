@@ -168,7 +168,7 @@ val allSpecialities = listOf(
 fun FindDoctorsCategoriesScreen(
     mode: String,
     onBackClick: () -> Unit,
-    onSpecialityClick: (String) -> Unit,
+    onSpecialityClick: (String?, String?) -> Unit,
     onViewAllSpecialities: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -326,7 +326,10 @@ fun FindDoctorsCategoriesScreen(
             Spacer(modifier = Modifier.height(16.dp))
             SpecialitiesChipsRow(
                 items = mostSearchedSpecialities,
-                onItemClick = { onSpecialityClick(it.name.replace("\n", " ")) }
+                onItemClick = { 
+                    val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(it.name)
+                    onSpecialityClick(spec, search) 
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -363,7 +366,10 @@ fun FindDoctorsCategoriesScreen(
             Spacer(modifier = Modifier.height(16.dp))
             SurgeryConditionsChipsRow(
                 items = surgeryConditions,
-                onItemClick = { onSpecialityClick(it.name.replace("\n", " ")) }
+                onItemClick = { 
+                    val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(it.name)
+                    onSpecialityClick(spec, search) 
+                }
             )
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -382,7 +388,10 @@ fun FindDoctorsCategoriesScreen(
                         )
                     })
                 },
-                onItemClick = { onSpecialityClick(it.name.replace("\n", " ")) }
+                onItemClick = { 
+                    val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(it.name)
+                    onSpecialityClick(spec, search) 
+                }
             )
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -392,7 +401,10 @@ fun FindDoctorsCategoriesScreen(
             Spacer(modifier = Modifier.height(16.dp))
             CategoriesGrid(
                 items = categoryCards,
-                onItemClick = { onSpecialityClick(it.title) }
+                onItemClick = { 
+                    val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(it.title)
+                    onSpecialityClick(spec, search) 
+                }
             )
 
             Spacer(modifier = Modifier.height(100.dp))

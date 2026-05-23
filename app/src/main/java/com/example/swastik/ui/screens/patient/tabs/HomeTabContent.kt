@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +46,8 @@ fun HomeTabContent(
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {}
 ) {
+    var selectedDoctorForProfile by remember { mutableStateOf<Doctor?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -82,7 +88,7 @@ fun HomeTabContent(
         
         // Primary Actions (Clinic, Video, Health Card)
         PrimaryActionsGrid(
-            onClinicClick = { onNavigateToBooking(null) },
+            onClinicClick = onStartInPersonConsultation,
             onVideoClick = onStartVideoConsultation,
             onHealthCardClick = onNavigateToHealthCard
         )
@@ -99,7 +105,7 @@ fun HomeTabContent(
         Spacer(modifier = Modifier.height(20.dp))
         
         // Book Doctor by Speciality
-        SpecialitySection(onSpecialityClick = onFindDoctorSpecialityClick)
+        FindDoctorsBySpecialitySection(onSpecialityClick = onFindDoctorSpecialityClick)
         
         Spacer(modifier = Modifier.height(20.dp))
         
@@ -117,10 +123,22 @@ fun HomeTabContent(
         if (doctors.isNotEmpty()) {
             RecommendedDoctorsSection(
                 doctors = doctors,
-                onBookClick = { onNavigateToBooking(it.id) }
+                onBookClick = { onNavigateToBooking(it.id) },
+                onViewProfile = { selectedDoctorForProfile = it }
             )
         }
         
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    selectedDoctorForProfile?.let { doctor ->
+        com.example.swastik.ui.components.DoctorProfileBottomSheet(
+            doctor = doctor,
+            onDismiss = { selectedDoctorForProfile = null },
+            onBookClick = {
+                selectedDoctorForProfile = null
+                onNavigateToBooking(doctor.id)
+            }
+        )
     }
 }

@@ -333,20 +333,37 @@ fun QuickStatsSection(stats: PatientStats) {
 
 @Composable
 private fun QuickStatCard(icon: ImageVector, value: String, label: String, color: Color, modifier: Modifier = Modifier) {
-    val colorScheme = MaterialTheme.colorScheme
+    val gradient = androidx.compose.ui.graphics.Brush.linearGradient(
+        colors = listOf(
+            color.copy(alpha = 0.8f),
+            color
+        )
+    )
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(gradient)
+                .padding(vertical = 16.dp, horizontal = 12.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color)
-            Text(label, fontSize = 10.sp, color = colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = Color.White.copy(alpha = 0.2f)
+                ) {
+                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.padding(8.dp).size(24.dp))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                Text(label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.Medium)
+            }
         }
     }
 }

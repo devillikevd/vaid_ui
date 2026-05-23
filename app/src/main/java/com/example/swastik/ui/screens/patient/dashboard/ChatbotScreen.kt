@@ -21,8 +21,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -910,17 +910,25 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                     bottomEnd = if (message.isUser) 4.dp else 18.dp
                 ),
                 colors = CardDefaults.cardColors(
-                    containerColor = when {
-                        message.isUser -> MaterialTheme.colorScheme.primary
-                        message.isEmergency -> MaterialTheme.colorScheme.errorContainer
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    }
+                    containerColor = Color.Transparent
                 ),
-                elevation = CardDefaults.cardElevation(2.dp),
-                modifier = if (message.isEmergency) {
+                elevation = CardDefaults.cardElevation(0.dp),
+                modifier = (if (message.isEmergency) {
                     Modifier.border(1.dp, Color(0xFFD32F2F).copy(alpha = 0.3f),
                         RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp))
-                } else Modifier
+                } else Modifier)
+                .background(
+                    brush = when {
+                        message.isUser -> Brush.linearGradient(listOf(SwastikPrimary, Color(0xFF5E35B1)))
+                        message.isEmergency -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.errorContainer, Color(0xFFFFCDD2)))
+                        else -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
+                    },
+                    shape = RoundedCornerShape(
+                        topStart = 18.dp, topEnd = 18.dp,
+                        bottomStart = if (message.isUser) 18.dp else 4.dp,
+                        bottomEnd = if (message.isUser) 4.dp else 18.dp
+                    )
+                )
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     // Show image indicator for user image messages
@@ -1287,23 +1295,44 @@ private fun QuickActionCard(action: ChatQuickAction, onClick: () -> Unit, modifi
 @Composable
 private fun TypingIndicator() {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 40.dp)) {
-        Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                repeat(3) { index -> TypingDot(delay = index * 200) }
+        Card(
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+            elevation = CardDefaults.cardElevation(2.dp)
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(3) { index -> TypingOrb(delay = index * 200) }
             }
         }
     }
 }
 
 @Composable
-private fun TypingDot(delay: Int) {
+private fun TypingOrb(delay: Int) {
     val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.6f, targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(animation = tween(600, delayMillis = delay), repeatMode = RepeatMode.Reverse),
+        label = "scale"
+    )
     val alpha by infiniteTransition.animateFloat(
         initialValue = 0.3f, targetValue = 1f,
         animationSpec = infiniteRepeatable(animation = tween(600, delayMillis = delay), repeatMode = RepeatMode.Reverse),
         label = "alpha"
     )
-    Box(modifier = Modifier.size(8.dp).background(SwastikPrimary.copy(alpha = alpha), CircleShape))
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .androidx.compose.ui.graphics.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                this.alpha = alpha
+            }
+            .background(
+                Brush.radialGradient(listOf(SwastikPrimaryLight, SwastikPrimary)),
+                CircleShape
+            )
+    )
 }
 
 @Composable

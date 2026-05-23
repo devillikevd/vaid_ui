@@ -33,7 +33,7 @@ import com.example.swastik.ui.theme.*
 fun AllSpecialitiesScreen(
     mode: String,
     onBackClick: () -> Unit,
-    onSpecialityClick: (String) -> Unit
+    onSpecialityClick: (String?, String?) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -94,7 +94,8 @@ fun AllSpecialitiesScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
-                                        onSpecialityClick(item.name.replace("\n", " "))
+                                        val (spec, search) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(item.name)
+                                        onSpecialityClick(spec, search)
                                     }
                                     .padding(horizontal = 2.dp)
                             ) {

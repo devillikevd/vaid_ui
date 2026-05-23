@@ -126,56 +126,145 @@ fun PrimaryActionsGrid(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .height(110.dp),
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Clinic Visit
-        Card(
-            modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onClinicClick),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(1.dp)
+        // Left Column (Clinic Visit & Video Consult)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Filled.EventNote, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("Clinic Visit", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.Black)
-                        Text("Find doctors near you", fontSize = 11.sp, color = Color.Gray)
+            // Clinic Visit
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClinicClick),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF0F4F8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Domain, contentDescription = null, tint = SwastikPrimary)
+                        }
+                        
+                        Surface(
+                            color = SwastikPrimary.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(100.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("Nearby", fontSize = 10.sp, color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "In-person Consultation",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Find doctors near you",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPrimary))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Slots available today", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(SwastikPrimary, CircleShape))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Slots available today", fontSize = 10.sp, color = SwastikPrimary, fontWeight = FontWeight.Bold)
+            }
+
+            // Video Consult
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onVideoClick),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFE8F5E9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Videocam, contentDescription = null, tint = Color(0xFF4CAF50))
+                        }
+                        
+                        Surface(
+                            color = Color(0xFF4CAF50).copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(100.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Live", fontSize = 10.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Video Consultation",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Connect instantly online",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Connect in 15 mins", fontSize = 11.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                    }
                 }
             }
         }
 
-        // Video Consult
+        // Right Column (Digital Health Card)
         Card(
-            modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onVideoClick),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(1.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Filled.Videocam, null, tint = SwastikGreen, modifier = Modifier.size(28.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("Video Consult", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.Black)
-                        Text("Connect instantly online", fontSize = 11.sp, color = Color.Gray)
-                    }
-                }
-                Text("Connect in 15 mins", fontSize = 10.sp, color = SwastikGreen, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // Digital Health Card (Square)
-        Card(
-            modifier = Modifier.width(90.dp).fillMaxHeight().clickable(onClick = onHealthCardClick),
+            modifier = Modifier
+                .width(110.dp)
+                .fillMaxHeight()
+                .clickable(onClick = onHealthCardClick),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             elevation = CardDefaults.cardElevation(2.dp)
@@ -185,15 +274,27 @@ fun PrimaryActionsGrid(
                     .background(androidx.compose.ui.graphics.Brush.linearGradient(
                         colors = listOf(Color(0xFF00796B), Color(0xFF004D40))
                     ))
-                    .padding(10.dp).fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
+                    .padding(16.dp)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Filled.QrCode2, null, tint = Color.White, modifier = Modifier.size(36.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Digital Health Card", fontWeight = FontWeight.Bold, fontSize = 9.sp, color = Color.White, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text("View vitals & QR", fontSize = 7.sp, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
-                }
+                Icon(Icons.Filled.QrCode2, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Digital Health",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = Color.White,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "View vitals & QR",
+                    fontSize = 10.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
     }
@@ -205,61 +306,96 @@ fun SecondaryActionsGrid(
     onAppointmentsClick: () -> Unit,
     onCommunityQAClick: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Card(
-            modifier = Modifier.weight(1f).clickable(onClick = onReportsClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = SwastikPrimaryLight),
-            elevation = CardDefaults.cardElevation(0.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Description, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("Reports", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
-                    Text("Medical History", fontSize = 11.sp, color = Color.Gray)
+            // Reports Card
+            Card(
+                modifier = Modifier.weight(1f).clickable(onClick = onReportsClick),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF0F4F8)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Outlined.Description, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Reports", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Medical History", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Appointments Card
+            Card(
+                modifier = Modifier.weight(1f).clickable(onClick = onAppointmentsClick),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF0F4F8)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Appointments", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Past & Upcoming", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
 
+        // Community QA Action
         Card(
-            modifier = Modifier.weight(1f).clickable(onClick = onAppointmentsClick),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = SwastikPrimaryLight),
-            elevation = CardDefaults.cardElevation(0.dp)
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onCommunityQAClick),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(2.dp)
         ) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Event, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE8F5E9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.Forum, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp))
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Appointments", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
-                    Text("Past & Upcoming", fontSize = 11.sp, color = Color.Gray)
+                    Text("Community Q&A", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Ask doctors & view discussions", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.ChevronRight, null, tint = Color.Gray)
             }
-        }
-    }
-    
-    Spacer(modifier = Modifier.height(12.dp))
-    
-    // Community QA Action
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable(onClick = onCommunityQAClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SwastikPrimaryLight),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Forum, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text("Community Q&A", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
-                Text("Ask doctors & view discussions", fontSize = 11.sp, color = Color.Gray)
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.ChevronRight, null, tint = SwastikPrimary)
         }
     }
 }
@@ -272,8 +408,7 @@ fun SpecialitySection(onSpecialityClick: (String) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Book Doctor by Speciality", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-            Text("See All", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SwastikPrimary)
+            Text("Book Doctor by Speciality", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         val specialities = listOf(
@@ -312,38 +447,132 @@ fun HealthcareServicesSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Healthcare Services", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-            Text("See All", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SwastikPrimary)
+            Text("Healthcare Services", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
-        val services = listOf(
-            Triple("Hospitals", "Multi-speciality", Icons.Filled.LocalHospital),
-            Triple("Clinics", "Primary Care", Icons.Filled.AddBox),
-            Triple("Pharmacy", "Medicines", Icons.Filled.MedicalServices),
-            Triple("Diagnostics", "Tests & Scans", Icons.Filled.Science)
-        )
-
-        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(services) { service ->
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Hospitals
                 Card(
-                    modifier = Modifier.width(130.dp).clickable {
-                        when(service.first) {
-                            "Hospitals" -> onHospitalsClick()
-                            "Clinics" -> onClinicsClick()
-                            "Pharmacy" -> onPharmacyClick()
-                            "Diagnostics" -> onDiagnosticsClick()
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    modifier = Modifier.weight(1f).height(130.dp).clickable { onHospitalsClick() },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(service.third, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF0F4F8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.LocalHospital, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                        }
                         Column {
-                            Text(service.first, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.Black)
-                            Text(service.second, fontSize = 10.sp, color = Color.Gray)
+                            Text("Find Hospitals", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Book & Visit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                // Clinics
+                Card(
+                    modifier = Modifier.weight(1f).height(130.dp).clickable { onClinicsClick() },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF0F4F8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.MedicalServices, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                        }
+                        Column {
+                            Text("Book Clinic", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Consult Doctors", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Pharmacy
+                Card(
+                    modifier = Modifier.weight(1f).height(130.dp).clickable { onPharmacyClick() },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF0F4F8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.LocalPharmacy, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                        }
+                        Column {
+                            Text("Order Medicine", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Home Delivery", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+                // Diagnostics
+                Card(
+                    modifier = Modifier.weight(1f).height(130.dp).clickable { onDiagnosticsClick() },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF0F4F8)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Science, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                        }
+                        Column {
+                            Text("Book Lab Tests", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("in person Collection", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -355,7 +584,8 @@ fun HealthcareServicesSection(
 @Composable
 fun RecommendedDoctorsSection(
     doctors: List<Doctor>,
-    onBookClick: (Doctor) -> Unit
+    onBookClick: (Doctor) -> Unit,
+    onViewProfile: (Doctor) -> Unit
 ) {
     Column {
         Row(
@@ -363,25 +593,34 @@ fun RecommendedDoctorsSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Recommended for You", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
-            Text("See All", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SwastikPrimary)
+            Text("Recommended for You", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(doctors) { doctor ->
-                DoctorCard(doctor = doctor, onBookClick = { onBookClick(doctor) })
+                DoctorCard(
+                    doctor = doctor,
+                    onBookClick = { onBookClick(doctor) },
+                    onViewProfile = { onViewProfile(doctor) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun DoctorCard(doctor: Doctor, onBookClick: () -> Unit) {
+fun DoctorCard(
+    doctor: Doctor,
+    onBookClick: () -> Unit,
+    onViewProfile: () -> Unit
+) {
     Card(
-        modifier = Modifier.width(220.dp),
+        modifier = Modifier
+            .width(220.dp)
+            .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(1.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -404,15 +643,29 @@ fun DoctorCard(doctor: Doctor, onBookClick: () -> Unit) {
                 Text(" ${doctor.averageRating ?: 0.0f} • ${doctor.experienceYears ?: 0} Yrs", fontSize = 12.sp, color = Color.Gray)
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onBookClick,
-                modifier = Modifier.fillMaxWidth().height(36.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = SwastikPrimary),
-                border = androidx.compose.foundation.BorderStroke(1.dp, SwastikPrimary),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(0.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Book", fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onViewProfile,
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = SwastikPrimary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SwastikPrimary),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("Profile", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = onBookClick,
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = Color.White),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("Book", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
             }
         }
     }

@@ -196,7 +196,10 @@ class PatientRepository @Inject constructor(
             
             // 5. Process Emergency
             if (emergencyResponse.isSuccessful && emergencyResponse.body()?.success == true) {
-                activeEmergency = emergencyResponse.body()?.data
+                val emergency = emergencyResponse.body()?.data
+                if (emergency?.status != "completed" && emergency?.status != "cancelled") {
+                    activeEmergency = emergency
+                }
             }
 
             // Use real patient or a minimal fallback so dashboard still shows other data
@@ -811,14 +814,16 @@ class PatientRepository @Inject constructor(
 
     private fun ReminderDto.toReminder(): Reminder {
         return Reminder(
-            title = title,
-            time = time,
-            type = when(type.lowercase()) {
+            id = this.id,
+            title = this.title,
+            time = this.time,
+            type = when (this.type.lowercase()) {
                 "medicine" -> ReminderType.MEDICINE
                 "appointment" -> ReminderType.APPOINTMENT
-                else -> ReminderType.TEST
+                "test" -> ReminderType.TEST
+                else -> ReminderType.MEDICINE
             },
-            isCompleted = isCompleted
+            isCompleted = this.isCompleted
         )
     }
     

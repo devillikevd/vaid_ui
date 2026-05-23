@@ -275,12 +275,37 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onSearchClick = { navController.navigate(Screen.FindDoctorsCategories.createRoute("in_person")) },
                 onNotificationActionRoute = { route -> navController.navigate(route) },
                 onFindDoctorSpecialityClick = { speciality ->
+                    val (mappedSpecialization, mappedSearch) = com.example.swastik.utils.SpecializationMapper.mapToSearchParams(speciality)
                     navController.navigate(Screen.AppointmentBooking.createRoute(
-                        specialization = speciality
+                        specialization = mappedSpecialization,
+                        search = mappedSearch
                     ))
                 },
                 onNavigateToCommunityQA = { navController.navigate(Screen.CommunityQA.route) }
             )
+            }
+        }
+
+        composable(Screen.CommunityQA.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.community.CommunityQAScreen(
+                    navController = navController
+                )
+            }
+        }
+
+        composable(
+            route = Screen.CommunityQADetails.route,
+            arguments = listOf(
+                navArgument("questionId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val questionId = backStackEntry.arguments?.getString("questionId") ?: ""
+                com.example.swastik.ui.screens.patient.community.CommunityQADetailsScreen(
+                    navController = navController,
+                    questionId = questionId
+                )
             }
         }
 
@@ -299,9 +324,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 FindDoctorsCategoriesScreen(
                     mode = mode,
                     onBackClick = { navController.popBackStack() },
-                    onSpecialityClick = { speciality ->
+                    onSpecialityClick = { specialization, search ->
                         navController.navigate(Screen.AppointmentBooking.createRoute(
-                            specialization = speciality,
+                            specialization = specialization,
+                            search = search,
                             consultationMode = mode
                         ))
                     },
@@ -326,9 +352,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 AllSpecialitiesScreen(
                     mode = mode,
                     onBackClick = { navController.popBackStack() },
-                    onSpecialityClick = { speciality ->
+                    onSpecialityClick = { specialization, search ->
                         navController.navigate(Screen.AppointmentBooking.createRoute(
-                            specialization = speciality,
+                            specialization = specialization,
+                            search = search,
                             consultationMode = mode
                         ))
                     }
@@ -363,6 +390,11 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     type = androidx.navigation.NavType.StringType
                     defaultValue = ""
                     nullable = true
+                },
+                androidx.navigation.navArgument("search") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = ""
+                    nullable = true
                 }
             )
         ) { backStackEntry ->
@@ -372,6 +404,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val clinicId = backStackEntry.arguments?.getString("clinicId")?.takeIf { it.isNotBlank() }
                 val specialization = backStackEntry.arguments?.getString("specialization")?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }
                 val consultationMode = backStackEntry.arguments?.getString("consultationMode")?.takeIf { it.isNotBlank() }
+                val search = backStackEntry.arguments?.getString("search")?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }
 
                 AppointmentBookingScreen(
                     onBackClick = { navController.popBackStack() },
@@ -383,7 +416,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     preselectedHospitalId = hospitalId,
                     preselectedClinicId = clinicId,
                     preselectedSpecialization = specialization,
-                    consultationMode = consultationMode
+                    consultationMode = consultationMode,
+                    preselectedSearch = search
                 )
             }
         }

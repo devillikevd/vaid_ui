@@ -28,6 +28,9 @@ import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.example.swastik.data.repository.VitalsRepository
+import com.example.swastik.data.remote.dto.CreateReminderRequest
+
 /**
  * UI State for Patient Dashboard
  */
@@ -44,6 +47,7 @@ data class PatientDashboardUiState(
 @HiltViewModel
 class PatientDashboardViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
+    private val vitalsRepository: VitalsRepository,
     private val authRepository: AuthRepository,
     private val emergencyRepository: EmergencyRepository,
     private val socketManager: SocketManager,
@@ -578,6 +582,73 @@ class PatientDashboardViewModel @Inject constructor(
 
     fun resetHealthConnectSyncState() {
         _healthConnectSyncState.value = ProfileUpdateState.Idle
+    }
+
+    // ── Reminders ───────────────────────────────────────────────
+
+    fun createReminder(title: String, time: String, type: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            val request = CreateReminderRequest(
+                title = title,
+                type = type,
+                time = time
+            )
+            when (val result = vitalsRepository.createReminder(request)) {
+                is Result.Success -> {
+                    refresh() // Refresh to update list
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun markReminderDone(reminderId: String, scheduledAt: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "taken", scheduledAt)) {
+                is Result.Success -> {
+                    refresh()
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun snoozeReminder(reminderId: String, scheduledAt: String, snoozeMinutes: Int = 15) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "snoozed", scheduledAt, snoozeMinutes)) {
+                is Result.Success -> {
+                    refresh()
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun deleteReminder(reminderId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = vitalsRepository.deleteReminder(reminderId)) {
+                is Result.Success -> {
+                    refresh()
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
     }
 }
 

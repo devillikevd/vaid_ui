@@ -49,6 +49,7 @@ import com.example.swastik.ui.viewmodel.DoctorSearchViewModel
 import com.example.swastik.ui.viewmodel.DoctorSearchUiState
 import com.example.swastik.ui.viewmodel.NextAvailableSlotSuggestion
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
+import com.example.swastik.ui.components.DoctorProfileBottomSheet
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -72,12 +73,13 @@ fun AppointmentBookingScreen(
     preselectedClinicId: String? = null,
     preselectedSpecialization: String? = null,
     consultationMode: String? = null,
+    preselectedSearch: String? = null,
     doctorSearchViewModel: DoctorSearchViewModel = hiltViewModel(),
     appointmentViewModel: AppointmentViewModel = hiltViewModel(),
     patientDashboardViewModel: PatientDashboardViewModel = hiltViewModel()
 ) {
-    // booking wizard state
-    var currentStep by remember { mutableIntStateOf(1) }
+    // booking wizard state — skip Step 1 when doctor is preselected
+    var currentStep by remember { mutableIntStateOf(if (!preselectedDoctorId.isNullOrBlank()) 0 else 1) }
     var selectedDoctor by remember { mutableStateOf<Doctor?>(null) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
@@ -88,18 +90,20 @@ fun AppointmentBookingScreen(
 
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
 
-    LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, patientProfile?.location) {
+    LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, preselectedSearch, patientProfile?.location) {
         if (consultationMode == "in_person" && patientProfile?.location != null) {
             doctorSearchViewModel.setPatientLocation(0.0, 0.0, patientProfile?.location)
         }
 
-        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank()) {
+        if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank()) {
             doctorSearchViewModel.updateFilters(
                 hospitalId = preselectedHospitalId,
                 clinicId = preselectedClinicId,
-                specialization = preselectedSpecialization
+                specialization = preselectedSpecialization,
+                search = preselectedSearch
             )
-        } else {
+        } else if (preselectedDoctorId.isNullOrBlank()) {
+            // Only search all doctors if we DON'T have a preselected doctor
             doctorSearchViewModel.searchDoctors(resetList = true)
         }
     }
@@ -113,6 +117,7 @@ fun AppointmentBookingScreen(
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
 
+    // When preselected doctor loads, auto-advance to Step 2
     LaunchedEffect(preselectedDoctorId, doctorState.selectedDoctor?.doctor?.id) {
         val preselected = preselectedDoctorId ?: return@LaunchedEffect
         val doctor = doctorState.selectedDoctor?.doctor ?: return@LaunchedEffect
@@ -131,6 +136,7 @@ fun AppointmentBookingScreen(
     }
 
     val stepTitle = when (currentStep) {
+        0 -> "Loading..."
         1 -> "Select Doctor"
         2 -> "Consultation Details"
         3 -> "Pick Date & Time"
@@ -160,9 +166,15 @@ fun AppointmentBookingScreen(
                 navigationIcon = {
                     IconButton(onClick = {
                         when (currentStep) {
+                            0 -> onBackClick()
                             1 -> onBackClick()
                             2 -> {
-                                currentStep = 1
+                                // If doctor was preselected, go back to dashboard instead of step 1
+                                if (!preselectedDoctorId.isNullOrBlank()) {
+                                    onBackClick()
+                                } else {
+                                    currentStep = 1
+                                }
                             }
                             3 -> {
                                 currentStep = 2
@@ -222,14 +234,33 @@ fun AppointmentBookingScreen(
                 label = "step_animation"
             ) { step ->
                 when (step) {
+                    0 -> {
+                        // Loading state while doctor is being fetched
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = SwastikPrimary)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Loading doctor details...", color = Color.Gray)
+                            }
+                        }
+                    }
                     1 -> DoctorSelectionStep(
                         doctorSearchViewModel = doctorSearchViewModel,
                         uiState = doctorState,
-                        onDoctorSelected = { doctor ->
-                            showDoctorProfile = doctor
+                        onDoctorSelected = { doctor, isDirectBooking ->
+                            if (isDirectBooking) {
+                                selectedDoctor = doctor
+                                currentStep = 2
+                            } else {
+                                showDoctorProfile = doctor
+                            }
                         }
                     )
                     2 -> ConsultationDetailsStep(
+                        consultationMode = consultationMode,
                         selectedType = selectedType,
                         notes = notes,
                         onTypeChanged = { selectedType = it },
@@ -284,7 +315,7 @@ fun AppointmentBookingScreen(
         }
         
         if (showDoctorProfile != null) {
-            DoctorProfileSheet(
+            DoctorProfileBottomSheet(
                 doctor = showDoctorProfile!!,
                 onDismiss = { showDoctorProfile = null },
                 onBookClick = {
@@ -362,7 +393,7 @@ private fun StepIndicator(currentStep: Int) {
 private fun DoctorSelectionStep(
     doctorSearchViewModel: DoctorSearchViewModel,
     uiState: DoctorSearchUiState,
-    onDoctorSelected: (Doctor) -> Unit
+    onDoctorSelected: (Doctor, Boolean) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedSpecialization by remember { mutableStateOf<String?>(null) }
@@ -502,7 +533,8 @@ private fun DoctorSelectionStep(
                             if (doctor != null) {
                                 DoctorBookingCard(
                                     doctor = doctor,
-                                    onSelect = { onDoctorSelected(doctor) }
+                                    onSelect = { onDoctorSelected(doctor, true) }, // Pass true to indicate direct booking
+                                    onViewProfile = { onDoctorSelected(doctor, false) } // false for viewing profile
                                 )
                             }
                         }
@@ -527,7 +559,8 @@ private fun DoctorSelectionStep(
 @Composable
 private fun DoctorBookingCard(
     doctor: Doctor,
-    onSelect: () -> Unit
+    onSelect: () -> Unit,
+    onViewProfile: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -633,191 +666,34 @@ private fun DoctorBookingCard(
                     )
                 }
                 
-                OutlinedButton(
-                    onClick = onSelect,
-                    modifier = Modifier.height(40.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
-                    border = BorderStroke(1.5.dp, SwastikPrimary)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    OutlinedButton(
+                        onClick = onViewProfile,
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
+                        border = BorderStroke(1.5.dp, SwastikPrimary),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
+                    Button(
+                        onClick = onSelect,
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = Color.White),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
                 }
             }
         }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DoctorProfileSheet(
-    doctor: Doctor,
-    onDismiss: () -> Unit,
-    onBookClick: () -> Unit
-) {
-    val scrollState = rememberScrollState()
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White.copy(alpha = 0.9f),
-        scrimColor = Color.Black.copy(alpha = 0.3f),
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(bottom = 32.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .graphicsLayer {
-                        translationY = scrollState.value * 0.4f
-                        alpha = 1f - (scrollState.value / 300f).coerceIn(0f, 1f)
-                    },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .background(SwastikPrimaryLight, RoundedCornerShape(24.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(stringResource(R.string.string_2), fontSize = 48.sp)
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Verified",
-                        tint = SwastikPrimary,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 6.dp, y = 6.dp)
-                            .background(Color.White, CircleShape)
-                    )
-                }
-                Spacer(modifier = Modifier.width(20.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = doctor.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = doctor.specialization,
-                        fontSize = 15.sp,
-                        color = SwastikPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = doctor.qualification ?: "MBBS, MD",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Stats row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                DoctorStatCard(
-                    icon = Icons.Filled.Star,
-                    iconTint = Color(0xFFFFB800),
-                    title = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "4.8",
-                    subtitle = stringResource(R.string.rating),
-                    modifier = Modifier.weight(1f)
-                )
-                DoctorStatCard(
-                    icon = Icons.Outlined.Work,
-                    iconTint = SwastikPrimary,
-                    title = doctor.experienceYears?.let { "$it+" } ?: "8+",
-                    subtitle = "Years Exp",
-                    modifier = Modifier.weight(1f)
-                )
-                DoctorStatCard(
-                    icon = Icons.Outlined.Payments,
-                    iconTint = Color(0xFF4CAF50),
-                    title = doctor.consultationFee?.let { "₹$it" } ?: "Free",
-                    subtitle = "Fee",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // About section
-            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                Text(
-                    stringResource(R.string.about_doctor),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    lineHeight = 22.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(36.dp))
-
-            // Book Action
-            Button(
-                onClick = onBookClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-            ) {
-                Text(stringResource(R.string.book_appointment), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun DoctorStatCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconTint: Color,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 4.dp)
-        ) {
-            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(28.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text(subtitle, fontSize = 12.sp, color = Color.Gray)
-        }
-    }
-}
-
 // ────────────────────────────────────────────────────────────────
 // STEP 2 — Date & Time Slot Selection
 // ────────────────────────────────────────────────────────────────
@@ -1285,16 +1161,21 @@ private fun SlotChunkRows(
 // ────────────────────────────────────────────────────────────────
 @Composable
 private fun ConsultationDetailsStep(
+    consultationMode: String?,
     selectedType: String,
     notes: String,
     onTypeChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onContinue: () -> Unit
 ) {
-    val types = listOf(
-        Triple("video", "📹", "Video Consultation"),
-        Triple("in_person", "🏥", "In-Person Visit")
-    )
+    val types = if (consultationMode == "video") {
+        listOf(Triple("video", "📹", "Video Consultation"))
+    } else {
+        listOf(
+            Triple("video", "📹", "Video Consultation"),
+            Triple("in_person", "🏥", "In-Person Visit")
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),

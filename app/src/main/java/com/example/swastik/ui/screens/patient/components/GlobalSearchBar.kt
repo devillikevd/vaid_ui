@@ -16,6 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.swastik.data.model.Doctor
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,6 +31,18 @@ fun GlobalSearchBar(
     onSpecialitySelect: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+    
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                query = matches[0]
+            }
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -41,7 +58,17 @@ fun GlobalSearchBar(
                 Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.Gray)
             },
             trailingIcon = {
-                IconButton(onClick = { /* TODO: Voice Search Integration */ }) {
+                IconButton(onClick = {
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search...")
+                    }
+                    try {
+                        speechRecognizerLauncher.launch(intent)
+                    } catch (e: Exception) {
+                        // Fallback if no speech recognition available
+                    }
+                }) {
                     Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = Color.Gray)
                 }
             },

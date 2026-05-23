@@ -53,7 +53,12 @@ class EmergencyRepositoryImpl @Inject constructor(
             val response = apiService.getActiveEmergency()
             if (response.isSuccessful) {
                 if (response.body()?.success == true) {
-                    Result.Success(response.body()?.data)
+                    val activeEmergency = response.body()?.data
+                    if (activeEmergency?.status != "completed" && activeEmergency?.status != "cancelled") {
+                        Result.Success(activeEmergency)
+                    } else {
+                        Result.Success(null)
+                    }
                 } else {
                     // No active emergency is not an error
                     Result.Success(null)

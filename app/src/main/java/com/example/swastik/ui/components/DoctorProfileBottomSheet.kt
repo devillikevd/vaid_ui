@@ -1,0 +1,199 @@
+package com.example.swastik.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Payments
+import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.swastik.R
+import com.example.swastik.data.model.Doctor
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DoctorProfileBottomSheet(
+    doctor: Doctor,
+    onDismiss: () -> Unit,
+    onBookClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color.White.copy(alpha = 0.9f),
+        scrimColor = Color.Black.copy(alpha = 0.3f),
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .graphicsLayer {
+                        translationY = scrollState.value * 0.4f
+                        alpha = 1f - (scrollState.value / 300f).coerceIn(0f, 1f)
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(88.dp)
+                        .background(SwastikPrimaryLight, RoundedCornerShape(24.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(stringResource(R.string.string_2), fontSize = 48.sp)
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Verified",
+                        tint = SwastikPrimary,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 6.dp, y = 6.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = doctor.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = doctor.specialization,
+                        fontSize = 15.sp,
+                        color = SwastikPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = doctor.qualification ?: "MBBS, MD",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Stats row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DoctorStatCard(
+                    icon = Icons.Filled.Star,
+                    iconTint = Color(0xFFFFB800),
+                    title = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "4.8",
+                    subtitle = stringResource(R.string.rating),
+                    modifier = Modifier.weight(1f)
+                )
+                DoctorStatCard(
+                    icon = Icons.Outlined.Work,
+                    iconTint = SwastikPrimary,
+                    title = doctor.experienceYears?.let { "$it+" } ?: "8+",
+                    subtitle = "Years Exp",
+                    modifier = Modifier.weight(1f)
+                )
+                DoctorStatCard(
+                    icon = Icons.Outlined.Payments,
+                    iconTint = Color(0xFF4CAF50),
+                    title = doctor.consultationFee?.let { "₹$it" } ?: "Free",
+                    subtitle = "Fee",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+            HorizontalDivider(color = Color.LightGray.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // About section
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                Text(
+                    stringResource(R.string.about_doctor),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    lineHeight = 22.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            // Book Action
+            Button(
+                onClick = onBookClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
+                Text(stringResource(R.string.book_appointment), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoctorStatCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(vertical = 16.dp, horizontal = 4.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 12.sp, color = Color.Gray)
+        }
+    }
+}

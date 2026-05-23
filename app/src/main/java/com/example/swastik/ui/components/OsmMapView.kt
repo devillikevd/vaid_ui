@@ -118,7 +118,7 @@ fun OsmMapView(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = markerData.title
                     snippet = markerData.snippet
-                    icon = createCircleDrawable(context, markerData.markerColor, 28)
+                    icon = createPinDrawable(context, markerData.markerColor, 32)
                     if (markerData.onClick != null) {
                         setOnMarkerClickListener { _, _ ->
                             markerData.onClick.invoke()
@@ -151,11 +151,12 @@ fun OsmMapView(
 }
 
 /**
- * Create a simple colored circle drawable for map markers.
+ * Create a custom pin teardrop drawable for map markers.
  */
-private fun createCircleDrawable(context: Context, color: Int, sizeDp: Int): Drawable {
+private fun createPinDrawable(context: Context, color: Int, sizeDp: Int): Drawable {
     val density = context.resources.displayMetrics.density
-    val sizePx = (sizeDp * density).toInt()
+    val widthPx = (sizeDp * density).toInt()
+    val heightPx = ((sizeDp * 1.3f) * density).toInt()
 
     return object : Drawable() {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -165,24 +166,57 @@ private fun createCircleDrawable(context: Context, color: Int, sizeDp: Int): Dra
         private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = android.graphics.Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = 3f * density
+            strokeWidth = 2f * density
         }
+        private val path = android.graphics.Path()
 
         override fun draw(canvas: Canvas) {
-            val cx = bounds.centerX().toFloat()
-            val cy = bounds.centerY().toFloat()
-            val radius = (bounds.width() / 2f) - (2f * density)
-            canvas.drawCircle(cx, cy, radius, paint)
-            canvas.drawCircle(cx, cy, radius, borderPaint)
+            val width = bounds.width().toFloat()
+            val height = bounds.height().toFloat()
+            val radius = width / 2.2f
+            val cx = width / 2f
+            val cy = radius + 2f * density
+
+            path.reset()
+            // Top arc
+            path.addArc(cx - radius, cy - radius, cx + radius, cy + radius, 180f, 180f)
+            
+            // Right curve down to point
+            path.cubicTo(
+                cx + radius, cy + radius * 0.8f,
+                cx + radius * 0.3f, height - 4f * density,
+                cx, height - 2f * density
+            )
+            // Left curve back up
+            path.cubicTo(
+                cx - radius * 0.3f, height - 4f * density,
+                cx - radius, cy + radius * 0.8f,
+                cx - radius, cy
+            )
+            path.close()
+
+            // Add drop shadow
+            paint.setShadowLayer(4f, 0f, 4f, android.graphics.Color.argb(80, 0, 0, 0))
+            canvas.drawPath(path, paint)
+            
+            // Clear shadow for border and inner circle
+            paint.clearShadowLayer()
+            canvas.drawPath(path, borderPaint)
+
+            val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = android.graphics.Color.WHITE
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(cx, cy, radius * 0.4f, innerPaint)
         }
 
-        override fun getIntrinsicWidth() = sizePx
-        override fun getIntrinsicHeight() = sizePx
+        override fun getIntrinsicWidth() = widthPx
+        override fun getIntrinsicHeight() = heightPx
         override fun setAlpha(alpha: Int) { paint.alpha = alpha }
         override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
         @Deprecated("Deprecated in Java")
         override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
     }.also {
-        it.setBounds(0, 0, sizePx, sizePx)
+        it.setBounds(0, 0, widthPx, heightPx)
     }
 }

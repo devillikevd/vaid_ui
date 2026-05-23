@@ -1030,14 +1030,53 @@ private fun FacilityDetailSheet(
     val textColor = if (isDarkMode) Color.White else Color.Black
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
 
-    Column(
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
     ) {
-        // Sticky Header
-        Row(
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .graphicsLayer {
+                        translationY = scrollOffset * 0.5f
+                        alpha = 1f - (scrollOffset / 300f).coerceIn(0f, 1f)
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                facility.type.getMarkerColor().copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            ) {
+                 Icon(
+                     imageVector = facility.type.getMarkerIcon(),
+                     contentDescription = null,
+                     tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                     modifier = Modifier.size(80.dp).align(Alignment.Center)
+                 )
+            }
+        }
+        
+        item {
+            Column(
+                modifier = Modifier
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                // Sticky Header
+                Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
@@ -1355,12 +1394,11 @@ private fun FacilityDetailSheet(
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 350.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp),
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(facility.doctors) { doctor ->
+                facility.doctors.forEach { doctor ->
                     DoctorCard(
                         doctor = doctor,
                         onBook = { onDoctorBook(doctor) },
@@ -1389,6 +1427,8 @@ private fun FacilityDetailSheet(
                     color = subtextColor,
                     textAlign = TextAlign.Center
                 )
+            }
+        }
             }
         }
     }
