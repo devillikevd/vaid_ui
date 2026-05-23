@@ -42,6 +42,8 @@ fun RemindersTabContent(
     onNotificationClick: () -> Unit,
     onCreateReminder: (title: String, time: String, type: String) -> Unit = { _, _, _ -> },
     onMarkDone: (id: String, time: String) -> Unit = { _, _ -> },
+    onSnooze: (id: String, time: String) -> Unit = { _, _ -> },
+    onSkip: (id: String, time: String) -> Unit = { _, _ -> },
     onDelete: (id: String) -> Unit = {}
 ) {
     var showCreateSheet by remember { mutableStateOf(false) }
@@ -215,7 +217,9 @@ fun RemindersTabContent(
                                     ) {
                                         ReminderCard(
                                             reminder = reminder,
-                                            onMarkDone = { onMarkDone(reminder.id, reminder.time) }
+                                            onMarkDone = { onMarkDone(reminder.id, reminder.time) },
+                                            onSnooze = { onSnooze(reminder.id, reminder.time) },
+                                            onSkip = { onSkip(reminder.id, reminder.time) }
                                         )
                                     }
                                 }
@@ -241,7 +245,9 @@ fun RemindersTabContent(
 @Composable
 private fun ReminderCard(
     reminder: Reminder,
-    onMarkDone: () -> Unit
+    onMarkDone: () -> Unit,
+    onSnooze: () -> Unit,
+    onSkip: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -249,53 +255,95 @@ private fun ReminderCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(1.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(SwastikPrimaryLight, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Alarm, contentDescription = null, tint = SwastikPrimary)
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = reminder.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${reminder.time} • ${reminder.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    fontSize = 13.sp,
-                    color = Color.DarkGray
-                )
-            }
-            
-            if (reminder.isCompleted) {
-                Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF2E7D32))
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = SwastikPrimary,
+                Box(
                     modifier = Modifier
-                        .padding(start = 8.dp)
-                        .clickable(onClick = onMarkDone)
+                        .size(48.dp)
+                        .background(SwastikPrimaryLight, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
+                    Icon(Icons.Filled.Alarm, contentDescription = null, tint = SwastikPrimary)
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Done",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        text = reminder.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color.Black
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${reminder.time} • ${reminder.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                        fontSize = 13.sp,
+                        color = Color.DarkGray
+                    )
+                }
+            }
+
+            if (reminder.isCompleted) {
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Marked for today",
+                            color = Color(0xFF2E7D32),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilledTonalButton(
+                        onClick = onMarkDone,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFE8F5E9),
+                            contentColor = Color(0xFF2E7D32)
+                        )
+                    ) {
+                        Text("Taken")
+                    }
+                    FilledTonalButton(
+                        onClick = onSnooze,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFFEFF3FF),
+                            contentColor = SwastikPrimary
+                        )
+                    ) {
+                        Text("Snooze")
+                    }
+                    OutlinedButton(
+                        onClick = onSkip,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Skip")
+                    }
                 }
             }
         }
@@ -325,7 +373,9 @@ fun CreateReminderBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
                 .padding(horizontal = 24.dp, vertical = 16.dp)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
         ) {
             Text("Create Reminder", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))

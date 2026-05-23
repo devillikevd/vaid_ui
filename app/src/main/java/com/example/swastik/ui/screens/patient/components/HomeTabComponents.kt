@@ -460,14 +460,14 @@ fun HealthcareServicesSection(
             ) {
                 // Hospitals
                 Card(
-                    modifier = Modifier.weight(1f).height(130.dp).clickable { onHospitalsClick() },
+                    modifier = Modifier.weight(1f).height(140.dp).clickable { onHospitalsClick() },
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
                         Box(
@@ -479,23 +479,24 @@ fun HealthcareServicesSection(
                         ) {
                             Icon(Icons.Outlined.LocalHospital, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                         Column {
                             Text("Find Hospitals", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("Book & Visit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Book & Visit", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
                 // Clinics
                 Card(
-                    modifier = Modifier.weight(1f).height(130.dp).clickable { onClinicsClick() },
+                    modifier = Modifier.weight(1f).height(140.dp).clickable { onClinicsClick() },
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
                         Box(
@@ -507,10 +508,11 @@ fun HealthcareServicesSection(
                         ) {
                             Icon(Icons.Outlined.MedicalServices, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                         Column {
                             Text("Book Clinic", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("Consult Doctors", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Consult Doctors", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -522,14 +524,14 @@ fun HealthcareServicesSection(
             ) {
                 // Pharmacy
                 Card(
-                    modifier = Modifier.weight(1f).height(130.dp).clickable { onPharmacyClick() },
+                    modifier = Modifier.weight(1f).height(140.dp).clickable { onPharmacyClick() },
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
                         Box(
@@ -541,6 +543,7 @@ fun HealthcareServicesSection(
                         ) {
                             Icon(Icons.Outlined.LocalPharmacy, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                         Column {
                             Text("Order Medicine", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(2.dp))
@@ -550,14 +553,14 @@ fun HealthcareServicesSection(
                 }
                 // Diagnostics
                 Card(
-                    modifier = Modifier.weight(1f).height(130.dp).clickable { onDiagnosticsClick() },
+                    modifier = Modifier.weight(1f).height(140.dp).clickable { onDiagnosticsClick() },
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
+                        verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.Start
                     ) {
                         Box(
@@ -569,10 +572,11 @@ fun HealthcareServicesSection(
                         ) {
                             Icon(Icons.Outlined.Science, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
                         Column {
                             Text("Book Lab Tests", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text("in person Collection", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("in person Collection", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }

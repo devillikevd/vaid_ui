@@ -240,10 +240,29 @@ fun AppointmentBookingScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = SwastikPrimary)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("Loading doctor details...", color = Color.Gray)
+                            if (doctorState.error != null) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        Icons.Outlined.ErrorOutline,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Failed to load doctor details", color = MaterialTheme.colorScheme.error)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = Color.Gray)
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Button(onClick = onBackClick) {
+                                        Text("Go Back")
+                                    }
+                                }
+                            } else {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = SwastikPrimary)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text("Loading doctor details...", color = Color.Gray)
+                                }
                             }
                         }
                     }

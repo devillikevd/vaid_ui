@@ -58,7 +58,7 @@ fun CommunityQAScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("community/ask") },
+                onClick = { navController.navigate(com.example.swastik.navigation.Screen.AskQuestion.route) },
                 containerColor = SwastikPrimary
             ) {
                 Text("+ Ask", color = Color.White, modifier = Modifier.padding(horizontal = 16.dp))

@@ -272,7 +272,7 @@ fun FindDoctorsCategoriesScreen(
                     Text(
                         stringResource(R.string.learn_how_to_book),
                         fontSize = 14.sp,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
@@ -297,7 +297,7 @@ fun FindDoctorsCategoriesScreen(
                 placeholder = {
                     Text(
                         stringResource(R.string.search_symptoms_specialities),
-                        color = TextHint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 15.sp
                     )
                 },
@@ -360,7 +360,7 @@ fun FindDoctorsCategoriesScreen(
             Text(
                 "Find top surgeons near you for your surgical procedure",
                 fontSize = 13.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -420,7 +420,7 @@ private fun SectionHeader(title: String) {
         text = title,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
-        color = TextPrimary,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(horizontal = 16.dp)
     )
 }
@@ -584,14 +584,14 @@ private fun CategoriesGrid(
                                     text = item.title,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = item.description,
                                     fontSize = 11.sp,
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 3,
                                     lineHeight = 14.sp,
                                     overflow = TextOverflow.Ellipsis

@@ -103,7 +103,7 @@ class PatientDashboardViewModel @Inject constructor(
                     type = NotificationType.MEDICINE_REMINDER,
                     isRead = false,
                     actionLabel = "View Reminders",
-                    actionRoute = Screen.VitalsReminders.createRoute(tab = 1)
+                    actionRoute = "reminders_tab"
                 )
                 // Filter out any existing virtual summary and prepend the new one
                 listOf(summaryNotif) + notifs.filter { it.id != "reminders_summary_virtual" }
@@ -625,6 +625,21 @@ class PatientDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.actOnReminder(reminderId, "snoozed", scheduledAt, snoozeMinutes)) {
+                is Result.Success -> {
+                    refresh()
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun skipReminder(reminderId: String, scheduledAt: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "skipped", scheduledAt)) {
                 is Result.Success -> {
                     refresh()
                 }

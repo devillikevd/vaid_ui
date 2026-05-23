@@ -181,6 +181,8 @@ fun PatientDashboardScreen(
                             onNotificationClick = { showNotificationPanel = true },
                             onCreateReminder = { title, time, type -> viewModel.createReminder(title, time, type) },
                             onMarkDone = { id, time -> viewModel.markReminderDone(id, time) },
+                            onSnooze = { id, time -> viewModel.snoozeReminder(id, time, 15) },
+                            onSkip = { id, time -> viewModel.skipReminder(id, time) },
                             onDelete = { id -> viewModel.deleteReminder(id) }
                         )
                         2 -> MedicineTabContent(
@@ -207,7 +209,6 @@ fun PatientDashboardScreen(
                             unreadNotificationsCount = unreadCount,
                             onNotificationClick = { showNotificationPanel = true },
                             onLogout = onLogout,
-                            onNavigateToVitals = onNavigateToVitals,
                             viewModel = viewModel
                         )
                     }

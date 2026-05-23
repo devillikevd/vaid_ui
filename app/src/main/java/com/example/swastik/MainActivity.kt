@@ -294,6 +294,14 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             }
         }
 
+        composable(Screen.AskQuestion.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.community.AskQuestionScreen(
+                    navController = navController
+                )
+            }
+        }
+
         composable(
             route = Screen.CommunityQADetails.route,
             arguments = listOf(

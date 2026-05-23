@@ -71,7 +71,7 @@ fun AllSpecialitiesScreen(
                 text = stringResource(R.string.all_specialities),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -122,7 +122,7 @@ fun AllSpecialitiesScreen(
                                     textAlign = TextAlign.Center,
                                     maxLines = 2,
                                     lineHeight = 14.sp,
-                                    color = TextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
