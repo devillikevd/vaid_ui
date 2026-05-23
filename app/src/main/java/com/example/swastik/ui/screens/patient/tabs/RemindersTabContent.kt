@@ -1,4 +1,8 @@
+
 package com.example.swastik.ui.screens.patient.tabs
+
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -157,7 +161,7 @@ fun RemindersTabContent(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .androidx.compose.ui.draw.drawBehind {
+                                .drawBehind {
                                     if (!isLast) {
                                         val strokeWidth = 1.5.dp.toPx()
                                         val xOffset = 13.dp.toPx()

@@ -1,4 +1,10 @@
+
 package com.example.swastik.ui.screens.patient.medicine
+
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
+import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.utils.NavigationHelper
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
