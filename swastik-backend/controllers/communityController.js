@@ -55,3 +55,30 @@ exports.upvoteQuestion = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.upvoteAnswer = async (req, res, next) => {
+  try {
+    const result = await communityService.upvoteAnswer(req.params.id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteQuestion = async (req, res, next) => {
+  try {
+    const result = await communityService.deleteQuestion(req.user.id, req.params.id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAnswer = async (req, res, next) => {
+  try {
+    const result = await communityService.deleteAnswer(req.user.id, req.params.id);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
