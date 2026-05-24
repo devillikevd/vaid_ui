@@ -22,6 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.app.Activity
@@ -37,7 +40,8 @@ fun GlobalSearchBar(
     doctors: List<Doctor>,
     searchSuggestions: List<String>,
     onDoctorSelect: (Doctor) -> Unit,
-    onSpecialitySelect: (String) -> Unit
+    onSpecialitySelect: (String) -> Unit,
+    onServiceSelect: (String) -> Unit = {}
 ) {
     var query by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
@@ -56,12 +60,22 @@ fun GlobalSearchBar(
         }
     }
 
+    // Home screen services for direct navigation
+    val homeServices = listOf(
+        "Hospitals", "Clinics", "Pharmacy", "Diagnostics", "Lab Tests", 
+        "Appointments", "Reports", "Prescriptions", "Vitals", 
+        "Health Card", "Emergency", "SOS", "Ambulance", "AI Assistant", "Chatbot"
+    )
+
     // Default suggestions when focused but empty
     val suggestions = searchSuggestions.ifEmpty { 
-        listOf("Fever", "Headache", "Dermatologist", "Gynecologist", "Cough", "Dentist")
+        listOf("Hospitals", "Fever", "Headache", "Dermatologist", "Gynecologist", "Ambulance", "Dentist")
     }
 
     // Filter logic
+    val filteredServices = if (query.isEmpty()) emptyList() else {
+        homeServices.filter { it.contains(query, ignoreCase = true) }
+    }
     val filteredDocs = if (query.isEmpty()) emptyList() else {
         doctors.filter { it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) }
     }
@@ -122,13 +136,36 @@ fun GlobalSearchBar(
                 unfocusedBorderColor = Color.Transparent,
                 focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    if (query.isNotEmpty()) {
+                        // Priority 1: Home Services
+                        val serviceMatch = filteredServices.firstOrNull()
+                        if (serviceMatch != null) {
+                            onServiceSelect(serviceMatch)
+                        } else {
+                            // Priority 2: Doctors
+                            val doctorMatch = filteredDocs.firstOrNull()
+                            if (doctorMatch != null) {
+                                onDoctorSelect(doctorMatch)
+                            } else {
+                                // Priority 3: Specialities
+                                onSpecialitySelect(query)
+                            }
+                        }
+                        focusManager.clearFocus()
+                        query = ""
+                    }
+                }
+            ),
             singleLine = true
         )
         
         if (isFocused || query.isNotEmpty()) {
             val displayList = if (query.isEmpty()) suggestions else emptyList()
             
-            if (displayList.isNotEmpty() || filteredDocs.isNotEmpty() || filteredSpecs.isNotEmpty()) {
+            if (displayList.isNotEmpty() || filteredDocs.isNotEmpty() || filteredSpecs.isNotEmpty() || filteredServices.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -149,12 +186,30 @@ fun GlobalSearchBar(
                             }
                             items(suggestions) { item ->
                                 SuggestionRow(item) {
-                                    onSpecialitySelect(item)
+                                    if (homeServices.contains(item)) {
+                                        onServiceSelect(item)
+                                    } else {
+                                        onSpecialitySelect(item)
+                                    }
                                     query = ""
                                     focusManager.clearFocus()
                                 }
                             }
                         } else {
+                            // Show Filtered Services
+                            if (filteredServices.isNotEmpty()) {
+                                item {
+                                    Text("Services", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
+                                }
+                                items(filteredServices) { service ->
+                                    SuggestionRow(service) {
+                                        onServiceSelect(service)
+                                        query = ""
+                                        focusManager.clearFocus()
+                                    }
+                                }
+                            }
+
                             // Show Filtered Specialities
                             if (filteredSpecs.isNotEmpty()) {
                                 item {

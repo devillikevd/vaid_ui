@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.core.content.ContextCompat
 import com.example.swastik.data.remote.dto.UpdateProfileRequest
 import com.example.swastik.ui.screens.patient.components.*
+import com.example.swastik.ui.screens.patient.profile.SavedAddressesDialog
 import com.example.swastik.ui.screens.patient.tabs.*
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
@@ -73,6 +74,7 @@ fun PatientDashboardScreen(
 ) {
     var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 4)) }
     var showNotificationPanel by remember { mutableStateOf(false) }
+    var showAddressesDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     // Handle back button when Profile tab is selected
@@ -170,6 +172,7 @@ fun PatientDashboardScreen(
                             onLocationUpdate = { newLocation ->
                                 viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
                             },
+                            onAddAddressClick = { showAddressesDialog = true },
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA
                         )
@@ -210,6 +213,7 @@ fun PatientDashboardScreen(
                             unreadNotificationsCount = unreadCount,
                             onNotificationClick = { showNotificationPanel = true },
                             onLogout = onLogout,
+                            onAddressesClick = { showAddressesDialog = true },
                             viewModel = viewModel
                         )
                     }
@@ -253,6 +257,14 @@ fun PatientDashboardScreen(
                     }
                     showNotificationPanel = false
                 }
+            )
+        }
+
+        // Saved Addresses Dialog
+        if (showAddressesDialog) {
+            SavedAddressesDialog(
+                addresses = profile?.savedAddresses ?: emptyList(),
+                onDismiss = { showAddressesDialog = false }
             )
         }
     }

@@ -48,6 +48,7 @@ fun ProfileTabContent(
     onNotificationClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
+    onAddressesClick: () -> Unit = {},
     viewModel: PatientDashboardViewModel? = null
 ) {
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -58,7 +59,6 @@ fun ProfileTabContent(
     var showFeedbackDialog by remember { mutableStateOf(false) }
     var showEmergencyContactsDialog by remember { mutableStateOf(false) }
     var showFamilyMembersDialog by remember { mutableStateOf(false) }
-    var showAddressesDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showHelpCenterDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
@@ -178,7 +178,7 @@ fun ProfileTabContent(
                 item {
                     SettingsCard(
                         onPersonalInfoClick = { showPersonalInfoDialog = true },
-                        onAddressesClick = { showAddressesDialog = true },
+                        onAddressesClick = onAddressesClick,
                         onFamilyClick = { showFamilyMembersDialog = true },
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
@@ -296,13 +296,6 @@ fun ProfileTabContent(
             onDeleteMember = { memberId ->
                 viewModel?.deleteFamilyMember(memberId)
             }
-        )
-    }
-
-    if (showAddressesDialog) {
-        SavedAddressesDialog(
-            addresses = profile?.savedAddresses ?: emptyList(),
-            onDismiss = { showAddressesDialog = false }
         )
     }
 

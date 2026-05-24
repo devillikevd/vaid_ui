@@ -10,6 +10,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavType
@@ -143,7 +145,31 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(400)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it },
+                        animationSpec = tween(400)
+                    ) + fadeOut(animationSpec = tween(400))
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it },
+                        animationSpec = tween(400)
+                    ) + fadeIn(animationSpec = tween(400))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(400)
+                    ) + fadeOut(animationSpec = tween(400))
+                }
             ) {
 
         // ── Auth ──────────────────────────────────────────

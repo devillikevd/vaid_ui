@@ -532,7 +532,7 @@ fun HealthcareServicesSection(
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Image(
-                            painter = painterResource(id = R.drawable.find_hospital),
+                            painter = painterResource(id = R.drawable.findhospital),
                             contentDescription = null,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)

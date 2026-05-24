@@ -44,6 +44,7 @@ fun HomeTabContent(
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onLocationUpdate: (String) -> Unit = {},
+    onAddAddressClick: () -> Unit = {},
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {}
 ) {
@@ -63,6 +64,7 @@ fun HomeTabContent(
             onNotificationClick = onNotificationClick,
             onProfileClick = onProfileClick,
             onLocationUpdate = onLocationUpdate,
+            onAddAddressClick = onAddAddressClick,
             isHomeTab = true
         )
         
@@ -73,7 +75,22 @@ fun HomeTabContent(
             doctors = doctors,
             searchSuggestions = searchSuggestions,
             onDoctorSelect = { doc -> onNavigateToBooking(doc.id) },
-            onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) }
+            onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) },
+            onServiceSelect = { service ->
+                when (service.lowercase()) {
+                    "hospitals" -> onNavigateToHospitals()
+                    "clinics" -> onNavigateToClinics()
+                    "pharmacy" -> onNavigateToPharmacies()
+                    "diagnostics", "lab tests" -> onNavigateToDiagnostic()
+                    "appointments" -> onNavigateToAppointments()
+                    "reports" -> onNavigateToReports()
+                    "prescriptions" -> onNavigateToPrescriptions()
+                    "vitals" -> onNavigateToVitals()
+                    "health card" -> onNavigateToHealthCard()
+                    "emergency", "sos", "ambulance" -> onNavigateToEmergency()
+                    "ai assistant", "chatbot" -> onNavigateToChatbot()
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))

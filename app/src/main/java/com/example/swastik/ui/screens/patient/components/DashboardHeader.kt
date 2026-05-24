@@ -1,5 +1,11 @@
 package com.example.swastik.ui.screens.patient.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
@@ -26,12 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.animation.with
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.theme.*
 import com.example.swastik.data.local.AppSettingsStore
+import com.google.android.gms.location.LocationServices
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -44,13 +53,104 @@ fun DashboardHeader(
     onNotificationClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onLocationUpdate: (String) -> Unit = {},
+    onAddAddressClick: () -> Unit = {},
     isHomeTab: Boolean = false,
     cartItemCount: Int = 0,
     onCartClick: (() -> Unit)? = null
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
     var locationInput by remember { mutableStateOf(profile?.location ?: "") }
+    var isFetchingLocation by remember { mutableStateOf(false) }
     var showLanguageMenu by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        if (fineLocationGranted || coarseLocationGranted) {
+            isFetchingLocation = true
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        try {
+                            val geocoder = Geocoder(context, Locale.getDefault())
+                            val addressesList = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            if (!addressesList.isNullOrEmpty()) {
+                                val fetchedAddress = addressesList[0]
+                                val subLocality = fetchedAddress.subLocality
+                                val locality = fetchedAddress.locality
+                                val parts = listOfNotNull(subLocality, locality).filter { it.isNotBlank() }
+                                if (parts.isNotEmpty()) {
+                                    locationInput = parts.joinToString(", ")
+                                } else {
+                                    locationInput = fetchedAddress.locality ?: fetchedAddress.adminArea ?: ""
+                                }
+                            }
+                        } catch (e: Exception) {}
+                    }
+                    isFetchingLocation = false
+                }.addOnFailureListener {
+                    isFetchingLocation = false
+                }
+            } catch (e: SecurityException) {
+                isFetchingLocation = false
+            }
+        }
+    }
+
+    val fetchLocation: () -> Unit = {
+        val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        
+        if (fineGranted || coarseGranted) {
+            isFetchingLocation = true
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        try {
+                            val geocoder = Geocoder(context, Locale.getDefault())
+                            val addressesList = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            if (!addressesList.isNullOrEmpty()) {
+                                val fetchedAddress = addressesList[0]
+                                val subLocality = fetchedAddress.subLocality
+                                val locality = fetchedAddress.locality
+                                val parts = listOfNotNull(subLocality, locality).filter { it.isNotBlank() }
+                                if (parts.isNotEmpty()) {
+                                    locationInput = parts.joinToString(", ")
+                                } else {
+                                    locationInput = fetchedAddress.locality ?: fetchedAddress.adminArea ?: ""
+                                }
+                            }
+                        } catch (e: Exception) {}
+                    }
+                    isFetchingLocation = false
+                }.addOnFailureListener {
+                    isFetchingLocation = false
+                }
+            } catch (e: SecurityException) {
+                isFetchingLocation = false
+            }
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    // Auto-fetch location when dialog opens
+    LaunchedEffect(showLocationDialog) {
+        if (showLocationDialog) {
+            fetchLocation()
+        }
+    }
     
     val appSettings by AppSettingsStore.settings.collectAsState()
     val selectedLanguage = appSettings.language
@@ -437,16 +537,75 @@ fun DashboardHeader(
     if (showLocationDialog) {
         AlertDialog(
             onDismissRequest = { showLocationDialog = false },
-            title = { Text("Update Location") },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.LocationOn, null, tint = SwastikPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Update Location")
+                }
+            },
             text = {
-                OutlinedTextField(
-                    value = locationInput,
-                    onValueChange = { locationInput = it },
-                    label = { Text("Your Location") },
-                    placeholder = { Text("e.g. New York, USA") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Auto-fetching indicator
+                    if (isFetchingLocation) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Detecting current location...", fontSize = 14.sp, color = Color.Gray)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = locationInput,
+                        onValueChange = { locationInput = it },
+                        label = { Text("Your Location") },
+                        placeholder = { Text("e.g. Sonipat, Haryana") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = {
+                            if (!isFetchingLocation) {
+                                IconButton(onClick = fetchLocation) {
+                                    Icon(Icons.Outlined.MyLocation, null, tint = SwastikPrimary)
+                                }
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+
+                    // Option to Add New Address (like in profile)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { 
+                                showLocationDialog = false
+                                onAddAddressClick() 
+                            }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SwastikPrimary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AddHome, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Add New Address", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Save home, office etc.", fontSize = 12.sp, color = Color.Gray)
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.ChevronRight, null, tint = Color.Gray)
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -454,7 +613,9 @@ fun DashboardHeader(
                         onLocationUpdate(locationInput)
                         showLocationDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                    enabled = locationInput.isNotBlank() && !isFetchingLocation,
+                    shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Update")
                 }
@@ -463,7 +624,8 @@ fun DashboardHeader(
                 TextButton(onClick = { showLocationDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
+            shape = RoundedCornerShape(20.dp)
         )
     }
 }

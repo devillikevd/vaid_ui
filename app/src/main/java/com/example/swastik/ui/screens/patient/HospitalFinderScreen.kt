@@ -3,6 +3,7 @@ package com.example.swastik.ui.screens.patient
 import androidx.compose.ui.graphics.graphicsLayer
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -82,11 +83,19 @@ fun HospitalFinderScreen(
     var selectedFacility by remember { mutableStateOf<MedicalFacility?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    var isMapView by remember { mutableStateOf(true) }
+    var isMapView by remember { mutableStateOf(false) } // Defaulting to List View as requested
     var searchQuery by remember { mutableStateOf("") }
+    var hasAutoSwitchedToList by remember { mutableStateOf(false) }
     var isEmergencyMode by remember { mutableStateOf(false) }
     var hasTriggeredFocusedSearch by remember(requestedFocusFacilityId, requestedFocusFacilityName) {
         mutableStateOf(false)
+    }
+
+    // Handle back button when in map view
+    if (isMapView) {
+        BackHandler {
+            isMapView = false
+        }
     }
 
     // Filter states
@@ -145,6 +154,15 @@ fun HospitalFinderScreen(
 
         typeMatch && searchMatch && openMatch && ratingMatch && emergencyMatch && distanceMatch && hospitalTypeMatch
     }
+
+    // Automatically ensure list view is shown if results are found near user
+    LaunchedEffect(hospitalState.isLoading, filteredFacilities.isNotEmpty()) {
+        if (!hospitalState.isLoading && filteredFacilities.isNotEmpty() && !hasAutoSwitchedToList) {
+            isMapView = false
+            hasAutoSwitchedToList = true
+        }
+    }
+
     val mappableFacilities = filteredFacilities.filter(::hasValidMapCoordinates)
     val facilitiesMissingMapCoordinates = filteredFacilities.size - mappableFacilities.size
 
@@ -255,7 +273,9 @@ fun HospitalFinderScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = onBackClick) {
+                        IconButton(onClick = {
+                            if (isMapView) isMapView = false else onBackClick()
+                        }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
@@ -689,7 +709,16 @@ fun HospitalFinderScreen(
                     emergencyServicesOnly = emergencyServicesOnly,
                     onEmergencyServicesChange = { emergencyServicesOnly = it },
                     showHospitalTypeFilter = selectedFacilityType == null || selectedFacilityType == FacilityType.HOSPITAL,
-                    onApplyFilters = { showFilterSheet = false },
+                    onApplyFilters = { 
+                        showFilterSheet = false
+                        // If user requested a distance greater than currently loaded, trigger a reload
+                        if (distanceFilter > hospitalState.activeRadiusKm) {
+                            viewModel.loadNearbyFacilities(
+                                radius = distanceFilter.toInt(),
+                                facilityType = selectedFacilityType
+                            )
+                        }
+                    },
                     isDarkMode = resolvedDarkMode
                 )
             }
@@ -875,8 +904,10 @@ private fun FilterBottomSheet(
             cardColor = cardColor
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(0f, 3f, 3.5f, 4f, 4.5f).forEach { rating ->
                     FilterChip(
