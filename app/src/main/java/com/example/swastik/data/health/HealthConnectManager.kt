@@ -34,22 +34,28 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    suspend fun fetchVitalsData(days: Long = 7): VitalsData {
+    suspend fun fetchVitalsData(days: Long = 1): VitalsData {
         val endTime = Instant.now()
         val startTime = endTime.minus(days, ChronoUnit.DAYS)
         val timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
 
-        // Read Steps
-        val totalSteps = try {
-            val stepsRequest = ReadRecordsRequest(
-                recordType = StepsRecord::class,
-                timeRangeFilter = timeRangeFilter
+        // Read Steps grouped by day
+        val stepsPoints = try {
+            val stepsRequest = androidx.health.connect.client.request.AggregateGroupByPeriodRequest(
+                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                timeRangeFilter = timeRangeFilter,
+                timeRangeSlicer = java.time.Period.ofDays(1)
             )
-            val stepsResponse = healthConnectClient.readRecords(stepsRequest)
-            stepsResponse.records.sumOf { it.count }
-        } catch (e: Exception) { 0L }
+            val stepsResponse = healthConnectClient.aggregateGroupByPeriod(stepsRequest)
+            stepsResponse.mapNotNull { group ->
+                val total = group.result[StepsRecord.COUNT_TOTAL]
+                if (total != null && total > 0) {
+                    VitalsPoint(total, group.startTime.atZone(java.time.ZoneId.systemDefault()).toInstant())
+                } else null
+            }
+        } catch (e: Exception) { emptyList() }
 
-        // Read Heart Rate
+        // Read Heart Rate (All points in the time range)
         val hrPoints = try {
             val hrRequest = ReadRecordsRequest(
                 recordType = HeartRateRecord::class,
@@ -57,30 +63,36 @@ class HealthConnectManager(private val context: Context) {
             )
             val hrResponse = healthConnectClient.readRecords(hrRequest)
             hrResponse.records.flatMap { record ->
-                record.samples.map { sample -> sample.beatsPerMinute }
-            }.takeLast(10) // taking last 10 points for the chart
+                record.samples.map { sample -> VitalsPoint(sample.beatsPerMinute, sample.time) }
+            }.sortedBy { it.time }
         } catch (e: Exception) { emptyList() }
 
-        // Read Body Temp
+        // Read Body Temp (All points in the time range)
         val tempPoints = try {
             val tempRequest = ReadRecordsRequest(
                 recordType = BodyTemperatureRecord::class,
                 timeRangeFilter = timeRangeFilter
             )
             val tempResponse = healthConnectClient.readRecords(tempRequest)
-            tempResponse.records.map { it.temperature.inCelsius }.takeLast(10)
+            tempResponse.records.map { VitalsPoint(it.temperature.inCelsius, it.time) }
+                .sortedBy { it.time }
         } catch (e: Exception) { emptyList() }
 
         return VitalsData(
-            totalSteps = totalSteps,
+            dailySteps = stepsPoints,
             recentHeartRates = hrPoints,
             recentTemperatures = tempPoints
         )
     }
 }
 
+data class VitalsPoint<T>(
+    val value: T,
+    val time: Instant
+)
+
 data class VitalsData(
-    val totalSteps: Long,
-    val recentHeartRates: List<Long>,
-    val recentTemperatures: List<Double>
+    val dailySteps: List<VitalsPoint<Long>>,
+    val recentHeartRates: List<VitalsPoint<Long>>,
+    val recentTemperatures: List<VitalsPoint<Double>>
 )

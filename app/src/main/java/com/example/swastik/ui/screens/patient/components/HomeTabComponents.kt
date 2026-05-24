@@ -532,7 +532,7 @@ fun HealthcareServicesSection(
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Image(
-                            painter = painterResource(id = R.drawable.findhospital),
+                            painter = painterResource(id = R.drawable.find_hospital),
                             contentDescription = null,
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
@@ -586,25 +586,37 @@ fun HealthcareServicesSection(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Box(
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            painter = painterResource(id = R.drawable.clinic_visit),
+                            contentDescription = null,
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF0F4F8)),
-                            contentAlignment = Alignment.Center
+                                .align(Alignment.BottomEnd)
+                                .size(90.dp)
+                                .alpha(0.15f)
+                                .padding(bottom = 8.dp, end = 8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            Icon(Icons.Outlined.MedicalServices, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Column {
-                            Text("Book Clinic", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Consult Doctors", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF0F4F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.MedicalServices, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Column {
+                                Text("Book Clinic", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Consult Doctors", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }
@@ -621,25 +633,37 @@ fun HealthcareServicesSection(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Box(
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            painter = painterResource(id = R.drawable.order_medicine),
+                            contentDescription = null,
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF0F4F8)),
-                            contentAlignment = Alignment.Center
+                                .align(Alignment.BottomEnd)
+                                .size(90.dp)
+                                .alpha(0.15f)
+                                .padding(bottom = 8.dp, end = 8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            Icon(Icons.Outlined.LocalPharmacy, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Column {
-                            Text("Order Medicine", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Home Delivery", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF0F4F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.LocalPharmacy, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Column {
+                                Text("Order Medicine", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Home Delivery", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }
@@ -650,25 +674,37 @@ fun HealthcareServicesSection(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Box(
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            painter = painterResource(id = R.drawable.book_test_lab),
+                            contentDescription = null,
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF0F4F8)),
-                            contentAlignment = Alignment.Center
+                                .align(Alignment.BottomEnd)
+                                .size(90.dp)
+                                .alpha(0.15f)
+                                .padding(bottom = 8.dp, end = 8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            Icon(Icons.Outlined.Science, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
-                        }
-                        Spacer(modifier = Modifier.weight(1f))
-                        Column {
-                            Text("Book Lab Tests", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("in person Collection", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF0F4F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.Science, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
+                            }
+                            Spacer(modifier = Modifier.weight(1f))
+                            Column {
+                                Text("Book Lab Tests", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("in person Collection", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }
@@ -722,7 +758,16 @@ fun DoctorCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Box {
                     Box(modifier = Modifier.size(50.dp).background(SwastikPrimaryLight, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                        Text("👨‍⚕️", fontSize = 24.sp)
+                        if (!doctor.profileImageUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = doctor.profileImageUrl,
+                                contentDescription = "Doctor Profile",
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text("👨‍⚕️", fontSize = 24.sp)
+                        }
                     }
                     Icon(Icons.Filled.Verified, null, tint = SwastikPrimary, modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(16.dp).background(MaterialTheme.colorScheme.surface, CircleShape))
                 }

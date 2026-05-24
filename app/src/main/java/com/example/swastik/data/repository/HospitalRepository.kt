@@ -523,7 +523,8 @@ class HospitalRepository @Inject constructor(
                     specialization = doctor.specialization?.takeIf { it.isNotBlank() } ?: "General Physician",
                     experience = assignment.department?.takeIf { it.isNotBlank() } ?: "Hospital specialist",
                     rating = 0f,
-                    consultationFee = doctor.consultationFee ?: 0
+                    consultationFee = doctor.consultationFee ?: 0,
+                    profileImageUrl = doctor.profileImageUrl
                 )
             }
             .distinctBy { it.id }
@@ -578,7 +579,8 @@ class HospitalRepository @Inject constructor(
             specialization = specialization ?: "General Physician",
             experience = experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Clinic specialist",
             rating = resolvedRating,
-            consultationFee = consultationFee ?: 0
+            consultationFee = consultationFee ?: 0,
+            profileImageUrl = profileImageUrl
         )
     }
 

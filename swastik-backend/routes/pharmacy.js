@@ -246,6 +246,20 @@ router.post('/inventory', requireRole(ROLES.PHARMACY_OWNER), [
     res.status(201).json({ success: true, item });
 }));
 
+router.post('/inventory/bulk', requireRole(ROLES.PHARMACY_OWNER), [
+    body('items').isArray({ min: 1 }).withMessage('Items must be a non-empty array'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const items = await pharmacyService.addBulkInventoryItems(pharmacy.id, req.user.id, req.body.items);
+    
+    // #13: Real-time inventory update (we just emit a refresh signal or multiple items)
+    const eventEmitter = require('../services/eventEmitter');
+    items.forEach(item => eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item));
+    
+    res.status(201).json({ success: true, items });
+}));
+
 router.put('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     const item = await pharmacyService.updateInventoryItem(

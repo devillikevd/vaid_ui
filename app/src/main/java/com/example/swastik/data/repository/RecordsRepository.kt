@@ -34,81 +34,48 @@ class RecordsRepository @Inject constructor(
     }
 
     /**
-     * Fetch consultations from the API.
+     * Fetch a page of consultations from the API.
+     * @return Pair of (list of items, total pages)
      * @throws Exception on network/API failure with descriptive message
      */
-    suspend fun getAllConsultations(): List<ConsultationDto> {
-        val consultations = mutableListOf<ConsultationDto>()
-        var page = 1
-
-        while (true) {
-            val response = apiService.getConsultations(page = page, limit = PAGE_SIZE)
-            if (response.isSuccessful && response.body()?.success == true) {
-                val body = response.body()
-                val pageData = body?.data.orEmpty()
-                consultations += pageData
-                val totalPages = body?.pagination?.totalPages ?: 1
-                if (page >= totalPages || pageData.isEmpty()) break
-                page += 1
-                continue
-            }
-            val errorMsg = response.errorBody()?.string() ?: "Failed to load consultations"
-            throw Exception(errorMsg)
+    suspend fun getConsultations(page: Int = 1, limit: Int = PAGE_SIZE): Pair<List<ConsultationDto>, Int> {
+        val response = apiService.getConsultations(page = page, limit = limit)
+        if (response.isSuccessful && response.body()?.success == true) {
+            val body = response.body()
+            return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-
-        return consultations
+        val errorMsg = response.errorBody()?.string() ?: "Failed to load consultations"
+        throw Exception(errorMsg)
     }
 
     /**
-     * Fetch patient reports from the API.
+     * Fetch a page of patient reports from the API.
+     * @return Pair of (list of items, total pages)
      * @throws Exception on network/API failure with descriptive message
      */
-    suspend fun getAllPatientReports(): List<ReportDto> {
-        val reports = mutableListOf<ReportDto>()
-        var page = 1
-
-        while (true) {
-            val response = apiService.getPatientReports(page = page, limit = PAGE_SIZE)
-            if (response.isSuccessful && response.body()?.success == true) {
-                val body = response.body()
-                val pageData = body?.data.orEmpty()
-                reports += pageData
-                val totalPages = body?.pagination?.totalPages ?: 1
-                if (page >= totalPages || pageData.isEmpty()) break
-                page += 1
-                continue
-            }
-            val errorMsg = response.errorBody()?.string() ?: "Failed to load reports"
-            throw Exception(errorMsg)
+    suspend fun getPatientReports(page: Int = 1, limit: Int = PAGE_SIZE): Pair<List<ReportDto>, Int> {
+        val response = apiService.getPatientReports(page = page, limit = limit)
+        if (response.isSuccessful && response.body()?.success == true) {
+            val body = response.body()
+            return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-
-        return reports
+        val errorMsg = response.errorBody()?.string() ?: "Failed to load reports"
+        throw Exception(errorMsg)
     }
 
     /**
-     * Fetch patient prescriptions from the API.
+     * Fetch a page of patient prescriptions from the API.
+     * @return Pair of (list of items, total pages)
      * @throws Exception on network/API failure with descriptive message
      */
-    suspend fun getAllPatientPrescriptions(): List<Prescription> {
-        val prescriptions = mutableListOf<Prescription>()
-        var page = 1
-
-        while (true) {
-            val response = apiService.getPatientPrescriptions(page = page, limit = PAGE_SIZE)
-            if (response.isSuccessful && response.body()?.success == true) {
-                val body = response.body()
-                val pageData = body?.data.orEmpty()
-                prescriptions += pageData
-                val totalPages = body?.pagination?.totalPages ?: 1
-                if (page >= totalPages || pageData.isEmpty()) break
-                page += 1
-                continue
-            }
-            val errorMsg = response.errorBody()?.string() ?: "Failed to load prescriptions"
-            throw Exception(errorMsg)
+    suspend fun getPatientPrescriptions(page: Int = 1, limit: Int = PAGE_SIZE): Pair<List<Prescription>, Int> {
+        val response = apiService.getPatientPrescriptions(page = page, limit = limit)
+        if (response.isSuccessful && response.body()?.success == true) {
+            val body = response.body()
+            return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-
-        return prescriptions
+        val errorMsg = response.errorBody()?.string() ?: "Failed to load prescriptions"
+        throw Exception(errorMsg)
     }
 
     suspend fun getDefaultDeliveryAddress(): String? {

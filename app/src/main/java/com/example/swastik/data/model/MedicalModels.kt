@@ -73,5 +73,6 @@ data class HospitalDoctor(
     val rating: Float,
     @SerializedName("consultation_fee") val consultationFee: Int,
     @SerializedName("available_slots") val availableSlots: List<String> = emptyList(),
-    @SerializedName("image_emoji") val imageEmoji: String = "👨‍⚕️"
+    @SerializedName("image_emoji") val imageEmoji: String = "👨‍⚕️",
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null
 )

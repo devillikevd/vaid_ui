@@ -1,7 +1,7 @@
 'use client';
 
-import { useDeferredValue, useEffect, useState } from 'react';
-import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download } from 'lucide-react';
+import { useDeferredValue, useEffect, useState, useRef } from 'react';
+import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -10,6 +10,7 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDial
 import { Pagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import { downloadCSV } from '@/utils/export';
+import { parseCSV } from '@/utils/csvParser';
 
 const PAGE_SIZE = 10;
 
@@ -21,6 +22,7 @@ export default function PharmacyInventoryPage() {
         error,
         fetchInventory,
         addInventoryItem,
+        addBulkInventoryItems,
         updateInventoryItem,
         deleteInventoryItem,
         clearError,
@@ -40,6 +42,7 @@ export default function PharmacyInventoryPage() {
         minQuantity: '10',
     });
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
     const toast = useToast();
 
@@ -115,6 +118,37 @@ export default function PharmacyInventoryPage() {
         setActionLoading(null);
     };
 
+    const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const csvText = event.target?.result as string;
+            const parsedData = parseCSV(csvText);
+            
+            if (parsedData.length === 0) {
+                toast.error('Invalid CSV', 'No data found in the CSV file');
+                return;
+            }
+
+            // Optional: validate headers or map them strictly if needed
+            // For now, we trust the CSV has matching headers: name, quantity, price, etc.
+            setActionLoading('import');
+            const success = await addBulkInventoryItems(parsedData);
+            if (success) {
+                toast.success('Import Successful', `Successfully imported ${parsedData.length} items`);
+            }
+            setActionLoading(null);
+            
+            // Reset file input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const openEdit = (item: any) => {
         setEditId(item.id);
         setForm({
@@ -157,7 +191,22 @@ export default function PharmacyInventoryPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory</h1>
                     <p className="mt-1 text-gray-600 dark:text-gray-400">Manage medicine inventory with live stock thresholds</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleImportCSV} 
+                        accept=".csv" 
+                        className="hidden" 
+                    />
+                    <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        leftIcon={actionLoading === 'import' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        disabled={actionLoading === 'import'}
+                    >
+                        {actionLoading === 'import' ? 'Importing...' : 'Import CSV'}
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => downloadCSV(inventory, [
@@ -171,6 +220,20 @@ export default function PharmacyInventoryPage() {
                         leftIcon={<Download className="h-4 w-4" />}
                     >
                         Export CSV
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => downloadCSV([], [
+                            { key: 'name', label: 'name' },
+                            { key: 'quantity', label: 'quantity' },
+                            { key: 'price', label: 'price' },
+                            { key: 'minQuantity', label: 'minQuantity' },
+                            { key: 'manufacturer', label: 'manufacturer' },
+                            { key: 'expiryDate', label: 'expiryDate' },
+                        ], 'inventory_template')}
+                        leftIcon={<Download className="h-4 w-4" />}
+                    >
+                        Template
                     </Button>
                     <Button onClick={() => { resetForm(); setShowAdd(true); }} leftIcon={<Plus className="h-4 w-4" />}>Add Item</Button>
                 </div>

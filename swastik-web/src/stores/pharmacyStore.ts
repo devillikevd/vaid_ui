@@ -229,6 +229,7 @@ interface PharmacyState {
     fetchLowStockItems: () => Promise<void>;
     fetchAnalytics: (period?: string) => Promise<void>;
     addInventoryItem: (data: Record<string, unknown>) => Promise<boolean>;
+    addBulkInventoryItems: (items: any[]) => Promise<boolean>;
     updateInventoryItem: (id: string, data: Record<string, unknown>) => Promise<boolean>;
     deleteInventoryItem: (id: string) => Promise<boolean>;
     updateOrderStatus: (orderId: string, status: string) => Promise<boolean>;
@@ -457,20 +458,42 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
     },
 
     addInventoryItem: async (data) => {
+        set({ loadingInventory: true, error: null });
         try {
             const response = await pharmacyApi.addInventoryItem(data);
             if (response.success) {
-                await Promise.allSettled([
-                    get().fetchInventory(get().inventoryQuery),
-                    get().fetchDashboardData(),
-                ]);
+                // Refresh inventory after adding
+                const query = get().inventoryQuery;
+                await get().fetchInventory({
+                    page: 1, // Reset to first page
+                    limit: query.limit,
+                    lowStock: query.lowStock,
+                });
                 return true;
             }
-            set({ error: response.error || 'Failed to add inventory item' });
+            throw new Error(response.message || 'Failed to add item');
+        } catch (error: any) {
+            set({ error: error.message || 'Failed to add item', loadingInventory: false });
             return false;
-        } catch (error) {
-            console.error('Error adding inventory item:', error);
-            set({ error: 'Failed to add inventory item.' });
+        }
+    },
+    addBulkInventoryItems: async (items: any[]) => {
+        set({ loadingInventory: true, error: null });
+        try {
+            const response = await pharmacyApi.addBulkInventory(items);
+            if (response.success) {
+                // Refresh inventory after bulk adding
+                const query = get().inventoryQuery;
+                await get().fetchInventory({
+                    page: 1,
+                    limit: query.limit,
+                    lowStock: query.lowStock,
+                });
+                return true;
+            }
+            throw new Error(response.message || 'Failed to import bulk items');
+        } catch (error: any) {
+            set({ error: error.message || 'Failed to import bulk items', loadingInventory: false });
             return false;
         }
     },

@@ -112,6 +112,7 @@
         </service>
 
         <receiver android:name=".notifications.ReminderReceiver" android:exported="false" />
+        <receiver android:name=".notifications.ReminderActionReceiver" android:exported="false" />
         <receiver android:name=".notifications.BootCompletedReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

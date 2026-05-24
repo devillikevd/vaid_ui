@@ -61,6 +61,18 @@ router.get('/profile',
   })
 );
 
+// Get dynamic search suggestions
+router.get('/search-suggestions',
+  asyncHandler(async (req, res) => {
+    // req.user.id is the users table ID. We need the patient's actual ID to pass into getSearchSuggestions.
+    // wait, getSearchSuggestions takes patientId and userId.
+    // patientService._getPatientByUserId(req.user.id) fetches patientId.
+    const patient = await patientService._getPatientByUserId(req.user.id);
+    const suggestions = await patientService.getSearchSuggestions(patient.id, req.user.id);
+    res.json({ success: true, data: suggestions });
+  })
+);
+
 // Update patient profile
 router.put('/profile',
   [
@@ -256,9 +268,12 @@ router.post('/vitals/sync',
     const vitals = req.body.vitals;
     let feverTriggered = false;
 
-    const insertPayload = vitals.map(v => {
+    const insertPayload = [];
+    const updatePayload = [];
+
+    vitals.forEach(v => {
       const val = parseFloat(v.value);
-      const row = { patient_id: patient.id, recorded_by: req.user.id, recorded_at: new Date().toISOString(), source: 'health_connect' };
+      const row = { patient_id: patient.id, recorded_by: req.user.id, recorded_at: v.recorded_at || new Date().toISOString() };
       
       switch (v.type) {
         case 'heart_rate': row.heart_rate = Math.round(val); break;
@@ -266,19 +281,57 @@ router.post('/vitals/sync',
           row.temperature = val; 
           if (val > 100.4 || val > 38.0) feverTriggered = true;
           break;
-        case 'steps': row.notes = `Steps: ${val}`; break;
+        case 'steps': row.steps = Math.round(val); break;
       }
-      return row;
-    }).filter(r => Object.keys(r).length > 4); // Only insert if we added a metric
+      if (Object.keys(row).length > 3) { // Ensure at least one metric is present
+         insertPayload.push(row);
+      }
+    });
 
     if (insertPayload.length > 0) {
-      // In Supabase, the table doesn't have a 'source' column natively for patient_vitals, so we remove it if not needed, 
-      // but let's safely insert just the standard columns.
-      const safePayload = insertPayload.map(p => {
-          const { source, ...rest } = p; // ignore source to avoid schema error
-          return rest;
-      })
-      await supabaseAdmin.from('patient_vitals').insert(safePayload);
+      // Fetch recent vitals to prevent duplicates or to update steps
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: existingVitals } = await supabaseAdmin
+        .from('patient_vitals')
+        .select('id, recorded_at, heart_rate, temperature, steps')
+        .eq('patient_id', patient.id)
+        .gte('recorded_at', sevenDaysAgo.toISOString());
+        
+      const existingList = existingVitals || [];
+
+      const safeInsert = [];
+
+      insertPayload.forEach(p => {
+        const pTime = new Date(p.recorded_at).getTime();
+        // Look for existing record within 5 seconds for HR/Temp, or EXACT match for steps
+        const existing = existingList.find(e => {
+            if (p.steps !== undefined) {
+                return new Date(e.recorded_at).getTime() === pTime;
+            }
+            return Math.abs(new Date(e.recorded_at).getTime() - pTime) < 5000;
+        });
+
+        if (!existing) {
+            safeInsert.push(p);
+        } else {
+            // Update steps if the new value is higher
+            if (p.steps !== undefined && existing.steps !== p.steps) {
+                updatePayload.push({ id: existing.id, steps: Math.max(existing.steps || 0, p.steps) });
+            }
+            // Ignore HR/Temp if they are close enough in time (deduplication)
+        }
+      });
+
+      if (safeInsert.length > 0) {
+        await supabaseAdmin.from('patient_vitals').insert(safeInsert);
+      }
+
+      // Process updates (e.g., updating today's steps)
+      for (const update of updatePayload) {
+          await supabaseAdmin.from('patient_vitals').update({ steps: update.steps }).eq('id', update.id);
+      }
     }
 
     // Smart Outbreak Integration: Automatically flag fever clusters

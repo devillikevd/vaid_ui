@@ -35,7 +35,14 @@ class BootCompletedReceiver : BroadcastReceiver() {
                             id = dto.id,
                             title = dto.title,
                             time = dto.time,
-                            type = com.example.swastik.data.model.ReminderType.valueOf(dto.type.uppercase()),
+                            type = try {
+                                com.example.swastik.data.model.ReminderType.valueOf(dto.type.uppercase())
+                            } catch (e: Exception) {
+                                com.example.swastik.data.model.ReminderType.MEDICINE
+                            },
+                            days = dto.days ?: emptyList(),
+                            notes = dto.notes,
+                            snoozeUntil = dto.snoozeUntil,
                             isCompleted = dto.isCompleted
                         )
                     }

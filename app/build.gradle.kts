@@ -260,6 +260,8 @@ dependencies {
     // Firebase Cloud Messaging (gracefully no-ops when project config is absent)
     implementation("com.google.firebase:firebase-messaging:24.1.0")
 
+    implementation("com.google.android.gms:play-services-location:21.2.0")
+    
     // ZXing for QR code generation
     implementation("com.google.zxing:core:3.5.3")
 
@@ -279,6 +281,9 @@ dependencies {
 
     // Health Connect
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+
+    // Chrome Custom Tabs for seamless document preview
+    implementation("androidx.browser:browser:1.8.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

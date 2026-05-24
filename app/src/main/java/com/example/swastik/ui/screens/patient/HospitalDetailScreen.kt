@@ -664,12 +664,20 @@ private fun DoctorDetailCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(SwastikPrimary.copy(alpha = 0.1f)),
+                    .size(56.dp)
+                    .background(Color(0xFFE3F2FD), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(doctor.imageEmoji, fontSize = 24.sp)
+                if (!doctor.profileImageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = doctor.profileImageUrl,
+                        contentDescription = "Doctor Image",
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Text(doctor.imageEmoji, fontSize = 24.sp)
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

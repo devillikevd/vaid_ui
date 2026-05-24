@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,6 @@ fun CommunityQADetailsScreen(
 ) {
     val question by viewModel.selectedQuestion.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    var answerText by remember { mutableStateOf("") }
 
     LaunchedEffect(questionId) {
         viewModel.fetchQuestionDetails(questionId)
@@ -56,46 +57,6 @@ fun CommunityQADetailsScreen(
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = answerText,
-                        onValueChange = { answerText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Write your answer...") },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SwastikPrimary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            if (answerText.isNotBlank()) {
-                                viewModel.addAnswer(questionId, answerText) {
-                                    answerText = ""
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(SwastikPrimary, CircleShape)
-                    ) {
-                        Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White)
-                    }
-                }
-            }
         }
     ) { paddingValues ->
         if (isLoading && question == null) {
@@ -112,7 +73,16 @@ fun CommunityQADetailsScreen(
                     contentPadding = PaddingValues(16.dp)
                 ) {
                     item {
-                        QuestionDetailsCard(q)
+                        val isOwner = q.patient?.userId == viewModel.currentUserId
+                        QuestionDetailsCard(
+                            question = q,
+                            isOwner = isOwner,
+                            onDelete = {
+                                viewModel.deleteQuestion(q.id) {
+                                    navController.popBackStack()
+                                }
+                            }
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
                             text = "Answers (${q.answers?.size ?: 0})",
@@ -123,7 +93,13 @@ fun CommunityQADetailsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                     items(q.answers ?: emptyList()) { answer ->
-                        AnswerCard(answer)
+                        val isQuestionOwner = q.patient?.userId == viewModel.currentUserId
+                        AnswerCard(
+                            answer = answer,
+                            isQuestionOwner = isQuestionOwner,
+                            onUpvote = { viewModel.upvoteAnswer(answer.id) },
+                            onDelete = { viewModel.deleteAnswer(answer.id, q.id) }
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
@@ -133,14 +109,22 @@ fun CommunityQADetailsScreen(
 }
 
 @Composable
-fun QuestionDetailsCard(question: CommunityQuestion) {
+fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, onDelete: () -> Unit = {}) {
     Column {
-        Text(
-            text = question.title,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Text(
+                text = question.title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
+            )
+            if (isOwner) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Question", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -181,7 +165,7 @@ fun QuestionDetailsCard(question: CommunityQuestion) {
 }
 
 @Composable
-fun AnswerCard(answer: CommunityAnswer) {
+fun AnswerCard(answer: CommunityAnswer, isQuestionOwner: Boolean = false, onUpvote: () -> Unit = {}, onDelete: () -> Unit = {}) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -265,6 +249,19 @@ fun AnswerCard(answer: CommunityAnswer) {
                 lineHeight = 22.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onUpvote) {
+                    Icon(Icons.Default.ThumbUp, contentDescription = "Upvote", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Helpful (${answer.upvotes})")
+                }
+                if (isQuestionOwner) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete Answer", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
         }
     }
 }

@@ -123,16 +123,27 @@ class AIRouter {
   _extractJson(text) {
     if (!text) return null;
 
+    const validateJson = (parsed) => {
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      return null;
+    };
+
     // Try direct parse first
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      const valid = validateJson(parsed);
+      if (valid) return valid;
     } catch { /* continue */ }
 
     // Try extracting JSON from markdown code blocks
     const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) {
       try {
-        return JSON.parse(codeBlockMatch[1].trim());
+        const parsed = JSON.parse(codeBlockMatch[1].trim());
+        const valid = validateJson(parsed);
+        if (valid) return valid;
       } catch { /* continue */ }
     }
 
@@ -140,7 +151,9 @@ class AIRouter {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        const valid = validateJson(parsed);
+        if (valid) return valid;
       } catch { /* continue */ }
     }
 

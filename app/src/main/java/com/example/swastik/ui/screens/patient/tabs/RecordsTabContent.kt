@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -181,11 +183,37 @@ fun RecordsTabContent(
                         }
                     }
                 } else {
+                    val listState = rememberLazyListState()
+                    val isAtEnd by remember {
+                        derivedStateOf {
+                            val layoutInfo = listState.layoutInfo
+                            val totalItemsCount = layoutInfo.totalItemsCount
+                            val lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 2
+                        }
+                    }
+
+                    LaunchedEffect(isAtEnd, selectedFilter, state.isLoadingMore) {
+                        if (isAtEnd && !state.isLoadingMore) {
+                            when (selectedFilter) {
+                                RecordFilter.CONSULTATIONS -> viewModel.loadMoreConsultations()
+                                RecordFilter.PRESCRIPTIONS -> viewModel.loadMorePrescriptions()
+                                RecordFilter.REPORTS -> viewModel.loadMoreReports()
+                                RecordFilter.ALL -> {
+                                    viewModel.loadMoreConsultations()
+                                    viewModel.loadMorePrescriptions()
+                                    viewModel.loadMoreReports()
+                                }
+                            }
+                        }
+                    }
+
                     LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                     when (selectedFilter) {
                         RecordFilter.ALL -> {
                             item {
@@ -610,11 +638,17 @@ private fun DocumentItem(document: MedicalDocument) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                // Open document file in browser/viewer
+                // Open document file seamlessly in Custom Tabs
                 if (document.fileUrl.isNotEmpty()) {
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(document.fileUrl))
-                        context.startActivity(intent)
+                        val url = document.fileUrl
+                        val customTabsIntent = CustomTabsIntent.Builder().setShowTitle(true).build()
+                        if (url.endsWith(".pdf", ignoreCase = true)) {
+                            val viewerUrl = "https://docs.google.com/gview?embedded=true&url=${Uri.encode(url)}"
+                            customTabsIntent.launchUrl(context, Uri.parse(viewerUrl))
+                        } else {
+                            customTabsIntent.launchUrl(context, Uri.parse(url))
+                        }
                     } catch (e: Exception) {
                         Toast.makeText(context, context.getString(R.string.cannot_open_document), Toast.LENGTH_SHORT).show()
                     }

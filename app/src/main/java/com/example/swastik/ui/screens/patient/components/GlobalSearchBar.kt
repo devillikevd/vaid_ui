@@ -35,6 +35,7 @@ import com.example.swastik.data.model.Doctor
 @Composable
 fun GlobalSearchBar(
     doctors: List<Doctor>,
+    searchSuggestions: List<String>,
     onDoctorSelect: (Doctor) -> Unit,
     onSpecialitySelect: (String) -> Unit
 ) {
@@ -56,7 +57,9 @@ fun GlobalSearchBar(
     }
 
     // Default suggestions when focused but empty
-    val suggestions = listOf("Fever", "Headache", "Dermatologist", "Gynecologist", "Cough", "Dentist")
+    val suggestions = searchSuggestions.ifEmpty { 
+        listOf("Fever", "Headache", "Dermatologist", "Gynecologist", "Cough", "Dentist")
+    }
 
     // Filter logic
     val filteredDocs = if (query.isEmpty()) emptyList() else {

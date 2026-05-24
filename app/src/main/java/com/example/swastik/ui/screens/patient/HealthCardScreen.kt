@@ -354,7 +354,7 @@ fun HealthCardScreen(
             if (vitalsData != null) {
                 if (vitalsData.recentHeartRates.isNotEmpty()) {
                     BezierCurveChart(
-                        dataPoints = vitalsData.recentHeartRates.map { it.toFloat() },
+                        dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
                         title = "Heart Rate Trend",
                         subtitle = "BPM over last 7 days",
                         modifier = Modifier.padding(bottom = 16.dp)
@@ -362,7 +362,7 @@ fun HealthCardScreen(
                 }
                 if (vitalsData.recentTemperatures.isNotEmpty()) {
                     BezierCurveChart(
-                        dataPoints = vitalsData.recentTemperatures.map { it.toFloat() },
+                        dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
                         title = "Body Temperature Trend",
                         subtitle = "Celsius over last 7 days",
                         modifier = Modifier.padding(bottom = 16.dp)

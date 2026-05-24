@@ -54,6 +54,9 @@ interface ApiService {
     @GET("patients/profile")
     suspend fun getPatientProfile(): Response<ApiResponse<PatientDto>>
     
+    @GET("patients/search-suggestions")
+    suspend fun getSearchSuggestions(): Response<ApiResponse<List<String>>>
+    
     @PUT("patients/profile")
     suspend fun updatePatientProfile(@Body profile: UpdateProfileRequest): Response<ApiResponse<PatientDto>>
 
@@ -604,6 +607,21 @@ interface ApiService {
 
     @POST("community/questions/{id}/upvote")
     suspend fun upvoteQuestion(
-        @Path("id") id: String
+        @Path("id") questionId: String
+    ): Response<ApiResponse<Unit>>
+
+    @POST("community/answers/{id}/upvote")
+    suspend fun upvoteAnswer(
+        @Path("id") answerId: String
+    ): Response<ApiResponse<Unit>>
+
+    @DELETE("community/questions/{id}")
+    suspend fun deleteQuestion(
+        @Path("id") questionId: String
+    ): Response<ApiResponse<Unit>>
+
+    @DELETE("community/answers/{id}")
+    suspend fun deleteAnswer(
+        @Path("id") answerId: String
     ): Response<ApiResponse<Unit>>
 }

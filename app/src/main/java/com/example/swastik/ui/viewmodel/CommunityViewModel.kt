@@ -8,7 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import androidx.paging.Pager
@@ -18,14 +17,18 @@ import androidx.paging.cachedIn
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.repository.paging.CommunityPagingSource
 import com.example.swastik.ui.components.SnackbarManager
+import com.example.swastik.data.local.TokenManager
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 @HiltViewModel
 class CommunityViewModel @Inject constructor(
     private val repository: CommunityRepository,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
+
+    val currentUserId: String? get() = tokenManager.userId
 
     val pagedQuestions: Flow<PagingData<CommunityQuestion>> = Pager(
         config = PagingConfig(pageSize = 20, enablePlaceholders = false)
@@ -108,9 +111,57 @@ class CommunityViewModel @Inject constructor(
     fun upvoteQuestion(questionId: String) {
         viewModelScope.launch {
             repository.upvoteQuestion(questionId)
-            }
             if (_selectedQuestion.value?.id == questionId) {
                 _selectedQuestion.value = _selectedQuestion.value?.let { it.copy(upvotes = it.upvotes + 1) }
             }
         }
     }
+
+    fun upvoteAnswer(answerId: String) {
+        viewModelScope.launch {
+            repository.upvoteAnswer(answerId)
+            _selectedQuestion.value = _selectedQuestion.value?.let { q ->
+                val newAnswers = q.answers?.map { a ->
+                    if (a.id == answerId) a.copy(upvotes = a.upvotes + 1) else a
+                }
+                q.copy(answers = newAnswers)
+            }
+        }
+    }
+
+    fun deleteQuestion(questionId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val result = repository.deleteQuestion(questionId)
+            _isLoading.value = false
+            when (result) {
+                is com.example.swastik.data.repository.Result.Success -> {
+                    SnackbarManager.showMessage("Question deleted")
+                    onSuccess()
+                }
+                is com.example.swastik.data.repository.Result.Error -> {
+                    SnackbarManager.showError(result.message ?: "Failed to delete question")
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun deleteAnswer(answerId: String, questionId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val result = repository.deleteAnswer(answerId)
+            _isLoading.value = false
+            when (result) {
+                is com.example.swastik.data.repository.Result.Success -> {
+                    SnackbarManager.showMessage("Answer deleted")
+                    fetchQuestionDetails(questionId) // refresh answers
+                }
+                is com.example.swastik.data.repository.Result.Error -> {
+                    SnackbarManager.showError(result.message ?: "Failed to delete answer")
+                }
+                else -> {}
+            }
+        }
+    }
+}

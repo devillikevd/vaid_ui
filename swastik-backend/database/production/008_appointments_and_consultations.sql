@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS patient_vitals (
     weight DECIMAL(5, 2),
     height DECIMAL(5, 2),
     blood_sugar DECIMAL(6, 2),
+    steps INTEGER,
     notes TEXT,
     recorded_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),

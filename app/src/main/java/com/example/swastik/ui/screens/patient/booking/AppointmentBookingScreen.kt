@@ -78,8 +78,8 @@ fun AppointmentBookingScreen(
     appointmentViewModel: AppointmentViewModel = hiltViewModel(),
     patientDashboardViewModel: PatientDashboardViewModel = hiltViewModel()
 ) {
-    // booking wizard state — skip Step 1 when doctor is preselected
-    var currentStep by remember { mutableIntStateOf(if (!preselectedDoctorId.isNullOrBlank()) 0 else 1) }
+    // booking wizard state — skip Step 1 when doctor is preselected, go directly to Step 2
+    var currentStep by remember { mutableIntStateOf(if (!preselectedDoctorId.isNullOrBlank()) 2 else 1) }
     var selectedDoctor by remember { mutableStateOf<Doctor?>(null) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
@@ -117,13 +117,12 @@ fun AppointmentBookingScreen(
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
 
-    // When preselected doctor loads, auto-advance to Step 2
+    // When preselected doctor loads, update selectedDoctor
     LaunchedEffect(preselectedDoctorId, doctorState.selectedDoctor?.doctor?.id) {
         val preselected = preselectedDoctorId ?: return@LaunchedEffect
         val doctor = doctorState.selectedDoctor?.doctor ?: return@LaunchedEffect
         if (doctor.id == preselected && selectedDoctor?.id != doctor.id) {
             selectedDoctor = doctor
-            currentStep = 2
         }
     }
 
@@ -228,8 +227,9 @@ fun AppointmentBookingScreen(
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = {
-                    slideInHorizontally { if (targetState > initialState) it else -it } + fadeIn() togetherWith
-                            slideOutHorizontally { if (targetState > initialState) -it else it } + fadeOut()
+                    (fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) + slideInHorizontally { if (targetState > initialState) it else -it }).togetherWith(
+                        fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) + slideOutHorizontally { if (targetState > initialState) -it else it }
+                    )
                 },
                 label = "step_animation"
             ) { step ->
@@ -282,6 +282,7 @@ fun AppointmentBookingScreen(
                         consultationMode = consultationMode,
                         selectedType = selectedType,
                         notes = notes,
+                        isDoctorLoaded = selectedDoctor != null,
                         onTypeChanged = { selectedType = it },
                         onNotesChanged = { notes = it },
                         onContinue = { currentStep = 3 }
@@ -598,12 +599,21 @@ private fun DoctorBookingCard(
                         .background(SwastikPrimaryLight, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = "Doctor",
-                        modifier = Modifier.size(32.dp),
-                        tint = SwastikPrimary
-                    )
+                    if (!doctor.profileImageUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = doctor.profileImageUrl,
+                            contentDescription = "Doctor Profile",
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Filled.Person,
+                            contentDescription = "Doctor",
+                            modifier = Modifier.size(32.dp),
+                            tint = SwastikPrimary
+                        )
+                    }
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = "Verified",
@@ -1184,6 +1194,7 @@ private fun ConsultationDetailsStep(
     consultationMode: String?,
     selectedType: String,
     notes: String,
+    isDoctorLoaded: Boolean,
     onTypeChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
     onContinue: () -> Unit
@@ -1280,14 +1291,29 @@ private fun ConsultationDetailsStep(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
+                enabled = isDoctorLoaded,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
-                Text(
-                    "Continue",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
+                if (!isDoctorLoaded) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Loading doctor...",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                } else {
+                    Text(
+                        "Continue",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                }
             }
         }
     }

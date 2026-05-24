@@ -98,6 +98,8 @@ class PushNotificationCoordinator @Inject constructor(
         val destination = resolvePatientNotificationDestination(type, data)
         val pendingIntent = destination.deepLink?.let(::buildDeepLinkIntent)
 
+        val notificationId = ("$type:$title:$message").hashCode()
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title.ifBlank { context.getString(R.string.app_name) })
@@ -112,8 +114,70 @@ class PushNotificationCoordinator @Inject constructor(
             builder.setDefaults(NotificationCompat.DEFAULT_ALL)
         }
 
+        // Add Quick Actions for Reminders
+        if (type == "medicine_reminder" || type == "appointment_reminder" || type == "health_task_reminder") {
+            val reminderId = data["reminder_id"]
+            val reminderTime = data["reminder_time"] ?: ""
+            val reminderType = data["reminder_type"] ?: "MEDICINE"
+            if (reminderId != null) {
+                val scheduledAt = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_DATE_TIME)
+
+                val takenIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                    action = ReminderActionReceiver.ACTION_MARK_DONE
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_ID, reminderId)
+                    putExtra(ReminderActionReceiver.EXTRA_SCHEDULED_AT, scheduledAt)
+                    putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TITLE, title)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TIME, reminderTime)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TYPE, reminderType)
+                }
+                val takenPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    "taken_$reminderId".hashCode(),
+                    takenIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(0, "Taken", takenPendingIntent)
+
+                val snoozeIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                    action = ReminderActionReceiver.ACTION_SNOOZE
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_ID, reminderId)
+                    putExtra(ReminderActionReceiver.EXTRA_SCHEDULED_AT, scheduledAt)
+                    putExtra(ReminderActionReceiver.EXTRA_SNOOZE_MINS, 15)
+                    putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TITLE, title)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TIME, reminderTime)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TYPE, reminderType)
+                }
+                val snoozePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    "snooze_$reminderId".hashCode(),
+                    snoozeIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(0, "Snooze 15m", snoozePendingIntent)
+
+                val skipIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                    action = ReminderActionReceiver.ACTION_SKIP
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_ID, reminderId)
+                    putExtra(ReminderActionReceiver.EXTRA_SCHEDULED_AT, scheduledAt)
+                    putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TITLE, title)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TIME, reminderTime)
+                    putExtra(ReminderActionReceiver.EXTRA_REMINDER_TYPE, reminderType)
+                }
+                val skipPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    "skip_$reminderId".hashCode(),
+                    skipIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.addAction(0, "Skip", skipPendingIntent)
+            }
+        }
+
         NotificationManagerCompat.from(context).notify(
-            ("$type:$title:$message").hashCode(),
+            notificationId,
             builder.build()
         )
     }

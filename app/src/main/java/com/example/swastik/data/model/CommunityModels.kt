@@ -29,6 +29,7 @@ data class CommunityAnswer(
 
 data class PatientInfo(
     val id: String,
+    @SerializedName("user_id") val userId: String?,
     val name: String,
     @SerializedName("profile_image_url") val profileImageUrl: String?
 )

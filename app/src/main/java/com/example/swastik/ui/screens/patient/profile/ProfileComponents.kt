@@ -321,48 +321,54 @@ fun ProfileCompletionCard(profile: PatientProfile?) {
 
 @Composable
 fun QuickStatsSection(stats: PatientStats) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), colorScheme.primaryContainer, colorScheme.onPrimaryContainer, colorScheme.primary, Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), colorScheme.secondaryContainer, colorScheme.onSecondaryContainer, colorScheme.secondary, Modifier.weight(1f))
+        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer, colorScheme.tertiary, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun QuickStatCard(icon: ImageVector, value: String, label: String, color: Color, modifier: Modifier = Modifier) {
-    val gradient = androidx.compose.ui.graphics.Brush.linearGradient(
-        colors = listOf(
-            color.copy(alpha = 0.8f),
-            color
-        )
-    )
+private fun QuickStatCard(icon: ImageVector, value: String, label: String, containerColor: Color, contentColor: Color, iconColor: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.cardColors(containerColor = containerColor.copy(alpha = 0.55f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(gradient)
-                .padding(vertical = 16.dp, horizontal = 12.dp)
+                .padding(vertical = 16.dp, horizontal = 4.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = Color.White.copy(alpha = 0.2f)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(iconColor.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.padding(8.dp).size(24.dp))
+                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                Text(label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.9f), fontWeight = FontWeight.Medium)
+                Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = contentColor)
+                Text(
+                    text = label, 
+                    fontSize = 11.sp, 
+                    color = contentColor.copy(alpha = 0.9f), 
+                    fontWeight = FontWeight.Medium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
             }
         }
     }

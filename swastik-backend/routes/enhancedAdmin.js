@@ -374,6 +374,51 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
     res.json({ success: true, ...result });
 }));
 
+// ==================== MEDICINES CATALOG (ADMIN) ====================
+
+/**
+ * @route POST /api/admin/medicines/bulk
+ * @desc Bulk import global medicines catalog
+ */
+router.post('/medicines/bulk', [
+    body('medicines').isArray().withMessage('medicines must be an array'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const { medicines } = req.body;
+    
+    // Validate each medicine loosely to avoid failing whole batch unnecessarily
+    const validMedicines = medicines.filter(m => m.name).map(m => ({
+        name: m.name,
+        generic_name: m.generic_name || m.genericname || m.genericName || null,
+        manufacturer: m.manufacturer || null,
+        category: m.category || null,
+        subcategory: m.subcategory || null,
+        description: m.description || null,
+        form: m.form || null,
+        dosage_form: m.dosage_form || m.dosageform || m.dosageForm || null,
+        strength: m.strength || null,
+        pack_size: m.pack_size || m.packsize || m.packSize || null,
+        price: parseFloat(m.price) || 0,
+        mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
+        requires_prescription: m.requires_prescription === 'true' || m.requiresprescription === 'true' || m.requiresPrescription === true || false,
+    }));
+
+    if (validMedicines.length === 0) {
+        return res.status(400).json({ success: false, message: 'No valid medicines found to import' });
+    }
+
+    // Insert into Supabase directly since we don't have a specific service method yet
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data, error } = await supabaseAdmin.from('medicines').insert(validMedicines);
+
+    if (error) {
+        console.error('Error importing medicines:', error);
+        return res.status(500).json({ success: false, message: 'Failed to import medicines', error: error.message });
+    }
+
+    res.json({ success: true, message: `Successfully imported ${validMedicines.length} medicines` });
+}));
+
 // ==================== SYSTEM ====================
 
 /**

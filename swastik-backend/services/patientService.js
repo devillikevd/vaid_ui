@@ -705,6 +705,141 @@ class PatientService {
     }
   }
 
+  /**
+   * Generates intelligent search suggestions for the global search bar
+   * based on the patient's records, symptoms, and chat history.
+   */
+  async getSearchSuggestions(patientId, userId) {
+    const CONDITION_SPECIALIST_MAP = {
+      'Cardiologist': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension'],
+      'Dermatologist': ['skin', 'rash', 'acne', 'hair loss', 'itching'],
+      'Orthopedic': ['bone', 'joint', 'back pain', 'fracture', 'arthritis'],
+      'Neurologist': ['headache', 'migraine', 'dizziness', 'numbness'],
+      'Gastroenterologist': ['stomach', 'digestion', 'acid reflux', 'constipation'],
+      'Pulmonologist': ['breathing', 'cough', 'asthma', 'lungs'],
+      'ENT Specialist': ['ear', 'nose', 'throat', 'sinus'],
+      'Ophthalmologist': ['eye', 'vision', 'glasses'],
+      'Gynecologist': ['period', 'pregnancy', 'pcos'],
+      'Pediatrician': ['child', 'baby', 'vaccination'],
+      'Psychiatrist': ['anxiety', 'depression', 'stress', 'insomnia'],
+      'Endocrinologist': ['diabetes', 'thyroid'],
+      'General Physician': ['fever', 'cold', 'flu', 'checkup'],
+      'Dentist': ['teeth', 'dental', 'toothache']
+    };
+
+    try {
+      const suggestionsSet = new Set();
+      const specializationScores = new Map();
+
+      const registerSignal = (specialist, keywordHits, symptom) => {
+        if (!specialist) return;
+        specializationScores.set(
+          specialist,
+          (specializationScores.get(specialist) || 0) + keywordHits
+        );
+        if (symptom) {
+          // Add the matched symptom as a suggestion too (capitalize first letter)
+          suggestionsSet.add(symptom.charAt(0).toUpperCase() + symptom.slice(1));
+        }
+      };
+
+      // 1. Check recent chat sessions for symptoms
+      const { data: recentChatSessions } = await supabaseAdmin
+        .from('chat_sessions')
+        .select('id')
+        .eq('user_id', userId)
+        .order('started_at', { ascending: false })
+        .limit(3);
+
+      if (recentChatSessions?.length > 0) {
+        const sessionIds = recentChatSessions.map(s => s.id);
+        const { data: userMessages } = await supabaseAdmin
+          .from('chat_messages')
+          .select('content')
+          .in('session_id', sessionIds)
+          .eq('role', 'user')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (userMessages?.length > 0) {
+          const allSymptomText = userMessages.map(m => m.content).join(' ');
+          for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
+            for (const keyword of keywords) {
+               if (allSymptomText.toLowerCase().includes(keyword)) {
+                  registerSignal(specialist, 3, keyword);
+               }
+            }
+          }
+        }
+      }
+
+      // 2. Patient's past appointments
+      const { data: pastAppointments } = await supabaseAdmin
+        .from('appointments')
+        .select('doctor:doctors(specialization)')
+        .eq('patient_id', patientId)
+        .in('status', ['completed', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (pastAppointments?.length > 0) {
+        pastAppointments.forEach(apt => {
+          const spec = apt.doctor?.specialization;
+          if (spec) registerSignal(spec, 2, null);
+        });
+      }
+
+      // 3. Patient's chronic conditions
+      const { data: patientProfile } = await supabaseAdmin
+        .from('patients')
+        .select('medical_conditions, allergies, chronic_conditions')
+        .eq('id', patientId)
+        .single();
+
+      if (patientProfile) {
+        const conditions = [
+          ...(patientProfile.medical_conditions || []),
+          ...(patientProfile.chronic_conditions || [])
+        ].join(' ').toLowerCase();
+
+        if (conditions) {
+          for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
+            for (const keyword of keywords) {
+               if (conditions.includes(keyword)) {
+                  registerSignal(specialist, 2, keyword);
+               }
+            }
+          }
+        }
+      }
+
+      // Collect top specializations
+      const sortedSpecializations = Array.from(specializationScores.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(entry => entry[0]);
+
+      sortedSpecializations.forEach(spec => suggestionsSet.add(spec));
+
+      let suggestions = Array.from(suggestionsSet);
+      
+      // Fallback defaults
+      const defaults = ["Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist", "Cough"];
+      
+      for (const def of defaults) {
+        if (suggestions.length >= 6) break;
+        if (!suggestions.includes(def)) {
+           suggestions.push(def);
+        }
+      }
+
+      return suggestions.slice(0, 6);
+
+    } catch (error) {
+      console.error('Search suggestions engine error:', error);
+      return ["Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist"];
+    }
+  }
+
   // Get reminders
   async getReminders(userId, filters = {}) {
     const { data: patient } = await supabaseAdmin

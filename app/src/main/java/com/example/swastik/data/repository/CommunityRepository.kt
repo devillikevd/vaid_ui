@@ -56,10 +56,10 @@ class CommunityRepository @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error(response.message())
+                Result.Error("Failed to add answer: ${response.message()}")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Unknown error", e)
+            Result.Error("Error: ${e.message}")
         }
     }
 
@@ -69,10 +69,49 @@ class CommunityRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.Success(Unit)
             } else {
-                Result.Error(response.message())
+                Result.Error("Failed to upvote question")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Unknown error", e)
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun upvoteAnswer(answerId: String): Result<Unit> {
+        return try {
+            val response = apiService.upvoteAnswer(answerId)
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to upvote answer")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun deleteQuestion(questionId: String): Result<Unit> {
+        return try {
+            val response = apiService.deleteQuestion(questionId)
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to delete question")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
+        }
+    }
+
+    suspend fun deleteAnswer(answerId: String): Result<Unit> {
+        return try {
+            val response = apiService.deleteAnswer(answerId)
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to delete answer")
+            }
+        } catch (e: Exception) {
+            Result.Error("Error: ${e.message}")
         }
     }
 }

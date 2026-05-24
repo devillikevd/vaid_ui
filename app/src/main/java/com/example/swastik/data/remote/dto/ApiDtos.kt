@@ -355,6 +355,10 @@ data class ReminderDto(
     val title: String,
     val time: String,
     val type: String,
+    val days: List<String>? = null,
+    val notes: String? = null,
+    @SerializedName("snooze_until")
+    val snoozeUntil: String? = null,
     @SerializedName("is_completed")
     val isCompleted: Boolean
 )
@@ -1035,13 +1039,17 @@ data class SyncVitalsRequest(
 data class CreateReminderRequest(
     val title: String,
     val type: String,
-    val time: String
+    val time: String,
+    val days: List<String> = emptyList(),
+    val notes: String? = null
 )
 
 data class UpdateReminderRequest(
     val title: String? = null,
     val type: String? = null,
     val time: String? = null,
+    val days: List<String>? = null,
+    val notes: String? = null,
     @SerializedName("is_active") val isActive: Boolean? = null
 )
 

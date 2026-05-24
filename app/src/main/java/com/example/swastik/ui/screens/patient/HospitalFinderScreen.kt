@@ -1483,15 +1483,22 @@ private fun DoctorCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Doctor Avatar
             Box(
                 modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(SwastikPrimary.copy(alpha = 0.1f)),
+                    .size(64.dp)
+                    .background(Color(0xFFE3F2FD), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(doctor.imageEmoji, fontSize = 28.sp)
+                if (!doctor.profileImageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = doctor.profileImageUrl,
+                        contentDescription = "Doctor Image",
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Text(doctor.imageEmoji, fontSize = 28.sp)
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))

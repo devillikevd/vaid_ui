@@ -41,9 +41,9 @@ fun RemindersTabContent(
     isLoading: Boolean = false,
     unreadNotificationsCount: Int,
     onNotificationClick: () -> Unit,
-    onCreateReminder: (title: String, time: String, type: String) -> Unit = { _, _, _ -> },
+    onCreateReminder: (title: String, time: String, type: String, days: List<String>, notes: String?) -> Unit = { _, _, _, _, _ -> },
     onMarkDone: (id: String, time: String) -> Unit = { _, _ -> },
-    onSnooze: (id: String, time: String) -> Unit = { _, _ -> },
+    onSnooze: (id: String, time: String, mins: Int) -> Unit = { _, _, _ -> },
     onSkip: (id: String, time: String) -> Unit = { _, _ -> },
     onDelete: (id: String) -> Unit = {}
 ) {
@@ -219,7 +219,7 @@ fun RemindersTabContent(
                                         ReminderCard(
                                             reminder = reminder,
                                             onMarkDone = { onMarkDone(reminder.id, reminder.time) },
-                                            onSnooze = { onSnooze(reminder.id, reminder.time) },
+                                            onSnooze = { id, time, mins -> onSnooze(id, time, mins) },
                                             onSkip = { onSkip(reminder.id, reminder.time) }
                                         )
                                     }
@@ -235,8 +235,8 @@ fun RemindersTabContent(
     if (showCreateSheet) {
         CreateReminderBottomSheet(
             onDismiss = { showCreateSheet = false },
-            onCreate = { title, time, type ->
-                onCreateReminder(title, time, type)
+            onCreate = { title, time, type, days, notes ->
+                onCreateReminder(title, time, type, days, notes)
                 showCreateSheet = false
             }
         )
@@ -247,7 +247,7 @@ fun RemindersTabContent(
 private fun ReminderCard(
     reminder: Reminder,
     onMarkDone: () -> Unit,
-    onSnooze: () -> Unit,
+    onSnooze: (id: String, scheduledAt: String, snoozeMinutes: Int) -> Unit,
     onSkip: () -> Unit
 ) {
     Card(
@@ -329,15 +329,39 @@ private fun ReminderCard(
                     ) {
                         Text("Taken")
                     }
-                    FilledTonalButton(
-                        onClick = onSnooze,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    ) {
-                        Text("Snooze")
+                    var showSnoozeMenu by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.weight(1f)) {
+                        FilledTonalButton(
+                            onClick = { showSnoozeMenu = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
+                            Text("Snooze")
+                        }
+                        androidx.compose.material3.DropdownMenu(
+                            expanded = showSnoozeMenu,
+                            onDismissRequest = { showSnoozeMenu = false }
+                        ) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("5 minutes") },
+                                onClick = { onSnooze(reminder.id, reminder.time, 5); showSnoozeMenu = false }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("15 minutes") },
+                                onClick = { onSnooze(reminder.id, reminder.time, 15); showSnoozeMenu = false }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("30 minutes") },
+                                onClick = { onSnooze(reminder.id, reminder.time, 30); showSnoozeMenu = false }
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("1 hour") },
+                                onClick = { onSnooze(reminder.id, reminder.time, 60); showSnoozeMenu = false }
+                            )
+                        }
                     }
                     OutlinedButton(
                         onClick = onSkip,
@@ -355,11 +379,15 @@ private fun ReminderCard(
 @Composable
 fun CreateReminderBottomSheet(
     onDismiss: () -> Unit,
-    onCreate: (title: String, time: String, type: String) -> Unit
+    onCreate: (title: String, time: String, type: String, days: List<String>, notes: String?) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("medicine") }
     val types = listOf("medicine" to "Medicine \uD83D\uDC8A", "appointment" to "Appointment \uD83D\uDCC5", "test" to "Test \uD83E\uDDEA", "custom" to "Custom \u270F\uFE0F")
+    
+    val daysOfWeek = listOf("sun" to "Su", "mon" to "M", "tue" to "T", "wed" to "W", "thu" to "Th", "fri" to "F", "sat" to "S")
+    var selectedDays by remember { mutableStateOf(emptySet<String>()) }
     
     // TimePicker State
     val timePickerState = rememberTimePickerState(
@@ -421,13 +449,55 @@ fun CreateReminderBottomSheet(
                 TimePicker(state = timePickerState)
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Repeat Days", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                daysOfWeek.forEach { (id, label) ->
+                    val isSelected = selectedDays.contains(id)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable {
+                                if (isSelected) {
+                                    selectedDays = selectedDays - id
+                                } else {
+                                    selectedDays = selectedDays + id
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes (Optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
             
             Button(
                 onClick = {
                     val hour = timePickerState.hour.toString().padStart(2, '0')
                     val min = timePickerState.minute.toString().padStart(2, '0')
-                    onCreate(title, "$hour:$min", selectedType)
+                    onCreate(title, "$hour:$min", selectedType, selectedDays.toList(), notes.takeIf { it.isNotBlank() })
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = title.isNotBlank()

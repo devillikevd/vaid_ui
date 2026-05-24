@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import android.widget.Toast
+import android.location.Geocoder
+import com.google.android.gms.location.LocationServices
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -452,8 +454,112 @@ fun SavedAddressesDialog(
 ) {
     var showAddForm by remember { mutableStateOf(false) }
     var newLabel by remember { mutableStateOf("") }
-    var newAddress by remember { mutableStateOf("") }
+    var houseNumber by remember { mutableStateOf("") }
+    var areaLocality by remember { mutableStateOf("") }
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        
+        if (fineLocationGranted || coarseLocationGranted) {
+            isFetchingLocation = true
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        try {
+                            val geocoder = Geocoder(context, java.util.Locale.getDefault())
+                            val addressesList = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            if (!addressesList.isNullOrEmpty()) {
+                                val fetchedAddress = addressesList[0]
+                                val subLocality = fetchedAddress.subLocality
+                                val locality = fetchedAddress.locality
+                                val adminArea = fetchedAddress.adminArea
+                                val postalCode = fetchedAddress.postalCode
+                                val parts = listOfNotNull(subLocality, locality, adminArea, postalCode).filter { it.isNotBlank() }
+                                if (parts.isNotEmpty()) {
+                                    areaLocality = parts.joinToString(", ")
+                                } else {
+                                    areaLocality = fetchedAddress.getAddressLine(0) ?: ""
+                                }
+                            } else {
+                                Toast.makeText(context, "Could not fetch address details", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Geocoder failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Location not available. Ensure GPS is ON.", Toast.LENGTH_SHORT).show()
+                    }
+                    isFetchingLocation = false
+                }.addOnFailureListener {
+                    Toast.makeText(context, "Failed to get location", Toast.LENGTH_SHORT).show()
+                    isFetchingLocation = false
+                }
+            } catch (e: SecurityException) {
+                isFetchingLocation = false
+            }
+        } else {
+            Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val fetchLocation: () -> Unit = {
+        val fineGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        
+        if (fineGranted || coarseGranted) {
+            isFetchingLocation = true
+            try {
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        try {
+                            val geocoder = Geocoder(context, java.util.Locale.getDefault())
+                            val addressesList = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            if (!addressesList.isNullOrEmpty()) {
+                                val fetchedAddress = addressesList[0]
+                                val subLocality = fetchedAddress.subLocality
+                                val locality = fetchedAddress.locality
+                                val adminArea = fetchedAddress.adminArea
+                                val postalCode = fetchedAddress.postalCode
+                                val parts = listOfNotNull(subLocality, locality, adminArea, postalCode).filter { it.isNotBlank() }
+                                if (parts.isNotEmpty()) {
+                                    areaLocality = parts.joinToString(", ")
+                                } else {
+                                    areaLocality = fetchedAddress.getAddressLine(0) ?: ""
+                                }
+                            } else {
+                                Toast.makeText(context, "Could not fetch address details", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Geocoder failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Location not available. Ensure GPS is ON.", Toast.LENGTH_SHORT).show()
+                    }
+                    isFetchingLocation = false
+                }.addOnFailureListener {
+                    Toast.makeText(context, "Failed to get location", Toast.LENGTH_SHORT).show()
+                    isFetchingLocation = false
+                }
+            } catch (e: SecurityException) {
+                isFetchingLocation = false
+            }
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -483,29 +589,61 @@ fun SavedAddressesDialog(
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(stringResource(R.string.add_address), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = SwastikPrimary)
+                            
+                            Button(
+                                onClick = fetchLocation,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colorScheme.secondaryContainer,
+                                    contentColor = colorScheme.onSecondaryContainer
+                                ),
+                                enabled = !isFetchingLocation
+                            ) {
+                                if (isFetchingLocation) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colorScheme.onSecondaryContainer, strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Fetching Location...")
+                                } else {
+                                    Icon(Icons.Outlined.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Auto-Fetch Current Location")
+                                }
+                            }
+
                             OutlinedTextField(
                                 value = newLabel, onValueChange = { newLabel = it },
                                 label = { Text(stringResource(R.string.label_e_g_home_office)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
+                            
                             OutlinedTextField(
-                                value = newAddress, onValueChange = { newAddress = it },
-                                label = { Text(stringResource(R.string.full_address)) },
+                                value = houseNumber, onValueChange = { houseNumber = it },
+                                label = { Text("House / Flat / Block No.") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp), singleLine = true
+                            )
+                            
+                            OutlinedTextField(
+                                value = areaLocality, onValueChange = { areaLocality = it },
+                                label = { Text("Area / Street / Locality") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 maxLines = 3
                             )
+                            
                             Button(
                                 onClick = {
                                     // Address creation will be wired to backend later
-                                    newLabel = ""; newAddress = ""
+                                    val finalAddress = if (houseNumber.isNotBlank()) "$houseNumber, $areaLocality" else areaLocality
+                                    newLabel = ""; houseNumber = ""; areaLocality = ""
                                     showAddForm = false
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                                enabled = newLabel.isNotBlank() && newAddress.isNotBlank()
+                                enabled = newLabel.isNotBlank() && areaLocality.isNotBlank() && houseNumber.isNotBlank()
                             ) { Text(stringResource(R.string.save_address)) }
                         }
                     }

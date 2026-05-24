@@ -15,6 +15,9 @@ data class Reminder(
     val title: String,
     val time: String,
     val type: ReminderType,
+    val days: List<String> = emptyList(),
+    val notes: String? = null,
+    @SerializedName("snooze_until") val snoozeUntil: String? = null,
     @SerializedName("is_completed") val isCompleted: Boolean
 )
 
@@ -130,7 +133,8 @@ data class Doctor(
     // Nearby doctor search: distance in km from patient location
     @SerializedName("distance_km") val distanceKm: Float? = null,
     // Hospital info (returned when searching via patients/doctors)
-    val hospital: DoctorHospitalInfo? = null
+    val hospital: DoctorHospitalInfo? = null,
+    val bio: String? = null
 )
 
 /** Lightweight hospital info embedded in doctor search results */

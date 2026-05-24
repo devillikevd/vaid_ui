@@ -527,6 +527,36 @@ const addInventoryItem = async (pharmacyId, userId, itemData) => {
   return data;
 };
 
+// Add bulk inventory items
+const addBulkInventoryItems = async (pharmacyId, userId, itemsArray) => {
+  if (!Array.isArray(itemsArray) || itemsArray.length === 0) {
+    throw new ApiError(400, 'Items array is empty or invalid');
+  }
+
+  // To avoid hitting DB for every item's catalog match, we just use the provided names
+  // This is acceptable for bulk imports to be fast.
+  const recordsToInsert = itemsArray.map((itemData) => ({
+    pharmacy_id: pharmacyId,
+    name: itemData.name || itemData.generic_name || itemData.genericname || 'Unknown',
+    generic_name: itemData.generic_name || itemData.genericname || null,
+    category: itemData.category || 'Tablet',
+    quantity: parseInt(itemData.quantity) || 0,
+    price: parseFloat(itemData.price) || 0,
+    mrp: parseFloat(itemData.mrp) || parseFloat(itemData.price) || 0,
+    manufacturer: itemData.manufacturer || null,
+    expiry_date: itemData.expiryDate || itemData.expirydate || itemData.expiry_date || null,
+    reorder_level: parseInt(itemData.reorder_level) || parseInt(itemData.minQuantity) || parseInt(itemData.minquantity) || 10,
+  }));
+
+  const { data, error } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .insert(recordsToInsert)
+    .select('*');
+
+  if (error) throw error;
+  return data;
+};
+
 // Update inventory item
 const updateInventoryItem = async (itemId, pharmacyId, userId, updates) => {
   const normalizedUpdates = normalizeInventoryUpdates(updates);
@@ -912,6 +942,7 @@ module.exports = {
   updatePharmacy,
   getInventory,
   addInventoryItem,
+  addBulkInventoryItems,
   updateInventoryItem,
   deleteInventoryItem,
   getOrders,

@@ -7,7 +7,7 @@ class CommunityService {
       .from('community_questions')
       .select(`
         *,
-        patient:patients(id, name, profile_image_url),
+        patient:patients(id, user_id, name, profile_image_url),
         answers:community_answers(count)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -29,7 +29,7 @@ class CommunityService {
       .from('community_questions')
       .select(`
         *,
-        patient:patients(id, name, profile_image_url),
+        patient:patients(id, user_id, name, profile_image_url),
         answers:community_answers(
           *,
           doctor:doctors(id, name, specialization, profile_image_url),
@@ -77,38 +77,22 @@ class CommunityService {
   }
 
   async addAnswer(userId, questionId, content) {
-    // Determine if user is doctor or patient
-    let author = null;
-    let isDoctor = false;
-
     const { data: doctor } = await supabaseAdmin
       .from('doctors')
       .select('id')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (doctor) {
-      author = doctor;
-      isDoctor = true;
-    } else {
-      const { data: patient } = await supabaseAdmin
-        .from('patients')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (patient) author = patient;
-    }
-
-    if (!author) throw new ApiError(403, 'Unauthorized to post answer');
+    if (!doctor) throw new ApiError(403, 'Only verified doctors can reply to community questions');
 
     const { data: answer, error } = await supabaseAdmin
       .from('community_answers')
       .insert({
         question_id: questionId,
-        doctor_id: isDoctor ? author.id : null,
-        patient_id: !isDoctor ? author.id : null,
+        doctor_id: doctor.id,
+        patient_id: null,
         content,
-        is_doctor_verified: isDoctor
+        is_doctor_verified: true
       })
       .select(`
         *,
@@ -141,6 +125,90 @@ class CommunityService {
           .eq('id', questionId);
       }
     }
+    return { success: true };
+  }
+
+  async upvoteAnswer(answerId) {
+    const { data: answer, error } = await supabaseAdmin
+      .rpc('increment_answer_upvotes', { a_id: answerId });
+      
+    if (error) {
+      const { data: current } = await supabaseAdmin
+        .from('community_answers')
+        .select('upvotes')
+        .eq('id', answerId)
+        .single();
+        
+      if (current) {
+        await supabaseAdmin
+          .from('community_answers')
+          .update({ upvotes: current.upvotes + 1 })
+          .eq('id', answerId);
+      }
+    }
+    return { success: true };
+  }
+
+  async deleteQuestion(userId, questionId) {
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!patient) throw new ApiError(403, 'Unauthorized');
+
+    const { data: question } = await supabaseAdmin
+      .from('community_questions')
+      .select('patient_id')
+      .eq('id', questionId)
+      .single();
+
+    if (!question) throw new ApiError(404, 'Question not found');
+    if (question.patient_id !== patient.id) throw new ApiError(403, 'You can only delete your own questions');
+
+    const { error } = await supabaseAdmin
+      .from('community_questions')
+      .delete()
+      .eq('id', questionId);
+
+    if (error) throw new ApiError(400, 'Failed to delete question');
+    return { success: true };
+  }
+
+  async deleteAnswer(userId, answerId) {
+    // A patient can delete an answer if they own the parent question.
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!patient) throw new ApiError(403, 'Unauthorized');
+
+    const { data: answer } = await supabaseAdmin
+      .from('community_answers')
+      .select('question_id')
+      .eq('id', answerId)
+      .single();
+
+    if (!answer) throw new ApiError(404, 'Answer not found');
+
+    const { data: question } = await supabaseAdmin
+      .from('community_questions')
+      .select('patient_id')
+      .eq('id', answer.question_id)
+      .single();
+
+    if (!question) throw new ApiError(404, 'Question not found');
+    if (question.patient_id !== patient.id) throw new ApiError(403, 'You can only delete answers on your own question');
+
+    const { error } = await supabaseAdmin
+      .from('community_answers')
+      .delete()
+      .eq('id', answerId);
+
+    if (error) throw new ApiError(400, 'Failed to delete answer');
     return { success: true };
   }
 }

@@ -43,7 +43,14 @@ data class RecordsUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val uploadState: UploadState = UploadState.Idle,
-    val vitalsData: VitalsData? = null
+    val vitalsData: VitalsData? = null,
+    val consultationsPage: Int = 1,
+    val hasMoreConsultations: Boolean = true,
+    val prescriptionsPage: Int = 1,
+    val hasMorePrescriptions: Boolean = true,
+    val documentsPage: Int = 1,
+    val hasMoreDocuments: Boolean = true,
+    val isLoadingMore: Boolean = false
 )
 
 data class PrescriptionForwardSuccess(
@@ -83,19 +90,19 @@ class RecordsViewModel @Inject constructor(
             // supervisorScope: one child failure doesn't cancel the other
             supervisorScope {
                 launch {
-                    try { loadConsultations() }
+                    try { loadConsultations(isLoadMore = false) }
                     catch (e: Exception) {
                         _uiState.update { it.copy(error = e.message ?: "Failed to load consultations") }
                     }
                 }
                 launch {
-                    try { loadPrescriptions() }
+                    try { loadPrescriptions(isLoadMore = false) }
                     catch (e: Exception) {
                         _uiState.update { it.copy(error = e.message ?: "Failed to load prescriptions") }
                     }
                 }
                 launch {
-                    try { loadReports() }
+                    try { loadReports(isLoadMore = false) }
                     catch (e: Exception) {
                         _uiState.update { it.copy(error = e.message ?: "Failed to load reports") }
                     }
@@ -119,23 +126,81 @@ class RecordsViewModel @Inject constructor(
     }
 
 
-    private suspend fun loadConsultations() {
-        val dtos = recordsRepository.getAllConsultations()
+    private suspend fun loadConsultations(isLoadMore: Boolean = false) {
+        val currentState = _uiState.value
+        val page = if (isLoadMore) currentState.consultationsPage + 1 else 1
+
+        val (dtos, totalPages) = recordsRepository.getConsultations(page = page)
         val consultations = dtos.map { it.toConsultationRecord() }
-        // Thread-safe update using update {} to prevent race condition
-        _uiState.update { it.copy(consultations = consultations) }
+        
+        _uiState.update { 
+            it.copy(
+                consultations = if (isLoadMore) it.consultations + consultations else consultations,
+                consultationsPage = page,
+                hasMoreConsultations = page < totalPages
+            ) 
+        }
     }
 
-    private suspend fun loadPrescriptions() {
-        val prescriptions = recordsRepository.getAllPatientPrescriptions()
-        _uiState.update { it.copy(prescriptions = prescriptions) }
+    private suspend fun loadPrescriptions(isLoadMore: Boolean = false) {
+        val currentState = _uiState.value
+        val page = if (isLoadMore) currentState.prescriptionsPage + 1 else 1
+
+        val (fetched, totalPages) = recordsRepository.getPatientPrescriptions(page = page)
+        
+        _uiState.update { 
+            it.copy(
+                prescriptions = if (isLoadMore) it.prescriptions + fetched else fetched,
+                prescriptionsPage = page,
+                hasMorePrescriptions = page < totalPages
+            ) 
+        }
     }
 
-    private suspend fun loadReports() {
-        val dtos = recordsRepository.getAllPatientReports()
+    private suspend fun loadReports(isLoadMore: Boolean = false) {
+        val currentState = _uiState.value
+        val page = if (isLoadMore) currentState.documentsPage + 1 else 1
+
+        val (dtos, totalPages) = recordsRepository.getPatientReports(page = page)
         val documents = dtos.map { it.toMedicalDocument() }
-        // Thread-safe update using update {} to prevent race condition
-        _uiState.update { it.copy(documents = documents) }
+        
+        _uiState.update { 
+            it.copy(
+                documents = if (isLoadMore) it.documents + documents else documents,
+                documentsPage = page,
+                hasMoreDocuments = page < totalPages
+            ) 
+        }
+    }
+
+    fun loadMoreConsultations() {
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMoreConsultations) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try { loadConsultations(isLoadMore = true) }
+            catch (e: Exception) { _uiState.update { it.copy(error = e.message ?: "Failed to load more consultations") } }
+            finally { _uiState.update { it.copy(isLoadingMore = false) } }
+        }
+    }
+
+    fun loadMorePrescriptions() {
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMorePrescriptions) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try { loadPrescriptions(isLoadMore = true) }
+            catch (e: Exception) { _uiState.update { it.copy(error = e.message ?: "Failed to load more prescriptions") } }
+            finally { _uiState.update { it.copy(isLoadingMore = false) } }
+        }
+    }
+
+    fun loadMoreReports() {
+        if (_uiState.value.isLoadingMore || !_uiState.value.hasMoreDocuments) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try { loadReports(isLoadMore = true) }
+            catch (e: Exception) { _uiState.update { it.copy(error = e.message ?: "Failed to load more reports") } }
+            finally { _uiState.update { it.copy(isLoadingMore = false) } }
+        }
     }
 
     private fun observeDiagnosticUpdates() {

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import javax.inject.Inject
 
 import com.example.swastik.data.repository.VitalsRepository
@@ -39,7 +40,8 @@ data class PatientDashboardUiState(
     val isLoading: Boolean = true,
     val dashboard: PatientDashboard? = null,
     val error: String? = null,
-    val activeEmergency: EmergencyResponse? = null
+    val activeEmergency: EmergencyResponse? = null,
+    val searchSuggestions: List<String> = listOf("Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist")
 )
 
 /**
@@ -179,12 +181,24 @@ class PatientDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
+            val suggestionsJob = async { patientRepository.getSearchSuggestions() }
+            
             when (val result = patientRepository.getDashboard()) {
                 is Result.Success -> {
+                    val suggestionsResult = suggestionsJob.await()
+                    val newSuggestions = if (suggestionsResult is Result.Success<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        val list = suggestionsResult.data as? List<String>
+                        if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
+                    } else {
+                        _uiState.value.searchSuggestions
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         dashboard = result.data,
-                        activeEmergency = result.data.activeEmergency
+                        activeEmergency = result.data.activeEmergency,
+                        searchSuggestions = newSuggestions
                     )
                 }
                 is Result.Error -> {
@@ -205,12 +219,24 @@ class PatientDashboardViewModel @Inject constructor(
             _isRefreshing.value = true
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
+            val suggestionsJob = async { patientRepository.getSearchSuggestions() }
+            
             when (val result = patientRepository.getDashboard()) {
                 is Result.Success -> {
+                    val suggestionsResult = suggestionsJob.await()
+                    val newSuggestions = if (suggestionsResult is Result.Success<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        val list = suggestionsResult.data as? List<String>
+                        if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
+                    } else {
+                        _uiState.value.searchSuggestions
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         dashboard = result.data,
-                        activeEmergency = result.data.activeEmergency
+                        activeEmergency = result.data.activeEmergency,
+                        searchSuggestions = newSuggestions
                     )
                 }
                 is Result.Error -> {
@@ -571,14 +597,14 @@ class PatientDashboardViewModel @Inject constructor(
                 // Convert to Vitals list for backend
                 val payload = mutableListOf<Map<String, String>>()
                 
-                if (vitals.totalSteps > 0) {
-                    payload.add(mapOf("type" to "steps", "value" to vitals.totalSteps.toString()))
+                vitals.dailySteps.forEach { stepCount ->
+                    payload.add(mapOf("type" to "steps", "value" to stepCount.value.toString(), "recorded_at" to stepCount.time.toString()))
                 }
                 vitals.recentHeartRates.forEach { hr ->
-                    payload.add(mapOf("type" to "heart_rate", "value" to hr.toString()))
+                    payload.add(mapOf("type" to "heart_rate", "value" to hr.value.toString(), "recorded_at" to hr.time.toString()))
                 }
                 vitals.recentTemperatures.forEach { temp ->
-                    payload.add(mapOf("type" to "temperature", "value" to temp.toString()))
+                    payload.add(mapOf("type" to "temperature", "value" to temp.value.toString(), "recorded_at" to temp.time.toString()))
                 }
 
                 if (payload.isNotEmpty()) {
@@ -605,13 +631,15 @@ class PatientDashboardViewModel @Inject constructor(
 
     // ── Reminders ───────────────────────────────────────────────
 
-    fun createReminder(title: String, time: String, type: String) {
+    fun createReminder(title: String, time: String, type: String, days: List<String> = emptyList(), notes: String? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             val request = CreateReminderRequest(
                 title = title,
                 type = type,
-                time = time
+                time = time,
+                days = days,
+                notes = notes
             )
             when (val result = vitalsRepository.createReminder(request)) {
                 is Result.Success -> {

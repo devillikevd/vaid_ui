@@ -224,6 +224,23 @@ class PatientRepository @Inject constructor(
         }
     }
     
+    /**
+     * Get dynamic search suggestions for the global search bar
+     * GET /api/patients/search-suggestions
+     */
+    suspend fun getSearchSuggestions(): Result<List<String>> {
+        return try {
+            val response = apiService.getSearchSuggestions()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: emptyList())
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to get suggestions")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+    
     suspend fun fetchNotifications() {
         try {
              val response = apiService.getNotifications()
@@ -823,6 +840,9 @@ class PatientRepository @Inject constructor(
                 "test" -> ReminderType.TEST
                 else -> ReminderType.MEDICINE
             },
+            days = this.days ?: emptyList(),
+            notes = this.notes,
+            snoozeUntil = this.snoozeUntil,
             isCompleted = this.isCompleted
         )
     }

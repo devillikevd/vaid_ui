@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -66,7 +67,16 @@ fun DoctorProfileBottomSheet(
                         .background(SwastikPrimaryLight, RoundedCornerShape(24.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.string_2), fontSize = 48.sp)
+                    if (!doctor.profileImageUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = doctor.profileImageUrl,
+                            contentDescription = "Doctor Profile",
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text(stringResource(R.string.string_2), fontSize = 48.sp)
+                    }
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = "Verified",
@@ -148,7 +158,7 @@ fun DoctorProfileBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
+                    text = doctor.bio ?: "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 22.sp

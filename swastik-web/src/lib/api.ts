@@ -431,6 +431,12 @@ export const adminApi = {
 
     getSystemHealth: () => fetchWithAuth('/admin/system/health'),
 
+    addBulkMedicines: (medicines: any[]) =>
+        fetchWithAuth('/admin/medicines/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ medicines }),
+        }),
+
     getEmergencies: (page: number = 1, limit: number = 20, status: string = 'active') =>
         fetchWithAuth(`/admin/emergencies?page=${page}&limit=${limit}&status=${encodeURIComponent(status)}`),
 
@@ -757,6 +763,11 @@ export const pharmacyApi = {
         fetchWithAuth('/pharmacy/inventory', {
             method: 'POST',
             body: JSON.stringify(data),
+        }),
+    addBulkInventory: (items: any[]) =>
+        fetchWithAuth('/pharmacy/inventory/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ items }),
         }),
 
     updateInventoryItem: (id: string, data: Record<string, unknown>) =>

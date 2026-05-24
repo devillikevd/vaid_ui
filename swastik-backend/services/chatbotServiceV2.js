@@ -40,9 +40,8 @@ const MAX_PER_DAY = config.ai?.maxMessagesPerDay || 100;
 function validateSessionOwnership(userId, sessionId) {
   if (!sessionId || !userId) return false;
   // Session format: session_{userId}_{timestamp}
-  const parts = sessionId.split('_');
-  if (parts.length >= 3 && parts[0] === 'session') {
-    return parts[1] === userId;
+  if (sessionId.startsWith(`session_${userId}_`)) {
+    return true;
   }
   // Legacy/unknown format — deny by default for safety
   return false;
@@ -385,7 +384,7 @@ async function sendMessage(userId, sessionId, message, options = {}) {
  */
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_BASE64_LENGTH = 4 * 1024 * 1024;
-const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+const GROQ_VISION_MODEL = process.env.GROQ_VISION_MODEL || 'llama-3.2-11b-vision-preview';
 
 async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jpeg', description = '') {
   // Validate base64 image size (prevents memory bomb)

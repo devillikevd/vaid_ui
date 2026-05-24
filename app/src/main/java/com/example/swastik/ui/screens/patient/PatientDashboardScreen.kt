@@ -145,6 +145,7 @@ fun PatientDashboardScreen(
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
                             doctors = doctors,
+                            searchSuggestions = uiState.searchSuggestions,
                             paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
                             onProfileClick = { selectedTab = 4 },
@@ -179,9 +180,9 @@ fun PatientDashboardScreen(
                             isLoading = uiState.isLoading,
                             unreadNotificationsCount = unreadCount,
                             onNotificationClick = { showNotificationPanel = true },
-                            onCreateReminder = { title, time, type -> viewModel.createReminder(title, time, type) },
+                            onCreateReminder = { title, time, type, days, notes -> viewModel.createReminder(title, time, type, days, notes) },
                             onMarkDone = { id, time -> viewModel.markReminderDone(id, time) },
-                            onSnooze = { id, time -> viewModel.snoozeReminder(id, time, 15) },
+                            onSnooze = { id, time, snoozeMins -> viewModel.snoozeReminder(id, time, snoozeMins) },
                             onSkip = { id, time -> viewModel.skipReminder(id, time) },
                             onDelete = { id -> viewModel.deleteReminder(id) }
                         )

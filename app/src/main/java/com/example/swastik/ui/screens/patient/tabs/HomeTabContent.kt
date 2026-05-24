@@ -21,6 +21,7 @@ fun HomeTabContent(
     profile: PatientProfile?,
     unreadNotificationsCount: Int,
     doctors: List<Doctor> = emptyList(),
+    searchSuggestions: List<String> = emptyList(),
     paddingValues: PaddingValues,
     onNotificationClick: () -> Unit,
     onProfileClick: () -> Unit,
@@ -70,6 +71,7 @@ fun HomeTabContent(
         // Search Bar overlay
         GlobalSearchBar(
             doctors = doctors,
+            searchSuggestions = searchSuggestions,
             onDoctorSelect = { doc -> onNavigateToBooking(doc.id) },
             onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) }
         )

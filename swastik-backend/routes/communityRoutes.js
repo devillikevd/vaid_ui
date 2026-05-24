@@ -12,5 +12,8 @@ router.use(auth.authenticate);
 router.post('/questions', communityController.createQuestion);
 router.post('/questions/:id/answers', communityController.addAnswer);
 router.post('/questions/:id/upvote', communityController.upvoteQuestion);
+router.post('/answers/:id/upvote', communityController.upvoteAnswer);
+router.delete('/questions/:id', communityController.deleteQuestion);
+router.delete('/answers/:id', communityController.deleteAnswer);
 
 module.exports = router;
