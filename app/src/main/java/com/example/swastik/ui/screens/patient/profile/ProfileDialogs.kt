@@ -43,7 +43,8 @@ fun EditProfileDialog(
     onSave: (UpdateProfileRequest) -> Unit
 ) {
     var name by remember { mutableStateOf(profile?.name ?: "") }
-    var age by remember { mutableStateOf(if ((profile?.age ?: 0) > 0) profile?.age.toString() else "") }
+    var dateOfBirth by remember { mutableStateOf(profile?.dateOfBirth ?: "") }
+    var city by remember { mutableStateOf(profile?.city ?: "") }
     var gender by remember { mutableStateOf(profile?.gender ?: "") }
     var bloodGroup by remember { mutableStateOf(profile?.bloodGroup ?: "") }
     var weight by remember { mutableStateOf(if ((profile?.weight ?: 0f) > 0f) profile?.weight.toString() else "") }
@@ -51,18 +52,26 @@ fun EditProfileDialog(
     var location by remember { mutableStateOf(profile?.location ?: "") }
     var genderExpanded by remember { mutableStateOf(false) }
     var bloodGroupExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
     val isSaving = saveState is ProfileUpdateState.Loading
 
-    LaunchedEffect(profile?.id, profile?.name, profile?.age, profile?.gender, profile?.bloodGroup, profile?.weight, profile?.height, profile?.location) {
+    LaunchedEffect(profile?.id, profile?.name, profile?.dateOfBirth, profile?.gender, profile?.bloodGroup, profile?.weight, profile?.height, profile?.location, profile?.city) {
         name = profile?.name ?: ""
-        age = if ((profile?.age ?: 0) > 0) profile?.age.toString() else ""
+        dateOfBirth = profile?.dateOfBirth ?: ""
         gender = profile?.gender ?: ""
         bloodGroup = profile?.bloodGroup ?: ""
         weight = if ((profile?.weight ?: 0f) > 0f) profile?.weight.toString() else ""
         height = if ((profile?.height ?: 0f) > 0f) profile?.height.toString() else ""
         location = profile?.location ?: ""
+        city = profile?.city ?: ""
         validationError = null
+    }
+
+    LaunchedEffect(saveState) {
+        if (saveState is ProfileUpdateState.Success) {
+            onDismiss()
+        }
     }
 
     AlertDialog(
@@ -114,13 +123,21 @@ fun EditProfileDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = age, onValueChange = { age = it.filter { c -> c.isDigit() } },
-                        label = { Text(stringResource(R.string.age)) },
-                        modifier = Modifier.weight(1f),
+                        value = dateOfBirth.ifBlank { "Date of Birth" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("DOB (YYYY-MM-DD)") },
+                        modifier = Modifier.weight(1f).clickable { if (!isSaving) showDatePicker = true },
                         shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        enabled = !isSaving
+                        enabled = false,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     )
                     ExposedDropdownMenuBox(
                         expanded = genderExpanded,
@@ -194,27 +211,37 @@ fun EditProfileDialog(
                         enabled = !isSaving
                     )
                 }
-                OutlinedTextField(
-                    value = location, onValueChange = { location = it },
-                    label = { Text(stringResource(R.string.location)) },
-                    leadingIcon = { Icon(Icons.Outlined.LocationOn, null, modifier = Modifier.size(20.dp)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    enabled = !isSaving
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = location, onValueChange = { location = it },
+                        label = { Text(stringResource(R.string.location)) },
+                        leadingIcon = { Icon(Icons.Outlined.LocationOn, null, modifier = Modifier.size(20.dp)) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        enabled = !isSaving
+                    )
+                    OutlinedTextField(
+                        value = city, onValueChange = { city = it },
+                        label = { Text("City") },
+                        leadingIcon = { Icon(Icons.Outlined.LocationCity, null, modifier = Modifier.size(20.dp)) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        enabled = !isSaving
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val parsedAge = age.toIntOrNull()
                     val parsedWeight = weight.toFloatOrNull()
                     val parsedHeight = height.toFloatOrNull()
 
                     validationError = ProfileValidation.validate(
                         name = name,
-                        age = parsedAge,
+                        age = null, // age is deprecated, handled via dob
                         weight = parsedWeight,
                         height = parsedHeight,
                         gender = gender.ifBlank { null },
@@ -225,27 +252,52 @@ fun EditProfileDialog(
                     onSave(
                         UpdateProfileRequest(
                             name = name.ifBlank { null },
-                            age = parsedAge,
+                            dateOfBirth = dateOfBirth.ifBlank { null },
                             gender = gender.ifBlank { null },
                             bloodGroup = bloodGroup.ifBlank { null },
                             weight = parsedWeight,
                             height = parsedHeight,
-                            location = location.ifBlank { null }
+                            location = location.ifBlank { null },
+                            city = city.ifBlank { null }
                         )
                     )
                 },
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
                 enabled = !isSaving
             ) {
                 if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                 } else {
                     Text(stringResource(R.string.save_changes))
+                }
+            }
+            if (showDatePicker) {
+                val datePickerState = rememberDatePickerState()
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let {
+                                val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+                                cal.timeInMillis = it
+                                val year = cal.get(java.util.Calendar.YEAR)
+                                val month = cal.get(java.util.Calendar.MONTH) + 1
+                                val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                                dateOfBirth = String.format("%04d-%02d-%02d", year, month, day)
+                            }
+                            showDatePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
                 }
             }
         },
@@ -525,6 +577,12 @@ fun ChangePasswordDialog(
     val isSaving = saveState is ProfileUpdateState.Loading
     val colorScheme = MaterialTheme.colorScheme
     val context = LocalContext.current
+
+    LaunchedEffect(saveState) {
+        if (saveState is ProfileUpdateState.Success) {
+            onDismiss()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

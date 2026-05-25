@@ -205,6 +205,7 @@ data class PatientDto(
     val weight: Float?,
     val height: Float?,
     val location: String?,
+    val city: String? = null,
     @SerializedName("abha_number")
     val abhaNumber: String?,
     @SerializedName("profile_image_url")
@@ -249,7 +250,8 @@ data class FamilyMemberDto(
     val id: String,
     val name: String,
     val relationship: String,
-    val phone: String? = null
+    val phone: String?,
+    @SerializedName("created_at") val createdAt: String?
 )
 
 data class SavedAddressDto(
@@ -259,13 +261,19 @@ data class SavedAddressDto(
     val city: String? = null,
     val pincode: String? = null,
     @SerializedName("is_default")
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 data class AddEmergencyContactRequest(
     val name: String,
     val phone: String,
     val relation: String
+)
+
+data class AddSavedAddressRequest(
+    val label: String,
+    val address: String
 )
 
 data class AddFamilyMemberRequest(
@@ -281,7 +289,9 @@ data class UpdateProfileRequest(
     val bloodGroup: String? = null,
     val weight: Float? = null,
     val height: Float? = null,
-    val location: String? = null
+    val location: String? = null,
+    val city: String? = null,
+    val dateOfBirth: String? = null
 )
 
 data class MedicalRecordAccessDto(
@@ -360,7 +370,7 @@ data class ReminderDto(
     @SerializedName("snooze_until")
     val snoozeUntil: String? = null,
     @SerializedName("is_completed")
-    val isCompleted: Boolean
+    val isCompleted: Boolean = false
 )
 
 // ==================== DOCTOR DTOs ====================

@@ -247,7 +247,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "vaididea://dashboard" },
-                navDeepLink { uriPattern = "https://vaididea.in/dashboard" }
+                navDeepLink { uriPattern = "vaididea://dashboard?tab={tab}" },
+                navDeepLink { uriPattern = "https://vaididea.in/dashboard" },
+                navDeepLink { uriPattern = "https://vaididea.in/dashboard?tab={tab}" }
             )
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
@@ -284,7 +286,11 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToPrescriptions = { navController.navigate(Screen.Prescriptions.route) },
                 onNavigateToChatbot = { navController.navigate(Screen.Chatbot.route) },
                 onNavigateToBooking = { doctorId ->
-                    navController.navigate(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
+                    if (doctorId != null) {
+                        navController.navigate(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
+                    } else {
+                        navController.navigate(Screen.AppointmentBooking.createRoute())
+                    }
                 },
                 onNavigateToEmergency = { navController.navigate(Screen.Emergency.route) },
                 onNavigateToDiagnostic = {

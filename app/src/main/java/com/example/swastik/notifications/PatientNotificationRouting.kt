@@ -104,7 +104,7 @@ fun resolvePatientNotificationDestination(
             PatientNotificationDestination(
                 actionLabel = "View Reminders",
                 route = "reminders_tab",
-                deepLink = "vaididea://reminders"
+                deepLink = "vaididea://dashboard?tab=1"
             )
         }
 

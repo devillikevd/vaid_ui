@@ -116,13 +116,15 @@ fun AppointmentBookingScreen(
 
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
-
+    
     // When preselected doctor loads, update selectedDoctor
-    LaunchedEffect(preselectedDoctorId, doctorState.selectedDoctor?.doctor?.id) {
-        val preselected = preselectedDoctorId ?: return@LaunchedEffect
+    LaunchedEffect(doctorState.selectedDoctor) {
         val doctor = doctorState.selectedDoctor?.doctor ?: return@LaunchedEffect
-        if (doctor.id == preselected && selectedDoctor?.id != doctor.id) {
+        if (selectedDoctor?.id != doctor.id) {
             selectedDoctor = doctor
+        }
+        if (!preselectedDoctorId.isNullOrBlank() && currentStep == 0) {
+            currentStep = 2
         }
     }
 
@@ -199,7 +201,8 @@ fun AppointmentBookingScreen(
             StepIndicator(currentStep = currentStep)
 
             // Error banner
-            appointmentState.error?.let { error ->
+            val errorToShow = appointmentState.error ?: doctorState.error
+            errorToShow?.let { error ->
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -217,7 +220,10 @@ fun AppointmentBookingScreen(
                             modifier = Modifier.weight(1f),
                             fontSize = 13.sp
                         )
-                        TextButton(onClick = { appointmentViewModel.clearError() }) {
+                        TextButton(onClick = {
+                            if (appointmentState.error != null) appointmentViewModel.clearError()
+                            if (doctorState.error != null) doctorSearchViewModel.clearError()
+                        }) {
                             Text(stringResource(R.string.dismiss))
                         }
                     }
@@ -283,9 +289,15 @@ fun AppointmentBookingScreen(
                         selectedType = selectedType,
                         notes = notes,
                         isDoctorLoaded = selectedDoctor != null,
+                        errorMessage = doctorState.error,
                         onTypeChanged = { selectedType = it },
                         onNotesChanged = { notes = it },
-                        onContinue = { currentStep = 3 }
+                        onContinue = { currentStep = 3 },
+                        onRetry = {
+                            if (!preselectedDoctorId.isNullOrBlank()) {
+                                doctorSearchViewModel.selectDoctor(preselectedDoctorId)
+                            }
+                        }
                     )
                     3 -> DateTimeSelectionStep(
                         doctor = selectedDoctor!!,
@@ -477,14 +489,6 @@ private fun DoctorSelectionStep(
 
 
         when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = SwastikPrimary)
-                }
-            }
             uiState.error != null -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -512,10 +516,9 @@ private fun DoctorSelectionStep(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(3) {
-                            // Note: There is no DoctorCardShimmer here, but we can reuse CircularProgressIndicator or build one.
-                            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator()
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = SwastikPrimary)
                             }
                         }
                     }
@@ -1195,9 +1198,11 @@ private fun ConsultationDetailsStep(
     selectedType: String,
     notes: String,
     isDoctorLoaded: Boolean,
+    errorMessage: String?,
     onTypeChanged: (String) -> Unit,
     onNotesChanged: (String) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onRetry: () -> Unit
 ) {
     val types = if (consultationMode == "video") {
         listOf(Triple("video", "📹", "Video Consultation"))
@@ -1287,15 +1292,28 @@ private fun ConsultationDetailsStep(
         item {
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = onContinue,
+                onClick = if (errorMessage != null) onRetry else onContinue,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                enabled = isDoctorLoaded,
+                enabled = isDoctorLoaded || errorMessage != null,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
-                if (!isDoctorLoaded) {
+                if (errorMessage != null) {
+                    Icon(
+                        Icons.Outlined.Warning,
+                        contentDescription = "Error",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Retry Loading",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp
+                    )
+                } else if (!isDoctorLoaded) {
                     CircularProgressIndicator(
                         color = Color.White,
                         modifier = Modifier.size(24.dp),

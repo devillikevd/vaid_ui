@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import com.example.swastik.navigation.Screen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
@@ -439,6 +442,7 @@ class PatientDashboardViewModel @Inject constructor(
             )) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success("Emergency contact added successfully!")
+                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -454,6 +458,7 @@ class PatientDashboardViewModel @Inject constructor(
             when (val result = patientRepository.deleteEmergencyContact(contactId)) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success("Emergency contact removed successfully!")
+                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -473,6 +478,7 @@ class PatientDashboardViewModel @Inject constructor(
             )) {
                 is Result.Success -> {
                     _profileUpdateState.value = ProfileUpdateState.Success("Family member added successfully!")
+                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -487,7 +493,42 @@ class PatientDashboardViewModel @Inject constructor(
             _profileUpdateState.value = ProfileUpdateState.Loading
             when (val result = patientRepository.deleteFamilyMember(memberId)) {
                 is Result.Success -> {
-                    _profileUpdateState.value = ProfileUpdateState.Success("Family member removed successfully!")
+                    _profileUpdateState.value = ProfileUpdateState.Success("Family member deleted successfully!")
+                    loadDashboard()
+                }
+                is Result.Error -> {
+                    _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun addAddress(label: String, address: String) {
+        viewModelScope.launch {
+            _profileUpdateState.value = ProfileUpdateState.Loading
+            when (val result = patientRepository.addSavedAddress(
+                com.example.swastik.data.remote.dto.AddSavedAddressRequest(label = label, address = address)
+            )) {
+                is Result.Success -> {
+                    _profileUpdateState.value = ProfileUpdateState.Success("Address added successfully!")
+                    loadDashboard()
+                }
+                is Result.Error -> {
+                    _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun deleteAddress(addressId: String) {
+        viewModelScope.launch {
+            _profileUpdateState.value = ProfileUpdateState.Loading
+            when (val result = patientRepository.deleteSavedAddress(addressId)) {
+                is Result.Success -> {
+                    _profileUpdateState.value = ProfileUpdateState.Success("Address deleted successfully!")
+                    loadDashboard()
                 }
                 is Result.Error -> {
                     _profileUpdateState.value = ProfileUpdateState.Error(result.message)
@@ -631,6 +672,22 @@ class PatientDashboardViewModel @Inject constructor(
 
     // ── Reminders ───────────────────────────────────────────────
 
+    private fun formatScheduledAt(time: String): String {
+        return try {
+            val parts = time.split(":")
+            if (parts.size >= 2) {
+                val hour = parts[0].toIntOrNull() ?: 0
+                val minute = parts[1].toIntOrNull() ?: 0
+                LocalDateTime.now().withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+                    .atZone(ZoneId.systemDefault()).toInstant().toString()
+            } else {
+                Instant.now().toString()
+            }
+        } catch (e: Exception) {
+            Instant.now().toString()
+        }
+    }
+
     fun createReminder(title: String, time: String, type: String, days: List<String> = emptyList(), notes: String? = null) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -657,13 +714,15 @@ class PatientDashboardViewModel @Inject constructor(
     fun markReminderDone(reminderId: String, scheduledAt: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            when (val result = vitalsRepository.actOnReminder(reminderId, "taken", scheduledAt)) {
+            val formattedTime = formatScheduledAt(scheduledAt)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "taken", formattedTime)) {
                 is Result.Success -> {
                     com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder marked as taken")
                     refresh()
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                    com.example.swastik.ui.components.SnackbarManager.showError(result.message ?: "Failed to update reminder")
                 }
                 is Result.Loading -> {}
             }
@@ -673,13 +732,15 @@ class PatientDashboardViewModel @Inject constructor(
     fun snoozeReminder(reminderId: String, scheduledAt: String, snoozeMinutes: Int = 15) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            when (val result = vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMinutes)) {
+            val formattedTime = formatScheduledAt(scheduledAt)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "snooze", formattedTime, snoozeMinutes)) {
                 is Result.Success -> {
-                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder snoozed")
+                    com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder snoozed for $snoozeMinutes minutes")
                     refresh()
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
+                    com.example.swastik.ui.components.SnackbarManager.showError(result.message ?: "Failed to snooze reminder")
                 }
                 is Result.Loading -> {}
             }
@@ -689,7 +750,8 @@ class PatientDashboardViewModel @Inject constructor(
     fun skipReminder(reminderId: String, scheduledAt: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            when (val result = vitalsRepository.actOnReminder(reminderId, "skip", scheduledAt)) {
+            val formattedTime = formatScheduledAt(scheduledAt)
+            when (val result = vitalsRepository.actOnReminder(reminderId, "skip", formattedTime)) {
                 is Result.Success -> {
                     com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder skipped")
                     refresh()

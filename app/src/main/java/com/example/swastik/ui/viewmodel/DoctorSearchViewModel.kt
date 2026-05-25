@@ -71,7 +71,7 @@ class DoctorSearchViewModel @Inject constructor(
             config = PagingConfig(pageSize = 20, enablePlaceholders = false)
         ) {
             DoctorPagingSource(
-                apiService = apiService,
+                doctorRepository = doctorRepository,
                 specialization = filters.specialization,
                 search = filters.search,
                 hospitalId = filters.hospitalId,

@@ -48,9 +48,10 @@ class AndroidAlarmScheduler @Inject constructor(
             // 2. If not snoozed, calculate regular schedule
             if (finalTimeInMillis == null) {
                 val parts = reminder.time.split(":")
-                if (parts.size != 2) return
+                if (parts.size < 2) return
                 val hour = parts[0].toInt()
                 val minute = parts[1].toInt()
+                if (hour !in 0..23 || minute !in 0..59) return
 
                 var alarmTime = LocalDateTime.now().withHour(hour).withMinute(minute).withSecond(0).withNano(0)
 
@@ -140,7 +141,7 @@ class AndroidAlarmScheduler @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-        Log.d("AndroidAlarmScheduler", "Cancelled alarm for reminder \${reminder.id}")
+        Log.d("AndroidAlarmScheduler", "Cancelled alarm for reminder ${reminder.id}")
     }
 
     override fun cancelAll() {

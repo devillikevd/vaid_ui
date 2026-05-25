@@ -101,7 +101,7 @@ fun HealthConnectSetupScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Connect Swastik with Google Health Connect to automatically sync your daily steps, heart rate, and sleep data.",
+                text = "Connect Swastik with Google Health Connect to automatically sync your daily steps, heart rate, and body temperature.",
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -109,7 +109,43 @@ fun HealthConnectSetupScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            if (!isAvailable) {
+            if (status == androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Health Connect Update Required",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Your Health Connect app needs an update to continue.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW)
+                        intent.setPackage("com.android.vending")
+                        intent.data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Update Health Connect", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            } else if (!isAvailable) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
@@ -144,42 +180,6 @@ fun HealthConnectSetupScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text("Install via Play Store", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            } else if (status == androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            "Health Connect Update Required",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Your Health Connect app needs an update to continue.",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        intent.setPackage("com.android.vending")
-                        intent.data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text("Update via Play Store", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {

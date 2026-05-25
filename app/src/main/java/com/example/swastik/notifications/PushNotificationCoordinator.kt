@@ -37,6 +37,7 @@ class PushNotificationCoordinator @Inject constructor(
     companion object {
         private const val TAG = "PushNotifications"
         const val CHANNEL_ID = "swastik_default"
+        const val ALARM_CHANNEL_ID = "swastik_alarms"
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -44,17 +45,37 @@ class PushNotificationCoordinator @Inject constructor(
     fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+        
+        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "VAIDIDEA Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Consultations, prescriptions, and general alerts"
+                }
+            )
+        }
 
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "VAIDIDEA Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Consultations, reminders, prescriptions, and emergency alerts"
-            }
-        )
+        if (manager.getNotificationChannel(ALARM_CHANNEL_ID) == null) {
+            val audioAttributes = android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .build()
+                
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    ALARM_CHANNEL_ID,
+                    "VAIDIDEA Reminders",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Medication and appointment reminders"
+                    setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM), audioAttributes)
+                    setBypassDnd(true)
+                }
+            )
+        }
     }
 
     fun registerCurrentDeviceIfPossible() {
@@ -100,7 +121,13 @@ class PushNotificationCoordinator @Inject constructor(
 
         val notificationId = ("$type:$title:$message").hashCode()
 
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        val channelIdToUse = if (type == "medicine_reminder" || type == "appointment_reminder" || type == "health_task_reminder") {
+            ALARM_CHANNEL_ID
+        } else {
+            CHANNEL_ID
+        }
+
+        val builder = NotificationCompat.Builder(context, channelIdToUse)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title.ifBlank { context.getString(R.string.app_name) })
             .setContentText(message)
@@ -110,8 +137,64 @@ class PushNotificationCoordinator @Inject constructor(
             .setContentIntent(pendingIntent)
             .setSilent(!preferences.sound)
 
+        if (channelIdToUse == ALARM_CHANNEL_ID) {
+            builder.setCategory(NotificationCompat.CATEGORY_ALARM)
+            
+            // Launch ReminderAlarmActivity for full-screen ringing experience
+            val reminderId = data["reminder_id"]
+            val reminderTime = data["reminder_time"] ?: ""
+            val reminderType = data["reminder_type"] ?: "MEDICINE"
+            
+            val scheduledAt = try {
+                if (reminderTime.contains("T") && reminderTime.endsWith("Z")) reminderTime else {
+                    val parts = reminderTime.split(":")
+                    if (parts.size >= 2) {
+                        val cal = java.util.Calendar.getInstance()
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, parts[0].toInt())
+                        cal.set(java.util.Calendar.MINUTE, parts[1].toInt())
+                        cal.set(java.util.Calendar.SECOND, 0)
+                        cal.set(java.util.Calendar.MILLISECOND, 0)
+                        val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                        format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        format.format(cal.time)
+                    } else {
+                        val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                        format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                        format.format(java.util.Date())
+                    }
+                }
+            } catch (e: Exception) {
+                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                format.format(java.util.Date())
+            }
+
+            val fullScreenIntent = Intent(context, ReminderAlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra(ReminderActionReceiver.EXTRA_REMINDER_ID, reminderId)
+                putExtra(ReminderActionReceiver.EXTRA_SCHEDULED_AT, scheduledAt)
+                putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(ReminderActionReceiver.EXTRA_REMINDER_TITLE, title)
+                putExtra(ReminderActionReceiver.EXTRA_REMINDER_TIME, reminderTime)
+                putExtra(ReminderActionReceiver.EXTRA_REMINDER_TYPE, reminderType)
+            }
+            
+            val fullScreenPendingIntent = PendingIntent.getActivity(
+                context,
+                "fs_alarm_$notificationId".hashCode(),
+                fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            builder.setFullScreenIntent(fullScreenPendingIntent, true)
+        }
+
         if (preferences.sound) {
-            builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+            if (channelIdToUse != ALARM_CHANNEL_ID) {
+                builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+            } else {
+                builder.setDefaults(NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE)
+            }
         }
 
         // Add Quick Actions for Reminders
@@ -120,7 +203,29 @@ class PushNotificationCoordinator @Inject constructor(
             val reminderTime = data["reminder_time"] ?: ""
             val reminderType = data["reminder_type"] ?: "MEDICINE"
             if (reminderId != null) {
-                val scheduledAt = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_DATE_TIME)
+                val scheduledAt = try {
+                    if (reminderTime.contains("T") && reminderTime.endsWith("Z")) reminderTime else {
+                        val parts = reminderTime.split(":")
+                        if (parts.size >= 2) {
+                            val cal = java.util.Calendar.getInstance()
+                            cal.set(java.util.Calendar.HOUR_OF_DAY, parts[0].toInt())
+                            cal.set(java.util.Calendar.MINUTE, parts[1].toInt())
+                            cal.set(java.util.Calendar.SECOND, 0)
+                            cal.set(java.util.Calendar.MILLISECOND, 0)
+                            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                            format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            format.format(cal.time)
+                        } else {
+                            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                            format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            format.format(java.util.Date())
+                        }
+                    }
+                } catch (e: Exception) {
+                    val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                    format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    format.format(java.util.Date())
+                }
 
                 val takenIntent = Intent(context, ReminderActionReceiver::class.java).apply {
                     action = ReminderActionReceiver.ACTION_MARK_DONE

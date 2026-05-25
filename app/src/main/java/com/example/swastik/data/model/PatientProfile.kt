@@ -16,6 +16,8 @@ data class PatientProfile(
     val height: Float = 0f,
     val gender: String = "",
     val location: String = "",
+    val city: String = "",
+    val dateOfBirth: String = "",
     @SerializedName("abha_number") val abhaNumber: String = "",
     @SerializedName("profile_image_url") val profileImageUrl: String = "",
     @SerializedName("is_verified") val isVerified: Boolean = false,

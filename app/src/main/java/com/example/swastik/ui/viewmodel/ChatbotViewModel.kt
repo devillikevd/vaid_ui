@@ -446,6 +446,18 @@ class ChatbotViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
+            if (chatbotRepository.getCurrentSessionId() == null) {
+                createFreshSession()
+            }
+            // Proceed only if we have a valid session now
+            if (chatbotRepository.getCurrentSessionId() == null) {
+                _uiState.value = _uiState.value.copy(
+                    isSending = false,
+                    error = "Failed to start a session for image analysis."
+                )
+                return@launch
+            }
+
             when (val result = chatbotRepository.sendImage(imageUri, description)) {
                 is Result.Success -> {
                     val data = result.data

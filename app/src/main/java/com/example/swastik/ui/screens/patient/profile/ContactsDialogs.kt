@@ -450,7 +450,9 @@ fun FamilyMembersDialog(
 @Composable
 fun SavedAddressesDialog(
     addresses: List<SavedAddress>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onAddAddress: (String, String) -> Unit,
+    onDeleteAddress: (String) -> Unit
 ) {
     var showAddForm by remember { mutableStateOf(false) }
     var newLabel by remember { mutableStateOf("") }
@@ -635,8 +637,8 @@ fun SavedAddressesDialog(
                             
                             Button(
                                 onClick = {
-                                    // Address creation will be wired to backend later
                                     val finalAddress = if (houseNumber.isNotBlank()) "$houseNumber, $areaLocality" else areaLocality
+                                    onAddAddress(newLabel, finalAddress)
                                     newLabel = ""; houseNumber = ""; areaLocality = ""
                                     showAddForm = false
                                 },
@@ -680,6 +682,9 @@ fun SavedAddressesDialog(
                                 Column(Modifier.weight(1f)) {
                                     Text(address.label, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                                     Text(address.address, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = { onDeleteAddress(address.id) }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = "Delete Address", tint = colorScheme.error)
                                 }
                             }
                         }

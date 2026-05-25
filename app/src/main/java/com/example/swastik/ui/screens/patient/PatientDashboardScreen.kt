@@ -264,7 +264,13 @@ fun PatientDashboardScreen(
         if (showAddressesDialog) {
             SavedAddressesDialog(
                 addresses = profile?.savedAddresses ?: emptyList(),
-                onDismiss = { showAddressesDialog = false }
+                onDismiss = { showAddressesDialog = false },
+                onAddAddress = { label, address ->
+                    viewModel?.addAddress(label, address)
+                },
+                onDeleteAddress = { addressId ->
+                    viewModel?.deleteAddress(addressId)
+                }
             )
         }
     }

@@ -13,8 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -47,7 +47,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
         val action = intent.action ?: return
         val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: return
-        val scheduledAt = intent.getStringExtra(EXTRA_SCHEDULED_AT) ?: LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
+        val scheduledAt = intent.getStringExtra(EXTRA_SCHEDULED_AT) ?: Instant.now().toString()
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1)
         val title = intent.getStringExtra(EXTRA_REMINDER_TITLE) ?: "Reminder"
         val time = intent.getStringExtra(EXTRA_REMINDER_TIME) ?: ""
@@ -70,7 +70,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     ACTION_SNOOZE -> {
                         val snoozeMins = intent.getIntExtra(EXTRA_SNOOZE_MINS, 15)
                         Log.d("ReminderActionReceiver", "Snoozing $reminderId for $snoozeMins mins")
-                        val result = vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMins)
+                        vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMins)
                         
                         // Schedule the snoozed alarm locally
                         val reminderType = try { ReminderType.valueOf(typeStr) } catch(e: Exception) { ReminderType.MEDICINE }
@@ -81,7 +81,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                             time = time,
                             days = emptyList(),
                             isCompleted = false,
-                            snoozeUntil = LocalDateTime.now().plusMinutes(snoozeMins.toLong()).format(DateTimeFormatter.ISO_DATE_TIME)
+                            snoozeUntil = Instant.now().plus(snoozeMins.toLong(), ChronoUnit.MINUTES).toString()
                         )
                         alarmScheduler.schedule(mockReminder)
                     }

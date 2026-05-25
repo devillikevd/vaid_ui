@@ -47,7 +47,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         )
                     }
                     reminders.forEach { alarmScheduler.schedule(it) }
-                    Log.d("BootCompletedReceiver", "Rescheduled \${reminders.size} alarms")
+                    Log.d("BootCompletedReceiver", "Rescheduled ${reminders.size} alarms")
                 }
             }
         }

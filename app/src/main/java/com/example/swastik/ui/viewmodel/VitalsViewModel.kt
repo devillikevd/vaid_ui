@@ -235,13 +235,23 @@ class VitalsViewModel @Inject constructor(
     }
 
     private fun scheduledIsoFor(time: String): String {
-        val parsedTime = runCatching { LocalTime.parse(time) }.getOrNull()
-            ?: return LocalDateTime.now().atZone(ZoneId.systemDefault()).toOffsetDateTime().toString()
-
-        return LocalDate.now()
-            .atTime(parsedTime)
-            .atZone(ZoneId.systemDefault())
-            .toOffsetDateTime()
-            .toString()
+        return try {
+            if (time.contains("T") && time.endsWith("Z")) return time
+            val parts = time.split(":")
+            if (parts.size == 2) {
+                val cal = java.util.Calendar.getInstance()
+                cal.set(java.util.Calendar.HOUR_OF_DAY, parts[0].toInt())
+                cal.set(java.util.Calendar.MINUTE, parts[1].toInt())
+                cal.set(java.util.Calendar.SECOND, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                format.format(cal.time)
+            } else {
+                time
+            }
+        } catch (e: Exception) {
+            time
+        }
     }
 }

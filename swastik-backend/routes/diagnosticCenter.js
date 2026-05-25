@@ -89,6 +89,7 @@ router.post('/register',
 
 // Book a test (patient)
 router.post('/book',
+  requireRole(ROLES.PATIENT),
   [
     body('centerId').notEmpty().isUUID().withMessage('Valid center ID is required'),
     body('testId').notEmpty().isUUID().withMessage('Valid test ID is required'),

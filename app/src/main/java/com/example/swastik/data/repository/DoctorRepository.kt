@@ -119,10 +119,24 @@ class DoctorRepositoryImpl @Inject constructor(
                     Result.Success(it)
                 } ?: Result.Error("No data received")
             } else {
-                Result.Error(response.message() ?: "Failed to fetch doctor details")
+                fallbackToCachedDoctorDetails(id) ?: Result.Error(response.message() ?: "Failed to fetch doctor details")
             }
         } catch (e: Exception) {
-            Result.Error(e.message ?: "Network error")
+            fallbackToCachedDoctorDetails(id) ?: Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    private suspend fun fallbackToCachedDoctorDetails(id: String): Result<DoctorDetails>? {
+        return try {
+            val cachedDoctor = doctorDao.getDoctorById(id)
+            if (cachedDoctor != null) {
+                Result.Success(DoctorDetails(
+                    doctor = cachedDoctor.toDomainDoctor(),
+                    reviews = emptyList() // We don't cache reviews right now
+                ))
+            } else null
+        } catch (e: Exception) {
+            null
         }
     }
 

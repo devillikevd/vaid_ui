@@ -57,8 +57,54 @@ const normalizePatientProfile = (patient, extraFields = {}) => ({
   is_verified: patient?.user?.is_verified ?? patient?.is_verified ?? false,
   // Backward-compatible alias used by some clients
   location: patient?.address || patient?.location || null,
+  savedAddresses: patient?.saved_addresses || [],
   ...extraFields,
 });
+
+const patientLocationText = (patientProfile = {}) =>
+  [patientProfile?.city, patientProfile?.address, patientProfile?.location]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .trim();
+
+const normalizeBooleanFilter = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return undefined;
+};
+
+const loadRecentChatbotUserMessages = async (userId, limit = 20) => {
+  try {
+    const { ChatMessage } = require('../database/models');
+    if (!ChatMessage?.find) return [];
+
+    const query = ChatMessage.find({ userId: String(userId), role: 'user' })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .select('content')
+      .lean()
+      .catch((error) => {
+        console.warn('[PatientService] chatbot history unavailable:', error.message);
+        return [];
+      });
+
+    const messages = await Promise.race([
+      query,
+      new Promise(resolve => setTimeout(() => resolve([]), 600)),
+    ]);
+
+    return (messages || [])
+      .filter(message => message?.content)
+      .map(message => ({ content: message.content }));
+  } catch (error) {
+    console.warn('[PatientService] chatbot history unavailable:', error.message);
+    return [];
+  }
+};
 
 class PatientService {
   async _getPatientByUserId(userId) {
@@ -247,6 +293,61 @@ class PatientService {
     return this.getProfile(userId);
   }
 
+  async addSavedAddress(userId, addressData) {
+    const { data: patient, error: fetchError } = await supabaseAdmin
+      .from('patients')
+      .select('saved_addresses')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) throw new Error('Failed to fetch patient addresses');
+
+    let addresses = patient.saved_addresses || [];
+    if (!Array.isArray(addresses)) addresses = [];
+
+    const newAddress = {
+      id: require('crypto').randomUUID(),
+      label: addressData.label || 'Other',
+      address: addressData.address || '',
+      created_at: new Date().toISOString()
+    };
+
+    addresses.push(newAddress);
+
+    const { error } = await supabaseAdmin
+      .from('patients')
+      .update({ saved_addresses: addresses })
+      .eq('user_id', userId);
+
+    if (error) throw new Error('Database error adding saved address');
+
+    return newAddress;
+  }
+
+  async deleteSavedAddress(userId, addressId) {
+    const { data: patient, error: fetchError } = await supabaseAdmin
+      .from('patients')
+      .select('saved_addresses')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) throw new Error('Failed to fetch patient addresses');
+
+    let addresses = patient.saved_addresses || [];
+    if (!Array.isArray(addresses)) addresses = [];
+
+    addresses = addresses.filter(addr => addr.id !== addressId);
+
+    const { error } = await supabaseAdmin
+      .from('patients')
+      .update({ saved_addresses: addresses })
+      .eq('user_id', userId);
+
+    if (error) throw new Error('Database error deleting saved address');
+
+    return true;
+  }
+
   async getMedicalRecordAccessForAppointment(userId, appointmentId) {
     const { patient, appointment } = await this._resolveRecordAccessContext(userId, appointmentId);
     const grant = await this._getActiveMedicalRecordGrant(patient.id, appointment.doctor_id);
@@ -433,11 +534,36 @@ class PatientService {
       ]),
     ]);
 
-    const upcomingAppointments = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value.data || [] : [];
-    const reminders = remindersResult.status === 'fulfilled' ? remindersResult.value.data || [] : [];
-    const recentConsultations = consultationsResult.status === 'fulfilled' ? consultationsResult.value.data || [] : [];
-    const notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value.data || [] : [];
-    const unreadCount = notificationsResult.status === 'fulfilled' ? notificationsResult.value.count || 0 : 0;
+    let upcomingAppointments = appointmentsResult.status === 'fulfilled' ? appointmentsResult.value.data || [] : [];
+    let reminders = remindersResult.status === 'fulfilled' ? remindersResult.value.data || [] : [];
+    let recentConsultations = consultationsResult.status === 'fulfilled' ? consultationsResult.value.data || [] : [];
+    let notifications = notificationsResult.status === 'fulfilled' ? notificationsResult.value.data || [] : [];
+    let unreadCount = notificationsResult.status === 'fulfilled' ? notificationsResult.value.count || 0 : 0;
+
+    // Enrich reminders with today's action state from Redis
+    try {
+      const now = new Date();
+      const pad2 = (n) => String(n).padStart(2, '0');
+      const yyyymmdd = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`;
+      const actionsKey = `reminder:actions:${userId}:${yyyymmdd}`;
+      let actions = await cacheGet(actionsKey);
+      if (actions && typeof actions === 'string') actions = JSON.parse(actions);
+      
+      if (Array.isArray(actions)) {
+        reminders = reminders.map(reminder => {
+          const actionsForReminder = actions.filter(a => a.reminderId === reminder.id);
+          const actionEvent = actionsForReminder.sort((a, b) => new Date(b.actedAt) - new Date(a.actedAt))[0];
+          const isCompleted = actionEvent && (actionEvent.action === 'taken' || actionEvent.action === 'skip');
+          return {
+            ...reminder,
+            is_completed: !!isCompleted,
+            snooze_until: actionEvent?.snoozeUntil || null
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Error enriching reminders:', err);
+    }
 
     // Resolve stats counts
     let stats = { total_consultations: 0, total_prescriptions: 0, total_reports: 0 };
@@ -529,34 +655,18 @@ class PatientService {
       };
 
       // --- Signal 1: Recent chatbot conversations (user messages) ---
-      const { data: recentChatSessions } = await supabaseAdmin
-        .from('chat_sessions')
-        .select('id')
-        .eq('user_id', userId)
-        .order('started_at', { ascending: false })
-        .limit(5);
+      const userMessages = await loadRecentChatbotUserMessages(userId, 20);
 
-      if (recentChatSessions?.length > 0) {
-        const sessionIds = recentChatSessions.map(s => s.id);
-        const { data: userMessages } = await supabaseAdmin
-          .from('chat_messages')
-          .select('content')
-          .in('session_id', sessionIds)
-          .eq('role', 'user')
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (userMessages?.length > 0) {
-          const allSymptomText = userMessages.map(m => m.content).join(' ');
-          for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
-            const keywordHits = countKeywordMatches(allSymptomText, keywords);
-            if (keywordHits > 0) {
-              registerSignal(
-                specialist,
-                3 + keywordHits,
-                keywordHits > 1 ? 'Based on your recent symptoms' : 'Matched from your recent symptom search'
-              );
-            }
+      if (userMessages?.length > 0) {
+        const allSymptomText = userMessages.map(m => m.content).join(' ');
+        for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
+          const keywordHits = countKeywordMatches(allSymptomText, keywords);
+          if (keywordHits > 0) {
+            registerSignal(
+              specialist,
+              3 + keywordHits,
+              keywordHits > 1 ? 'Based on your recent symptoms' : 'Matched from your recent symptom search'
+            );
           }
         }
       }
@@ -582,9 +692,11 @@ class PatientService {
       // --- Signal 3: Patient's chronic conditions / medical profile ---
       const { data: patientProfile } = await supabaseAdmin
         .from('patients')
-        .select('medical_conditions, allergies, chronic_conditions')
+        .select('medical_conditions, allergies, chronic_conditions, current_medications, medical_history, saved_addresses, city, address')
         .eq('id', patientId)
         .single();
+
+      const patientCity = patientLocationText(patientProfile);
 
       if (patientProfile) {
         const conditions = [
@@ -619,7 +731,6 @@ class PatientService {
           .order('rating', { ascending: false })
           .limit(normalizedLimit * 3);
 
-        const patientCity = patientProfile?.location?.toLowerCase()?.trim();
         recommendedDoctors = (matchedDoctors || [])
           .map(doc => {
             let reason = recommendationReasons[doc.specialization] || 'Recommended for you';
@@ -661,8 +772,6 @@ class PatientService {
           .order('rating', { ascending: false })
           // Pull a slightly larger pool so we can remove duplicates in-memory safely
           .limit(normalizedLimit * 3);
-
-        const patientCity = patientProfile?.location?.toLowerCase()?.trim();
 
         const fallbackDoctors = (fallbackPool || [])
           .filter(doc => !existingIds.includes(doc.id))
@@ -743,31 +852,15 @@ class PatientService {
         }
       };
 
-      // 1. Check recent chat sessions for symptoms
-      const { data: recentChatSessions } = await supabaseAdmin
-        .from('chat_sessions')
-        .select('id')
-        .eq('user_id', userId)
-        .order('started_at', { ascending: false })
-        .limit(3);
+      // 1. Check recent chatbot messages for symptoms
+      const userMessages = await loadRecentChatbotUserMessages(userId, 10);
 
-      if (recentChatSessions?.length > 0) {
-        const sessionIds = recentChatSessions.map(s => s.id);
-        const { data: userMessages } = await supabaseAdmin
-          .from('chat_messages')
-          .select('content')
-          .in('session_id', sessionIds)
-          .eq('role', 'user')
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-        if (userMessages?.length > 0) {
-          const allSymptomText = userMessages.map(m => m.content).join(' ');
-          for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
-            for (const keyword of keywords) {
-               if (allSymptomText.toLowerCase().includes(keyword)) {
-                  registerSignal(specialist, 3, keyword);
-               }
+      if (userMessages?.length > 0) {
+        const allSymptomText = userMessages.map(m => m.content).join(' ').toLowerCase();
+        for (const [specialist, keywords] of Object.entries(CONDITION_SPECIALIST_MAP)) {
+          for (const keyword of keywords) {
+            if (allSymptomText.includes(keyword)) {
+              registerSignal(specialist, 3, keyword);
             }
           }
         }
@@ -861,8 +954,9 @@ class PatientService {
       query = query.eq('type', filters.type);
     }
 
-    if (filters.isActive !== undefined) {
-      query = query.eq('is_active', filters.isActive);
+    const isActive = normalizeBooleanFilter(filters.isActive);
+    if (isActive !== undefined) {
+      query = query.eq('is_active', isActive);
     }
 
     const { data: reminders, error } = await query
@@ -1123,18 +1217,17 @@ class PatientService {
       throw new ApiError(404, 'Patient profile not found');
     }
 
+    const updates = { updated_at: new Date().toISOString() };
+    if (updateData.title !== undefined) updates.title = updateData.title;
+    if (updateData.type !== undefined) updates.type = updateData.type;
+    if (updateData.time !== undefined) updates.time = updateData.time;
+    if (updateData.days !== undefined) updates.days = updateData.days;
+    if (updateData.notes !== undefined) updates.notes = updateData.notes;
+    if (updateData.isActive !== undefined) updates.is_active = updateData.isActive;
+
     const { data: reminder, error } = await supabaseAdmin
       .from('reminders')
-      .update({
-        title: updateData.title,
-        type: updateData.type,
-        time: updateData.time,
-        days: updateData.days,
-        notes: updateData.notes,
-        is_active: updateData.isActive,
-        is_completed: updateData.isCompleted,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', reminderId)
       .eq('patient_id', patient.id)
       .select()

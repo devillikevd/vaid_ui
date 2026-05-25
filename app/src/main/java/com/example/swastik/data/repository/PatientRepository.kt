@@ -619,6 +619,45 @@ class PatientRepository @Inject constructor(
         }
     }
 
+    suspend fun addSavedAddress(request: AddSavedAddressRequest): Result<SavedAddress> {
+        return try {
+            val response = apiService.addSavedAddress(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val dto = response.body()?.data
+                if (dto != null) {
+                    val address = SavedAddress(id = dto.id, label = dto.label, address = dto.address, city = dto.city ?: "", pincode = dto.pincode ?: "")
+                    _patientProfile.value = _patientProfile.value?.let {
+                        it.copy(savedAddresses = it.savedAddresses + address)
+                    }
+                    Result.Success(address)
+                } else {
+                    Result.Error("Failed to parse address data")
+                }
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to add address")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun deleteSavedAddress(addressId: String): Result<Unit> {
+        return try {
+            val response = apiService.deleteSavedAddress(addressId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                _patientProfile.value = _patientProfile.value?.let {
+                    it.copy(savedAddresses = it.savedAddresses.filter { a -> a.id != addressId })
+                }
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to delete address")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+
     /**
      * Upload medical report
      * POST /api/uploads/report
@@ -900,6 +939,8 @@ class PatientRepository @Inject constructor(
             height = height ?: 0f,
             gender = gender ?: "",
             location = location ?: "",
+            city = city ?: "",
+            dateOfBirth = dateOfBirth ?: "",
             abhaNumber = abhaNumber ?: "",
             profileImageUrl = profileImageUrl ?: "",
             isVerified = isVerified,

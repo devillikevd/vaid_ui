@@ -508,8 +508,7 @@ GUIDELINES:
             },
           ],
           temperature: 0.3,
-          max_tokens: 800,
-          response_format: { type: 'json_object' },
+          max_tokens: 800
         }),
         signal: controller.signal,
       });

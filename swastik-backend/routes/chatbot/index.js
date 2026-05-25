@@ -19,13 +19,44 @@ const { validate } = require('../../middleware/validate');
 const { authenticate } = require('../../middleware/auth');
 const chatbotService = require('../../services/chatbotServiceV2');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { uploadAny } = require('../../middleware/upload');
+const { uploadAny, handleUpload, validateMagicBytes, ALLOWED_IMAGE_MIMES } = require('../../middleware/upload');
 const { recordHealthEvent } = require('../../services/outbreakService');
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+const detectImageMimeFromBase64 = (base64Image = '') => {
+  const buffer = Buffer.from(String(base64Image).slice(0, 64), 'base64');
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  if (buffer.length >= 6 && ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))) {
+    return 'image/gif';
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return null;
+};
 
 // Start new chat session
 router.post('/session/start',
@@ -74,7 +105,8 @@ router.post('/message',
 // Analyze image (skin condition, wound, medical report, etc.)
 // Accepts multipart/form-data with image file OR JSON with base64 image
 router.post('/analyze-image',
-  uploadAny.single('image'),
+  handleUpload(uploadAny.single('image')),
+  validateMagicBytes(ALLOWED_IMAGE_MIMES),
   asyncHandler(async (req, res) => {
     let base64Image, mimeType, description, sessionId;
 
@@ -86,8 +118,11 @@ router.post('/analyze-image',
       sessionId = req.body.sessionId;
     } else if (req.body.image) {
       // JSON with base64 image
-      base64Image = req.body.image.replace(/^data:image\/\w+;base64,/, '');
-      mimeType = req.body.mimeType || 'image/jpeg';
+      base64Image = req.body.image.replace(/^data:[^;]+;base64,/, '');
+      mimeType = detectImageMimeFromBase64(base64Image);
+      if (!mimeType || !ALLOWED_IMAGE_MIMES.includes(mimeType)) {
+        return res.status(400).json({ success: false, message: 'Image content is not a supported JPEG, PNG, GIF, or WebP file.' });
+      }
       description = req.body.description || '';
       sessionId = req.body.sessionId;
     } else {

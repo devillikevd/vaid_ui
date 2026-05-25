@@ -446,9 +446,9 @@ router.delete('/emergency-contacts/:id',
 // Add family member
 router.post('/family-members',
   [
-    body('name').notEmpty().withMessage('Name is required'),
-    body('relation').notEmpty().withMessage('Relation is required'),
-    body('phone').optional({ nullable: true, checkFalsy: true }).isMobilePhone().withMessage('Valid phone is required'),
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('relation').trim().notEmpty().withMessage('Relation is required'),
+    body('phone').optional({ nullable: true, checkFalsy: true }).trim()
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -461,7 +461,30 @@ router.post('/family-members',
 router.delete('/family-members/:id',
   asyncHandler(async (req, res) => {
     const result = await patientService.deleteFamilyMember(req.user.id, req.params.id);
-    res.json({ success: true, ...result });
+    res.json({ success: true, data: result });
+  })
+);
+
+// ============ SAVED ADDRESSES ============
+
+// Add saved address
+router.post('/addresses',
+  [
+    body('label').trim().notEmpty().withMessage('Label is required'),
+    body('address').trim().notEmpty().withMessage('Address is required')
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const address = await patientService.addSavedAddress(req.user.id, req.body);
+    res.status(201).json({ success: true, data: address });
+  })
+);
+
+// Delete saved address
+router.delete('/addresses/:id',
+  asyncHandler(async (req, res) => {
+    const result = await patientService.deleteSavedAddress(req.user.id, req.params.id);
+    res.json({ success: true, data: result });
   })
 );
 
@@ -600,8 +623,15 @@ router.get('/doctors',
 // Get doctor details
 router.get('/doctors/:id',
   asyncHandler(async (req, res) => {
-    const doctor = await doctorService.getDoctorById(req.params.id);
-    res.json({ success: true, data: doctor });
+    const doctorDetails = await doctorService.getDoctorById(req.params.id);
+    res.json({
+      success: true,
+      data: {
+        doctor: doctorDetails,
+        schedules: doctorDetails.slots || [],
+        reviews: doctorDetails.reviews || []
+      }
+    });
   })
 );
 

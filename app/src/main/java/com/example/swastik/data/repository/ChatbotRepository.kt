@@ -129,8 +129,13 @@ class ChatbotRepository @Inject constructor(
                 "image.${if (mimeType.contains("png")) "png" else "jpg"}",
                 imageBytes.toRequestBody(mimeType.toMediaTypeOrNull())
             )
-            val sessionIdBody = sessionId.toRequestBody("text/plain".toMediaTypeOrNull())
-            val descriptionBody = description.toRequestBody("text/plain".toMediaTypeOrNull())
+            val sessionIdBody = if (!currentSessionId.isNullOrBlank()) {
+                currentSessionId!!.toRequestBody("text/plain".toMediaTypeOrNull())
+            } else null
+            
+            val descriptionBody = if (description.isNotBlank()) {
+                description.toRequestBody("text/plain".toMediaTypeOrNull())
+            } else null
 
             val response = apiService.analyzeImage(imagePart, sessionIdBody, descriptionBody)
 

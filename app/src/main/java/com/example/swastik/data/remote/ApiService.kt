@@ -462,6 +462,14 @@ interface ApiService {
     @DELETE("patients/reminders/{id}")
     suspend fun deleteReminder(@Path("id") id: String): Response<ApiResponse<Unit>>
 
+
+
+    @POST("api/patient/addresses")
+    suspend fun addSavedAddress(@Body request: AddSavedAddressRequest): Response<ApiResponse<SavedAddressDto>>
+
+    @DELETE("api/patient/addresses/{id}")
+    suspend fun deleteSavedAddress(@Path("id") id: String): Response<ApiResponse<Any>>
+
     // ==================== CHATBOT ====================
 
     @GET("consultations")
@@ -501,8 +509,8 @@ interface ApiService {
     @POST("chatbot/analyze-image")
     suspend fun analyzeImage(
         @Part image: MultipartBody.Part,
-        @Part("sessionId") sessionId: RequestBody,
-        @Part("description") description: RequestBody
+        @Part("sessionId") sessionId: RequestBody?,
+        @Part("description") description: RequestBody?
     ): Response<ApiResponse<ChatbotMessageResult>>
     
     @POST("chatbot/analyze-symptoms")
