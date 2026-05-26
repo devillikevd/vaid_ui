@@ -33,11 +33,7 @@ object ApiConfig {
             Build.PRODUCT.contains("sdk")
     }
 
-    val BASE_URL: String = if (BuildConfig.DEBUG && isProbablyEmulator()) {
-        EMULATOR_BASE_URL
-    } else {
-        BuildConfig.API_BASE_URL
-    }
+    val BASE_URL: String = BuildConfig.API_BASE_URL
 
     /** Socket URL is the server root (scheme + host + port, without /api path). */
     val SOCKET_URL: String = run {
@@ -50,15 +46,12 @@ object ApiConfig {
      * AI vitals WebSocket root.
      *
      * Priority:
-     * 1. Emulator-specific dev endpoint
-     * 2. Explicit build config override (local.properties / release config)
-     * 3. Derived from API host:
+     * 1. Explicit build config override (local.properties / release config)
+     * 2. Derived from API host:
      *    - dev API on :5001 -> AI service on :8000
      *    - prod HTTPS API -> same host over WSS
      */
     val AI_WS_URL: String = run {
-        if (BuildConfig.DEBUG && isProbablyEmulator()) return@run EMULATOR_AI_WS_URL
-
         val configured = BuildConfig.AI_WS_BASE_URL.trim().removeSuffix("/")
         if (configured.isNotEmpty()) return@run configured
 

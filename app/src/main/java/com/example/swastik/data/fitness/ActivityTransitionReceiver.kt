@@ -33,31 +33,31 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_ACTIVITY_TRANSITION && ActivityTransitionResult.hasResult(intent)) {
             val result = ActivityTransitionResult.extractResult(intent) ?: return
+            
+            val pendingResult = goAsync()
+            scope.launch {
+                try {
+                    for (event in result.transitionEvents) {
+                        val activityType = event.activityType
+                        val transitionType = event.transitionType
+                        val timestamp = System.currentTimeMillis()
 
-            for (event in result.transitionEvents) {
-                val activityType = event.activityType
-                val transitionType = event.transitionType
-                val timestamp = System.currentTimeMillis()
+                        val activityName = when (activityType) {
+                            DetectedActivity.WALKING -> "WALKING"
+                            DetectedActivity.RUNNING -> "RUNNING"
+                            DetectedActivity.ON_BICYCLE -> "BICYCLE"
+                            DetectedActivity.STILL -> "STILL"
+                            else -> "UNKNOWN"
+                        }
 
-                val activityName = when (activityType) {
-                    DetectedActivity.WALKING -> "WALKING"
-                    DetectedActivity.RUNNING -> "RUNNING"
-                    DetectedActivity.ON_BICYCLE -> "BICYCLE"
-                    DetectedActivity.STILL -> "STILL"
-                    else -> "UNKNOWN"
-                }
+                        val transitionName = when (transitionType) {
+                            ActivityTransition.ACTIVITY_TRANSITION_ENTER -> "ENTER"
+                            ActivityTransition.ACTIVITY_TRANSITION_EXIT -> "EXIT"
+                            else -> "UNKNOWN"
+                        }
 
-                val transitionName = when (transitionType) {
-                    ActivityTransition.ACTIVITY_TRANSITION_ENTER -> "ENTER"
-                    ActivityTransition.ACTIVITY_TRANSITION_EXIT -> "EXIT"
-                    else -> "UNKNOWN"
-                }
+                        Log.d("ActivityTransition", "Transition: $activityName - $transitionName")
 
-                Log.d("ActivityTransition", "Transition: $activityName - $transitionName")
-
-                scope.launch {
-                    val pendingResult = goAsync()
-                    try {
                         if (activityType == DetectedActivity.WALKING || activityType == DetectedActivity.RUNNING) {
                             if (transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
                                 // Started walking/running
@@ -74,11 +74,11 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.e("ActivityTransition", "Error handling transition", e)
-                    } finally {
-                        pendingResult.finish()
                     }
+                } catch (e: Exception) {
+                    Log.e("ActivityTransition", "Error handling transition", e)
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }
