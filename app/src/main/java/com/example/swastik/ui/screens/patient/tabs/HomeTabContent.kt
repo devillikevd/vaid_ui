@@ -48,6 +48,7 @@ fun HomeTabContent(
     onSearchClick: () -> Unit = {},
     onLocationUpdate: (String) -> Unit = {},
     onAddAddressClick: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {}
 ) {
@@ -98,8 +99,6 @@ fun HomeTabContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
-
         // Emergency SOS
         EmergencySOSBanner(onClick = onNavigateToEmergency)
         
@@ -110,14 +109,18 @@ fun HomeTabContent(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Primary Actions (Clinic, Video, Health Card)
-        PrimaryActionsGrid(
-            onClinicClick = onStartInPersonConsultation,
-            onVideoClick = onStartVideoConsultation,
-            onHealthCardClick = onNavigateToHealthCard
-        )
+        // Primary Actions (Redesigned as per image)
+        InPersonConsultationCard(onClick = onStartInPersonConsultation)
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        VideoConsultationCard(onClick = onStartVideoConsultation)
+        
+        Spacer(modifier = Modifier.height(10.dp))
+        
+        CompactHealthIdCard(onClick = onNavigateToHealthCard)
+        
+        Spacer(modifier = Modifier.height(10.dp))
         
         // Secondary Actions (Reports, Appointments, Community Q&A)
         SecondaryActionsGrid(
@@ -144,13 +147,12 @@ fun HomeTabContent(
         Spacer(modifier = Modifier.height(20.dp))
         
         // Recommended Doctors
-        if (doctors.isNotEmpty()) {
-            RecommendedDoctorsSection(
-                doctors = doctors,
-                onBookClick = { onNavigateToBooking(it.id) },
-                onViewProfile = { selectedDoctorForProfile = it }
-            )
-        }
+        RecommendedDoctorsSection(
+            doctors = doctors,
+            onBookClick = { onNavigateToBooking(it.id) },
+            onViewProfile = { selectedDoctorForProfile = it },
+            onRetry = onRefresh
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
     }

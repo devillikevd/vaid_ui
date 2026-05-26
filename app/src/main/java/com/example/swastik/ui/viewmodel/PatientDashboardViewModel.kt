@@ -103,6 +103,9 @@ class PatientDashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     private var hasObservedSocketConnection = false
+    private var loadJob: kotlinx.coroutines.Job? = null
+    private var lastRequestTime = 0L
+    private val MIN_REQUEST_INTERVAL = 3000L // 3 seconds
 
     val patientProfile = patientRepository.patientProfile
     val stats = patientRepository.stats
@@ -176,39 +179,27 @@ class PatientDashboardViewModel @Inject constructor(
     }
 
     private fun collectProviderCatalogUpdates() {
-        viewModelScope.launch {
-            socketManager.providerCatalogUpdates.collect {
-                refresh()
-            }
-        }
+        // Disabled automatic refresh to prevent rate-limiting loops.
+        // Dashboard will refresh on next manual pull-to-refresh or app restart.
     }
 
     private fun collectPrescriptionUpdates() {
-        viewModelScope.launch {
-            socketManager.prescriptionNew.collect {
-                // BUG-06 Fix: Refresh dashboard to update recent prescriptions list in Room DB
-                // when a doctor creates a new prescription
-                refresh()
-            }
-        }
+        // Disabled automatic refresh to prevent rate-limiting loops.
     }
 
     private fun observeSocketReconnects() {
-        viewModelScope.launch {
-            socketManager.connectionState.collect { connected ->
-                if (!hasObservedSocketConnection) {
-                    hasObservedSocketConnection = true
-                    return@collect
-                }
-                if (connected) {
-                    refresh()
-                }
-            }
-        }
+        // Disabled automatic refresh on socket reconnect to prevent rate-limiting loops
     }
 
     fun loadDashboard() {
-        viewModelScope.launch {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRequestTime < MIN_REQUEST_INTERVAL) {
+            return
+        }
+        lastRequestTime = currentTime
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
             val suggestionsJob = async { patientRepository.getSearchSuggestions() }
@@ -237,15 +228,21 @@ class PatientDashboardViewModel @Inject constructor(
                         error = result.message
                     )
                 }
-                is Result.Loading -> {
-                    // Already handled above
-                }
+                is Result.Loading -> {}
             }
         }
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRequestTime < MIN_REQUEST_INTERVAL) {
+            _isRefreshing.value = false
+            return
+        }
+        lastRequestTime = currentTime
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isRefreshing.value = true
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
@@ -689,6 +686,7 @@ class PatientDashboardViewModel @Inject constructor(
                     when (val result = patientRepository.syncHealthConnectData(payload)) {
                         is Result.Success -> {
                             _healthConnectSyncState.value = ProfileUpdateState.Success("Health Connect data synced!")
+                            AppSettingsStore.updateLastHealthSync(java.time.Instant.now().toString())
                             refresh()
                         }
                         is Result.Error -> _healthConnectSyncState.value = ProfileUpdateState.Error(result.message)

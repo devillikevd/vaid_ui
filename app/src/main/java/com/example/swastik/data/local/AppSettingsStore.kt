@@ -50,7 +50,8 @@ data class AppSettings(
     val guardianConsentAcceptedAt: String? = null,
     val guardianFeatures: GuardianFeaturePreferences = GuardianFeaturePreferences(),
     val guardianSensitivity: String = "HIGH", // LOW, MEDIUM, HIGH
-    val guardianGracePeriod: Int = 30 // 15, 30, 60
+    val guardianGracePeriod: Int = 30, // 15, 30, 60
+    val lastHealthSync: String? = null
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
@@ -76,6 +77,7 @@ object AppSettingsStore {
     private val GUARDIAN_DOCTOR_QR_SHARING_KEY = booleanPreferencesKey("guardian_doctor_qr_sharing")
     private val GUARDIAN_SENSITIVITY_KEY = stringPreferencesKey("guardian_sensitivity")
     private val GUARDIAN_GRACE_PERIOD_KEY = androidx.datastore.preferences.core.intPreferencesKey("guardian_grace_period")
+    private val LAST_HEALTH_SYNC_KEY = stringPreferencesKey("last_health_sync")
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -118,8 +120,18 @@ object AppSettingsStore {
                     guardianConsentAcceptedAt = prefs[GUARDIAN_CONSENT_ACCEPTED_AT_KEY],
                     guardianFeatures = guardianFeatures,
                     guardianSensitivity = prefs[GUARDIAN_SENSITIVITY_KEY] ?: "HIGH",
-                    guardianGracePeriod = prefs[GUARDIAN_GRACE_PERIOD_KEY] ?: 30
+                    guardianGracePeriod = prefs[GUARDIAN_GRACE_PERIOD_KEY] ?: 30,
+                    lastHealthSync = prefs[LAST_HEALTH_SYNC_KEY]
                 )
+            }
+        }
+    }
+
+    fun updateLastHealthSync(time: String) {
+        _settings.value = _settings.value.copy(lastHealthSync = time)
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[LAST_HEALTH_SYNC_KEY] = time
             }
         }
     }

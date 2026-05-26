@@ -6,6 +6,7 @@ import android.Manifest
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -128,9 +129,14 @@ fun HospitalFinderScreen(
         }
     }
 
-    // Request permission on first composition if not already granted
+    // Request permission or fetch location on first composition
     LaunchedEffect(Unit) {
-        if (!hospitalState.locationAvailable && hospitalState.facilities.isEmpty()) {
+        val hasFine = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        
+        if (hasFine || hasCoarse) {
+            viewModel.fetchLocationAndLoad(selectedFacilityType)
+        } else if (!hospitalState.locationAvailable && hospitalState.facilities.isEmpty()) {
             locationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -231,28 +237,8 @@ fun HospitalFinderScreen(
         }
     }
 
-    LaunchedEffect(selectedFacilityType, hospitalState.activeRadiusKm, facilities.size, filteredFacilities.size) {
-        val selectedTypeMissingInCurrentRadius =
-            selectedFacilityType != null &&
-                facilities.isNotEmpty() &&
-                filteredFacilities.isEmpty() &&
-                searchQuery.isEmpty() &&
-                !openNowOnly &&
-                minimumRating == 0f &&
-                !emergencyServicesOnly &&
-                hospitalTypeFilter == null &&
-                hospitalState.activeRadiusKm < MAX_DISCOVERY_RADIUS_KM.toInt()
-
-        if (selectedTypeMissingInCurrentRadius) {
-            distanceFilter = MAX_DISCOVERY_RADIUS_KM
-            viewModel.loadNearbyFacilities(
-                radius = MAX_DISCOVERY_RADIUS_KM.toInt(),
-                facilityType = selectedFacilityType
-            )
-        }
-    }
-
-    LaunchedEffect(selectedFacilityType, hospitalState.locationAvailable) {
+    // Load initial facilities ONLY once per type change
+    LaunchedEffect(selectedFacilityType) {
         if (hospitalState.locationAvailable) {
             viewModel.loadNearbyFacilities(facilityType = selectedFacilityType)
         }
@@ -715,7 +701,7 @@ fun HospitalFinderScreen(
                         if (distanceFilter > hospitalState.activeRadiusKm) {
                             viewModel.loadNearbyFacilities(
                                 radius = distanceFilter.toInt(),
-                                facilityType = selectedFacilityType
+                               facilityType = selectedFacilityType
                             )
                         }
                     },

@@ -1,6 +1,11 @@
 package com.example.swastik.ui.screens.patient
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,7 +44,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 
-@OptIn(ExperimentalMaterial3Api::class)
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Smartphone
+import com.example.swastik.ui.theme.HealthIdCardBg
+import com.example.swastik.ui.theme.HealthIdCardBorder
+import com.example.swastik.ui.theme.SwastikPrimary
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HealthCardScreen(
     onNavigateBack: () -> Unit,
@@ -116,27 +136,40 @@ fun HealthCardScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.background),
+            contentPadding = PaddingValues(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // QR Code Section
-            Card(
+            // Fitness Tracking Section (Scrollable)
+            if (fitnessLog != null) {
+                item {
+                    com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(
+                        fitnessLog = fitnessLog!!,
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = HealthIdCardBg
+                    )
+                }
+            }
+
+            item {
+                // QR Code Section
+                Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                colors = CardDefaults.cardColors(containerColor = HealthIdCardBg),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, HealthIdCardBorder)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .background(HealthIdCardBg)
                             .padding(16.dp)
                     ) {
                         Column(
@@ -228,229 +261,468 @@ fun HealthCardScreen(
                         }
                     }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            "How to use Digital Health Card:",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.QrCodeScanner, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("1. Present the QR code at the check-in desk.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("2. Your medical profile will be scanned and verified.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("3. Access your health records and benefits.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.Event, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("4. Manage appointments and prescriptions seamlessly.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
+                    // Redesigned "How it works" section
+                    HealthCardHowItWorks()
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Swastik Guardian Section
-            com.example.swastik.ui.screens.patient.components.SwastikGuardianCard(
-                isActive = guardianEnabled,
-                consentAccepted = guardianSettings.guardianConsentAccepted,
-                consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
-                featurePreferences = guardianSettings.guardianFeatures,
-                onToggle = { enabled ->
-                    if (enabled) {
-                        val permissions = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                            permissions.add(android.Manifest.permission.ACTIVITY_RECOGNITION)
-                        }
-                        guardianPermissionLauncher.launch(permissions.toTypedArray())
-                    } else {
-                        dashboardViewModel.toggleGuardian(false)
-                    }
-                },
-                onConsentAccepted = { features ->
-                    dashboardViewModel.acceptGuardianConsent(features)
-                },
-                onFeaturePreferencesChange = { features ->
-                    dashboardViewModel.updateGuardianFeaturePreferences(features)
-                    if (!features.hasAnyMonitoringFeature()) {
-                        dashboardViewModel.toggleGuardian(false)
-                    }
-                },
-                onLearnMoreClick = { /* Dialog owned by SwastikGuardianCard */ }
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Health Connect Sync Section
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            Icons.Outlined.Favorite,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            "Google Health Connect",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fontSize = 20.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = { 
-                            val status = dashboardViewModel.healthConnectManager.checkAvailability()
-                            if (status != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                intent.setPackage("com.android.vending")
-                                intent.data = android.net.Uri.parse("market://details?id=com.google.android.apps.healthdata")
-                                intent.putExtra("overlay", true)
-                                intent.putExtra("callerId", context.packageName)
-                                try {
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
-                                }
-                                return@Button
+            item {
+                // Swastik Guardian Section
+                com.example.swastik.ui.screens.patient.components.SwastikGuardianCard(
+                    containerColor = HealthIdCardBg,
+                    isActive = guardianEnabled,
+                    consentAccepted = guardianSettings.guardianConsentAccepted,
+                    consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
+                    featurePreferences = guardianSettings.guardianFeatures,
+                    onToggle = { enabled ->
+                        if (enabled) {
+                            val permissions = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                permissions.add(android.Manifest.permission.ACTIVITY_RECOGNITION)
                             }
-
-                            coroutineScope.launch {
-                                if (dashboardViewModel.healthConnectManager.hasAllPermissions()) {
-                                    dashboardViewModel.syncHealthConnectData()
-                                } else {
-                                    permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions)
-                                }
-                            }
-                        },
-                        enabled = syncState !is ProfileUpdateState.Loading,
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                        shape = RoundedCornerShape(25.dp)
-                    ) {
-                        if (syncState is ProfileUpdateState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Syncing...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            guardianPermissionLauncher.launch(permissions.toTypedArray())
                         } else {
-                            Text("Sync Now", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            dashboardViewModel.toggleGuardian(false)
+                        }
+                    },
+                    onConsentAccepted = { features ->
+                        dashboardViewModel.acceptGuardianConsent(features)
+                    },
+                    onFeaturePreferencesChange = { features ->
+                        dashboardViewModel.updateGuardianFeaturePreferences(features)
+                        if (!features.hasAnyMonitoringFeature()) {
+                            dashboardViewModel.toggleGuardian(false)
                         }
                     }
-                    
-                    if (syncState is ProfileUpdateState.Success) {
-                        Text(
-                            text = (syncState as ProfileUpdateState.Success).message,
-                            color = Color(0xFF4CAF50),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                )
+            }
+
+            item {
+                // Health Connect Sync Section
+                val isConnected by remember { 
+                    derivedStateOf { 
+                        dashboardViewModel.healthConnectManager.checkAvailability() == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE 
+                    } 
+                }
+                val lastSyncTime = guardianSettings.lastHealthSync
+                
+                // Helper to format last sync
+                val lastSyncText = remember(lastSyncTime) {
+                    if (lastSyncTime == null) "Never synced"
+                    else {
+                        try {
+                            val instant = java.time.Instant.parse(lastSyncTime)
+                            val now = java.time.Instant.now()
+                            val diffMinutes = java.time.Duration.between(instant, now).toMinutes()
+                            when {
+                                diffMinutes < 1 -> "Just now"
+                                diffMinutes < 60 -> "$diffMinutes mins ago"
+                                diffMinutes < 1440 -> "${diffMinutes / 60} hours ago"
+                                else -> "${diffMinutes / 1440} days ago"
+                            }
+                        } catch (_: Exception) { "Unknown" }
+                    }
+                }
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = HealthIdCardBg),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, HealthIdCardBorder)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // Left Icon matching image
+                            Surface(
+                                modifier = Modifier.size(56.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                shadowElevation = 2.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Outlined.Favorite,
+                                        contentDescription = null,
+                                        tint = Color(0xFF6A5AE0),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(16.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Google Health Connect",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.Black,
+                                    fontSize = 17.sp
+                                )
+                                
+                                if (isConnected && lastSyncTime != null) {
+                                    Text(
+                                        text = "Last sync: $lastSyncText",
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                            
+                            // Sync Illustration matching image
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Watch, null, modifier = Modifier.size(24.dp), tint = Color.DarkGray)
+                                Icon(Icons.Default.SyncAlt, null, modifier = Modifier.size(16.dp), tint = Color(0xFF6A5AE0))
+                                Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(24.dp), tint = Color.DarkGray)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Button(
+                            onClick = { 
+                                val status = dashboardViewModel.healthConnectManager.checkAvailability()
+                                if (status != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                    intent.setPackage("com.android.vending")
+                                    intent.data = android.net.Uri.parse("market://details?id=com.google.android.apps.healthdata")
+                                    intent.putExtra("overlay", true)
+                                    intent.putExtra("callerId", context.packageName)
+                                    try {
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
+                                    }
+                                    return@Button
+                                }
+
+                                coroutineScope.launch {
+                                    if (dashboardViewModel.healthConnectManager.hasAllPermissions()) {
+                                        dashboardViewModel.syncHealthConnectData()
+                                    } else {
+                                        permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions)
+                                    }
+                                }
+                            },
+                            enabled = syncState !is ProfileUpdateState.Loading,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A5AE0)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (syncState is ProfileUpdateState.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Syncing...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Default.Sync, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Sync Now", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        
+                        if (syncState is ProfileUpdateState.Success) {
+                            Text(
+                                text = (syncState as ProfileUpdateState.Success).message,
+                                color = Color(0xFF4CAF50),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                            )
+                        } else if (syncState is ProfileUpdateState.Error) {
+                            Text(
+                                text = (syncState as ProfileUpdateState.Error).message,
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        
+                        HealthConnectHowItWorks()
+                    }
+                }
+            }
+
+            item {
+                // Dynamic Charts Section
+                if (vitalsData != null) {
+                    if (vitalsData.recentHeartRates.isNotEmpty()) {
+                        BezierCurveChart(
+                            dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
+                            title = "Heart Rate Trend",
+                            subtitle = "BPM over last 7 days",
+                            containerColor = HealthIdCardBg
                         )
-                    } else if (syncState is ProfileUpdateState.Error) {
-                        Text(
-                            text = (syncState as ProfileUpdateState.Error).message,
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally)
+                    }
+                }
+            }
+            item {
+                if (vitalsData != null) {
+                    if (vitalsData.recentTemperatures.isNotEmpty()) {
+                        BezierCurveChart(
+                            dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
+                            title = "Body Temperature Trend",
+                            subtitle = "Celsius over last 7 days",
+                            containerColor = HealthIdCardBg
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        "How to connect your Smartwatch or Phone:",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Watch, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("1. Ensure your wearable or phone has Health Connect enabled.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Favorite, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("2. Open your device's Health app and allow data sharing.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Outlined.Sync, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.secondary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("3. Tap 'Sync Now' above to link and import your health data automatically.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Fitness Tracking Fallback Section (Removing duplicates)
+        }
+    }
+}
 
-            // Dynamic Charts Section
-            if (vitalsData != null) {
-                if (vitalsData.recentHeartRates.isNotEmpty()) {
-                    BezierCurveChart(
-                        dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
-                        title = "Heart Rate Trend",
-                        subtitle = "BPM over last 7 days",
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-                if (vitalsData.recentTemperatures.isNotEmpty()) {
-                    BezierCurveChart(
-                        dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
-                        title = "Body Temperature Trend",
-                        subtitle = "Celsius over last 7 days",
-                        modifier = Modifier.padding(bottom = 16.dp)
+@Composable
+private fun HealthCardHowItWorks() {
+    var expanded by remember { mutableStateOf(false) } // Defaulting to collapsed as requested by "Option 4" image style
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .border(1.dp, Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "How it works",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Use your Digital Health Card in 4 simple steps.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .clickable { expanded = !expanded },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color.LightGray.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                StepItem(
+                    number = "1",
+                    title = "Generate QR Code",
+                    description = "Tap the button above to generate your QR code.",
+                    isLast = false
+                )
+                StepItem(
+                    number = "2",
+                    title = "Scan at Hospital",
+                    description = "Show the QR code at the hospital check-in desk.",
+                    isLast = false
+                )
+                StepItem(
+                    number = "3",
+                    title = "Verify Identity",
+                    description = "Your profile will be scanned and verified securely.",
+                    isLast = false
+                )
+                StepItem(
+                    number = "4",
+                    title = "Access Services",
+                    description = "Access your health records, benefits, appointments and prescriptions seamlessly.",
+                    isLast = true
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.DailyFitnessLog? = null) {
+    var expanded by remember { mutableStateOf(false) }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Setup Guide",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "How to connect your Smartwatch or Phone.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .clickable { expanded = !expanded },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                StepItem(
+                    number = "1",
+                    title = "Enable Health Connect",
+                    description = "Ensure your wearable or phone has Google Health Connect enabled in settings.",
+                    isLast = false,
+                    accentColor = MaterialTheme.colorScheme.secondary
+                )
+                StepItem(
+                    number = "2",
+                    title = "Grant Data Permissions",
+                    description = "Open your device's Health app (e.g. Samsung Health, Fitbit) and allow it to share data with Health Connect.",
+                    isLast = false,
+                    accentColor = MaterialTheme.colorScheme.secondary
+                )
+                StepItem(
+                    number = "3",
+                    title = "Import Health Data",
+                    description = "Tap 'Sync Now' above to link and import your vitals into VAIDIDEA automatically.",
+                    isLast = true,
+                    accentColor = MaterialTheme.colorScheme.secondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepItem(
+    number: String,
+    title: String,
+    description: String,
+    isLast: Boolean,
+    accentColor: Color = Color(0xFF6A5AE0)
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(32.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .background(accentColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = number,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            if (!isLast) {
+                Canvas(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(48.dp)
+                ) {
+                    drawLine(
+                        color = accentColor.copy(alpha = 0.3f),
+                        start = androidx.compose.ui.geometry.Offset(0f, 4.dp.toPx()),
+                        end = androidx.compose.ui.geometry.Offset(0f, 44.dp.toPx()),
+                        strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
                 }
             }
-
-            // Fitness Tracking Fallback Section
-            if (fitnessLog != null) {
-                com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(fitnessLog = fitnessLog!!)
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.padding(bottom = if (isLast) 0.dp else 24.dp)) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = description,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp
+            )
         }
     }
 }

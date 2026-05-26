@@ -225,6 +225,7 @@ fun PatientDashboardScreen(
                                 viewModel.updateProfile(UpdateProfileRequest(location = newLocation))
                             },
                             onAddAddressClick = { showAddressesDialog = true },
+                            onRefresh = { viewModel.refresh() },
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA
                         )
@@ -259,16 +260,18 @@ fun PatientDashboardScreen(
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToReports = onNavigateToReports
                         )
-                        4 -> ProfileTabContent(
-                            modifier = Modifier.padding(paddingValues),
-                            profile = profile,
-                            stats = stats,
-                            unreadNotificationsCount = unreadCount,
-                            onNotificationClick = { showNotificationPanel = true },
-                            onLogout = onLogout,
-                            onAddressesClick = { showAddressesDialog = true },
-                            viewModel = viewModel
-                        )
+                        4 -> {
+                            ProfileTabContent(
+                                modifier = Modifier.padding(paddingValues),
+                                profile = profile,
+                                stats = stats,
+                                unreadNotificationsCount = unreadCount,
+                                onNotificationClick = { showNotificationPanel = true },
+                                onLogout = onLogout,
+                                onAddressesClick = { showAddressesDialog = true },
+                                viewModel = viewModel
+                            )
+                        }
                     }
                 }
 

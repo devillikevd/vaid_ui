@@ -6,54 +6,19 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,17 +32,16 @@ import com.example.swastik.data.local.GuardianFeaturePreferences
 @Composable
 fun SwastikGuardianCard(
     modifier: Modifier = Modifier,
+    containerColor: Color = Color.White,
     isActive: Boolean,
     consentAccepted: Boolean,
     consentAcceptedAt: String?,
     featurePreferences: GuardianFeaturePreferences,
     onToggle: (Boolean) -> Unit,
     onConsentAccepted: (GuardianFeaturePreferences) -> Unit,
-    onFeaturePreferencesChange: (GuardianFeaturePreferences) -> Unit,
-    onLearnMoreClick: () -> Unit = {}
+    onFeaturePreferencesChange: (GuardianFeaturePreferences) -> Unit
 ) {
     var showLearnMore by remember { mutableStateOf(false) }
-    val canUseToggle = consentAccepted && featurePreferences.hasAnyMonitoringFeature()
 
     if (showLearnMore) {
         GuardianLearnMoreDialog(
@@ -88,126 +52,154 @@ fun SwastikGuardianCard(
                 onConsentAccepted(selectedFeatures)
                 onFeaturePreferencesChange(selectedFeatures)
                 showLearnMore = false
+                // Auto-enable after setup if features were chosen
+                if (selectedFeatures.hasAnyMonitoringFeature()) {
+                    onToggle(true)
+                }
             }
         )
     }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, com.example.swastik.ui.theme.HealthIdCardBorder)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = "Guardian",
-                        tint = if (isActive) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(28.dp)
-                    )
+                // Left side: Icon and Titles
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { showLearnMore = true } 
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE8EAF6)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = Color(0xFF3F51B5),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = "Vaididea Guardian",
-                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color.Black
                         )
                         Text(
-                            text = if (consentAccepted) {
-                                "Consent completed. Choose exactly what Guardian may monitor and share."
-                            } else {
-                                "Locked until you read, understand, and agree to the full safety explainer."
-                            },
+                            text = "Auto SOS • Safety Monitoring",
                             fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.Gray
                         )
                     }
                 }
 
+                // Right side: Toggle opens Guardian setup / learn-more flow
                 Switch(
                     checked = isActive,
-                    enabled = canUseToggle,
-                    onCheckedChange = onToggle,
+                    onCheckedChange = { showLearnMore = true },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF2E7D32)
+                        checkedTrackColor = Color(0xFF6A5AE0),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color.LightGray.copy(alpha = 0.4f)
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            if (isActive) {
-                ActiveGuardianStatus()
-            } else {
-                Text(
-                    text = if (canUseToggle) {
-                        "Ready. Turn on only when you want Guardian to monitor the selected features."
-                    } else {
-                        "Read Learn more first. The toggle will unlock after you agree."
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp
+            // Feature Grid (Matching Image Exactly)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF9FAFB), RoundedCornerShape(12.dp))
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                GuardianFeatureItem(
+                    icon = Icons.Default.Hiking,
+                    label = "Fall SOS",
+                    status = if (featurePreferences.fallDetection) "Allowed" else "Off",
+                    isAllowed = featurePreferences.fallDetection,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                GuardianFeatureItem(
+                    icon = Icons.Default.DirectionsCar,
+                    label = "Crash SOS",
+                    status = if (featurePreferences.crashDetection) "Allowed" else "Off",
+                    isAllowed = featurePreferences.crashDetection,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                GuardianFeatureItem(
+                    icon = Icons.Default.Man,
+                    label = "Mobility",
+                    status = if (featurePreferences.mobilityAnalysis) "Allowed" else "Off",
+                    isAllowed = featurePreferences.mobilityAnalysis,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                GuardianFeatureItem(
+                    icon = Icons.Default.BarChart,
+                    label = "Data Sharing",
+                    status = if (featurePreferences.doctorQrSharing) "Allowed" else "Off",
+                    isAllowed = featurePreferences.doctorQrSharing,
+                    modifier = Modifier.weight(1f)
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Column(modifier = Modifier.fillMaxWidth()) {
-                BenefitItem("Auto-SOS is gated by impact, tumble, stillness, siren timer, and user cancel.")
-                BenefitItem("Doctor/QR analytics are attached only when you explicitly allow sharing.")
-                BenefitItem("No feature runs just because the card exists. Disabled features stay off.")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FeatureSummaryRow("Fall SOS", featurePreferences.fallDetection)
-            FeatureSummaryRow("Crash SOS", featurePreferences.crashDetection)
-            FeatureSummaryRow("Mobility analysis", featurePreferences.mobilityAnalysis)
-            FeatureSummaryRow("Respiratory tracker", featurePreferences.respiratoryTracker)
-            FeatureSummaryRow("Doctor/QR analytics sharing", featurePreferences.doctorQrSharing)
-
-            if (consentAcceptedAt != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Accepted: $consentAcceptedAt",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
+            // Professional Footer Row
+            Surface(
+                onClick = { showLearnMore = true },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF3F4F6).copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.2f))
             ) {
-                TextButton(
-                    onClick = {
-                        onLearnMoreClick()
-                        showLearnMore = true
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Learn More",
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF00796B),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Learn more about Guardian",
+                        fontSize = 13.sp,
+                        color = Color.DarkGray,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color.Gray,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (consentAccepted) "Review / edit consent" else "Learn more", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -215,58 +207,36 @@ fun SwastikGuardianCard(
 }
 
 @Composable
-private fun ActiveGuardianStatus() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        val infiniteTransition = rememberInfiniteTransition()
-        val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.4f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            )
-        )
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF2E7D32).copy(alpha = alpha))
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Active. Monitoring only selected Guardian features.",
-            color = Color(0xFF2E7D32),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-private fun BenefitItem(text: String) {
-    Text(
-        text = "- $text",
-        fontSize = 13.sp,
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
-        modifier = Modifier.padding(vertical = 2.dp)
-    )
-}
-
-@Composable
-private fun FeatureSummaryRow(label: String, enabled: Boolean) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+private fun GuardianFeatureItem(
+    icon: ImageVector,
+    label: String,
+    status: String,
+    isAllowed: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isAllowed) Color.Black else Color.Gray.copy(alpha = 0.7f),
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = if (enabled) "Allowed" else "Off",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = if (enabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
+        )
+        Text(
+            text = status,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (isAllowed) Color(0xFF2E7D32) else Color.Gray
         )
     }
 }
@@ -281,10 +251,8 @@ fun GuardianLearnMoreDialog(
     var selectedFeatures by remember(initialPreferences) { mutableStateOf(initialPreferences) }
     var understood by remember { mutableStateOf(consentAccepted) }
     val scrollState = rememberScrollState()
-    val hasReadToEnd by remember {
-        derivedStateOf { scrollState.maxValue == 0 || scrollState.value >= scrollState.maxValue - 24 }
-    }
-    val canProceed = hasReadToEnd && understood && selectedFeatures.hasAnyMonitoringFeature()
+    
+    val canProceed = understood && (selectedFeatures.fallDetection || selectedFeatures.crashDetection || selectedFeatures.mobilityAnalysis || selectedFeatures.doctorQrSharing)
     val latestOnProceed by rememberUpdatedState(onProceed)
 
     androidx.compose.ui.window.Dialog(
@@ -324,7 +292,7 @@ fun GuardianLearnMoreDialog(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Read to the end, choose features, then agree to unlock the toggle.",
+                                text = "Choose features and agree to unlock protection.",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -342,76 +310,50 @@ fun GuardianLearnMoreDialog(
                             .verticalScroll(scrollState),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                    ExplainerSection(
-                        title = "Vision Alignment",
-                        body = "Guardian is built for Swastik/Vaididea's preventive-care vision: emergency response, telemedicine context, recovery tracking, and patient-controlled sharing. The goal is not to silently collect everything. The goal is to let the patient choose which safety signals can run and which signals can be shared during care."
-                    )
+                        ExplainerSection(
+                            title = "Vision Alignment",
+                            body = "Guardian is built for preventive-care: emergency response, telemedicine context, and patient-controlled sharing."
+                        )
 
-                    HorizontalDivider()
+                        HorizontalDivider()
 
-                    FeatureConsentItem(
-                        icon = Icons.Default.Warning,
-                        title = "1. Auto-SOS and Fall Detection",
-                        reliability = "Implementation: 85%. Production reliability: medium-high after real-device calibration.",
-                        checked = selectedFeatures.fallDetection,
-                        onCheckedChange = { selectedFeatures = selectedFeatures.copy(fallDetection = it) },
-                        description = "Uses accelerometer impact, gyroscope tumble, post-impact STILL state, proximity/light filtering, GPS, and a loud grace-period countdown. If the user taps I AM OK, SOS cancels. If the user does not respond, the app sends emergency type and location to the ambulance/SOS pipeline."
-                    )
+                        FeatureConsentItem(
+                            icon = Icons.Default.Warning,
+                            title = "1. Auto-SOS and Fall Detection",
+                            reliability = "Detection of sudden impacts and falls.",
+                            checked = selectedFeatures.fallDetection,
+                            onCheckedChange = { selectedFeatures = selectedFeatures.copy(fallDetection = it) },
+                            description = "Uses motion sensors to detect falls. If you don't respond to a 30-sec countdown, help is dispatched."
+                        )
 
-                    FeatureConsentItem(
-                        icon = Icons.Default.DirectionsCar,
-                        title = "2. Vehicle Crash Detection",
-                        reliability = "Implementation: 80%. Production reliability: medium until road testing.",
-                        checked = selectedFeatures.crashDetection,
-                        onCheckedChange = { selectedFeatures = selectedFeatures.copy(crashDetection = it) },
-                        description = "Runs only when motion context looks like IN_VEHICLE and GPS speed crosses the crash threshold. It combines sudden deceleration with tumble/impact and then uses the same grace-period emergency UI before dispatch."
-                    )
+                        FeatureConsentItem(
+                            icon = Icons.Default.DirectionsCar,
+                            title = "2. Vehicle Crash Detection",
+                            reliability = "Detection of high-speed impacts.",
+                            checked = selectedFeatures.crashDetection,
+                            onCheckedChange = { selectedFeatures = selectedFeatures.copy(crashDetection = it) },
+                            description = "Monitors for sudden deceleration when moving at vehicle speeds."
+                        )
 
-                    FeatureConsentItem(
-                        icon = Icons.Default.DirectionsWalk,
-                        title = "3. Gait and Mobility Analysis",
-                        reliability = "Implementation: 70%. Reliability: screening signal only, not diagnosis.",
-                        checked = selectedFeatures.mobilityAnalysis,
-                        onCheckedChange = { selectedFeatures = selectedFeatures.copy(mobilityAnalysis = it) },
-                        description = "When Activity Recognition says WALKING or RUNNING, the app analyzes accelerometer windows for lateral asymmetry and acceleration variability. Useful for doctor review in recovery, Parkinsonism, arthritis, frailty, or knee-surgery follow-up."
-                    )
+                        FeatureConsentItem(
+                            icon = Icons.Default.DirectionsWalk,
+                            title = "3. Mobility Analysis",
+                            reliability = "Screening for walking pattern changes.",
+                            checked = selectedFeatures.mobilityAnalysis,
+                            onCheckedChange = { selectedFeatures = selectedFeatures.copy(mobilityAnalysis = it) },
+                            description = "Analyzes your walking pattern to help doctors track recovery."
+                        )
 
-                    FeatureConsentItem(
-                        icon = Icons.Default.Security,
-                        title = "4. Respiratory Distress Context",
-                        reliability = "Implementation: 65%. Depends on Health Connect permission and wearable heart-rate availability.",
-                        checked = selectedFeatures.respiratoryTracker,
-                        onCheckedChange = { selectedFeatures = selectedFeatures.copy(respiratoryTracker = it) },
-                        description = "When the user is STILL or low-activity, Guardian can read recent Health Connect heart-rate data. If heart rate is unusually high, it stores context with location so a doctor can look for environmental triggers such as pollution zones."
-                    )
+                        FeatureConsentItem(
+                            icon = Icons.Default.Info,
+                            title = "Doctor Sharing",
+                            reliability = "Private data sharing.",
+                            checked = selectedFeatures.doctorQrSharing,
+                            onCheckedChange = { selectedFeatures = selectedFeatures.copy(doctorQrSharing = it) },
+                            description = "Allow your doctor to see analytics during a consultation."
+                        )
 
-                    HorizontalDivider()
-
-                    ExplainerSection(
-                        title = "Technical Terms",
-                        body = "Accelerometer means motion force. Gyroscope means rotation or tumble. Activity Recognition means Google's on-device estimate such as STILL, WALKING, RUNNING, or IN_VEHICLE. Sensor fusion means Guardian does not trust one signal alone. It combines multiple signals before acting."
-                    )
-
-                    ExplainerSection(
-                        title = "False-Positive Reduction",
-                        body = "Guardian never promises zero false positives. It reduces false alarms with multiple checks: high impact plus tumble, post-impact stillness for 10 seconds, phone-only impact filtering with proximity/light sensors, vehicle speed checks for crashes, and a loud 30-second I AM OK countdown before dispatch."
-                    )
-
-                    FeatureConsentItem(
-                        icon = Icons.Default.Info,
-                        title = "Doctor and QR Sharing Permission",
-                        reliability = "Sharing reliability: high. Data is attached only when this permission is on.",
-                        checked = selectedFeatures.doctorQrSharing,
-                        onCheckedChange = { selectedFeatures = selectedFeatures.copy(doctorQrSharing = it) },
-                        description = "If enabled, Guardian analytics can be attached to QR/share text or consultation chat with sources and reliability notes. If disabled, the doctor still gets normal record access only when you grant it, but Guardian analytics stay private."
-                    )
-
-                    ExplainerSection(
-                        title = "Fallbacks and Limits",
-                        body = "If GPS, internet, Activity Recognition, Health Connect, or wearable data is unavailable, that part of the feature may be skipped or less accurate. SOS still tries the available location fallback. Doctor sharing expires/revokes through the record-sharing flow, but chat messages already sent may remain in the consultation record."
-                    )
-
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -419,23 +361,17 @@ fun GuardianLearnMoreDialog(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
                             checked = understood,
-                            onCheckedChange = { understood = it },
-                            enabled = hasReadToEnd
+                            onCheckedChange = { understood = it }
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = if (hasReadToEnd) {
-                                "I understand how Guardian works and agree to these selected features."
-                            } else {
-                                "Scroll to the end to enable agreement."
-                            },
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "I understand and agree to these features.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -455,7 +391,7 @@ fun GuardianLearnMoreDialog(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text(if (consentAccepted) "Save consent" else "Agree & proceed")
+                            Text("Agree & Proceed")
                         }
                     }
                 }

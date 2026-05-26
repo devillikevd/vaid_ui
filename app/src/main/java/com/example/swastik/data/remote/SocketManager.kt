@@ -249,10 +249,10 @@ class SocketManager @Inject constructor(
     private fun invalidateSession(reason: String, allowRefreshRecovery: Boolean = true) {
         Log.w(TAG, reason)
         if (allowRefreshRecovery && !tokenManager.refreshToken.isNullOrBlank()) {
-            socket?.off()
-            socket?.disconnect()
-            socket = null
+            // Keep the connection state updated
             scope.launch { _connectionState.emit(false) }
+            // Instead of killing the socket, we just let it be. 
+            // Reconnect will be triggered by AuthInterceptor calling reconnect() once token is fresh.
             return
         }
         disconnect()
@@ -299,6 +299,8 @@ class SocketManager @Inject constructor(
                     opts.path = "/socket.io"
                     opts.transports = arrayOf("websocket", "polling")
                     opts.reconnection = true
+                    opts.reconnectionDelay = 5000
+                    opts.reconnectionDelayMax = 15000
 
                     socket = IO.socket(SOCKET_URL, opts)
                     setupListeners()

@@ -68,39 +68,26 @@ class HospitalFinderViewModel @Inject constructor(
     private var currentRadius: Int = DEFAULT_DISCOVERY_RADIUS_KM
     private var currentFacilityType: FacilityType? = null
     private var hasObservedSocketConnection = false
+    private var fetchJob: kotlinx.coroutines.Job? = null
+    private var lastFetchTime = 0L
+    private val MIN_FETCH_INTERVAL = 2000L // 2 seconds
 
     // Cache of all loaded facilities for client-side search filtering
     private var allFacilities: List<MedicalFacility> = emptyList()
 
     init {
-        // Auto-fetch location if permission already granted
-        fetchLocationAndLoad()
+        // UI layer will trigger fetchLocationAndLoad via LaunchedEffect once ready
         observeProviderCatalogUpdates()
         observeSocketReconnects()
     }
 
     private fun observeProviderCatalogUpdates() {
-        viewModelScope.launch {
-            socketManager.providerCatalogUpdates.collect {
-                if (_uiState.value.locationAvailable) {
-                    loadNearbyFacilities()
-                }
-            }
-        }
+        // Disabled automatic refresh on catalog updates to prevent "Too many requests" loop.
     }
 
     private fun observeSocketReconnects() {
-        viewModelScope.launch {
-            socketManager.connectionState.collect { connected ->
-                if (!hasObservedSocketConnection) {
-                    hasObservedSocketConnection = true
-                    return@collect
-                }
-                if (connected && _uiState.value.locationAvailable) {
-                    loadNearbyFacilities()
-                }
-            }
-        }
+        // Removed automatic reload on socket reconnect to prevent "Too many requests" loop
+        // during unstable network conditions.
     }
 
     /**
@@ -167,7 +154,15 @@ class HospitalFinderViewModel @Inject constructor(
             )
             return
         }
-        viewModelScope.launch {
+
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastFetchTime < MIN_FETCH_INTERVAL) {
+            return
+        }
+        lastFetchTime = currentTime
+
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             currentRadius = radius
             currentFacilityType = facilityType
             _uiState.value = _uiState.value.copy(
@@ -179,15 +174,13 @@ class HospitalFinderViewModel @Inject constructor(
                 var activeRadius = radius
                 var loadedFacilities = fetchFacilities(latitude, longitude, activeRadius, facilityType)
 
-                // Retry once with a wider radius so the discovery screen does not
-                // look completely broken when facilities exist just outside 10km.
+                // Retry once with a wider radius if nothing found
                 if (loadedFacilities.isEmpty() && activeRadius < EXPANDED_DISCOVERY_RADIUS_KM) {
                     activeRadius = EXPANDED_DISCOVERY_RADIUS_KM
                     currentRadius = activeRadius
                     loadedFacilities = fetchFacilities(latitude, longitude, activeRadius, facilityType)
                 }
 
-                // Cache for search filtering
                 allFacilities = loadedFacilities
 
                 _uiState.value = _uiState.value.copy(
@@ -196,10 +189,12 @@ class HospitalFinderViewModel @Inject constructor(
                     activeRadiusKm = activeRadius
                 )
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load nearby facilities"
-                )
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to load nearby facilities"
+                    )
+                }
             }
         }
     }

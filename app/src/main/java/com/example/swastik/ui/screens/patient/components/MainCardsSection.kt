@@ -59,7 +59,7 @@ fun MainCardsSection(
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Image(
-                        painter = painterResource(id = R.drawable.in_person_consultation),
+                        painter = painterResource(id = R.drawable.clinicvisit),
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -130,7 +130,7 @@ fun MainCardsSection(
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Image(
-                        painter = painterResource(id = R.drawable.video_consultation_icon),
+                        painter = painterResource(id = R.drawable.video_consult),
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
