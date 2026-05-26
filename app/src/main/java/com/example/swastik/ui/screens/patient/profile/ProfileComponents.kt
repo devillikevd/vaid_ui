@@ -492,7 +492,8 @@ fun PreferencesCard(
     onNotificationsClick: () -> Unit,
     onLanguageClick: () -> Unit,
     onAppearanceClick: () -> Unit,
-    onPrivacyClick: () -> Unit
+    onPrivacyClick: () -> Unit,
+    onGuardianClick: () -> Unit
 ) {
     val appSettings by AppSettingsStore.settings.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
@@ -510,6 +511,8 @@ fun PreferencesCard(
     ) {
         Column {
             SettingsMenuItem(Icons.Outlined.Notifications, stringResource(R.string.notifications), stringResource(R.string.manage_alerts_reminders), onClick = onNotificationsClick)
+            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
+            SettingsMenuItem(Icons.Outlined.Security, "Guardian Settings", "Fall detection & SOS", onClick = onGuardianClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Language, stringResource(R.string.language), stringResource(com.example.swastik.util.LanguageConfig.labelResId(currentLang)), onClick = onLanguageClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))

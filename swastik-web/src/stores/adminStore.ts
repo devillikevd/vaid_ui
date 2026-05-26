@@ -61,6 +61,12 @@ export interface PendingProvider {
     created_at: string;
     approval_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
     registration_number?: string;
+    license_number?: string;
+    specialization?: string;
+    experience_years?: number;
+    qualifications?: string[];
+    consultation_fee?: number | string;
+    languages?: string[];
     compliance_documents?: Array<{
         id: string;
         document_type: string;

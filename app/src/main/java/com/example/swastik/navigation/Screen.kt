@@ -19,7 +19,7 @@ sealed class Screen(val route: String) {
         fun createRoute(questionId: String): String = "community_qa_details/$questionId"
     }
     object PatientDashboard : Screen("patient_dashboard?tab={tab}") {
-        fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 3)}"
+        fun createRoute(tab: Int = 0): String = "patient_dashboard?tab=${tab.coerceIn(0, 4)}"
     }
     object AppointmentHistory : Screen("appointment_history?filter={filter}") {
         fun createRoute(filter: String? = null): String {

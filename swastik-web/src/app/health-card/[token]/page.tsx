@@ -33,7 +33,6 @@ interface PatientInfo {
   bloodGroup: string | null;
   weight: number | null;
   height: number | null;
-  abhaNumber: string | null;
   allergies: string[];
   medicalConditions: string[];
   chronicConditions: string[];
@@ -109,12 +108,28 @@ interface ConsultationRecord {
   doctor: DoctorSummary | null;
 }
 
+interface SharingSource {
+  label: string;
+  source: string;
+  reliability: string;
+  included: boolean;
+}
+
+interface SharingDisclosure {
+  scope: string;
+  expiry: string;
+  includedSources: SharingSource[];
+  notIncluded: string[];
+  privacyControls: string[];
+}
+
 interface HealthRecord {
   patient: PatientInfo;
   prescriptions: HealthPrescription[];
   reports: HealthReport[];
   vitals: VitalsRecord[];
   consultations: ConsultationRecord[];
+  sharingDisclosure?: SharingDisclosure;
   generatedAt: string;
 }
 
@@ -168,6 +183,7 @@ function HealthCardContent() {
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     profile: true,
+    sharing: true,
     prescriptions: false,
     reports: false,
     vitals: false,
@@ -182,7 +198,7 @@ function HealthCardContent() {
       setError(null);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/health-card/${token}`);
+        const response = await fetch(`${API_BASE_URL}/health-card/${token}`, { cache: 'no-store' });
         const payload = (await response.json()) as {
           success?: boolean;
           message?: string;
@@ -265,7 +281,6 @@ function HealthCardContent() {
                 {patient.age !== null && patient.age !== undefined && <span>{patient.age} yrs</span>}
                 {patient.gender && <span>• {patient.gender}</span>}
                 {patient.bloodGroup && <span>• {patient.bloodGroup}</span>}
-                {patient.abhaNumber && <span>• ABHA: {patient.abhaNumber}</span>}
               </div>
             </div>
           </div>
@@ -355,6 +370,57 @@ function HealthCardContent() {
             </div>
           )}
         </Section>
+
+        {record.sharingDisclosure && (
+          <Section
+            title="Sharing & Reliability"
+            icon={<Shield className="h-5 w-5" />}
+            sectionKey="sharing"
+            expanded={expandedSections.sharing}
+            onToggle={toggleSection}
+          >
+            <div className="space-y-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+                <p className="font-medium">{record.sharingDisclosure.scope}</p>
+                <p className="mt-1 text-xs text-blue-700">Expiry: {record.sharingDisclosure.expiry}</p>
+              </div>
+
+              <div className="space-y-2">
+                {record.sharingDisclosure.includedSources.map((source) => (
+                  <div key={source.label} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-gray-800">{source.label}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${source.included ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {source.included ? 'Included' : 'Not included'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Source: {source.source}</p>
+                    <p className="mt-1 text-xs text-gray-600">Reliability: {source.reliability}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <p className="mb-2 text-sm font-medium text-gray-800">Not included</p>
+                  <ul className="space-y-1 text-xs text-gray-600">
+                    {record.sharingDisclosure.notIncluded.map((item) => (
+                      <li key={item}>- {item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="mb-2 text-sm font-medium text-gray-800">Privacy controls</p>
+                  <ul className="space-y-1 text-xs text-gray-600">
+                    {record.sharingDisclosure.privacyControls.map((item) => (
+                      <li key={item}>- {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </Section>
+        )}
 
         <Section
           title={`Prescriptions (${record.prescriptions.length})`}

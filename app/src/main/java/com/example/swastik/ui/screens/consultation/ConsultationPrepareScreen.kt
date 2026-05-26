@@ -34,6 +34,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,8 +56,9 @@ fun ConsultationPrepareScreen(
     medicalRecordAccessExpiresAt: String? = null,
     isMedicalRecordAccessLoading: Boolean = false,
     medicalRecordAccessMessage: String? = null,
+    guardianAnalyticsSharingAllowed: Boolean = false,
     onBackClick: () -> Unit,
-    onGrantMedicalRecordAccess: () -> Unit = {},
+    onGrantMedicalRecordAccess: (Boolean) -> Unit = {},
     onRevokeMedicalRecordAccess: () -> Unit = {},
     onStartConsultation: () -> Unit
 ) {
@@ -263,7 +266,7 @@ fun ConsultationPrepareScreen(
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.Analytics,
                             title = "Real-time AI Vitals",
-                            description = "Our vision AI analyzes your video feed to extract health vitals (pulse, stress, pain levels) for the doctor."
+                            description = "Vision vitals are shared only when you enable Guardian doctor sharing from Health Card consent."
                         )
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.Description,
@@ -325,7 +328,57 @@ fun ConsultationPrepareScreen(
                                 )
                             }
 
-                            if (hasMedicalRecordAccess) {
+                            if (!hasMedicalRecordAccess) {
+                                var includeGuardianAnalytics by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                                androidx.compose.runtime.LaunchedEffect(guardianAnalyticsSharingAllowed) {
+                                    if (!guardianAnalyticsSharingAllowed) includeGuardianAnalytics = false
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.Checkbox(
+                                        checked = includeGuardianAnalytics,
+                                        enabled = guardianAnalyticsSharingAllowed,
+                                        onCheckedChange = { includeGuardianAnalytics = it && guardianAnalyticsSharingAllowed },
+                                        colors = androidx.compose.material3.CheckboxDefaults.colors(
+                                            checkedColor = accentTeal,
+                                            uncheckedColor = Color.White.copy(alpha = 0.6f),
+                                            checkmarkColor = Color.White
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column {
+                                        Text(
+                                            text = "Include Guardian Analytics",
+                                            color = Color.White.copy(alpha = if (guardianAnalyticsSharingAllowed) 0.8f else 0.45f),
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = if (guardianAnalyticsSharingAllowed) {
+                                                "Adds sources, reliability notes, and selected Guardian signals."
+                                            } else {
+                                                "Disabled until patient enables Guardian doctor sharing in Health Card."
+                                            },
+                                            color = Color.White.copy(alpha = 0.58f),
+                                            fontSize = 11.sp,
+                                            lineHeight = 15.sp
+                                        )
+                                    }
+                                }
+                                Button(
+                                    onClick = { onGrantMedicalRecordAccess(includeGuardianAnalytics) },
+                                    enabled = !isMedicalRecordAccessLoading,
+                                    colors = ButtonDefaults.buttonColors(containerColor = accentTeal)
+                                ) {
+                                    if (isMedicalRecordAccessLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color.White,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("Share 24h record access")
+                                    }
+                                }
+                            } else {
                                 OutlinedButton(
                                     onClick = onRevokeMedicalRecordAccess,
                                     enabled = !isMedicalRecordAccessLoading,
@@ -339,22 +392,6 @@ fun ConsultationPrepareScreen(
                                         )
                                     } else {
                                         Text("Revoke doctor access")
-                                    }
-                                }
-                            } else {
-                                Button(
-                                    onClick = onGrantMedicalRecordAccess,
-                                    enabled = !isMedicalRecordAccessLoading,
-                                    colors = ButtonDefaults.buttonColors(containerColor = accentTeal)
-                                ) {
-                                    if (isMedicalRecordAccessLoading) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            color = Color.White,
-                                            strokeWidth = 2.dp
-                                        )
-                                    } else {
-                                        Text("Share 24h record access")
                                     }
                                 }
                             }

@@ -1,8 +1,5 @@
 package com.example.swastik.ui.screens.patient.dashboard
 
-import androidx.compose.ui.graphics.graphicsLayer
-import com.example.swastik.ui.theme.SwastikPrimaryLight
-
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -395,11 +392,11 @@ fun ChatbotScreen(
                         )
                     }
                     // TTS toggle
-                    IconButton(onClick = { viewModel.toggleTts() }, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { viewModel.toggleTts() }, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = if (uiState.ttsEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.Filled.VolumeOff,
                             contentDescription = "Toggle voice",
-                            tint = if (uiState.ttsEnabled) SwastikPrimary else Color.Gray,
+                            tint = if (uiState.ttsEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -486,27 +483,27 @@ fun ChatbotScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Rate limit warning
                 if (uiState.rateLimited) {
-                    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFF3E0)) {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.errorContainer) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 "Message limit reached. Start a new session or try again later.",
                                 fontSize = 12.sp,
-                                color = Color(0xFFE65100),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = { viewModel.startFreshSession() }) {
-                                Text(stringResource(R.string.new_chat), color = Color(0xFFE65100))
+                                Text(stringResource(R.string.new_chat), color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
                     }
@@ -514,11 +511,11 @@ fun ChatbotScreen(
 
                 // Voice recognition warning
                 if (!voiceErrorMessage.isNullOrBlank()) {
-                    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFFFEBEE)) {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.errorContainer) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(voiceErrorMessage!!, fontSize = 12.sp, color = Color(0xFFD32F2F))
+                            Text(voiceErrorMessage!!, fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
@@ -554,7 +551,7 @@ fun ChatbotScreen(
                     if (messages.size == 1) {
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(stringResource(R.string.quick_actions), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+                            Text(stringResource(R.string.quick_actions), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                             QuickActionsGrid(actions = quickActions, onActionClick = { action -> sendMessage(action.query) })
                         }
                     }
@@ -674,7 +671,7 @@ private fun SessionStatusCard(
                     Text(
                         text = "Live chat, symptom triage, image analysis, and bilingual support in ${selectedLanguage.nativeLabel}",
                         fontSize = 12.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
                     )
                 }
@@ -704,15 +701,15 @@ private fun SessionStatusCard(
                             .weight(1f)
                             .clickable { action.onClick() },
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8FF))
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(action.icon, contentDescription = action.label, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
-                            Text(action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            Text(action.helper, fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
+                            Icon(action.icon, contentDescription = action.label, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Text(action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(action.helper, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 14.sp)
                         }
                     }
                 }
@@ -725,7 +722,7 @@ private fun SessionStatusCard(
 
 @Composable
 private fun VoiceListeningBar(partialResult: String, language: ChatLanguage, onStop: () -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color(0xFFE8F5E9)) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primaryContainer) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -743,11 +740,11 @@ private fun VoiceListeningBar(partialResult: String, language: ChatLanguage, onS
                     text = partialResult.ifBlank {
                         if (language == ChatLanguage.HINDI) "\uD83C\uDFA4 सुन रहा हूँ..." else "\uD83C\uDFA4 Listening..."
                     },
-                    fontSize = 14.sp, color = Color(0xFF2E7D32), maxLines = 2
+                    fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 2
                 )
                 Text(
                     text = if (language == ChatLanguage.HINDI) "हिन्दी में बोलें" else "Speak in English",
-                    fontSize = 11.sp, color = Color(0xFF66BB6A)
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
             }
             IconButton(
@@ -772,11 +769,11 @@ private fun AttachmentMenu(onDismiss: () -> Unit, onCameraClick: () -> Unit, onG
             color = MaterialTheme.colorScheme.surface, shadowElevation = 16.dp
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
-                Box(modifier = Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.LightGray))
+                Box(modifier = Modifier.align(Alignment.CenterHorizontally).width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outlineVariant))
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(stringResource(R.string.share_for_analysis), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(stringResource(R.string.take_a_photo_or_choose_from_gallery_for_ai_analysis), fontSize = 13.sp, color = Color.Gray)
+                Text(stringResource(R.string.take_a_photo_or_choose_from_gallery_for_ai_analysis), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     AttachmentOption(Icons.Outlined.CameraAlt, "Camera", "Take photo", Color(0xFF2196F3), onCameraClick)
@@ -799,7 +796,7 @@ private fun AttachmentOption(icon: ImageVector, label: String, subtitle: String,
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        Text(subtitle, fontSize = 11.sp, color = Color.Gray)
+        Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -828,7 +825,7 @@ private fun ImagePreviewDialog(
             Column {
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(160.dp),
-                    shape = RoundedCornerShape(12.dp), color = Color(0xFFF0F0F0)
+                    shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
@@ -841,7 +838,7 @@ private fun ImagePreviewDialog(
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Text(stringResource(R.string.add_a_description_optional), fontSize = 12.sp, color = Color.Gray)
+                Text(stringResource(R.string.add_a_description_optional), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(6.dp))
                 OutlinedTextField(
                     value = description, onValueChange = onDescriptionChange,
@@ -851,7 +848,7 @@ private fun ImagePreviewDialog(
                     shape = RoundedCornerShape(12.dp), maxLines = 3
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(stringResource(R.string.u2695_ufe0f_ai_will_analyze_for_skin_conditions_wounds_or_abnormalities_always_consult_a_doctor), fontSize = 11.sp, color = Color.Gray, lineHeight = 16.sp)
+                Text(stringResource(R.string.u2695_ufe0f_ai_will_analyze_for_skin_conditions_wounds_or_abnormalities_always_consult_a_doctor), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
             }
         },
         confirmButton = {
@@ -898,8 +895,9 @@ private fun SpecialistChip(specialist: String) {
 private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = {}) {
     val alignment = if (message.isUser) Alignment.CenterEnd else Alignment.CenterStart
 
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
-        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.widthIn(max = 300.dp)) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+        val bubbleMaxWidth = if (maxWidth < 420.dp) maxWidth * 0.86f else 380.dp
+        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.widthIn(max = bubbleMaxWidth)) {
             if (!message.isUser) {
                 Box(
                     modifier = Modifier.size(32.dp).clip(CircleShape).background(
@@ -928,7 +926,12 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                 .background(
                     brush = when {
                         message.isUser -> Brush.linearGradient(listOf(SwastikPrimary, Color(0xFF5E35B1)))
-                        message.isEmergency -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.errorContainer, Color(0xFFFFCDD2)))
+                        message.isEmergency -> Brush.linearGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.errorContainer,
+                                MaterialTheme.colorScheme.errorContainer
+                            )
+                        )
                         else -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
                     },
                     shape = RoundedCornerShape(
@@ -968,8 +971,8 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 message.possibleConditions.take(3).forEach { condition ->
-                                    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFF5F5F5)) {
-                                        Text(text = condition, fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                        Text(text = condition, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                     }
                                 }
                             }
@@ -1039,7 +1042,7 @@ private fun SymptomCheckerSheet(
             Text(stringResource(R.string.symptom_checker), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
                 "Share the symptoms you have right now. The assistant will suggest urgency, next steps, and a likely specialist.",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 lineHeight = 18.sp
             )
@@ -1175,7 +1178,7 @@ private fun HealthTipsSheet(
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(tip.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                                Text(tip.content, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
+                                Text(tip.content, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp)
                             }
                         }
                     }
@@ -1224,7 +1227,7 @@ private fun ChatHistorySheet(
                     CircularProgressIndicator()
                 }
             } else if (sessions.isEmpty()) {
-                Text(stringResource(R.string.no_previous_chat_sessions_yet), color = Color.Gray, fontSize = 13.sp)
+                Text(stringResource(R.string.no_previous_chat_sessions_yet), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -1252,7 +1255,7 @@ private fun ChatHistorySheet(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
                                 )
-                                Text(preview, color = Color.Gray, fontSize = 13.sp, lineHeight = 18.sp)
+                                Text(preview, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp)
                                 Text(
                                     "${session.messageCount ?: 0} messages",
                                     color = SwastikPrimary,
@@ -1337,7 +1340,7 @@ private fun TypingOrb(delay: Int) {
                 this.alpha = alpha
             }
             .background(
-                Brush.radialGradient(listOf(SwastikPrimaryLight, SwastikPrimary)),
+                Brush.radialGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)),
                 CircleShape
             )
     )
@@ -1354,12 +1357,12 @@ private fun ChatInputBar(
         Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             // Camera/attach button
             IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) SwastikPrimary else Color.LightGray)
+                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
             }
             // Input field
             Box(
                 modifier = Modifier.weight(1f).clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFF5F5F5)).padding(horizontal = 16.dp, vertical = 12.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)).padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 BasicTextField(
                     value = value,
@@ -1377,7 +1380,7 @@ private fun ChatInputBar(
                                 } else {
                                     "Type, speak, or send a photo..."
                                 },
-                                fontSize = 14.sp, color = Color.Gray
+                                fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         innerTextField()
@@ -1392,8 +1395,8 @@ private fun ChatInputBar(
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(
                         when {
                             isListening -> Color(0xFFD32F2F)
-                            inputEnabled && !isLoading -> Color(0xFF4CAF50)
-                            else -> Color.LightGray
+                            inputEnabled && !isLoading -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.surfaceVariant
                         }
                     )
                 ) {
@@ -1407,7 +1410,7 @@ private fun ChatInputBar(
                 IconButton(
                     onClick = onSend, enabled = inputEnabled && value.isNotBlank() && !isLoading,
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(
-                        if (inputEnabled && value.isNotBlank() && !isLoading) SwastikPrimary else Color.LightGray
+                        if (inputEnabled && value.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))

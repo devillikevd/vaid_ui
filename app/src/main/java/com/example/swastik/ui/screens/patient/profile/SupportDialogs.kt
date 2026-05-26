@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.*
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
 import com.google.zxing.BarcodeFormat
@@ -181,6 +183,17 @@ fun QrCodeDialog(
         }
     }
 
+    var includeGuardianAnalytics by remember { mutableStateOf(false) }
+    val appSettings by AppSettingsStore.settings.collectAsState()
+    val guardianShareAllowed = appSettings.guardianEnabled &&
+        appSettings.guardianConsentAccepted &&
+        appSettings.guardianFeatures.doctorQrSharing
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(guardianShareAllowed) {
+        if (!guardianShareAllowed) includeGuardianAnalytics = false
+    }
+
     LaunchedEffect(viewModel, healthCardState.hasCheckedStatus, healthCardState.isLoading) {
         if (viewModel != null && !healthCardState.hasCheckedStatus && !healthCardState.isLoading) {
             viewModel.checkHealthCardStatus()
@@ -287,6 +300,41 @@ fun QrCodeDialog(
                     fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center
                 )
 
+                if (healthCardState.hasActiveCard) {
+                    Spacer(Modifier.height(12.dp))
+                    val guardianShareModifier = if (guardianShareAllowed) {
+                        Modifier.clickable { includeGuardianAnalytics = !includeGuardianAnalytics }
+                    } else {
+                        Modifier
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(guardianShareModifier)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = includeGuardianAnalytics,
+                            onCheckedChange = { includeGuardianAnalytics = it && guardianShareAllowed },
+                            enabled = guardianShareAllowed,
+                            colors = CheckboxDefaults.colors(checkedColor = SwastikPrimary)
+                        )
+                        Column {
+                            Text("Include Vaididea Guardian Analytics", fontSize = 12.sp)
+                            Text(
+                                if (guardianShareAllowed) {
+                                    "Attaches sources, reliability notes, and 30-day safety signals."
+                                } else {
+                                    "Enable Guardian doctor/QR sharing from Health Card > Learn more first."
+                                },
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -295,21 +343,31 @@ fun QrCodeDialog(
                     if (healthCardState.url != null) {
                         OutlinedButton(
                             onClick = {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_SUBJECT, "My VAIDIDEA Health Card")
-                                    putExtra(
-                                        Intent.EXTRA_TEXT,
-                                        buildString {
-                                            append("VAIDIDEA Health Card (time-limited clinical summary)")
-                                            append("\n")
-                                            append("Valid until: ${formattedExpiry ?: "revoked or expired soon"}")
-                                            append("\n")
-                                            append(healthCardState.url)
-                                        }
-                                    )
+                                scope.launch {
+                                    val guardianData = if (includeGuardianAnalytics && guardianShareAllowed) {
+                                        viewModel?.getGuardianAnalytics() ?: ""
+                                    } else { "" }
+
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_SUBJECT, "My VAIDIDEA Health Card")
+                                        putExtra(
+                                            Intent.EXTRA_TEXT,
+                                            buildString {
+                                                append("VAIDIDEA Health Card (time-limited clinical summary)")
+                                                append("\n")
+                                                append("Valid until: ${formattedExpiry ?: "revoked or expired soon"}")
+                                                append("\n")
+                                                append(healthCardState.url)
+                                                if (includeGuardianAnalytics && guardianShareAllowed && guardianData.isNotEmpty()) {
+                                                    append("\n\n--- Vaididea Guardian Analytics ---\n")
+                                                    append(guardianData)
+                                                }
+                                            }
+                                        )
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share Health Card"))
                                 }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Health Card"))
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),

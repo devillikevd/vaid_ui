@@ -92,22 +92,29 @@ class WebRTCManager(
         val roundTripTimeMs: Double = -1.0,
         val packetLossPercent: Double = 0.0,
         val availableBitrateBps: Long = -1,
+        val audioBitrateBps: Long = 0,
+        val videoBitrateBps: Long = 0,
         val audioBytesSent: Long = 0,
         val videoBytesSent: Long = 0,
         val timestampMs: Long = System.currentTimeMillis()
     ) {
-        /** Map stats thresholds to a NetworkQuality level (mirrors web logic). */
-        fun toNetworkQuality(): NetworkQuality = when {
-            // CRITICAL: >15% loss OR RTT >800ms OR zero bitrate for >3s
+        /** Map stats thresholds to a NetworkQuality level. */
+        fun toNetworkQuality(currentMode: String = "video"): NetworkQuality {
+            val isVideoActive = currentMode.equals("video", ignoreCase = true)
+            val modeBitrate = if (isVideoActive) videoBitrateBps else audioBitrateBps
+
+            return when {
+            // CRITICAL: >15% loss OR RTT >800ms
             packetLossPercent > 15.0 || (roundTripTimeMs > 800 && roundTripTimeMs > 0) -> NetworkQuality.CRITICAL
-            // POOR: >5% loss OR RTT >400ms OR bitrate <50kbps
+            // POOR: >5% loss OR RTT >400ms. For active video, also consider video bitrate.
             packetLossPercent > 5.0 || (roundTripTimeMs > 400 && roundTripTimeMs > 0)
-                || (availableBitrateBps in 1..50_000) -> NetworkQuality.POOR
+                || (isVideoActive && modeBitrate in 1..80_000) -> NetworkQuality.POOR
             // EXCELLENT: <1% loss AND RTT <100ms AND bitrate >500kbps
             packetLossPercent < 1.0 && roundTripTimeMs in 0.0..100.0
-                && availableBitrateBps > 500_000 -> NetworkQuality.EXCELLENT
+                && (!isVideoActive || modeBitrate > 500_000) -> NetworkQuality.EXCELLENT
             // GOOD: everything else
             else -> NetworkQuality.GOOD
+            }
         }
     }
 
@@ -203,8 +210,18 @@ class WebRTCManager(
             // Compute instantaneous send bitrate from byte deltas
             val nowMs = System.currentTimeMillis()
             val deltaMs = nowMs - prevStatsTimestampMs
+            var audioBitrateBps = 0L
+            var videoBitrateBps = 0L
             if (deltaMs > 0 && prevStatsTimestampMs > 0) {
-                val deltaBytes = (audioBytes - prevAudioBytesSent) + (videoBytes - prevVideoBytesSent)
+                val deltaAudioBytes = audioBytes - prevAudioBytesSent
+                val deltaVideoBytes = videoBytes - prevVideoBytesSent
+                val deltaBytes = deltaAudioBytes + deltaVideoBytes
+                if (deltaAudioBytes >= 0) {
+                    audioBitrateBps = (deltaAudioBytes * 8 * 1000) / deltaMs
+                }
+                if (deltaVideoBytes >= 0) {
+                    videoBitrateBps = (deltaVideoBytes * 8 * 1000) / deltaMs
+                }
                 if (deltaBytes >= 0) {
                     val instantBps = (deltaBytes * 8 * 1000) / deltaMs
                     if (availableBitrate < 0) {
@@ -224,6 +241,8 @@ class WebRTCManager(
                     roundTripTimeMs = rtt,
                     packetLossPercent = lossPercent,
                     availableBitrateBps = availableBitrate,
+                    audioBitrateBps = audioBitrateBps,
+                    videoBitrateBps = videoBitrateBps,
                     audioBytesSent = audioBytes,
                     videoBytesSent = videoBytes,
                     timestampMs = nowMs
@@ -394,10 +413,8 @@ class WebRTCManager(
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) {
                 Log.d(TAG, "ICE Connection State: $state")
                 onConnectionStateChanged?.invoke(state)
-                // Auto ICE restart on failure
                 if (state == PeerConnection.IceConnectionState.FAILED) {
-                    Log.w(TAG, "ICE failed — attempting restart")
-                    peerConnection?.restartIce()
+                    Log.w(TAG, "ICE failed — ViewModel will decide whether to renegotiate")
                 }
             }
 
@@ -461,19 +478,32 @@ class WebRTCManager(
         pc.restartIce()
     }
 
+    fun isSignalingStable(): Boolean {
+        return peerConnection?.signalingState() == PeerConnection.SignalingState.STABLE
+    }
+
     /**
      * Create an SDP offer (caller side).
      */
     fun createOffer() {
+        val pc = peerConnection ?: run {
+            Log.w(TAG, "createOffer: no PeerConnection")
+            return
+        }
+        if (pc.signalingState() != PeerConnection.SignalingState.STABLE) {
+            Log.w(TAG, "createOffer skipped because signaling state is ${pc.signalingState()}")
+            return
+        }
         val constraints = MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
             mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"))
+            optional.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
         }
 
-        peerConnection?.createOffer(object : SdpObserver {
+        pc.createOffer(object : SdpObserver {
             override fun onCreateSuccess(sdp: SessionDescription) {
                 Log.d(TAG, "Offer created")
-                peerConnection?.setLocalDescription(SimpleSdpObserver("SetLocalOffer"), sdp)
+                pc.setLocalDescription(SimpleSdpObserver("SetLocalOffer"), sdp)
                 onOfferCreated?.invoke(sdp)
             }
             override fun onCreateFailure(error: String) { Log.e(TAG, "Offer creation failed: $error") }
@@ -501,16 +531,37 @@ class WebRTCManager(
             sdp
         )
 
-        peerConnection?.setRemoteDescription(object : SdpObserver {
-            override fun onSetSuccess() {
-                Log.d(TAG, "Remote offer set, creating answer")
-                drainPendingCandidates()
-                createAnswer()
-            }
-            override fun onSetFailure(error: String) { Log.e(TAG, "Failed to set remote offer: $error") }
-            override fun onCreateSuccess(sdp: SessionDescription) {}
-            override fun onCreateFailure(error: String) {}
-        }, sessionDescription)
+        val pc = peerConnection ?: return
+        fun applyRemoteOffer() {
+            pc.setRemoteDescription(object : SdpObserver {
+                override fun onSetSuccess() {
+                    Log.d(TAG, "Remote offer set, creating answer")
+                    drainPendingCandidates()
+                    createAnswer()
+                }
+                override fun onSetFailure(error: String) { Log.e(TAG, "Failed to set remote offer: $error") }
+                override fun onCreateSuccess(sdp: SessionDescription) {}
+                override fun onCreateFailure(error: String) {}
+            }, sessionDescription)
+        }
+
+        if (pc.signalingState() != PeerConnection.SignalingState.STABLE) {
+            Log.w(TAG, "Received offer while ${pc.signalingState()}; rolling back local description")
+            pc.setLocalDescription(object : SdpObserver {
+                override fun onSetSuccess() {
+                    hasRemoteDescription = false
+                    applyRemoteOffer()
+                }
+                override fun onSetFailure(error: String) {
+                    Log.e(TAG, "Rollback failed before remote offer: $error")
+                    applyRemoteOffer()
+                }
+                override fun onCreateSuccess(sdp: SessionDescription) {}
+                override fun onCreateFailure(error: String) {}
+            }, SessionDescription(SessionDescription.Type.ROLLBACK, ""))
+        } else {
+            applyRemoteOffer()
+        }
     }
 
     /**

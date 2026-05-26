@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.data.model.Doctor
 import com.example.swastik.ui.theme.*
+import java.util.Locale
 
 @Composable
 fun EmergencySOSBanner(onClick: () -> Unit) {
@@ -273,9 +274,9 @@ fun PrimaryActionsGrid(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Connect in 15 mins", fontSize = 11.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
                     }
-                }
             }
         }
+            }
         }
 
         // Right Column (Digital Health Card)
@@ -781,7 +782,9 @@ fun DoctorCard(
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                Text(" ${doctor.averageRating ?: 0.0f} • ${doctor.experienceYears ?: 0} Yrs", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
+                val experienceText = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it Yrs" } ?: "Exp not listed"
+                Text(" $ratingText • $experienceText", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(
@@ -811,3 +814,4 @@ fun DoctorCard(
         }
     }
 }
+

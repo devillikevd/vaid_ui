@@ -57,6 +57,12 @@ router.post('/revoke', authenticate,
 // ─── Public: Anyone with the token can view the clinical summary ─────
 
 router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
+  res.set({
+    'Cache-Control': 'no-store, max-age=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
+
   // Validate token format before hitting Redis
   // HealthCardService generates token via randomBytes(32).toString('hex') => 64 hex chars
   const tokenRegex = /^[0-9a-f]{64}$/i;

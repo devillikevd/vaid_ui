@@ -36,6 +36,13 @@ fun DoctorProfileBottomSheet(
     onBookClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val qualificationText = doctor.qualification?.takeIf { it.isNotBlank() }
+        ?: doctor.qualifications?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }
+        ?: "Qualification not listed"
+    val languagesText = doctor.languages?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }
+    val ratingValue = doctor.averageRating?.takeIf { it > 0f }
+    val reviewCount = doctor.totalReviews?.takeIf { it > 0 }
+    val bioText = doctor.bio?.takeIf { it.isNotBlank() } ?: "Profile summary has not been added yet."
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -105,7 +112,7 @@ fun DoctorProfileBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = doctor.qualification ?: "MBBS, MD",
+                        text = qualificationText,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -124,21 +131,21 @@ fun DoctorProfileBottomSheet(
                 DoctorStatCard(
                     icon = Icons.Filled.Star,
                     iconTint = Color(0xFFFFB800),
-                    title = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "4.8",
-                    subtitle = stringResource(R.string.rating),
+                    title = ratingValue?.let { String.format(Locale.US, "%.1f", it) } ?: "New",
+                    subtitle = reviewCount?.let { if (it == 1) "1 review" else "$it reviews" } ?: stringResource(R.string.rating),
                     modifier = Modifier.weight(1f)
                 )
                 DoctorStatCard(
                     icon = Icons.Outlined.Work,
                     iconTint = SwastikPrimary,
-                    title = doctor.experienceYears?.let { "$it+" } ?: "8+",
+                    title = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+" } ?: "Not set",
                     subtitle = "Years Exp",
                     modifier = Modifier.weight(1f)
                 )
                 DoctorStatCard(
                     icon = Icons.Outlined.Payments,
                     iconTint = Color(0xFF4CAF50),
-                    title = doctor.consultationFee?.let { "₹$it" } ?: "Free",
+                    title = doctor.consultationFee?.let { "₹$it" } ?: "Not set",
                     subtitle = "Fee",
                     modifier = Modifier.weight(1f)
                 )
@@ -158,11 +165,28 @@ fun DoctorProfileBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = doctor.bio ?: "${doctor.name} is a highly respected ${doctor.specialization} with over ${doctor.experienceYears ?: 8} years of experience. They are known for taking a patient-first approach to treatment and specializing in advanced minimally invasive procedures.",
+                    text = bioText,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 22.sp
                 )
+
+                if (languagesText != null) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        "Languages",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = languagesText,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(36.dp))

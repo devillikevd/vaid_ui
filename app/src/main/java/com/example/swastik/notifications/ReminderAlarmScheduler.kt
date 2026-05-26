@@ -112,20 +112,23 @@ class AndroidAlarmScheduler @Inject constructor(
             )
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                // If permission denied, use inexact alarm
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    finalTimeInMillis,
-                    pendingIntent
-                )
+                // If exact alarms permission is still denied, fallback to setAlarmClock which might work,
+                // or just use setAndAllowWhileIdle
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(finalTimeInMillis, pendingIntent)
+                try {
+                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                } catch (e: SecurityException) {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        finalTimeInMillis,
+                        pendingIntent
+                    )
+                }
             } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    finalTimeInMillis,
-                    pendingIntent
-                )
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(finalTimeInMillis, pendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             }
-            Log.d("AndroidAlarmScheduler", "Scheduled alarm for reminder ${reminder.id}")
+            Log.d("AndroidAlarmScheduler", "Scheduled alarm for reminder ${reminder.id} at $finalTimeInMillis")
 
         } catch (e: Exception) {
             Log.e("AndroidAlarmScheduler", "Failed to schedule alarm: ${e.message}")

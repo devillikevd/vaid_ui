@@ -706,6 +706,8 @@ private fun ActiveEmergencyView(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showCancelDialog by remember { mutableStateOf(false) }
+
     val emergency = uiState.activeEmergency
     val resolvedStatus = uiState.ambulanceStatus ?: emergency?.resolvedStatus() ?: "pending"
     val resolvedDriverName = uiState.driverName ?: emergency?.resolvedDriverName()
@@ -1030,7 +1032,7 @@ private fun ActiveEmergencyView(
 
         item {
             OutlinedButton(
-                onClick = onCancel,
+                onClick = { showCancelDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -1042,6 +1044,30 @@ private fun ActiveEmergencyView(
                 Text(stringResource(R.string.cancel_emergency_request))
             }
         }
+    }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Emergency Request?") },
+            text = { Text("Are you sure you want to cancel? This will cancel the dispatched ambulance and notify the driver.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCancelDialog = false
+                        onCancel()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
+                ) {
+                    Text("Yes, Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("No, Keep Request")
+                }
+            }
+        )
     }
 }
 

@@ -139,18 +139,18 @@ export default function ApprovalsPage() {
                                 const provType = approval.provider_type || 'doctors';
                                 const Icon = PROVIDER_ICONS[provType] || Stethoscope;
                                 const colorClass = PROVIDER_COLORS[provType] || 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-                                const isFacility = ['hospitals', 'clinics', 'pharmacies', 'diagnostic_centers'].includes(provType);
+                                const hasExpandableDetails = ['doctors', 'hospitals', 'clinics', 'pharmacies', 'diagnostic_centers'].includes(provType);
                                 const approvalBlockReason = approval.approval_block_reason || null;
                                 const canApprove = approval.can_approve ?? !approvalBlockReason;
                                 const isExpanded = expandedId === approval.id;
                                 return (
                                     <div key={approval.id}>
                                         <div
-                                            className={`flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${isFacility ? 'cursor-pointer' : ''}`}
-                                            onClick={() => isFacility && setExpandedId(isExpanded ? null : approval.id)}
+                                            className={`flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${hasExpandableDetails ? 'cursor-pointer' : ''}`}
+                                            onClick={() => hasExpandableDetails && setExpandedId(isExpanded ? null : approval.id)}
                                         >
                                             <div className="flex items-center gap-4">
-                                                {isFacility && (
+                                                {hasExpandableDetails && (
                                                     <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`} />
                                                 )}
                                                 <div className={`p-2.5 rounded-xl ${colorClass}`}><Icon className="h-5 w-5" /></div>
@@ -190,8 +190,8 @@ export default function ApprovalsPage() {
                                                 ⚠ {approvalBlockReason}
                                             </div>
                                         )}
-                                        {/* Expanded detail panel with map preview for facilities */}
-                                        {isFacility && isExpanded && (
+                                        {/* Expanded detail panel with provider credentials/location */}
+                                        {hasExpandableDetails && isExpanded && (
                                             <ApprovalDetailPanel approval={approval} />
                                         )}
                                     </div>
@@ -311,10 +311,17 @@ function ApprovalActions({
 /** Expanded detail panel showing provider info + map preview */
 function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
     const hasLocation = approval.latitude != null && approval.longitude != null;
+    const isDoctor = approval.provider_type === 'doctors' || approval.provider_type_key === 'doctor';
+    const qualifications = Array.isArray(approval.qualifications)
+        ? approval.qualifications.filter(Boolean).join(', ')
+        : '';
+    const languages = Array.isArray(approval.languages)
+        ? approval.languages.filter(Boolean).join(', ')
+        : '';
 
     return (
         <div className="px-6 pb-4 pt-0 bg-gray-50/50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3">
+            <div className={`grid grid-cols-1 ${isDoctor ? '' : 'lg:grid-cols-2'} gap-4 pt-3`}>
                 {/* Provider details */}
                 <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Provider Details</h4>
@@ -340,6 +347,21 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <FileText className="h-4 w-4 text-gray-400" />
                             Reg: {approval.registration_number}
+                        </div>
+                    )}
+                    {approval.license_number && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <FileText className="h-4 w-4 text-gray-400" />
+                            License: {approval.license_number}
+                        </div>
+                    )}
+                    {isDoctor && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            {approval.specialization && <div>Specialization: {approval.specialization}</div>}
+                            {approval.experience_years != null && <div>Experience: {approval.experience_years} years</div>}
+                            {approval.consultation_fee != null && <div>Fee: ₹{approval.consultation_fee}</div>}
+                            {qualifications && <div className="sm:col-span-2">Qualification: {qualifications}</div>}
+                            {languages && <div className="sm:col-span-2">Languages: {languages}</div>}
                         </div>
                     )}
                     {approval.compliance_documents && approval.compliance_documents.length > 0 && (
@@ -381,7 +403,7 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                             ))}
                         </div>
                     )}
-                    {!hasLocation && (
+                    {!isDoctor && !hasLocation && (
                         <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
                             <MapPin className="h-3.5 w-3.5" />
                             No GPS coordinates provided — location cannot be verified on map.
@@ -390,7 +412,7 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                 </div>
 
                 {/* Map preview */}
-                <div>
+                {!isDoctor && <div>
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         Location Preview
                     </h4>
@@ -407,7 +429,7 @@ function ApprovalDetailPanel({ approval }: { approval: PendingProvider }) {
                             No location data available
                         </div>
                     )}
-                </div>
+                </div>}
             </div>
         </div>
     );

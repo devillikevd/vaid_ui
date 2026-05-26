@@ -645,7 +645,7 @@ private fun DoctorBookingCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = doctor.experienceYears?.let { "$it+ Yrs Exp" } ?: "8+ Yrs Exp",
+                        text = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed",
                         fontSize = 13.sp,
                         color = Color.Gray
                     )
@@ -667,9 +667,9 @@ private fun DoctorBookingCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = doctor.averageRating?.let {
+                            text = doctor.averageRating?.takeIf { it > 0f }?.let {
                                 String.format(Locale.US, "%.1f", it)
-                            } ?: "4.8",
+                            } ?: "New",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFB28900)
@@ -692,7 +692,7 @@ private fun DoctorBookingCard(
                         color = Color.Gray
                     )
                     Text(
-                        text = doctor.consultationFee?.let { "₹$it" } ?: "Free",
+                        text = doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed",
                         color = SwastikPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
@@ -1426,7 +1426,7 @@ private fun ConfirmationStep(
                             }
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                 Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                                Text(doctor.consultationFee?.let { "₹$it" } ?: stringResource(R.string.free), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
+                                Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
                             }
                         }
 

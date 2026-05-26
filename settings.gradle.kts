@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "swastik"
 include(":app")
-//include(":ambulance-app")
+include(":ambulance-app")

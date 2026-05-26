@@ -86,6 +86,14 @@ fun PatientDashboardScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { }
 
+    val activityRecognitionPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startFitnessTrackingService()
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -94,6 +102,34 @@ fun PatientDashboardScreen(
             ) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // Request Activity Recognition Permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACTIVITY_RECOGNITION
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                activityRecognitionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+            } else {
+                viewModel.startFitnessTrackingService()
+            }
+        } else {
+            viewModel.startFitnessTrackingService()
+        }
+    }
+    
+    val guardianPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        val activityGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) permissions[Manifest.permission.ACTIVITY_RECOGNITION] == true else true
+        
+        if (locationGranted && activityGranted) {
+            viewModel.toggleGuardian(true)
+        } else {
+            android.widget.Toast.makeText(context, "Location and Activity Recognition permissions required for Guardian", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -143,12 +179,28 @@ fun PatientDashboardScreen(
                     label = "tab_crossfade"
                 ) { tab ->
                     when (tab) {
-                        0 -> HomeTabContent(
-                            profile = profile,
-                            unreadNotificationsCount = unreadCount,
-                            doctors = doctors,
-                            searchSuggestions = uiState.searchSuggestions,
-                            paddingValues = paddingValues,
+                        0 -> {
+                            val fitnessLog by viewModel.fitnessLog.collectAsState()
+                            val guardianEnabled by viewModel.guardianEnabled.collectAsState()
+                            HomeTabContent(
+                                profile = profile,
+                                unreadNotificationsCount = unreadCount,
+                                doctors = doctors,
+                                searchSuggestions = uiState.searchSuggestions,
+                                fitnessLog = fitnessLog,
+                                guardianEnabled = guardianEnabled,
+                                onGuardianToggle = { enabled -> 
+                                    if (enabled) {
+                                        val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                            permissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
+                                        }
+                                        guardianPermissionLauncher.launch(permissions.toTypedArray())
+                                    } else {
+                                        viewModel.toggleGuardian(false)
+                                    }
+                                },
+                                paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
                             onProfileClick = { selectedTab = 4 },
                             onStartInPersonConsultation = onStartInPersonConsultation,
@@ -176,6 +228,7 @@ fun PatientDashboardScreen(
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA
                         )
+                        }
                         1 -> RemindersTabContent(
                             modifier = Modifier.padding(paddingValues),
                             profile = profile,

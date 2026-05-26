@@ -197,7 +197,7 @@ class DoctorService {
     if (updateData.name !== undefined) updatePayload.name = updateData.name;
     if (updateData.specialization !== undefined) updatePayload.specialization = updateData.specialization;
     if (updateData.experience !== undefined || updateData.experienceYears !== undefined) {
-      updatePayload.experience_years = updateData.experience || updateData.experienceYears;
+      updatePayload.experience_years = updateData.experience ?? updateData.experienceYears;
     }
     if (updateData.qualifications !== undefined) updatePayload.qualifications = updateData.qualifications;
     if (updateData.registrationNo !== undefined || updateData.registration_number !== undefined) {
@@ -382,7 +382,8 @@ class DoctorService {
       .from('doctors')
       .select(`
         id, name, specialization, experience_years, rating, total_reviews,
-        consultation_fee, profile_image_url, languages, is_available,
+        qualifications, consultation_fee, video_consultation_fee, bio,
+        profile_image_url, languages, is_available,
         hospital_id,
         hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })

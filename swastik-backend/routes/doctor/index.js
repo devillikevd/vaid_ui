@@ -63,8 +63,13 @@ router.put('/me/profile',
     body('name').optional().notEmpty(),
     body('specialization').optional().notEmpty(),
     body('experience').optional().isInt({ min: 0 }),
+    body('qualifications').optional().isArray(),
+    body('qualifications.*').optional().isString().trim(),
     body('consultationFee').optional().isInt({ min: 0 }),
     body('consultation_fee').optional().isInt({ min: 0 }),
+    body('bio').optional().isString().trim(),
+    body('languages').optional().isArray(),
+    body('languages.*').optional().isString().trim(),
     body('registration_number').optional().isString().trim(),
     body('license_number').optional().isString().trim(),
     body('license_document_url').optional().isString().trim(),
@@ -481,7 +486,7 @@ router.post('/:id/reviews',
             .select('id')
             .eq('patient_id', patient.id)
             .eq('consultation_id', consultationId)
-            .single();
+            .maybeSingle();
             
         if (existing) {
             return res.status(400).json({ success: false, message: 'Review already submitted for this consultation' });

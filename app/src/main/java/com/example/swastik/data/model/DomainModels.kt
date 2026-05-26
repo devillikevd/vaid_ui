@@ -121,6 +121,7 @@ data class Doctor(
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     @SerializedName("experience_years") val experienceYears: Int?,
     val qualification: String?,
+    val qualifications: List<String>? = null,
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("video_consultation_fee") val videoConsultationFee: Int?,
     // Backend sends "rating" from doctors table; some endpoints send "average_rating"
@@ -134,6 +135,7 @@ data class Doctor(
     @SerializedName("distance_km") val distanceKm: Float? = null,
     // Hospital info (returned when searching via patients/doctors)
     val hospital: DoctorHospitalInfo? = null,
+    val languages: List<String>? = null,
     val bio: String? = null
 )
 

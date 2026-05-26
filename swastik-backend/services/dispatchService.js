@@ -47,6 +47,7 @@ const STATUS_TRANSITIONS = {
   broadcasting:      ['accepted', 'timeout', 'cancelled'],
   assigned:          ['accepted', 'en_route', 'cancelled', 'timeout'],
   accepted:          ['en_route', 'cancelled'],
+  dispatched:        ['en_route', 'cancelled'],
   en_route:          ['arrived', 'cancelled'],
   arrived:           ['picked_up', 'cancelled'],
   picked_up:         ['en_route_hospital', 'completed'],
@@ -430,7 +431,7 @@ class DispatchService {
       status: broadcastResult.broadcastedTo > 0 ? 'broadcasting' : 'no_ambulance',
       message: broadcastResult.broadcastedTo > 0
         ? `SOS broadcast sent to ${broadcastResult.broadcastedTo} nearby ambulance(s)`
-        : 'No ambulances available in your area. We are expanding the search.',
+        : 'No ambulance is currently available nearby. Please call 108 immediately.',
       broadcastedTo: broadcastResult.broadcastedTo,
       estimatedWait: '1-3 minutes',
     };

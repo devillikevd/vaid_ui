@@ -182,6 +182,10 @@ const getProviderListSelectFields = (type) => {
         'registration_number',
         'license_number',
         'specialization',
+        'experience_years',
+        'qualifications',
+        'consultation_fee',
+        'languages',
       ].join(', ');
     case 'hospital':
       return [

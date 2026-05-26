@@ -328,9 +328,14 @@ data class RecommendedDoctorDto(
     val name: String,
     val specialization: String,
     val rating: Float?,
+    @SerializedName("total_reviews") val totalReviews: Int? = null,
     @SerializedName("experience_years") val experienceYears: Int?,
+    val qualifications: List<String>? = null,
+    val languages: List<String>? = null,
+    val bio: String? = null,
     @SerializedName("profile_image_url") val profileImageUrl: String?,
     @SerializedName("consultation_fee") val consultationFee: Int?,
+    @SerializedName("video_consultation_fee") val videoConsultationFee: Int? = null,
     @SerializedName("is_available") val isAvailable: Boolean?,
     @SerializedName("recommendation_reason") val recommendationReason: String?
 ) {
@@ -341,13 +346,16 @@ data class RecommendedDoctorDto(
         profileImageUrl = profileImageUrl,
         experienceYears = experienceYears,
         qualification = null,
+        qualifications = qualifications,
         consultationFee = consultationFee,
-        videoConsultationFee = null,
+        videoConsultationFee = videoConsultationFee,
         averageRating = rating,
-        totalReviews = null,
+        totalReviews = totalReviews,
         isAvailable = isAvailable ?: true,
         hospitalValues = emptyList(),
-        recommendationReason = recommendationReason
+        recommendationReason = recommendationReason,
+        languages = languages,
+        bio = bio
     )
 }
 

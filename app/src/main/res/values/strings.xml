@@ -108,7 +108,7 @@
     <string name="change_password">Change Password</string>
     <string name="logout">Logout</string>
     <string name="failed_to_process_image">Failed to process image</string>
-    <string name="default_user_name">Swastik User</string>
+    <string name="default_user_name">Vaididea User</string>
     <string name="share_profile">Share Profile</string>
     <string name="profile_share_phone">Phone: %1$s</string>
     <string name="profile_share_email">Email: %1$s</string>
@@ -121,7 +121,7 @@
     <string name="preferences">Preferences</string>
     <string name="support_legal">Support &amp; Legal</string>
     <string name="connecting_support_agent">Connecting to support agent…</string>
-    <string name="app_version">Swastik v1.0.0</string>
+    <string name="app_version">Vaididea v1.0.0</string>
     <string name="made_with_love">Made with love in India</string>
     <string name="logout_title">Logout</string>
     <string name="logout_message">Are you sure you want to logout? You will need to sign in again to access your account.</string>
@@ -631,7 +631,7 @@
     <string name="fee_uppercase">FEE</string>
     <string name="you">You</string>
     <string name="free">Free</string>
-    <string name="swastik_healthcare">SWASTIK HEALTHCARE</string>
+    <string name="swastik_healthcare">VAIDIDEA</string>
     <string name="book_now">Book Now</string>
     <string name="instant">Instant</string>
     <string name="connect_with_doctors_online">Connect with doctors online</string>

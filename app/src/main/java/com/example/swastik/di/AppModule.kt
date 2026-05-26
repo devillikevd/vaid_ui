@@ -204,6 +204,18 @@ object AppModule {
     @Provides
     fun provideSyncQueueDao(database: SwastikDatabase): SyncQueueDao = database.syncQueueDao()
 
+    @Provides
+    fun provideFitnessDao(database: SwastikDatabase): FitnessDao = database.fitnessDao()
+
+    @Provides
+    fun provideGuardianDao(database: SwastikDatabase): GuardianDao = database.guardianDao()
+
+    @Provides
+    @Singleton
+    fun provideFitnessRepository(fitnessDao: FitnessDao, @ApplicationContext context: Context): com.example.swastik.data.repository.FitnessRepository {
+        return com.example.swastik.data.repository.FitnessRepository(fitnessDao, context)
+    }
+
     // ==================== Sync Manager ====================
 
     @Provides

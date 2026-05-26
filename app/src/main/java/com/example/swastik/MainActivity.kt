@@ -648,7 +648,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     },
                     onNavigateToHome = { navController.popBackStack() },
                     onNavigateToRecords = { navController.navigate(Screen.Reports.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.PatientDashboard.createRoute(3)) },
+                    onNavigateToProfile = { navController.navigate(Screen.PatientDashboard.createRoute(4)) },
                     onNavigateToCart = { navController.navigate(Screen.MedicineCart.route) }
                 )
             }

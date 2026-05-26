@@ -273,7 +273,12 @@ router.post('/vitals/sync',
 
     vitals.forEach(v => {
       const val = parseFloat(v.value);
-      const row = { patient_id: patient.id, recorded_by: req.user.id, recorded_at: v.recorded_at || new Date().toISOString() };
+      const row = {
+        patient_id: patient.id,
+        recorded_by: req.user.id,
+        recorded_at: v.recorded_at || new Date().toISOString(),
+        notes: 'Source: Google Health Connect sync. Reliability depends on the connected device and Health Connect data availability.',
+      };
       
       switch (v.type) {
         case 'heart_rate': row.heart_rate = Math.round(val); break;
@@ -283,7 +288,7 @@ router.post('/vitals/sync',
           break;
         case 'steps': row.steps = Math.round(val); break;
       }
-      if (Object.keys(row).length > 3) { // Ensure at least one metric is present
+      if (row.heart_rate !== undefined || row.temperature !== undefined || row.steps !== undefined) {
          insertPayload.push(row);
       }
     });
@@ -981,8 +986,9 @@ router.put('/emergency/:id/cancel',
 // Submit review (delegate to hospitalService for dedup + rating update)
 router.post('/reviews',
   [
-    body('doctorId').optional().notEmpty(),
-    body('hospitalId').optional().notEmpty(),
+    body('doctorId').optional().isUUID().withMessage('Valid doctor ID is required'),
+    body('hospitalId').optional().isUUID().withMessage('Valid hospital ID is required'),
+    body('consultationId').optional().isUUID().withMessage('Valid consultation ID is required'),
     body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be 1-5'),
     body('comment').optional().isString(),
   ],
@@ -1011,36 +1017,75 @@ router.post('/reviews',
         return res.status(201).json({ success: true, data: result });
       }
 
-      // Doctor review — polymorphic insert with duplicate check
-      const reviewableType = 'doctor';
-      const reviewableId = req.body.doctorId;
+      const doctorId = req.body.doctorId;
+      if (!doctorId) {
+        return res.status(400).json({ success: false, message: 'doctorId is required when hospitalId is not provided' });
+      }
 
-      // Check for existing review
-      const { data: existingReview } = await supabaseAdmin
-        .from('reviews')
+      const { data: doctorRow, error: doctorError } = await supabaseAdmin
+        .from('doctors')
+        .select('id')
+        .eq('id', doctorId)
+        .maybeSingle();
+
+      if (doctorError) throw doctorError;
+      if (!doctorRow) {
+        return res.status(404).json({ success: false, message: 'Doctor not found' });
+      }
+
+      let duplicateQuery = supabaseAdmin
+        .from('doctor_reviews')
         .select('id')
         .eq('patient_id', patientRow.id)
-        .eq('reviewable_type', reviewableType)
-        .eq('reviewable_id', reviewableId)
-        .single();
+        .eq('doctor_id', doctorId);
+
+      if (req.body.consultationId) {
+        duplicateQuery = duplicateQuery.eq('consultation_id', req.body.consultationId);
+      } else {
+        duplicateQuery = duplicateQuery.is('consultation_id', null);
+      }
+
+      const { data: existingReview, error: duplicateError } = await duplicateQuery.limit(1).maybeSingle();
+      if (duplicateError) throw duplicateError;
 
       if (existingReview) {
         return res.status(409).json({ success: false, message: 'You have already reviewed this doctor' });
       }
 
       const { data, error } = await supabaseAdmin
-        .from('reviews')
+        .from('doctor_reviews')
         .insert({
+          doctor_id: doctorId,
           patient_id: patientRow.id,
-          reviewable_type: reviewableType,
-          reviewable_id: reviewableId,
+          consultation_id: req.body.consultationId || null,
           rating: req.body.rating,
-          comment: req.body.comment || '',
+          comment: req.body.comment || null,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      const { data: allReviews, error: ratingError } = await supabaseAdmin
+        .from('doctor_reviews')
+        .select('rating')
+        .eq('doctor_id', doctorId);
+
+      if (ratingError) throw ratingError;
+
+      const totalReviews = allReviews?.length || 0;
+      const averageRating = totalReviews > 0
+        ? allReviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
+        : 0;
+
+      await supabaseAdmin
+        .from('doctors')
+        .update({
+          rating: averageRating,
+          total_reviews: totalReviews,
+        })
+        .eq('id', doctorId);
+
       res.status(201).json({ success: true, data });
     } catch (err) {
       const status = err.statusCode || 500;

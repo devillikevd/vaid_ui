@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import com.example.swastik.data.model.Reminder
 import com.example.swastik.data.model.ReminderType
+import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.VitalsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,9 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var vitalsRepository: VitalsRepository
+
+    @Inject
+    lateinit var patientRepository: PatientRepository
 
     @Inject
     lateinit var alarmScheduler: ReminderAlarmScheduler
@@ -65,12 +69,18 @@ class ReminderActionReceiver : BroadcastReceiver() {
                 when (action) {
                     ACTION_MARK_DONE -> {
                         Log.d("ReminderActionReceiver", "Marking $reminderId as done")
-                        vitalsRepository.actOnReminder(reminderId, "taken", scheduledAt)
+                        val result = vitalsRepository.actOnReminder(reminderId, "taken", scheduledAt)
+                        if (result is com.example.swastik.data.repository.Result.Success) {
+                            patientRepository.getDashboard()
+                        }
                     }
                     ACTION_SNOOZE -> {
                         val snoozeMins = intent.getIntExtra(EXTRA_SNOOZE_MINS, 15)
                         Log.d("ReminderActionReceiver", "Snoozing $reminderId for $snoozeMins mins")
-                        vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMins)
+                        val result = vitalsRepository.actOnReminder(reminderId, "snooze", scheduledAt, snoozeMins)
+                        if (result is com.example.swastik.data.repository.Result.Success) {
+                            patientRepository.getDashboard()
+                        }
                         
                         // Schedule the snoozed alarm locally
                         val reminderType = try { ReminderType.valueOf(typeStr) } catch(e: Exception) { ReminderType.MEDICINE }
@@ -87,7 +97,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     }
                     ACTION_SKIP -> {
                         Log.d("ReminderActionReceiver", "Skipping $reminderId")
-                        vitalsRepository.actOnReminder(reminderId, "skip", scheduledAt)
+                        val result = vitalsRepository.actOnReminder(reminderId, "skip", scheduledAt)
+                        if (result is com.example.swastik.data.repository.Result.Success) {
+                            patientRepository.getDashboard()
+                        }
                     }
                 }
             } catch (e: Exception) {

@@ -115,7 +115,7 @@ export default function ScanPatientQRPage() {
         setValidating(true);
         setResult(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/health-card/${token}`);
+            const res = await fetch(`${API_BASE_URL}/health-card/${token}`, { cache: 'no-store' });
             const data = await res.json();
             if (res.ok && data.success) {
                 setResult({ success: true, message: `Patient: ${data.data.patient.name}`, token });

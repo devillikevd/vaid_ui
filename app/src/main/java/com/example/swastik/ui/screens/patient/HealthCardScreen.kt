@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient
 
-import android.net.Uri
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,11 +9,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.Watch
@@ -22,11 +23,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.swastik.R
 import com.example.swastik.ui.screens.patient.components.BezierCurveChart
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
@@ -34,6 +36,8 @@ import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +48,9 @@ fun HealthCardScreen(
 ) {
     val hcState by dashboardViewModel.healthCardState.collectAsState()
     val syncState by dashboardViewModel.healthConnectSyncState.collectAsState()
+    val guardianEnabled by dashboardViewModel.guardianEnabled.collectAsState(initial = false)
+    val guardianSettings by dashboardViewModel.guardianSettings.collectAsState()
+    val fitnessLog by dashboardViewModel.fitnessLog.collectAsState(initial = null)
     val recordsState by recordsViewModel.uiState.collectAsState()
     val vitalsData = recordsState.vitalsData
 
@@ -55,13 +62,41 @@ fun HealthCardScreen(
         if (granted.containsAll(dashboardViewModel.healthConnectManager.permissions)) {
             dashboardViewModel.syncHealthConnectData()
         } else {
-            // The ViewModel will show "Permissions not granted" if they were denied
             dashboardViewModel.syncHealthConnectData()
+        }
+    }
+    
+    val guardianPermissionLauncher = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val locationGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        val activityGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) permissions[android.Manifest.permission.ACTIVITY_RECOGNITION] == true else true
+        
+        if (locationGranted && activityGranted) {
+            dashboardViewModel.toggleGuardian(true)
+        } else {
+            android.widget.Toast.makeText(context, "Location and Activity Recognition permissions required for Guardian", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
     LaunchedEffect(Unit) {
         dashboardViewModel.checkHealthCardStatus()
+    }
+
+    val qrBitmap = remember(hcState.url) {
+        val url = hcState.url ?: return@remember null
+        try {
+            val matrix = QRCodeWriter().encode(url, BarcodeFormat.QR_CODE, 512, 512)
+            Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.RGB_565).apply {
+                for (x in 0 until matrix.width) {
+                    for (y in 0 until matrix.height) {
+                        setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     Scaffold(
@@ -129,11 +164,21 @@ fun HealthCardScreen(
                                         .background(Color.White, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
                                         .padding(8.dp)
                                 ) {
-                                    AsyncImage(
-                                        model = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${Uri.encode(hcState.url)}",
-                                        contentDescription = "QR Code",
-                                        modifier = Modifier.size(150.dp)
-                                    )
+                                    if (qrBitmap != null) {
+                                        Image(
+                                            bitmap = qrBitmap.asImageBitmap(),
+                                            contentDescription = "QR Code",
+                                            modifier = Modifier.size(150.dp),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Outlined.QrCodeScanner,
+                                            contentDescription = "QR Code unavailable",
+                                            tint = Color.LightGray,
+                                            modifier = Modifier.size(80.dp)
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Button(
@@ -212,7 +257,7 @@ fun HealthCardScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
-                                Icon(Icons.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("3. Access your health records and benefits.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -227,6 +272,37 @@ fun HealthCardScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Swastik Guardian Section
+            com.example.swastik.ui.screens.patient.components.SwastikGuardianCard(
+                isActive = guardianEnabled,
+                consentAccepted = guardianSettings.guardianConsentAccepted,
+                consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
+                featurePreferences = guardianSettings.guardianFeatures,
+                onToggle = { enabled ->
+                    if (enabled) {
+                        val permissions = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            permissions.add(android.Manifest.permission.ACTIVITY_RECOGNITION)
+                        }
+                        guardianPermissionLauncher.launch(permissions.toTypedArray())
+                    } else {
+                        dashboardViewModel.toggleGuardian(false)
+                    }
+                },
+                onConsentAccepted = { features ->
+                    dashboardViewModel.acceptGuardianConsent(features)
+                },
+                onFeaturePreferencesChange = { features ->
+                    dashboardViewModel.updateGuardianFeaturePreferences(features)
+                    if (!features.hasAnyMonitoringFeature()) {
+                        dashboardViewModel.toggleGuardian(false)
+                    }
+                },
+                onLearnMoreClick = { /* Dialog owned by SwastikGuardianCard */ }
+            )
+            
             Spacer(modifier = Modifier.height(24.dp))
 
             // Health Connect Sync Section
@@ -368,6 +444,12 @@ fun HealthCardScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                 }
+            }
+
+            // Fitness Tracking Fallback Section
+            if (fitnessLog != null) {
+                com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(fitnessLog = fitnessLog!!)
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }

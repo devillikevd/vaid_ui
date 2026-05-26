@@ -95,6 +95,7 @@ fun VideoConsultationFlow(
             medicalRecordAccessExpiresAt = uiState.medicalRecordAccessExpiresAt,
             isMedicalRecordAccessLoading = uiState.isMedicalRecordAccessLoading,
             medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
+            guardianAnalyticsSharingAllowed = uiState.guardianAnalyticsSharingAllowed,
             onBackClick = {
                 viewModel.endCall()
                 onBackClick()
@@ -102,7 +103,7 @@ fun VideoConsultationFlow(
             onEndCall = {
                 viewModel.endCall()
             },
-            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess() },
+            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess(it) },
             onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
             onMicToggle = { viewModel.toggleMic() },
             onCameraToggle = { viewModel.toggleCamera() },
@@ -121,8 +122,9 @@ fun VideoConsultationFlow(
             medicalRecordAccessExpiresAt = uiState.medicalRecordAccessExpiresAt,
             isMedicalRecordAccessLoading = uiState.isMedicalRecordAccessLoading,
             medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
+            guardianAnalyticsSharingAllowed = uiState.guardianAnalyticsSharingAllowed,
             onBackClick = onBackClick,
-            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess() },
+            onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess(it) },
             onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
             onStartConsultation = {
                 val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED

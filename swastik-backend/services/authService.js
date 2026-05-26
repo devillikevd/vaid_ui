@@ -47,6 +47,64 @@ const parseOptionalNumber = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const normalizeText = (value) => {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+};
+
+const firstProvided = (...values) => values.find((value) => {
+  if (value === undefined || value === null) return false;
+  return typeof value !== 'string' || value.trim() !== '';
+});
+
+const normalizeTextArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(normalizeText).filter(Boolean);
+  }
+  const text = normalizeText(value);
+  return text ? text.split(',').map(normalizeText).filter(Boolean) : [];
+};
+
+const parseNonNegativeNumber = (value) => {
+  const parsed = parseOptionalNumber(value);
+  return parsed !== null && parsed >= 0 ? parsed : null;
+};
+
+const validateRoleRegistrationPayload = (role, data) => {
+  if (role !== 'doctor') return;
+
+  const specialization = normalizeText(data.specialization);
+  const licenseNumber = normalizeText(firstProvided(data.licenseNumber, data.license_number));
+  const registrationNumber = normalizeText(firstProvided(data.registrationNumber, data.registration_number));
+  const qualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.degree));
+  const experience = parseNonNegativeNumber(firstProvided(data.experienceYears, data.experience_years));
+  const consultationFee = parseNonNegativeNumber(firstProvided(data.consultationFee, data.consultation_fee));
+
+  if (!specialization) {
+    throw new ApiError(400, 'Doctor specialization is required for registration.');
+  }
+
+  if (!licenseNumber) {
+    throw new ApiError(400, 'Medical license number is required for doctor registration.');
+  }
+
+  if (!registrationNumber) {
+    throw new ApiError(400, 'Medical registration number is required for doctor registration.');
+  }
+
+  if (qualifications.length === 0) {
+    throw new ApiError(400, 'Medical qualification or degree is required for doctor registration.');
+  }
+
+  if (experience === null) {
+    throw new ApiError(400, 'Years of experience must be a valid non-negative number.');
+  }
+
+  if (consultationFee === null) {
+    throw new ApiError(400, 'Consultation fee must be a valid non-negative number.');
+  }
+};
+
 const OTP_PURPOSE_EMAIL_VERIFICATION = 'login';
 const OTP_PURPOSE_PASSWORD_RESET = 'password_reset';
 const OTP_EXPIRY_MINUTES = 10;
@@ -264,6 +322,8 @@ const register = async (userData) => {
     throw error;
   }
 
+  validateRoleRegistrationPayload(role, { name, email, phone, ...rest });
+
   const password_hash = await bcrypt.hash(password, 12);
 
   const { data: user, error } = await supabaseAdmin
@@ -333,18 +393,30 @@ const createRoleProfile = async (userId, role, data) => {
         address: data.address,
       });
       break;
-    case 'doctor':
+    case 'doctor': {
+      const doctorQualifications = normalizeTextArray(firstProvided(data.qualifications, data.qualification, data.degree));
+      const doctorLanguages = normalizeTextArray(data.languages);
+      const doctorExperience = parseInt(firstProvided(data.experienceYears, data.experience_years, '0'), 10);
+      const doctorConsultationFee = parseNonNegativeNumber(firstProvided(data.consultationFee, data.consultation_fee, 0));
+      const doctorVideoFee = parseNonNegativeNumber(firstProvided(data.videoConsultationFee, data.video_consultation_fee));
+
       await insertProfile('doctors', {
         user_id: userId,
         name: data.name,
-        specialization: data.specialization || 'General',
-        license_number: data.licenseNumber || data.license_number,
-        experience_years: parseInt(data.experienceYears || data.experience_years || '0', 10),
-        consultation_fee: data.consultationFee || data.consultation_fee || 500,
+        specialization: normalizeText(data.specialization),
+        license_number: normalizeText(firstProvided(data.licenseNumber, data.license_number)),
+        registration_number: normalizeText(firstProvided(data.registrationNumber, data.registration_number)) || null,
+        qualifications: doctorQualifications,
+        experience_years: Number.isFinite(doctorExperience) ? doctorExperience : 0,
+        consultation_fee: doctorConsultationFee ?? 0,
+        video_consultation_fee: doctorVideoFee ?? 0,
+        bio: normalizeText(data.bio) || null,
+        languages: doctorLanguages,
         is_approved: false,
         approval_status: 'pending',
       });
       break;
+    }
     case 'hospital_owner':
       await insertProfile('hospitals', {
         owner_id: userId,

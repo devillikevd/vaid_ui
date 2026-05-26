@@ -572,6 +572,23 @@ class SocketManager @Inject constructor(
             } catch (e: Exception) { Log.e(TAG, "Error parsing ambulance:status-update", e) }
         }
 
+        socket?.on("ambulance:timeout") { args ->
+            try {
+                val data = args[0] as JSONObject
+                scope.launch {
+                    _ambulanceUpdates.emit(AmbulanceStatusUpdate(
+                        requestId = data.optString("requestId", ""),
+                        status = "timeout",
+                        message = data.optString(
+                            "message",
+                            "No ambulance could accept your request. Please try again or call 108."
+                        ),
+                        timestamp = data.optString("timestamp", "")
+                    ))
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing ambulance:timeout", e) }
+        }
+
         socket?.on("ambulance:location-update") { args ->
             try {
                 val data = args[0] as JSONObject

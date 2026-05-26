@@ -618,21 +618,21 @@ class PatientService {
       : 8;
     // Specialist mapping: condition/symptom keywords → specialization
     const CONDITION_SPECIALIST_MAP = {
-      'Cardiologist': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension', 'cholesterol', 'cardiac'],
-      'Dermatologist': ['skin', 'rash', 'acne', 'eczema', 'hair loss', 'itching', 'psoriasis', 'dermatitis'],
-      'Orthopedic': ['bone', 'joint', 'back pain', 'fracture', 'arthritis', 'knee', 'spine', 'osteoporosis'],
-      'Neurologist': ['headache', 'migraine', 'dizziness', 'numbness', 'seizure', 'epilepsy', 'neuropathy'],
-      'Gastroenterologist': ['stomach', 'digestion', 'acid reflux', 'constipation', 'diarrhea', 'ibs', 'liver', 'gerd'],
-      'Pulmonologist': ['breathing', 'cough', 'asthma', 'lungs', 'respiratory', 'copd', 'bronchitis'],
-      'ENT Specialist': ['ear', 'nose', 'throat', 'sinus', 'hearing', 'tonsil', 'vertigo'],
-      'Ophthalmologist': ['eye', 'vision', 'glasses', 'cataract', 'glaucoma', 'retina'],
-      'Gynecologist': ['period', 'pregnancy', 'menstrual', 'pcod', 'pcos', 'fertility', 'uterine'],
-      'Pediatrician': ['child', 'baby', 'infant', 'kids', 'vaccination'],
-      'Psychiatrist': ['anxiety', 'depression', 'stress', 'insomnia', 'mental health', 'bipolar'],
-      'Endocrinologist': ['diabetes', 'thyroid', 'hormone', 'insulin', 'metabolic'],
-      'Nephrologist': ['kidney', 'renal', 'dialysis', 'urinary'],
-      'Urologist': ['prostate', 'bladder', 'urinary tract', 'uti'],
-      'Oncologist': ['cancer', 'tumor', 'chemotherapy', 'oncology'],
+      'Cardiology': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension', 'cholesterol', 'cardiac'],
+      'Dermatology': ['skin', 'rash', 'acne', 'eczema', 'hair loss', 'itching', 'psoriasis', 'dermatitis'],
+      'Orthopedics': ['bone', 'joint', 'back pain', 'fracture', 'arthritis', 'knee', 'spine', 'osteoporosis'],
+      'Neurology': ['headache', 'migraine', 'dizziness', 'numbness', 'seizure', 'epilepsy', 'neuropathy'],
+      'Gastroenterology': ['stomach', 'digestion', 'acid reflux', 'constipation', 'diarrhea', 'ibs', 'liver', 'gerd'],
+      'Pulmonology': ['breathing', 'cough', 'asthma', 'lungs', 'respiratory', 'copd', 'bronchitis'],
+      'ENT': ['ear', 'nose', 'throat', 'sinus', 'hearing', 'tonsil', 'vertigo'],
+      'Ophthalmology': ['eye', 'vision', 'glasses', 'cataract', 'glaucoma', 'retina'],
+      'Gynecology': ['period', 'pregnancy', 'menstrual', 'pcod', 'pcos', 'fertility', 'uterine'],
+      'Pediatrics': ['child', 'baby', 'infant', 'kids', 'vaccination'],
+      'Psychiatry': ['anxiety', 'depression', 'stress', 'insomnia', 'mental health', 'bipolar'],
+      'Endocrinology': ['diabetes', 'thyroid', 'hormone', 'insulin', 'metabolic'],
+      'Nephrology': ['kidney', 'renal', 'dialysis', 'urinary'],
+      'Urology': ['prostate', 'bladder', 'urinary tract', 'uti'],
+      'Oncology': ['cancer', 'tumor', 'chemotherapy', 'oncology'],
       'General Physician': ['fever', 'cold', 'flu', 'checkup', 'general', 'fatigue', 'weakness'],
     };
 
@@ -724,7 +724,7 @@ class PatientService {
       if (targetSpecializations.size > 0) {
         const { data: matchedDoctors } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .in('specialization', [...targetSpecializations])
@@ -766,7 +766,7 @@ class PatientService {
 
         const { data: fallbackPool } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .order('rating', { ascending: false })
@@ -801,7 +801,7 @@ class PatientService {
       // Graceful fallback: return top-rated doctors
       const { data: fallback } = await supabaseAdmin
         .from('doctors')
-        .select('id, name, specialization, rating, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
+        .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
         .eq('is_approved', true)
         .eq('is_available', true)
         .order('rating', { ascending: false })
@@ -820,20 +820,20 @@ class PatientService {
    */
   async getSearchSuggestions(patientId, userId) {
     const CONDITION_SPECIALIST_MAP = {
-      'Cardiologist': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension'],
-      'Dermatologist': ['skin', 'rash', 'acne', 'hair loss', 'itching'],
-      'Orthopedic': ['bone', 'joint', 'back pain', 'fracture', 'arthritis'],
-      'Neurologist': ['headache', 'migraine', 'dizziness', 'numbness'],
-      'Gastroenterologist': ['stomach', 'digestion', 'acid reflux', 'constipation'],
-      'Pulmonologist': ['breathing', 'cough', 'asthma', 'lungs'],
-      'ENT Specialist': ['ear', 'nose', 'throat', 'sinus'],
-      'Ophthalmologist': ['eye', 'vision', 'glasses'],
-      'Gynecologist': ['period', 'pregnancy', 'pcos'],
-      'Pediatrician': ['child', 'baby', 'vaccination'],
-      'Psychiatrist': ['anxiety', 'depression', 'stress', 'insomnia'],
-      'Endocrinologist': ['diabetes', 'thyroid'],
+      'Cardiology': ['heart', 'chest pain', 'palpitations', 'blood pressure', 'hypertension'],
+      'Dermatology': ['skin', 'rash', 'acne', 'hair loss', 'itching'],
+      'Orthopedics': ['bone', 'joint', 'back pain', 'fracture', 'arthritis'],
+      'Neurology': ['headache', 'migraine', 'dizziness', 'numbness'],
+      'Gastroenterology': ['stomach', 'digestion', 'acid reflux', 'constipation'],
+      'Pulmonology': ['breathing', 'cough', 'asthma', 'lungs'],
+      'ENT': ['ear', 'nose', 'throat', 'sinus'],
+      'Ophthalmology': ['eye', 'vision', 'glasses'],
+      'Gynecology': ['period', 'pregnancy', 'pcos'],
+      'Pediatrics': ['child', 'baby', 'vaccination'],
+      'Psychiatry': ['anxiety', 'depression', 'stress', 'insomnia'],
+      'Endocrinology': ['diabetes', 'thyroid'],
       'General Physician': ['fever', 'cold', 'flu', 'checkup'],
-      'Dentist': ['teeth', 'dental', 'toothache']
+      'Dentistry': ['teeth', 'dental', 'toothache']
     };
 
     try {
@@ -916,7 +916,7 @@ class PatientService {
       let suggestions = Array.from(suggestionsSet);
       
       // Fallback defaults
-      const defaults = ["Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist", "Cough"];
+      const defaults = ["Fever", "Headache", "General Physician", "Dermatology", "Dentistry", "Gynecology", "Cough"];
       
       for (const def of defaults) {
         if (suggestions.length >= 6) break;
@@ -929,7 +929,7 @@ class PatientService {
 
     } catch (error) {
       console.error('Search suggestions engine error:', error);
-      return ["Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist"];
+      return ["Fever", "Headache", "General Physician", "Dermatology", "Dentistry", "Gynecology"];
     }
   }
 

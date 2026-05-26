@@ -22,6 +22,9 @@ fun HomeTabContent(
     unreadNotificationsCount: Int,
     doctors: List<Doctor> = emptyList(),
     searchSuggestions: List<String> = emptyList(),
+    fitnessLog: com.example.swastik.data.model.DailyFitnessLog? = null,
+    guardianEnabled: Boolean = false,
+    onGuardianToggle: (Boolean) -> Unit = {},
     paddingValues: PaddingValues,
     onNotificationClick: () -> Unit,
     onProfileClick: () -> Unit,
@@ -92,6 +95,8 @@ fun HomeTabContent(
                 }
             }
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         Spacer(modifier = Modifier.height(12.dp))
 

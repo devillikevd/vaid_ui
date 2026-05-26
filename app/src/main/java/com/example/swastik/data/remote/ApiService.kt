@@ -464,10 +464,10 @@ interface ApiService {
 
 
 
-    @POST("api/patient/addresses")
+    @POST("patients/addresses")
     suspend fun addSavedAddress(@Body request: AddSavedAddressRequest): Response<ApiResponse<SavedAddressDto>>
 
-    @DELETE("api/patient/addresses/{id}")
+    @DELETE("patients/addresses/{id}")
     suspend fun deleteSavedAddress(@Path("id") id: String): Response<ApiResponse<Any>>
 
     // ==================== CHATBOT ====================

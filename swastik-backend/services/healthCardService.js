@@ -148,12 +148,12 @@ class HealthCardService {
       vitalsResult,
       consultationsResult,
     ] = await Promise.all([
-      // 1. Patient profile
+      // 1. Patient profile. ABHA is intentionally omitted from the public QR response.
       supabaseAdmin
         .from('patients')
         .select(`
           id, name, date_of_birth, gender, blood_group,
-          weight, height, abha_number,
+          weight, height,
           medical_conditions, allergies, chronic_conditions,
           current_medications, medical_history,
           insurance_provider, insurance_id
@@ -231,7 +231,6 @@ class HealthCardService {
         bloodGroup: patient.blood_group,
         weight: patient.weight,
         height: patient.height,
-        abhaNumber: patient.abha_number,
         // Critical medical info
         allergies: patient.allergies || [],
         medicalConditions: patient.medical_conditions || [],
@@ -289,6 +288,54 @@ class HealthCardService {
         date: c.started_at,
         doctor: c.doctor ? { name: c.doctor.name, specialization: c.doctor.specialization } : null,
       })),
+      sharingDisclosure: {
+        scope: 'Patient-generated, time-limited clinical summary. Anyone with the active QR/link can view it until expiry or revocation.',
+        expiry: '24 hours by default, unless the patient revokes earlier.',
+        includedSources: [
+          {
+            label: 'Patient profile',
+            source: 'Swastik/Vaididea patient profile',
+            reliability: 'Depends on patient and clinic-entered profile accuracy.',
+            included: true,
+          },
+          {
+            label: 'Prescriptions and consultations',
+            source: 'Doctor-created records in Swastik/Vaididea',
+            reliability: 'High when entered by a verified provider; still requires clinical review.',
+            included: true,
+          },
+          {
+            label: 'Medical reports',
+            source: 'Uploaded or diagnostic-center records',
+            reliability: 'Report metadata and parameters are shared; raw file URLs are not exposed on the public QR.',
+            included: true,
+          },
+          {
+            label: 'Vitals history',
+            source: 'Manual vitals and Health Connect synced vitals where the patient granted permission',
+            reliability: 'Useful trend signal; wearable or phone data may vary by device and should not replace clinical measurement.',
+            included: true,
+          },
+          {
+            label: 'Guardian safety analytics',
+            source: 'Phone sensors, GPS, Activity Recognition, and Health Connect when enabled',
+            reliability: 'Not included in this public QR payload unless the patient separately shares it from the app.',
+            included: false,
+          },
+        ],
+        notIncluded: [
+          'ABHA number',
+          'Insurance identifier',
+          'Unauthenticated report file URLs',
+          'Guardian analytics unless separately shared by the patient',
+        ],
+        privacyControls: [
+          'Patient can revoke this QR at any time',
+          'Generating a new QR invalidates the previous token',
+          'Public access is rate-limited and audit-logged',
+          'Responses are marked no-store/no-cache',
+        ],
+      },
       generatedAt: tokenData.generatedAt,
     };
   }

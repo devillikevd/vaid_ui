@@ -15,6 +15,8 @@ import com.example.swastik.data.repository.AuthRepository
 import com.example.swastik.notifications.PushNotificationCoordinator
 import com.example.swastik.utils.NetworkObserver
 import com.example.swastik.data.health.HealthConnectManager
+import com.example.swastik.data.local.AppSettingsStore
+import com.example.swastik.data.local.GuardianFeaturePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
@@ -47,6 +49,19 @@ data class PatientDashboardUiState(
     val searchSuggestions: List<String> = listOf("Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist")
 )
 
+private fun isTerminalEmergencyStatus(status: String?): Boolean =
+    status in listOf("completed", "cancelled", "timeout", "no_ambulance")
+
+private fun terminalEmergencyMessage(status: String?, message: String? = null): String? {
+    val backendMessage = message?.takeIf { it.isNotBlank() }
+    return when (status) {
+        "timeout" -> backendMessage ?: "Ambulance search timed out. Please try again or call 108."
+        "no_ambulance" -> backendMessage ?: "No ambulance is currently available nearby. Please call 108 immediately."
+        "cancelled" -> backendMessage ?: "Your SOS request has been cancelled."
+        else -> null
+    }
+}
+
 /**
  * Patient Dashboard ViewModel
  */
@@ -60,10 +75,22 @@ class PatientDashboardViewModel @Inject constructor(
     private val pushNotificationCoordinator: PushNotificationCoordinator,
     private val alarmScheduler: ReminderAlarmScheduler,
     networkObserver: NetworkObserver,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val fitnessRepository: com.example.swastik.data.repository.FitnessRepository,
+    private val guardianRepository: com.example.swastik.data.repository.GuardianRepository
 ) : ViewModel() {
 
     val healthConnectManager = HealthConnectManager(context)
+
+    // Add Fitness state
+    val fitnessLog = fitnessRepository.getTodayLog()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.swastik.data.model.DailyFitnessLog())
+
+    val guardianSettings = AppSettingsStore.settings
+
+    val guardianEnabled = AppSettingsStore.settings
+        .combine(MutableStateFlow(Unit)) { settings, _ -> settings.guardianEnabled }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _uiState = MutableStateFlow(PatientDashboardUiState())
     val uiState: StateFlow<PatientDashboardUiState> = _uiState.asStateFlow()
@@ -274,13 +301,23 @@ class PatientDashboardViewModel @Inject constructor(
             
             when (val result = emergencyRepository.requestEmergency(request)) {
                 is Result.Success -> {
+                    val emergency = result.data
+                    if (isTerminalEmergencyStatus(emergency.resolvedStatus())) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            activeEmergency = null,
+                            error = terminalEmergencyMessage(emergency.resolvedStatus(), emergency.message)
+                        )
+                        return@launch
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        activeEmergency = result.data
+                        activeEmergency = emergency
                     )
                     // BUG-05 Fix: Start socket ambulance tracking so dashboard
                     // quick-action SOS also receives real-time location updates
-                    val requestId = result.data.resolvedRequestId()
+                    val requestId = emergency.resolvedRequestId()
                     if (requestId.isNotEmpty()) {
                         socketManager.connect()
                         socketManager.trackAmbulance(requestId)
@@ -670,6 +707,27 @@ class PatientDashboardViewModel @Inject constructor(
         _healthConnectSyncState.value = ProfileUpdateState.Idle
     }
 
+    fun startFitnessTrackingService() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val hasActivityRecognition = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACTIVITY_RECOGNITION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            
+            if (hasActivityRecognition) {
+                val intent = android.content.Intent(context, com.example.swastik.data.fitness.StepCounterService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            }
+        } else {
+            val intent = android.content.Intent(context, com.example.swastik.data.fitness.StepCounterService::class.java)
+            context.startService(intent)
+        }
+    }
+
     // ── Reminders ───────────────────────────────────────────────
 
     private fun formatScheduledAt(time: String): String {
@@ -722,7 +780,7 @@ class PatientDashboardViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
-                    com.example.swastik.ui.components.SnackbarManager.showError(result.message ?: "Failed to update reminder")
+                    com.example.swastik.ui.components.SnackbarManager.showError(result.message)
                 }
                 is Result.Loading -> {}
             }
@@ -740,7 +798,7 @@ class PatientDashboardViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(isLoading = false, error = result.message)
-                    com.example.swastik.ui.components.SnackbarManager.showError(result.message ?: "Failed to snooze reminder")
+                    com.example.swastik.ui.components.SnackbarManager.showError(result.message)
                 }
                 is Result.Loading -> {}
             }
@@ -778,6 +836,40 @@ class PatientDashboardViewModel @Inject constructor(
                 is Result.Loading -> {}
             }
         }
+    }
+
+    fun toggleGuardian(enabled: Boolean) {
+        val settings = AppSettingsStore.settings.value
+        if (enabled && (!settings.guardianConsentAccepted || !settings.guardianFeatures.hasAnyMonitoringFeature())) {
+            com.example.swastik.ui.components.SnackbarManager.showMessage("Read and accept Guardian details before enabling it.")
+            AppSettingsStore.updateGuardianEnabled(false)
+            return
+        }
+
+        AppSettingsStore.updateGuardianEnabled(enabled)
+        if (enabled) {
+            val intent = android.content.Intent(context, com.example.swastik.services.guardian.GuardianService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } else {
+            val intent = android.content.Intent(context, com.example.swastik.services.guardian.GuardianService::class.java)
+            context.stopService(intent)
+        }
+    }
+
+    fun acceptGuardianConsent(features: GuardianFeaturePreferences) {
+        AppSettingsStore.acceptGuardianConsent(features)
+    }
+
+    fun updateGuardianFeaturePreferences(features: GuardianFeaturePreferences) {
+        AppSettingsStore.updateGuardianFeaturePreferences(features)
+    }
+
+    suspend fun getGuardianAnalytics(): String {
+        return guardianRepository.generateAnalyticsReportJson()
     }
 }
 

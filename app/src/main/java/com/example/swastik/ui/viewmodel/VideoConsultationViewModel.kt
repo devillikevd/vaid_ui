@@ -11,6 +11,7 @@ import com.example.swastik.data.remote.SignalingEvent
 import com.example.swastik.data.remote.ApiConfig
 import com.example.swastik.data.remote.ConsultationEndedEvent
 import com.example.swastik.data.remote.ConsultationStartedEvent
+import com.example.swastik.data.local.AppSettingsStore
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.data.repository.AppointmentRepository
@@ -79,7 +80,8 @@ data class VideoConsultationUiState(
     val isMedicalRecordAccessLoading: Boolean = false,
     val hasMedicalRecordAccess: Boolean = false,
     val medicalRecordAccessExpiresAt: String? = null,
-    val medicalRecordAccessMessage: String? = null
+    val medicalRecordAccessMessage: String? = null,
+    val guardianAnalyticsSharingAllowed: Boolean = false
 )
 
 data class ChatMessageUi(
@@ -104,6 +106,7 @@ data class ChatMessageUi(
 class VideoConsultationViewModel @Inject constructor(
     private val appointmentRepository: AppointmentRepository,
     private val patientRepository: PatientRepository,
+    private val guardianRepository: com.example.swastik.data.repository.GuardianRepository,
     private val socketManager: SocketManager,
     private val tokenManager: TokenManager,
     @ApplicationContext private val appContext: Context
@@ -120,6 +123,7 @@ class VideoConsultationViewModel @Inject constructor(
     private var isWebRTCInitialized = false
     private var networkMonitorJob: kotlinx.coroutines.Job? = null
     private var cvAnalyzer: ComputerVisionAnalyzer? = null
+    private var isCvAnalyzerAttached = false
     private var userPreferredMode = ConsultationMode.VIDEO
     private var bannerJob: kotlinx.coroutines.Job? = null
     private var localBandwidthMode = ConsultationMode.VIDEO
@@ -147,6 +151,13 @@ class VideoConsultationViewModel @Inject constructor(
         const val RESTORE_THRESHOLD = 4   // 4 consecutive good samples (~12s) before upgrading
         const val MAX_ICE_RESTARTS = 3    // max ICE restarts before giving up
         const val STATS_POLL_INTERVAL_MS = 3000L
+    }
+
+    private fun isGuardianAnalyticsSharingAllowed(): Boolean {
+        val settings = AppSettingsStore.settings.value
+        return settings.guardianEnabled &&
+            settings.guardianConsentAccepted &&
+            settings.guardianFeatures.doctorQrSharing
     }
 
     // Expose local and remote video tracks for the UI to render
@@ -203,6 +214,25 @@ class VideoConsultationViewModel @Inject constructor(
                 handleConsultationStarted(event)
             }
         }
+
+        viewModelScope.launch {
+            AppSettingsStore.settings.collect { settings ->
+                _uiState.value = _uiState.value.copy(
+                    guardianAnalyticsSharingAllowed = settings.guardianEnabled &&
+                        settings.guardianConsentAccepted &&
+                        settings.guardianFeatures.doctorQrSharing
+                )
+                if (!_uiState.value.guardianAnalyticsSharingAllowed) {
+                    stopVitalsStreaming()
+                    detachCvAnalyzer()
+                } else {
+                    attachCvAnalyzerIfAllowed()
+                    if (_uiState.value.isConnected && vitalsStreamJob?.isActive != true) {
+                        startVitalsStreaming()
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -228,13 +258,7 @@ class VideoConsultationViewModel @Inject constructor(
                 // Set up callbacks
                 onLocalVideoTrack = { track ->
                     _localVideoTrack.value = track
-                    cvAnalyzer?.let { analyzer ->
-                        try {
-                            track.addSink(analyzer) // Intercept frames for MediaPipe CV Vitals
-                        } catch (error: Throwable) {
-                            android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
-                        }
-                    }
+                    attachCvAnalyzerIfAllowed()
                 }
                 onRemoteVideoTrack = { track ->
                     _remoteVideoTrack.value = track
@@ -295,7 +319,13 @@ class VideoConsultationViewModel @Inject constructor(
                             publishModeConstraintIfNeeded()
                             applyEffectiveMediaState()
                             startNetworkQualityMonitor()
-                            startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
+                            if (_uiState.value.guardianAnalyticsSharingAllowed) {
+                                if (vitalsStreamJob?.isActive != true) {
+                                    startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
+                                }
+                            } else {
+                                stopVitalsStreaming()
+                            }
                         }
                         PeerConnection.IceConnectionState.DISCONNECTED -> {
                             _uiState.value = _uiState.value.copy(
@@ -324,7 +354,9 @@ class VideoConsultationViewModel @Inject constructor(
                                     val currentIce = webRTCManager?.currentIceState
                                     if (currentIce == PeerConnection.IceConnectionState.FAILED
                                         || currentIce == PeerConnection.IceConnectionState.DISCONNECTED) {
-                                        if (iceRestartAttempts >= MAX_ICE_RESTARTS) {
+                                        if (iceRestartAttempts < MAX_ICE_RESTARTS) {
+                                            restartIceAndRenegotiate()
+                                        } else {
                                             // Exhausted restarts — fall to chat but KEEP monitor alive
                                             localBandwidthMode = ConsultationMode.CHAT
                                             _uiState.value = _uiState.value.copy(
@@ -448,7 +480,7 @@ class VideoConsultationViewModel @Inject constructor(
                 }
 
                 // Combine stats quality with ICE state as a safety net
-                var quality = snapshot.toNetworkQuality()
+                var quality = snapshot.toNetworkQuality(localBandwidthMode.toWireValue())
                 val iceState = manager.currentIceState
                 if (iceState == PeerConnection.IceConnectionState.FAILED) {
                     quality = WebRTCManager.NetworkQuality.CRITICAL
@@ -484,7 +516,7 @@ class VideoConsultationViewModel @Inject constructor(
                 // Reset restart budget for recovery attempt
                 iceRestartAttempts = 0
                 try {
-                    manager.restartIce()
+                    restartIceAndRenegotiate()
                 } catch (e: Exception) {
                     android.util.Log.w("VideoConsultationVM", "Recovery ICE restart failed: ${e.message}")
                 }
@@ -565,6 +597,9 @@ class VideoConsultationViewModel @Inject constructor(
 
         localBandwidthMode = nextMode
         publishModeConstraintIfNeeded()
+        if (nextMode.rank() > previousMode.rank()) {
+            restartIceAndRenegotiate()
+        }
 
         when {
             nextMode == ConsultationMode.CHAT -> {
@@ -722,6 +757,19 @@ class VideoConsultationViewModel @Inject constructor(
         }
     }
 
+    private fun restartIceAndRenegotiate() {
+        val manager = webRTCManager ?: return
+        val roomId = _uiState.value.session?.sessionId ?: return
+        if (roomId.isBlank()) return
+        if (!manager.isSignalingStable()) {
+            android.util.Log.w("VideoConsultationVM", "Skipping ICE renegotiation because signaling is not stable")
+            return
+        }
+        manager.restartIce()
+        hasSentLocalOffer = true
+        manager.createOffer()
+    }
+
     private fun handleConsultationEnded(event: ConsultationEndedEvent) {
         val session = _uiState.value.session
         if (session == null) {
@@ -750,7 +798,8 @@ class VideoConsultationViewModel @Inject constructor(
         releaseWebRTC()
         _uiState.value = VideoConsultationUiState(
             consultationCompleted = true,
-            modeBanner = "Consultation completed"
+            modeBanner = "Consultation completed",
+            guardianAnalyticsSharingAllowed = isGuardianAnalyticsSharingAllowed()
         )
     }
 
@@ -828,7 +877,7 @@ class VideoConsultationViewModel @Inject constructor(
         }
     }
 
-    fun grantMedicalRecordAccess() {
+    fun grantMedicalRecordAccess(includeGuardianAnalytics: Boolean = false) {
         val appointmentId = currentAppointmentId ?: return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -844,6 +893,20 @@ class VideoConsultationViewModel @Inject constructor(
                         medicalRecordAccessExpiresAt = result.data.expiresAt,
                         medicalRecordAccessMessage = "Only this doctor can view your older records for the next 24 hours, unless you revoke access sooner."
                     )
+                    val canShareGuardianAnalytics = includeGuardianAnalytics &&
+                        _uiState.value.guardianAnalyticsSharingAllowed
+                    if (canShareGuardianAnalytics) {
+                        try {
+                            val analyticsJson = guardianRepository.generateAnalyticsReportJson()
+                            sendChatMessage("--- Vaididea Guardian Analytics (30 Days) ---\n\n$analyticsJson")
+                        } catch (e: Exception) {
+                            // Ignored or logged
+                        }
+                    } else if (includeGuardianAnalytics) {
+                        _uiState.value = _uiState.value.copy(
+                            medicalRecordAccessMessage = "Record access shared. Guardian analytics were not attached because Guardian doctor/QR sharing is disabled."
+                        )
+                    }
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
@@ -1088,7 +1151,10 @@ class VideoConsultationViewModel @Inject constructor(
         socketManager.leaveVideoRoom(roomId)
         socketManager.leaveChat(roomId)
         releaseWebRTC()
-        _uiState.value = VideoConsultationUiState(consultationCompleted = true)
+        _uiState.value = VideoConsultationUiState(
+            consultationCompleted = true,
+            guardianAnalyticsSharingAllowed = isGuardianAnalyticsSharingAllowed()
+        )
     }
 
     private var vitalsStreamJob: kotlinx.coroutines.Job? = null
@@ -1204,6 +1270,31 @@ class VideoConsultationViewModel @Inject constructor(
         }
     }
 
+    private fun stopVitalsStreaming() {
+        vitalsStreamJob?.cancel()
+        vitalsStreamJob = null
+        vitalsWebSocket?.close(1000, "Vitals sharing disabled")
+        vitalsWebSocket = null
+    }
+
+    private fun attachCvAnalyzerIfAllowed() {
+        val track = _localVideoTrack.value ?: return
+        val analyzer = cvAnalyzer ?: return
+        if (!_uiState.value.guardianAnalyticsSharingAllowed || isCvAnalyzerAttached) return
+        try {
+            track.addSink(analyzer)
+            isCvAnalyzerAttached = true
+        } catch (error: Throwable) {
+            android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
+        }
+    }
+
+    private fun detachCvAnalyzer() {
+        val analyzer = cvAnalyzer ?: return
+        _localVideoTrack.value?.removeSink(analyzer)
+        isCvAnalyzerAttached = false
+    }
+
     private fun releaseWebRTC() {
         patientOfferFallbackJob?.cancel()
         patientOfferFallbackJob = null
@@ -1216,14 +1307,13 @@ class VideoConsultationViewModel @Inject constructor(
         recoveryPollerJob = null
         callDurationJob?.cancel()
         callDurationJob = null
-        vitalsStreamJob?.cancel()
-        vitalsStreamJob = null
-        vitalsWebSocket?.close(1000, "Consultation Ended")
-        vitalsWebSocket = null
+        stopVitalsStreaming()
+        detachCvAnalyzer()
         _localVideoTrack.value = null
         _remoteVideoTrack.value = null
         cvAnalyzer?.release()
         cvAnalyzer = null
+        isCvAnalyzerAttached = false
         webRTCManager?.release()
         webRTCManager = null
         isWebRTCInitialized = false

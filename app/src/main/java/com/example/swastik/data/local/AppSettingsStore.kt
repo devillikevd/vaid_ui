@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 enum class ThemePreference {
@@ -26,12 +27,30 @@ data class NotificationPreferences(
     val sound: Boolean = true
 )
 
+data class GuardianFeaturePreferences(
+    val fallDetection: Boolean = true,
+    val crashDetection: Boolean = true,
+    val mobilityAnalysis: Boolean = false,
+    val respiratoryTracker: Boolean = false,
+    val doctorQrSharing: Boolean = false
+) {
+    fun hasAnyMonitoringFeature(): Boolean {
+        return fallDetection || crashDetection || mobilityAnalysis || respiratoryTracker
+    }
+}
+
 data class AppSettings(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val language: String = "en",
     val notificationPreferences: NotificationPreferences = NotificationPreferences(),
     val chatbotLanguage: String = "en",
-    val chatbotTtsEnabled: Boolean = true
+    val chatbotTtsEnabled: Boolean = true,
+    val guardianEnabled: Boolean = false,
+    val guardianConsentAccepted: Boolean = false,
+    val guardianConsentAcceptedAt: String? = null,
+    val guardianFeatures: GuardianFeaturePreferences = GuardianFeaturePreferences(),
+    val guardianSensitivity: String = "HIGH", // LOW, MEDIUM, HIGH
+    val guardianGracePeriod: Int = 30 // 15, 30, 60
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
@@ -47,6 +66,16 @@ object AppSettingsStore {
     private val NOTIF_SOUND_KEY = booleanPreferencesKey("notif_sound")
     private val CHATBOT_LANGUAGE_KEY = stringPreferencesKey("chatbot_language")
     private val CHATBOT_TTS_KEY = booleanPreferencesKey("chatbot_tts")
+    private val GUARDIAN_ENABLED_KEY = booleanPreferencesKey("guardian_enabled")
+    private val GUARDIAN_CONSENT_ACCEPTED_KEY = booleanPreferencesKey("guardian_consent_accepted")
+    private val GUARDIAN_CONSENT_ACCEPTED_AT_KEY = stringPreferencesKey("guardian_consent_accepted_at")
+    private val GUARDIAN_FALL_DETECTION_KEY = booleanPreferencesKey("guardian_fall_detection")
+    private val GUARDIAN_CRASH_DETECTION_KEY = booleanPreferencesKey("guardian_crash_detection")
+    private val GUARDIAN_MOBILITY_ANALYSIS_KEY = booleanPreferencesKey("guardian_mobility_analysis")
+    private val GUARDIAN_RESPIRATORY_TRACKER_KEY = booleanPreferencesKey("guardian_respiratory_tracker")
+    private val GUARDIAN_DOCTOR_QR_SHARING_KEY = booleanPreferencesKey("guardian_doctor_qr_sharing")
+    private val GUARDIAN_SENSITIVITY_KEY = stringPreferencesKey("guardian_sensitivity")
+    private val GUARDIAN_GRACE_PERIOD_KEY = androidx.datastore.preferences.core.intPreferencesKey("guardian_grace_period")
 
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -71,12 +100,25 @@ object AppSettingsStore {
                     promotions = prefs[NOTIF_PROMOTIONS_KEY] ?: true,
                     sound = prefs[NOTIF_SOUND_KEY] ?: true
                 )
+                val guardianFeatures = GuardianFeaturePreferences(
+                    fallDetection = prefs[GUARDIAN_FALL_DETECTION_KEY] ?: true,
+                    crashDetection = prefs[GUARDIAN_CRASH_DETECTION_KEY] ?: true,
+                    mobilityAnalysis = prefs[GUARDIAN_MOBILITY_ANALYSIS_KEY] ?: false,
+                    respiratoryTracker = prefs[GUARDIAN_RESPIRATORY_TRACKER_KEY] ?: false,
+                    doctorQrSharing = prefs[GUARDIAN_DOCTOR_QR_SHARING_KEY] ?: false
+                )
                 _settings.value = AppSettings(
                     themePreference = theme,
                     language = language,
                     notificationPreferences = notificationPreferences,
                     chatbotLanguage = prefs[CHATBOT_LANGUAGE_KEY] ?: "en",
-                    chatbotTtsEnabled = prefs[CHATBOT_TTS_KEY] ?: true
+                    chatbotTtsEnabled = prefs[CHATBOT_TTS_KEY] ?: true,
+                    guardianEnabled = prefs[GUARDIAN_ENABLED_KEY] ?: false,
+                    guardianConsentAccepted = prefs[GUARDIAN_CONSENT_ACCEPTED_KEY] ?: false,
+                    guardianConsentAcceptedAt = prefs[GUARDIAN_CONSENT_ACCEPTED_AT_KEY],
+                    guardianFeatures = guardianFeatures,
+                    guardianSensitivity = prefs[GUARDIAN_SENSITIVITY_KEY] ?: "HIGH",
+                    guardianGracePeriod = prefs[GUARDIAN_GRACE_PERIOD_KEY] ?: 30
                 )
             }
         }
@@ -128,6 +170,77 @@ object AppSettingsStore {
         CoroutineScope(Dispatchers.IO).launch {
             appContext.dataStore.edit { prefs ->
                 prefs[CHATBOT_TTS_KEY] = enabled
+            }
+        }
+    }
+
+    fun updateGuardianEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(guardianEnabled = enabled)
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[GUARDIAN_ENABLED_KEY] = enabled
+            }
+        }
+    }
+
+    fun acceptGuardianConsent(features: GuardianFeaturePreferences) {
+        val acceptedAt = java.time.Instant.now().toString()
+        _settings.value = _settings.value.copy(
+            guardianConsentAccepted = true,
+            guardianConsentAcceptedAt = acceptedAt,
+            guardianFeatures = features
+        )
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[GUARDIAN_CONSENT_ACCEPTED_KEY] = true
+                prefs[GUARDIAN_CONSENT_ACCEPTED_AT_KEY] = acceptedAt
+                prefs[GUARDIAN_FALL_DETECTION_KEY] = features.fallDetection
+                prefs[GUARDIAN_CRASH_DETECTION_KEY] = features.crashDetection
+                prefs[GUARDIAN_MOBILITY_ANALYSIS_KEY] = features.mobilityAnalysis
+                prefs[GUARDIAN_RESPIRATORY_TRACKER_KEY] = features.respiratoryTracker
+                prefs[GUARDIAN_DOCTOR_QR_SHARING_KEY] = features.doctorQrSharing
+            }
+        }
+    }
+
+    fun updateGuardianFeaturePreferences(features: GuardianFeaturePreferences) {
+        _settings.value = _settings.value.copy(guardianFeatures = features)
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[GUARDIAN_FALL_DETECTION_KEY] = features.fallDetection
+                prefs[GUARDIAN_CRASH_DETECTION_KEY] = features.crashDetection
+                prefs[GUARDIAN_MOBILITY_ANALYSIS_KEY] = features.mobilityAnalysis
+                prefs[GUARDIAN_RESPIRATORY_TRACKER_KEY] = features.respiratoryTracker
+                prefs[GUARDIAN_DOCTOR_QR_SHARING_KEY] = features.doctorQrSharing
+            }
+        }
+    }
+
+    suspend fun readGuardianEnabled(): Boolean {
+        if (!::appContext.isInitialized) return _settings.value.guardianEnabled
+        return appContext.dataStore.data.first()[GUARDIAN_ENABLED_KEY] ?: _settings.value.guardianEnabled
+    }
+
+    suspend fun readGuardianConsentAccepted(): Boolean {
+        if (!::appContext.isInitialized) return _settings.value.guardianConsentAccepted
+        return appContext.dataStore.data.first()[GUARDIAN_CONSENT_ACCEPTED_KEY]
+            ?: _settings.value.guardianConsentAccepted
+    }
+
+    fun updateGuardianSensitivity(sensitivity: String) {
+        _settings.value = _settings.value.copy(guardianSensitivity = sensitivity)
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[GUARDIAN_SENSITIVITY_KEY] = sensitivity
+            }
+        }
+    }
+
+    fun updateGuardianGracePeriod(seconds: Int) {
+        _settings.value = _settings.value.copy(guardianGracePeriod = seconds)
+        CoroutineScope(Dispatchers.IO).launch {
+            appContext.dataStore.edit { prefs ->
+                prefs[GUARDIAN_GRACE_PERIOD_KEY] = seconds
             }
         }
     }

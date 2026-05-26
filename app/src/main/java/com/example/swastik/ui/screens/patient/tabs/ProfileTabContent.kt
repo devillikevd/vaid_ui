@@ -56,6 +56,7 @@ fun ProfileTabContent(
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showAppearanceDialog by remember { mutableStateOf(false) }
     var showNotificationDialog by remember { mutableStateOf(false) }
+    var showGuardianSettingsDialog by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
     var showEmergencyContactsDialog by remember { mutableStateOf(false) }
     var showFamilyMembersDialog by remember { mutableStateOf(false) }
@@ -189,7 +190,8 @@ fun ProfileTabContent(
                         onNotificationsClick = { showNotificationDialog = true },
                         onLanguageClick = { showLanguageDialog = true },
                         onAppearanceClick = { showAppearanceDialog = true },
-                        onPrivacyClick = { showPrivacyDialog = true }
+                        onPrivacyClick = { showPrivacyDialog = true },
+                        onGuardianClick = { showGuardianSettingsDialog = true }
                     )
                 }
                 item { Text(stringResource(R.string.support_legal), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
@@ -267,6 +269,10 @@ fun ProfileTabContent(
 
     if (showNotificationDialog) {
         NotificationSettingsDialog(onDismiss = { showNotificationDialog = false })
+    }
+
+    if (showGuardianSettingsDialog) {
+        com.example.swastik.ui.screens.patient.profile.GuardianSettingsDialog(onDismiss = { showGuardianSettingsDialog = false })
     }
 
     if (showFeedbackDialog) {

@@ -264,6 +264,8 @@ router.patch('/emergencies/:id/status', [
             'pending',
             'broadcasting',
             'assigned',
+            'accepted',
+            'dispatched',
             'en_route',
             'arrived',
             'picked_up',

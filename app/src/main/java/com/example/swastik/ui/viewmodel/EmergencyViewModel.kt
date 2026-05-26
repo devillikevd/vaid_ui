@@ -73,6 +73,19 @@ class EmergencyViewModel @Inject constructor(
         )
     }
 
+    private fun isTerminalEmergencyStatus(status: String?): Boolean =
+        status in listOf("completed", "cancelled", "timeout", "no_ambulance")
+
+    private fun terminalEmergencyMessage(status: String?, message: String? = null): String? {
+        val backendMessage = message?.takeIf { it.isNotBlank() }
+        return when (status) {
+            "timeout" -> backendMessage ?: "Ambulance search timed out. Please try again or call 108."
+            "no_ambulance" -> backendMessage ?: "No ambulance is currently available nearby. Please call 108 immediately."
+            "cancelled" -> backendMessage ?: "Your SOS request has been cancelled."
+            else -> null
+        }
+    }
+
     init {
         checkActiveEmergency()
         collectAmbulanceUpdates()
@@ -101,16 +114,19 @@ class EmergencyViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = emergencyRepository.getActiveEmergency()) {
                 is Result.Success -> {
-                    if (result.data != null) {
+                    val activeEmergency = result.data
+                    if (activeEmergency != null && !isTerminalEmergencyStatus(activeEmergency.resolvedStatus())) {
                         _uiState.value = _uiState.value.copy(
-                            activeEmergency = result.data,
+                            activeEmergency = activeEmergency,
                             requestSent = true,
-                            ambulanceStatus = result.data.resolvedStatus()
+                            ambulanceStatus = activeEmergency.resolvedStatus()
                         )
                         // Start tracking ambulance for the active request
-                        startTrackingAmbulance(result.data.resolvedRequestId())
+                        startTrackingAmbulance(activeEmergency.resolvedRequestId())
                     } else {
-                        _uiState.value = _uiState.value.copy(error = null)
+                        _uiState.value = idleStatePreservingLocation(
+                            error = terminalEmergencyMessage(activeEmergency?.resolvedStatus(), activeEmergency?.message)
+                        )
                     }
                 }
                 is Result.Error -> {
@@ -153,20 +169,11 @@ class EmergencyViewModel @Inject constructor(
                         ambulanceStatus = statusUpdate.status
                     )
                     // If completed, cancelled, or terminal — stop tracking and unsubscribe
-                    if (statusUpdate.status in listOf("completed", "cancelled", "timeout", "no_ambulance")) {
+                    if (isTerminalEmergencyStatus(statusUpdate.status)) {
                         socketManager.untrackAmbulance(activeId)
                         stopPatientLocationStream()
-                        val terminalMessage = statusUpdate.message.ifBlank {
-                            when (statusUpdate.status) {
-                                "timeout" -> "Ambulance search timed out. Please try again or call 108."
-                                "no_ambulance" -> "No ambulance is currently available nearby. Please call 108 immediately."
-                                "cancelled" -> "Your SOS request has been cancelled."
-                                "completed" -> ""
-                                else -> ""
-                            }
-                        }
                         _uiState.value = idleStatePreservingLocation(
-                            error = terminalMessage.ifBlank { null }
+                            error = terminalEmergencyMessage(statusUpdate.status, statusUpdate.message)
                         )
                     }
                 }
@@ -264,6 +271,16 @@ class EmergencyViewModel @Inject constructor(
                 when (val result = emergencyRepository.requestEmergency(request)) {
                     is Result.Success -> {
                         val activeEmergency = result.data
+                        if (isTerminalEmergencyStatus(activeEmergency.resolvedStatus())) {
+                            stopPatientLocationStream()
+                            _uiState.value = idleStatePreservingLocation(
+                                error = terminalEmergencyMessage(
+                                    activeEmergency.resolvedStatus(),
+                                    activeEmergency.message
+                                )
+                            )
+                            return@launch
+                        }
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             requestSent = true,

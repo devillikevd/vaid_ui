@@ -9,7 +9,7 @@ class ScreenTest {
     @Test
     fun patientDashboardRoute_clampsTabWithinBounds() {
         assertEquals("patient_dashboard?tab=0", Screen.PatientDashboard.createRoute(-2))
-        assertEquals("patient_dashboard?tab=3", Screen.PatientDashboard.createRoute(8))
+        assertEquals("patient_dashboard?tab=4", Screen.PatientDashboard.createRoute(8))
     }
 
     @Test

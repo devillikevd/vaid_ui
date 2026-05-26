@@ -22,9 +22,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CachedPrescription::class,
         CachedMedicine::class,
         CachedHospital::class,
-        PendingSyncAction::class
+        PendingSyncAction::class,
+        com.example.swastik.data.model.DailyFitnessLog::class,
+        GuardianEventEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {
@@ -36,6 +38,8 @@ abstract class SwastikDatabase : RoomDatabase() {
     abstract fun medicineDao(): MedicineDao
     abstract fun hospitalDao(): HospitalDao
     abstract fun syncQueueDao(): SyncQueueDao
+    abstract fun fitnessDao(): FitnessDao
+    abstract fun guardianDao(): GuardianDao
 
     companion object {
         @Volatile
@@ -96,6 +100,41 @@ abstract class SwastikDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Migration from v4 to v5: adds daily_fitness_logs table.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `daily_fitness_logs` (
+                        `date` TEXT NOT NULL PRIMARY KEY,
+                        `totalSteps` INTEGER NOT NULL DEFAULT 0,
+                        `activeMinutes` INTEGER NOT NULL DEFAULT 0,
+                        `distanceMeters` REAL NOT NULL DEFAULT 0.0,
+                        `caloriesBurned` REAL NOT NULL DEFAULT 0.0,
+                        `initialSensorSteps` INTEGER NOT NULL DEFAULT -1,
+                        `lastUpdated` INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `guardian_events` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `eventType` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `latitude` REAL,
+                        `longitude` REAL,
+                        `locationContext` TEXT,
+                        `sensorDataSnippet` TEXT
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): SwastikDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -103,7 +142,7 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .fallbackToDestructiveMigration()
                     .build()

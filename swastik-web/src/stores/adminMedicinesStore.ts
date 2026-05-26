@@ -31,12 +31,11 @@ export const useAdminMedicinesStore = create<AdminMedicinesState>((set, get) => 
     fetchMedicines: async (page = 1, search = '') => {
         set({ loading: true, error: null });
         try {
-            // Using raw fetchWithAuth since there's no wrapper yet for getting global medicines
             const query = new URLSearchParams({ page: String(page), limit: '50' });
-            if (search) query.set('search', search);
+            if (search.trim()) query.set('q', search.trim());
             
-            // Reusing the public medicines endpoint
-            const response = await fetchWithAuth(`/medicines?${query}`);
+            // Reusing the public medicines search endpoint; empty q returns the full active catalog.
+            const response = await fetchWithAuth(`/medicines/search?${query}`);
             if (response.success) {
                 set({ medicines: (response.data as Medicine[]) || [], loading: false });
             } else {

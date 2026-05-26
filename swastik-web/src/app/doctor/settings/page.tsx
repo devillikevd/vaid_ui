@@ -33,7 +33,11 @@ export default function DoctorSettingsPage() {
         name: '',
         phone: '',
         specialization: '',
+        experience: '',
+        qualification: '',
         consultationFee: '',
+        languages: '',
+        bio: '',
         registrationNumber: '',
         licenseNumber: '',
         licenseDocumentUrl: '',
@@ -61,7 +65,11 @@ export default function DoctorSettingsPage() {
                         name: p.name || user?.name || '',
                         phone: p.phone || p.user?.phone || '',
                         specialization: p.specialization || '',
+                        experience: p.experience_years?.toString() || p.experience?.toString() || '',
+                        qualification: Array.isArray(p.qualifications) ? p.qualifications.join(', ') : (p.qualification || ''),
                         consultationFee: p.consultation_fee?.toString() || p.consultationFee?.toString() || '',
+                        languages: Array.isArray(p.languages) ? p.languages.join(', ') : '',
+                        bio: p.bio || '',
                         registrationNumber: p.registration_number || '',
                         licenseNumber: p.license_number || '',
                         licenseDocumentUrl: p.license_document_url || '',
@@ -86,6 +94,25 @@ export default function DoctorSettingsPage() {
         setIsSaving(true);
         setSaveStatus(null);
         const previousApprovalStatus = user?.approval_status;
+        if (
+            !profile.specialization.trim() ||
+            !profile.registrationNumber.trim() ||
+            !profile.licenseNumber.trim() ||
+            !profile.qualification.trim() ||
+            profile.experience.trim() === '' ||
+            profile.consultationFee.trim() === ''
+        ) {
+            setSaveStatus({ type: 'error', message: 'Please fill specialization, registration, license, qualification, experience, and consultation fee.' });
+            setIsSaving(false);
+            return;
+        }
+        const experienceNumber = Number(profile.experience);
+        const consultationFeeNumber = Number(profile.consultationFee);
+        if (!Number.isFinite(experienceNumber) || experienceNumber < 0 || !Number.isFinite(consultationFeeNumber) || consultationFeeNumber < 0) {
+            setSaveStatus({ type: 'error', message: 'Experience and consultation fee must be valid non-negative numbers.' });
+            setIsSaving(false);
+            return;
+        }
         try {
             const authRes = await authApi.updateProfile({
                 name: profile.name,
@@ -100,7 +127,11 @@ export default function DoctorSettingsPage() {
             const res = await doctorApi.updateProfile({
                 name: profile.name,
                 specialization: profile.specialization,
-                consultation_fee: Number(profile.consultationFee) || undefined,
+                experience: experienceNumber,
+                qualifications: profile.qualification.split(',').map((item) => item.trim()).filter(Boolean),
+                consultation_fee: consultationFeeNumber,
+                languages: profile.languages.split(',').map((item) => item.trim()).filter(Boolean),
+                bio: profile.bio.trim() || undefined,
                 registration_number: profile.registrationNumber.trim() || undefined,
                 license_number: profile.licenseNumber.trim() || undefined,
                 license_document_url: profile.licenseDocumentUrl.trim() || undefined,
@@ -190,8 +221,27 @@ export default function DoctorSettingsPage() {
                                 ))}
                             </select>
                         </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Years of Experience</label>
+                            <Input type="number" min="0" value={profile.experience} onChange={e => setProfile(p => ({ ...p, experience: e.target.value }))} placeholder="Enter years of experience" />
+                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Medical Degree / Qualification</label>
+                            <Input value={profile.qualification} onChange={e => setProfile(p => ({ ...p, qualification: e.target.value }))} placeholder="Example: MBBS, MD Internal Medicine" />
+                        </div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Consultation Fee (₹)</label>
                             <Input type="number" value={profile.consultationFee} onChange={e => setProfile(p => ({ ...p, consultationFee: e.target.value }))} placeholder="Enter fee" />
+                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Languages</label>
+                            <Input value={profile.languages} onChange={e => setProfile(p => ({ ...p, languages: e.target.value }))} placeholder="Example: Hindi, English, Marathi" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profile Summary</label>
+                            <textarea
+                                value={profile.bio}
+                                onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
+                                placeholder="Short clinical background, areas of focus, and patient-care approach"
+                                rows={3}
+                                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
                         </div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registration Number</label><Input value={profile.registrationNumber} onChange={e => setProfile(p => ({ ...p, registrationNumber: e.target.value }))} placeholder="Medical council registration number" /></div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">License Number</label><Input value={profile.licenseNumber} onChange={e => setProfile(p => ({ ...p, licenseNumber: e.target.value }))} placeholder="Medical license number" /></div>

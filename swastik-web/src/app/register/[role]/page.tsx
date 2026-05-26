@@ -18,7 +18,10 @@ import {
     Eye,
     EyeOff,
     Briefcase,
-    CheckCircle
+    CheckCircle,
+    GraduationCap,
+    IndianRupee,
+    Languages
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -118,9 +121,14 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     // Role Specific State
     const [facilityName, setFacilityName] = useState('');
     const [licenseNumber, setLicenseNumber] = useState('');
+    const [registrationNumber, setRegistrationNumber] = useState('');
     const [specialization, setSpecialization] = useState('');
     const [address, setAddress] = useState('');
     const [experience, setExperience] = useState('');
+    const [qualification, setQualification] = useState('');
+    const [consultationFee, setConsultationFee] = useState('');
+    const [languages, setLanguages] = useState('');
+    const [bio, setBio] = useState('');
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
 
@@ -195,9 +203,14 @@ export default function RegisterPage({ params }: RegisterPageProps) {
 
         // Role-specific
         if (config.role === 'doctor') {
+            if (!registrationNumber.trim()) errors.registrationNumber = 'Medical registration number is required';
             if (!licenseNumber.trim()) errors.licenseNumber = 'License number is required';
             if (!specialization.trim()) errors.specialization = 'Specialization is required';
+            if (!qualification.trim()) errors.qualification = 'Medical qualification or degree is required';
             if (!experience.trim()) errors.experience = 'Years of experience is required';
+            else if (!Number.isFinite(Number(experience)) || Number(experience) < 0) errors.experience = 'Experience must be a non-negative number';
+            if (!consultationFee.trim()) errors.consultationFee = 'Consultation fee is required';
+            else if (!Number.isFinite(Number(consultationFee)) || Number(consultationFee) < 0) errors.consultationFee = 'Consultation fee must be a non-negative number';
         } else {
             if (!facilityName.trim()) errors.facilityName = 'Facility name is required';
             if (!licenseNumber.trim()) errors.licenseNumber = 'License/Registration number is required';
@@ -232,8 +245,13 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                 case 'doctor':
                     roleData = {
                         specialization,
+                        registration_number: registrationNumber.trim(),
                         license_number: licenseNumber,
-                        experience_years: experience
+                        qualifications: [qualification.trim()],
+                        experience_years: Number.parseInt(experience, 10),
+                        consultation_fee: Number.parseFloat(consultationFee),
+                        languages: languages.split(',').map((item) => item.trim()).filter(Boolean),
+                        bio: bio.trim() || undefined,
                     };
                     break;
                 case 'pharmacy_owner':
@@ -480,6 +498,15 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     )}
                                 </div>
                                 <Input
+                                    label={withRequiredMark('Medical Registration Number', true)}
+                                    value={registrationNumber}
+                                    onChange={(e) => { setRegistrationNumber(e.target.value); setFieldErrors(p => { const { registrationNumber, ...rest } = p; return rest; }); }}
+                                    placeholder="Enter medical registration number"
+                                    leftIcon={<FileText className="h-5 w-5" />}
+                                    error={fieldErrors.registrationNumber}
+                                    required
+                                />
+                                <Input
                                     label={withRequiredMark('Medical License Number', true)}
                                     value={licenseNumber}
                                     onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
@@ -489,14 +516,55 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     required
                                 />
                                 <Input
+                                    label={withRequiredMark('Medical Degree / Qualification', true)}
+                                    value={qualification}
+                                    onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
+                                    placeholder="Example: MBBS, MD Internal Medicine"
+                                    leftIcon={<GraduationCap className="h-5 w-5" />}
+                                    error={fieldErrors.qualification}
+                                    required
+                                />
+                                <Input
                                     label={withRequiredMark('Years of Experience', true)}
                                     type="number"
                                     value={experience}
                                     onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
                                     placeholder="Enter years of experience"
+                                    leftIcon={<Briefcase className="h-5 w-5" />}
                                     error={fieldErrors.experience}
+                                    min="0"
                                     required
                                 />
+                                <Input
+                                    label={withRequiredMark('Consultation Fee', true)}
+                                    type="number"
+                                    value={consultationFee}
+                                    onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
+                                    placeholder="Enter consultation fee in INR"
+                                    leftIcon={<IndianRupee className="h-5 w-5" />}
+                                    error={fieldErrors.consultationFee}
+                                    min="0"
+                                    required
+                                />
+                                <Input
+                                    label="Languages"
+                                    value={languages}
+                                    onChange={(e) => setLanguages(e.target.value)}
+                                    placeholder="Example: Hindi, English, Marathi"
+                                    leftIcon={<Languages className="h-5 w-5" />}
+                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Profile Summary
+                                    </label>
+                                    <textarea
+                                        value={bio}
+                                        onChange={(e) => setBio(e.target.value)}
+                                        placeholder="Short clinical background, areas of focus, and patient-care approach"
+                                        rows={3}
+                                        className="w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 border-gray-200 dark:border-gray-700"
+                                    />
+                                </div>
                             </>
                         )}
 
