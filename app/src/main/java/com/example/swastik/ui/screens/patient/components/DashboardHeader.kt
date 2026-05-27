@@ -219,9 +219,9 @@ fun DashboardHeader(
                 Column {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
-                        text = "${getGreeting()}, $firstName 👋",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = firstName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
@@ -485,11 +485,11 @@ fun DashboardHeader(
                 Column {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
-                        text = "Hello, $firstName! 👋",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = firstName,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onPrimary,
-                        lineHeight = 28.sp
+                        lineHeight = 20.sp
                     )
                     
                     Row(

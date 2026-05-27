@@ -92,8 +92,8 @@ fun AppointmentBookingScreen(
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, preselectedSearch, patientProfile?.location) {
-        if (consultationMode == "in_person" && patientProfile?.location != null) {
-            doctorSearchViewModel.setPatientLocation(0.0, 0.0, patientProfile?.location)
+        if (consultationMode == "in_person") {
+            doctorSearchViewModel.setInPersonLocation()
         }
 
         if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank()) {

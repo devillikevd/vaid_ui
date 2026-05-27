@@ -77,7 +77,7 @@ fun NotificationPanelDialog(
                     .fillMaxWidth(0.85f)
                     .clickable(enabled = false) {}, // prevent click-through
                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-                color = MaterialTheme.colorScheme.onPrimary, // Forced White Background
+                color = MaterialTheme.colorScheme.onPrimary,
                 tonalElevation = 8.dp
             ) {
                 Column(
@@ -89,7 +89,7 @@ fun NotificationPanelDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(Color.Transparent)
                             .padding(20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -106,8 +106,7 @@ fun NotificationPanelDialog(
                                     onClick = { onClearAll() },
                                     contentPadding = PaddingValues(horizontal = 12.dp)
                                 ) {
-                                    // Use a hardcoded string if resource is missing or for clarity
-                                    Text("Clear All", color = SwastikPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text("Clear All", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = onDismiss) {
@@ -129,8 +128,8 @@ fun NotificationPanelDialog(
                                 onClick = { selectedFilter = filter },
                                 label = { Text(filter, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SwastikPrimary,
-                                    selectedLabelColor = Color.White,
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                                     containerColor = MaterialTheme.colorScheme.surface
                                 ),
                                 border = null
@@ -186,7 +185,7 @@ fun NotificationPanelDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(stringResource(R.string.close))
@@ -213,9 +212,10 @@ private fun NotificationCard(
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color.White else SwastikPrimary.copy(alpha = 0.05f)
+            containerColor = if (notification.isRead) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primaryContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -253,7 +253,7 @@ private fun NotificationCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(SwastikPrimary, CircleShape)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
                         )
                     }
                 }
@@ -289,7 +289,7 @@ private fun NotificationCard(
                             Text(
                                 text = notification.actionLabel,
                                 fontSize = 12.sp,
-                                color = SwastikPrimary,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium
                             )
                         }

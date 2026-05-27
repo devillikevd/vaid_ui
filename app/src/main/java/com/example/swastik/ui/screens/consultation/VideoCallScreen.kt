@@ -137,14 +137,9 @@ fun VideoCallScreen(
                 )
             }
             ConsultationMode.VIDEO -> {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val compactHeight = maxHeight < 760.dp
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (compactHeight) Modifier.verticalScroll(rememberScrollState()) else Modifier)
-                    ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
                     ConsultationTopBar(
                         title = doctorName,
                         connectionStatus = connectionStatus,
@@ -184,15 +179,9 @@ fun VideoCallScreen(
                     )
 
                     Box(
-                        modifier = if (compactHeight) {
-                            Modifier
-                                .heightIn(min = 420.dp)
-                                .fillMaxWidth()
-                        } else {
-                            Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        }
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
                     ) {
                         if (hasRemoteVideo && remoteVideoTrack != null && eglBaseContext != null) {
                             WebRTCVideoView(
@@ -265,7 +254,6 @@ fun VideoCallScreen(
                         onSwitchMode = onSwitchMode,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    }
                 }
             } // end VIDEO
         } // end when

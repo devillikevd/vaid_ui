@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
@@ -152,7 +153,7 @@ fun HealthCardScreen(
                     com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(
                         fitnessLog = fitnessLog!!,
                         modifier = Modifier.fillMaxWidth(),
-                        containerColor = HealthIdCardBg
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 }
             }
@@ -162,15 +163,15 @@ fun HealthCardScreen(
                 Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = HealthIdCardBg),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, HealthIdCardBorder)
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(HealthIdCardBg)
+                            .background(MaterialTheme.colorScheme.surface)
                             .padding(16.dp)
                     ) {
                         Column(
@@ -181,12 +182,12 @@ fun HealthCardScreen(
                                 "Digital Health Card",
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 "Valid through 12/25",
                                 fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(16.dp))
 
@@ -195,7 +196,7 @@ fun HealthCardScreen(
                             } else if (hcState.hasActiveCard && hcState.url != null) {
                                 Box(
                                     modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
+                                        .background(Color.White, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
                                         .padding(8.dp)
                                 ) {
                                     if (qrBitmap != null) {
@@ -256,7 +257,7 @@ fun HealthCardScreen(
                             Text(
                                 "Patient",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
@@ -271,7 +272,7 @@ fun HealthCardScreen(
             item {
                 // Swastik Guardian Section
                 com.example.swastik.ui.screens.patient.components.SwastikGuardianCard(
-                    containerColor = HealthIdCardBg,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     isActive = guardianEnabled,
                     consentAccepted = guardianSettings.guardianConsentAccepted,
                     consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
@@ -329,9 +330,9 @@ fun HealthCardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = HealthIdCardBg),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, HealthIdCardBorder)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(16.dp)
@@ -462,7 +463,7 @@ fun HealthCardScreen(
                             dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
                             title = "Heart Rate Trend",
                             subtitle = "BPM over last 7 days",
-                            containerColor = HealthIdCardBg
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     }
                 }
@@ -474,7 +475,7 @@ fun HealthCardScreen(
                             dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
                             title = "Body Temperature Trend",
                             subtitle = "Celsius over last 7 days",
-                            containerColor = HealthIdCardBg
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     }
                 }
@@ -510,12 +511,16 @@ private fun HealthCardHowItWorks() {
                     text = "How it works",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "Use your Digital Health Card in 4 simple steps.",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Box(
@@ -600,12 +605,16 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
                     text = "Setup Guide",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "How to connect your Smartwatch or Phone.",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Box(
@@ -716,7 +725,9 @@ private fun StepItem(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = description,

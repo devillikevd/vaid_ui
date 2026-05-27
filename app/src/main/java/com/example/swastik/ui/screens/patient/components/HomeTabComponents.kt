@@ -165,7 +165,7 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, Color(0xFFD9EEEA))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
@@ -185,8 +185,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color(0xFFF1F8F7).copy(alpha = 0.92f),
-                                Color(0xFFF1F8F7)
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                MaterialTheme.colorScheme.surface
                             )
                         )
                     )
@@ -197,7 +197,7 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
                     text = "In-person\nConsultation",
@@ -206,8 +206,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 17.sp,
                     maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
                 )
             }
         }
@@ -223,7 +223,7 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, Color(0xFFE3DAFF))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
@@ -243,8 +243,8 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color(0xFFF6F3FF).copy(alpha = 0.92f),
-                                Color(0xFFF6F3FF)
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                MaterialTheme.colorScheme.surface
                             )
                         )
                     )
@@ -255,7 +255,7 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
                     text = "Video\nConsultation",
@@ -264,8 +264,8 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 17.sp,
                     maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
                 )
             }
         }
@@ -280,9 +280,9 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Light mint green
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, Color(0xFFCFEBDD))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier
@@ -330,7 +330,9 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                 Text(
                     text = "View your vitals, history & more",
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -397,32 +399,24 @@ fun HealthServicesSection(
                 modifier = Modifier.weight(1f),
                 title = "Book Clinic\n(OPD)",
                 icon = Icons.Outlined.CalendarToday,
-                bgColor = Color(0xFFF1F9F1), // Soft green
-                iconColor = Color(0xFF2E7D32),
                 onClick = onClinicClick
             )
             ServiceSquareCard(
                 modifier = Modifier.weight(1f),
                 title = "Order\nMedicine",
                 icon = Icons.Outlined.ShoppingBag,
-                bgColor = Color(0xFFF9FBF1), // Soft lime
-                iconColor = Color(0xFF558B2F),
                 onClick = onPharmacyClick
             )
             ServiceSquareCard(
                 modifier = Modifier.weight(1f),
                 title = "Book\nLab Test",
                 icon = Icons.Outlined.Science,
-                bgColor = Color(0xFFF3F0FF), // Soft purple/blue
-                iconColor = Color(0xFF6A5AE0),
                 onClick = onLabTestsClick
             )
             ServiceSquareCard(
                 modifier = Modifier.weight(1f),
                 title = "Find\nHospitals",
                 icon = Icons.Outlined.Business,
-                bgColor = Color(0xFFF1F9F9), // Soft teal
-                iconColor = Color(0xFF00796B),
                 onClick = onHospitalsClick
             )
         }
@@ -434,8 +428,6 @@ private fun ServiceSquareCard(
     modifier: Modifier = Modifier,
     title: String,
     icon: ImageVector,
-    bgColor: Color,
-    iconColor: Color,
     onClick: () -> Unit
 ) {
     Card(
@@ -443,9 +435,9 @@ private fun ServiceSquareCard(
             .aspectRatio(0.85f)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, iconColor.copy(alpha = 0.05f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(8.dp),
@@ -455,10 +447,10 @@ private fun ServiceSquareCard(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, CircleShape),
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, tint = iconColor, modifier = Modifier.size(24.dp))
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
@@ -467,7 +459,9 @@ private fun ServiceSquareCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 14.sp
+                lineHeight = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -564,7 +558,7 @@ fun SecondaryActionsGrid(
             shape = RoundedCornerShape(10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, Color(0xFFE2E8EF))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Row(
                 modifier = Modifier
@@ -617,7 +611,7 @@ fun SecondaryActionsGrid(
             shape = RoundedCornerShape(10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, Color(0xFFE2E8EF))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Row(
                 modifier = Modifier
@@ -961,20 +955,23 @@ fun DoctorCard(
                         doctor.name, 
                         fontWeight = FontWeight.Bold, 
                         fontSize = 15.sp, 
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Surface(
-                        color = Color(0xFFE8F5E9),
+                        color = MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Verified, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(10.dp))
+                            Icon(Icons.Filled.Verified, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(10.dp))
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text("Verified", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                            Text("Verified", fontSize = 8.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -983,13 +980,17 @@ fun DoctorCard(
                     doctor.specialization, 
                     fontSize = 12.sp, 
                     color = MaterialTheme.colorScheme.onSurface, 
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 Text(
                     text = "${doctor.qualifications ?: "MBBS, MS"} • ${doctor.experienceYears ?: 5} Years Exp.",
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
@@ -1005,12 +1006,14 @@ fun DoctorCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Consultation Fee", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Consultation Fee", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         "₹${doctor.consultationFee ?: 500}", 
                         fontSize = 17.sp, 
                         fontWeight = FontWeight.ExtraBold, 
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 

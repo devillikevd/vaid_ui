@@ -38,6 +38,13 @@ import com.example.swastik.data.repository.VitalsRepository
 import com.example.swastik.data.remote.dto.CreateReminderRequest
 import com.example.swastik.notifications.ReminderAlarmScheduler
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import android.location.Geocoder
+import java.util.Locale
+import android.util.Log
 /**
  * UI State for Patient Dashboard
  */
@@ -399,6 +406,58 @@ class PatientDashboardViewModel @Inject constructor(
 
     fun resetProfileUpdateState() {
         _profileUpdateState.value = ProfileUpdateState.Idle
+    }
+
+    // ── Location Auto-Fetch ─────────────────────────────────────
+
+    fun fetchAndUpdateLocation() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return // Permissions not granted
+        }
+
+        try {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    val geocoder = Geocoder(context, Locale.getDefault())
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                            val address = addresses.firstOrNull()
+                            if (address != null) {
+                                val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                                val city = address.locality ?: address.subAdminArea ?: address.adminArea
+                                handleLocationUpdate(locality, city)
+                            }
+                        }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                        val address = addresses?.firstOrNull()
+                        if (address != null) {
+                            val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                            val city = address.locality ?: address.subAdminArea ?: address.adminArea
+                            handleLocationUpdate(locality, city)
+                        }
+                    }
+                }
+            }.addOnFailureListener { e ->
+                Log.e("LocationFetch", "Failed to fetch location", e)
+            }
+        } catch (e: Exception) {
+            Log.e("LocationFetch", "Error initializing location client", e)
+        }
+    }
+
+    private fun handleLocationUpdate(locality: String, city: String?) {
+        val currentProfile = patientProfile.value
+        // Only update if location has actually changed to save API calls
+        if (currentProfile?.location != locality) {
+            updateProfile(UpdateProfileRequest(
+                location = locality,
+                city = city
+            ))
+        }
     }
 
     // ── Profile Image Upload ────────────────────────────────────

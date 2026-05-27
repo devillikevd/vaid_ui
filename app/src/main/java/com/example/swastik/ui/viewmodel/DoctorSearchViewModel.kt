@@ -48,13 +48,16 @@ data class DoctorSearchFilters(
     val city: String? = null
 )
 
+import com.example.swastik.utils.LocationHelper
+
 /**
  * Doctor Search ViewModel
  */
 @HiltViewModel
 class DoctorSearchViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val locationHelper: LocationHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoctorSearchUiState())
@@ -124,8 +127,20 @@ class DoctorSearchViewModel @Inject constructor(
     /**
      * Set patient location for nearby search
      */
-    fun setPatientLocation(lat: Double, lng: Double, city: String?) {
+    fun setPatientLocation(lat: Double?, lng: Double?, city: String?) {
         updateFilters(latitude = lat, longitude = lng, city = city)
+    }
+
+    /**
+     * Set GPS location for in-person search
+     */
+    fun setInPersonLocation() {
+        viewModelScope.launch {
+            val location = locationHelper.getLastLocation()
+            if (location != null) {
+                updateFilters(latitude = location.latitude, longitude = location.longitude, city = null)
+            }
+        }
     }
 
     /**

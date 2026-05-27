@@ -66,7 +66,7 @@ fun FitnessTrackingCard(
                     icon = Icons.Default.DirectionsRun,
                     value = "${displayLog.totalSteps}",
                     label = "Steps",
-                    color = SwastikPrimary
+                    color = MaterialTheme.colorScheme.primary
                 )
                 FitnessStatItem(
                     icon = Icons.Default.Timer,
