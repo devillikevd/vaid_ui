@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun HomeScreen(
@@ -86,13 +87,13 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .size(120.dp)
-                        .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     // Swastik Symbol - Auspicious Healthcare Symbol
                     SwastikSymbol(
                         modifier = Modifier.size(70.dp),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -104,7 +105,7 @@ fun HomeScreen(
                 text = "VAIDIDEA",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = 0.9f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
                 letterSpacing = 4.sp
             )
 
@@ -112,7 +113,7 @@ fun HomeScreen(
                 text = "VAIDIDEA",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 letterSpacing = 8.sp
             )
 
@@ -120,14 +121,14 @@ fun HomeScreen(
 
             // Tagline
             Surface(
-                color = Color.White.copy(alpha = 0.2f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Text(
                     text = "Healthcare Reimagined",
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                 )
             }
@@ -158,7 +159,7 @@ fun HomeScreen(
                 Text(
                     "Your health journey starts here",
                     fontSize = 16.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
@@ -242,7 +243,7 @@ fun HomeScreen(
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
-                                .background(Color.White, CircleShape),
+                                .background(MaterialTheme.colorScheme.surface, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -260,12 +261,12 @@ fun HomeScreen(
                                 "Are you a Doctor, Hospital, Clinic or Lab?",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Black
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 "Login to your portal on the website.",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             
                             Spacer(modifier = Modifier.height(12.dp))
@@ -312,7 +313,7 @@ fun HomeScreen(
                 Text(
                     "By continuing, you agree to our Terms & Privacy Policy",
                     fontSize = 12.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
@@ -398,7 +399,7 @@ private fun FeatureItem(icon: String, label: String) {
         Text(
             label,
             fontSize = 11.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
     }

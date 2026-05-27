@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.local.GuardianFeaturePreferences
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun SwastikGuardianCard(
@@ -85,13 +86,13 @@ fun SwastikGuardianCard(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE8EAF6)),
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = null,
-                            tint = Color(0xFF3F51B5),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -101,12 +102,12 @@ fun SwastikGuardianCard(
                             text = "Vaididea Guardian",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Fall alerts • Crash SOS",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -133,7 +134,7 @@ fun SwastikGuardianCard(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = Color(0xFF6A5AE0),
                         uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color.LightGray.copy(alpha = 0.4f)
+                        uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
                 )
             }
@@ -144,7 +145,7 @@ fun SwastikGuardianCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF9FAFB), RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                     .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -155,7 +156,7 @@ fun SwastikGuardianCard(
                     isAllowed = featurePreferences.fallDetection,
                     modifier = Modifier.weight(1f)
                 )
-                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.DirectionsCar,
                     label = "Crash SOS",
@@ -163,7 +164,7 @@ fun SwastikGuardianCard(
                     isAllowed = featurePreferences.crashDetection,
                     modifier = Modifier.weight(1f)
                 )
-                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.Man,
                     label = "Mobility",
@@ -171,7 +172,7 @@ fun SwastikGuardianCard(
                     isAllowed = featurePreferences.mobilityAnalysis,
                     modifier = Modifier.weight(1f)
                 )
-                Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color.LightGray.copy(alpha = 0.3f)))
+                Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.BarChart,
                     label = "Data Sharing",
@@ -189,7 +190,7 @@ fun SwastikGuardianCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 color = Color(0xFFF3F4F6).copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.2f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -198,20 +199,20 @@ fun SwastikGuardianCard(
                     Icon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = null,
-                        tint = Color(0xFF00796B),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Learn more about Guardian",
                         fontSize = 13.sp,
-                        color = Color.DarkGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -244,7 +245,7 @@ private fun GuardianFeatureItem(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = status,

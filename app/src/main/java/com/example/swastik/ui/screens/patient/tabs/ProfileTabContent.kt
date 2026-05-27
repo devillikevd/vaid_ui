@@ -40,6 +40,7 @@ import com.example.swastik.utils.ImageCompressor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -439,7 +440,7 @@ fun ProfileTabContent(
                         .align(Alignment.TopStart)
                         .padding(16.dp)
                 ) {
-                    Icon(Icons.Default.Close, null, tint = Color.White)
+                    Icon(Icons.Default.Close, null, tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }

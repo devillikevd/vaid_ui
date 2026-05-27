@@ -41,6 +41,7 @@ import com.example.swastik.ui.screens.patient.components.BezierCurveChart
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Records Tab Content
@@ -596,7 +597,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
                 .background(SwastikPrimary),
             contentAlignment = Alignment.Center
         ) {
-            Text("$index", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("$index", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -886,7 +887,7 @@ private fun UploadReportDialog(
                             color = SwastikPrimary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.uploading), fontSize = 13.sp, color = Color.Gray)
+                        Text(stringResource(R.string.uploading), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

@@ -51,6 +51,7 @@ import com.example.swastik.ui.components.MapMarkerData
 import org.osmdroid.util.GeoPoint
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 private const val DEFAULT_DISCOVERY_RADIUS_KM = 10f
 private const val MAX_DISCOVERY_RADIUS_KM = 25f
@@ -275,7 +276,7 @@ fun HospitalFinderScreen(
                             Icon(
                                 Icons.Default.LocalHospital,
                                 contentDescription = "Emergency",
-                                tint = Color(0xFFE53935)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         IconButton(onClick = { isMapView = !isMapView }) {
@@ -380,7 +381,7 @@ fun HospitalFinderScreen(
                             Icon(
                                 Icons.Default.ErrorOutline,
                                 contentDescription = null,
-                                tint = Color(0xFFE53935),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
@@ -830,14 +831,14 @@ private fun FilterBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(stringResource(R.string.n_1_km), fontSize = 12.sp, color = Color.Gray)
+                    Text(stringResource(R.string.n_1_km), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         "${distanceFilter.toInt()} km",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = SwastikPrimary
                     )
-                    Text("${MAX_DISCOVERY_RADIUS_KM.toInt()} km", fontSize = 12.sp, color = Color.Gray)
+                    Text("${MAX_DISCOVERY_RADIUS_KM.toInt()} km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Slider(
                     value = distanceFilter,
@@ -868,7 +869,7 @@ private fun FilterBottomSheet(
                 Text(
                     "Show only open facilities",
                     fontSize = 14.sp,
-                    color = if (isDarkMode) Color.LightGray else Color.DarkGray
+                    color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
                 )
                 Switch(
                     checked = openNowOnly,
@@ -970,7 +971,7 @@ private fun FilterBottomSheet(
                 Text(
                     "Only with emergency services",
                     fontSize = 14.sp,
-                    color = if (isDarkMode) Color.LightGray else Color.DarkGray
+                    color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
                 )
                 Switch(
                     checked = emergencyServicesOnly,
@@ -1204,7 +1205,7 @@ private fun FacilityDetailSheet(
             QuickActionButton(
                 icon = Icons.Default.Info,
                 label = "Details",
-                color = Color(0xFF607D8B),
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
                 onClick = onViewDetails
             )
@@ -1212,7 +1213,7 @@ private fun FacilityDetailSheet(
                 QuickActionButton(
                     icon = Icons.Default.LocalHospital,
                     label = "Emergency",
-                    color = Color(0xFFE53935),
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                     onClick = { NavigationHelper.openDialer(actionContext, "108") }
                 )
@@ -1310,7 +1311,7 @@ private fun FacilityDetailSheet(
                 Icon(
                     Icons.Default.LocalHospital,
                     contentDescription = null,
-                    tint = Color(0xFFE53935),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -1318,13 +1319,13 @@ private fun FacilityDetailSheet(
                     Text(
                         "Emergency Services Available",
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFE53935),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp
                     )
                     Text(
                         "24/7 Emergency care with ambulance service",
                         fontSize = 12.sp,
-                        color = Color(0xFFE53935).copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -1390,14 +1391,14 @@ private fun FacilityDetailSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = detailsError,
                     modifier = Modifier.padding(14.dp),
                     fontSize = 13.sp,
-                    color = Color(0xFFE65100)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -1493,7 +1494,7 @@ private fun DoctorCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF3A3A3A) else Color.LightGray.copy(alpha = 0.5f)),
+        border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF3A3A3A) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -1503,7 +1504,7 @@ private fun DoctorCard(
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .background(Color(0xFFE3F2FD), RoundedCornerShape(16.dp)),
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!doctor.profileImageUrl.isNullOrBlank()) {
@@ -1531,7 +1532,7 @@ private fun DoctorCard(
                 Text(
                     text = doctor.specialization,
                     fontSize = 13.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -1539,13 +1540,13 @@ private fun DoctorCard(
                     Icon(
                         Icons.Default.WorkHistory,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         " ${doctor.experience} exp",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
@@ -1573,7 +1574,7 @@ private fun DoctorCard(
                     Text(
                         " consultation",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -1757,21 +1758,21 @@ private fun MedicalStoreDetailSheet(
                 if (query.length >= 2) onInventorySearch(query)
                 else if (query.isEmpty()) onInventorySearch("")
             },
-            placeholder = { Text(stringResource(R.string.search_inventory_1), color = Color.Gray) },
+            placeholder = { Text(stringResource(R.string.search_inventory_1), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF4CAF50)) },
             trailingIcon = {
                 if (isInventoryLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF4CAF50))
                 } else if (inventoryQuery.isNotEmpty()) {
                     IconButton(onClick = { inventoryQuery = ""; onInventorySearch("") }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color.LightGray,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 focusedBorderColor = Color(0xFF4CAF50),
                 unfocusedContainerColor = cardColor,
                 focusedContainerColor = cardColor
@@ -1795,7 +1796,7 @@ private fun MedicalStoreDetailSheet(
                 Text(
                     if (inventoryQuery.isNotEmpty()) "No medicines found for \"$inventoryQuery\""
                     else "No inventory data available",
-                    fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center
+                    fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
                 )
             }
         } else {
@@ -2023,12 +2024,12 @@ private fun PharmacyInventoryCard(
                     }
                 }
                 if (item.manufacturer != null) {
-                    Text(item.manufacturer, fontSize = 12.sp, color = Color.Gray, maxLines = 1)
+                    Text(item.manufacturer, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (item.category != null) {
-                        Text(item.category, fontSize = 11.sp, color = Color.Gray)
-                        Text(stringResource(R.string.string_1), fontSize = 11.sp, color = Color.Gray)
+                        Text(item.category, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.string_1), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(
                         "Stock: ${item.quantity ?: 0} ${item.unit ?: "units"}",
@@ -2049,7 +2050,7 @@ private fun PharmacyInventoryCard(
                     Text(
                         "MRP ₹${item.mrp}",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Normal
                     )
                 }
@@ -2072,14 +2073,14 @@ private fun PharmacyInventoryCard(
                             Icon(
                                 if (showAdded) Icons.Default.Check else Icons.Default.AddShoppingCart,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 if (showAdded) "Added!" else "Add",
                                 fontSize = 10.sp,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -2087,10 +2088,10 @@ private fun PharmacyInventoryCard(
                 } else {
                     Box(
                         modifier = Modifier
-                            .background(Color(0xFFFFEBEE), RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text(stringResource(R.string.out_of_stock), fontSize = 10.sp, color = Color(0xFFE53935), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.out_of_stock), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -2284,7 +2285,7 @@ private fun ClinicDetailSheet(
             ) {
                 Text(stringResource(R.string.string_2), fontSize = 32.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(stringResource(R.string.no_doctors_listed_at_this_clinic_yet), fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.no_doctors_listed_at_this_clinic_yet), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
         } else {
             // Show dynamically loaded clinic doctors (deduplicated)
@@ -2348,7 +2349,7 @@ private fun DiagnosticCenterDetailSheet(
                         .background(Color(0xFF7C3AED).copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Science, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
@@ -2368,7 +2369,7 @@ private fun DiagnosticCenterDetailSheet(
                 Text(" ${facility.rating}", fontSize = 14.sp, color = textColor)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
             }
         }
@@ -2386,7 +2387,7 @@ private fun DiagnosticCenterDetailSheet(
                             .background(Color(0xFF7C3AED).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        Text(spec, fontSize = 11.sp, color = Color(0xFF7C3AED), fontWeight = FontWeight.Medium)
+                        Text(spec, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -2411,7 +2412,7 @@ private fun DiagnosticCenterDetailSheet(
             )
             if (facility.isEmergencyAvailable) {
                 QuickActionButton(
-                    icon = Icons.Default.LocalHospital, label = "Emergency", color = Color(0xFFE53935),
+                    icon = Icons.Default.LocalHospital, label = "Emergency", color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                     onClick = { NavigationHelper.openDialer(dcContext, "108") }
                 )
@@ -2454,7 +2455,7 @@ private fun DiagnosticCenterDetailSheet(
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF7C3AED))
+                Icon(Icons.Outlined.Place, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.address), fontSize = 12.sp, color = subtextColor)
@@ -2463,7 +2464,7 @@ private fun DiagnosticCenterDetailSheet(
                 IconButton(onClick = {
                     NavigationHelper.openDirections(dcContext, facility.latitude, facility.longitude, facility.name)
                 }) {
-                    Icon(Icons.Default.Directions, contentDescription = "Directions", tint = Color(0xFF7C3AED))
+                    Icon(Icons.Default.Directions, contentDescription = "Directions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -2479,11 +2480,11 @@ private fun DiagnosticCenterDetailSheet(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.LocalHospital, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.LocalHospital, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(stringResource(R.string.emergency_services_available), fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935), fontSize = 14.sp)
-                    Text(stringResource(R.string.n_24_7_emergency_diagnostic_services), fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.8f))
+                    Text(stringResource(R.string.emergency_services_available), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Text(stringResource(R.string.n_24_7_emergency_diagnostic_services), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f))
                 }
             }
         }
@@ -2527,7 +2528,7 @@ private fun EmergencyModeContent(
 private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFFE53935)
+        color = MaterialTheme.colorScheme.onSurface
     ) {
         Row(
             modifier = Modifier
@@ -2540,13 +2541,13 @@ private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
                 Icon(
                     Icons.Default.Warning,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     "EMERGENCY MODE",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
@@ -2554,7 +2555,7 @@ private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
 
             TextButton(
                 onClick = onExitEmergency,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary)
             ) {
                 Text(stringResource(R.string.exit), fontWeight = FontWeight.SemiBold)
             }
@@ -2589,20 +2590,20 @@ private fun EmergencyFacilitiesList(
                 Icon(
                     Icons.Default.LocalHospital,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     "Need Emergency Help?",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "We're showing nearest emergency hospitals",
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center
                 )
@@ -2614,18 +2615,18 @@ private fun EmergencyFacilitiesList(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Icon(
                         Icons.Default.Call,
                         contentDescription = null,
-                        tint = Color(0xFFE53935),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         "Call Ambulance (108)",
-                        color = Color(0xFFE53935),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
@@ -2636,7 +2637,7 @@ private fun EmergencyFacilitiesList(
         // Emergency Hospitals List
         Text(
             "Nearest Emergency Hospitals",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onPrimary,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -2651,7 +2652,7 @@ private fun EmergencyFacilitiesList(
                     .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFFE53935))
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurface)
             }
         } else {
         LazyColumn(
@@ -2694,7 +2695,7 @@ private fun EmergencyHospitalCard(
                     Icon(
                         Icons.Default.LocalHospital,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -2704,7 +2705,7 @@ private fun EmergencyHospitalCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         facility.name,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         maxLines = 2,
@@ -2715,14 +2716,14 @@ private fun EmergencyHospitalCard(
                         Icon(
                             Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = Color(0xFFE53935),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             if (facility.distance.isNotBlank()) facility.distance else "Distance unavailable",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         // ETA estimate
                         if (facility.distanceKm > 0) {
@@ -2746,7 +2747,7 @@ private fun EmergencyHospitalCard(
                     if (facility.phone.isNotBlank()) {
                         Text(
                             "📞 ${facility.phone}",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             modifier = Modifier.padding(top = 2.dp)
                         )
@@ -2818,7 +2819,7 @@ private fun EmergencyFacilityDetailSheet(
 ) {
     val emergencyContext = LocalContext.current
     val textColor = if (isDarkMode) Color.White else Color.Black
-    val subtextColor = if (isDarkMode) Color.LightGray else Color.Gray
+    val subtextColor = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
 
     Column(
@@ -2843,7 +2844,7 @@ private fun EmergencyFacilityDetailSheet(
                 Icon(
                     Icons.Default.LocalHospital,
                     contentDescription = null,
-                    tint = Color(0xFFE53935),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(30.dp)
                 )
             }
@@ -2880,11 +2881,11 @@ private fun EmergencyFacilityDetailSheet(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE53935))
+                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
-                    Text(stringResource(R.string.emergency_ready_facility_1), fontWeight = FontWeight.SemiBold, color = Color(0xFFE53935))
-                    Text(stringResource(R.string.quick_call_and_turn_by_turn_navigation), fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.85f))
+                    Text(stringResource(R.string.emergency_ready_facility_1), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.quick_call_and_turn_by_turn_navigation), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                 }
             }
         }
@@ -2949,12 +2950,12 @@ private fun EmergencyFacilityDetailSheet(
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.Place, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(facility.address.ifBlank { "Address unavailable" }, color = textColor, fontSize = 14.sp)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(facility.phone.ifBlank { "N/A (fallback: 108)" }, color = textColor, fontSize = 14.sp)
                 }
@@ -3005,7 +3006,7 @@ private fun EmptyStateView(
             "No $emptyLabel found nearby",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.DarkGray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -3013,7 +3014,7 @@ private fun EmptyStateView(
         Text(
             "No approved results were found within $activeRadiusKm km of your current location. Try refreshing location or resetting filters.",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
@@ -3027,10 +3028,10 @@ private fun EmptyStateView(
             Icon(
                 Icons.Default.MyLocation,
                 contentDescription = null,
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.refresh_nearby), color = Color.White)
+            Text(stringResource(R.string.refresh_nearby), color = MaterialTheme.colorScheme.onPrimary)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -3073,7 +3074,7 @@ private fun MapEmptyStateCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -3083,7 +3084,7 @@ private fun MapEmptyStateCard(
                 "No $emptyLabel found within $activeRadiusKm km",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF212121)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 if (facilitiesMissingMapCoordinates > 0) {
@@ -3092,7 +3093,7 @@ private fun MapEmptyStateCard(
                     "The map is centered on your current location. Refresh location or reset filters to try again."
                 },
                 fontSize = 14.sp,
-                color = Color(0xFF616161)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
@@ -3156,14 +3157,14 @@ private fun SearchBarSection(
             placeholder = {
                 Text(
                     placeholderText,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             leadingIcon = {
                 Icon(
                     Icons.Default.Search,
                     contentDescription = null,
-                    tint = Color.Gray
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             trailingIcon = {
@@ -3323,7 +3324,7 @@ private fun FacilityMapCard(
                                 Text(
                                     "24/7",
                                     fontSize = 9.sp,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -3332,7 +3333,7 @@ private fun FacilityMapCard(
                     Text(
                         text = facility.type.getDisplayName(),
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -3344,7 +3345,7 @@ private fun FacilityMapCard(
                         Text(
                             text = " ${facility.rating} • ${facility.distance}",
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         StatusBadge(isOpen = facility.isOpen, small = true)
@@ -3521,7 +3522,7 @@ private fun FacilityListCard(
                     Text(
                         text = facility.type.getDisplayName(),
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3534,7 +3535,7 @@ private fun FacilityListCard(
                         Text(
                             text = " ${facility.rating} (${facility.reviewCount})",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Icon(
@@ -3546,7 +3547,7 @@ private fun FacilityListCard(
                         Text(
                             text = " ${facility.distance}",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -3557,14 +3558,14 @@ private fun FacilityListCard(
                 Icon(
                     Icons.Outlined.Place,
                     contentDescription = null,
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = facility.address,
                     fontSize = 13.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -3593,20 +3594,20 @@ private fun FacilityListCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(Color(0xFFFFEBEE), RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(
                         Icons.Default.LocalHospital,
                         contentDescription = null,
-                        tint = Color(0xFFE53935),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "24/7 Emergency Available",
                         fontSize = 12.sp,
-                        color = Color(0xFFE53935),
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -3701,7 +3702,7 @@ private fun InfoCard(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
-                Text(title, fontSize = 11.sp, color = Color.Gray)
+                Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     value,
                     fontSize = 13.sp,

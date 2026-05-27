@@ -153,7 +153,7 @@ fun PatientLoginScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
 
@@ -162,7 +162,7 @@ fun PatientLoginScreen(
             Box(
                 modifier = Modifier
                     .size(76.dp)
-                    .background(Color.White.copy(alpha = 0.14f), CircleShape),
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.14f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.size(42.dp)) {
@@ -184,14 +184,14 @@ fun PatientLoginScreen(
 
             Text(
                 text = stringResource(R.string.welcome_back),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.login_description),
-                color = Color.White.copy(alpha = 0.88f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp
             )
@@ -200,11 +200,11 @@ fun PatientLoginScreen(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.onPrimary
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -430,7 +430,7 @@ fun PatientLoginScreen(
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -443,7 +443,7 @@ fun PatientLoginScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.or_separator), color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(stringResource(R.string.or_separator), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
                 }
 
@@ -457,7 +457,7 @@ fun PatientLoginScreen(
                         .height(54.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(stringResource(R.string.continue_with_google), color = Color.Black, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.continue_with_google), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                 }
 
                 Row(
@@ -723,7 +723,7 @@ private fun ForgotPasswordDialog(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
                     Text(if (step == 0) stringResource(R.string.send_reset_code) else stringResource(R.string.reset_password))

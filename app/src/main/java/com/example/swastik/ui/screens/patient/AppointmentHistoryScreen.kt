@@ -145,7 +145,7 @@ fun AppointmentHistoryScreen(
                                             val xOffset = 13.dp.toPx()
                                             val yStart = 24.dp.toPx()
                                             drawLine(
-                                                color = Color.LightGray.copy(alpha = 0.5f),
+                                                color = colorScheme.outlineVariant.copy(alpha = 0.5f),
                                                 start = Offset(xOffset, yStart),
                                                 end = Offset(xOffset, size.height + 16.dp.toPx()),
                                                 strokeWidth = strokeWidth

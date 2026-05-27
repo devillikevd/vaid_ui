@@ -66,6 +66,7 @@ fun BezierCurveChart(
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
             Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                 val width = size.width
                 val height = size.height
@@ -124,7 +125,7 @@ fun BezierCurveChart(
                 // Draw data points
                 points.forEach { point ->
                     drawCircle(
-                        color = Color.White,
+                        color = onPrimaryColor,
                         radius = 4.dp.toPx(),
                         center = point
                     )

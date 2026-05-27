@@ -127,7 +127,7 @@ fun MedicineDetailScreen(
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {

@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -174,21 +175,21 @@ private fun EmergencyTypeSelection(
             label = "Cardiac",
             value = "cardiac",
             description = "Chest pain, stroke signs, unconsciousness",
-            color = Color(0xFFC62828)
+            color = MaterialTheme.colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.Person,
             label = "Pregnancy",
             value = "pregnancy",
             description = "Labour pain, urgent maternal transport",
-            color = Color(0xFF7C3AED)
+            color = MaterialTheme.colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.MedicalServices,
             label = "Other",
             value = "other",
             description = "Any urgent condition needing ambulance pickup",
-            color = Color(0xFF2563EB)
+            color = MaterialTheme.colorScheme.onSurface
         )
     )
 

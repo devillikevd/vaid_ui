@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikPrimary
+import androidx.compose.material3.MaterialTheme
 
 // ==================== BOTTOM NAVIGATION ====================
 @Composable
@@ -194,12 +195,12 @@ fun CommonScreenHeader(
                 text = userName,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 fontSize = 13.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -220,7 +221,7 @@ fun CommonScreenHeader(
                 Icon(
                     Icons.Outlined.Notifications,
                     contentDescription = "Notifications",
-                    tint = Color.Black
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
             Box(
@@ -252,13 +253,13 @@ fun EmptyStateView(
         Box(
             modifier = Modifier
                 .size(80.dp)
-                .background(Color(0xFFF5F5F5), CircleShape),
+                .background(MaterialTheme.colorScheme.surface, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp)
             )
         }
@@ -269,7 +270,7 @@ fun EmptyStateView(
             text = title,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
@@ -278,7 +279,7 @@ fun EmptyStateView(
         Text(
             text = subtitle,
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
@@ -299,9 +300,9 @@ fun EmptyStateView(
 @Composable
 fun LoadingShimmer(modifier: Modifier = Modifier) {
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -341,7 +342,7 @@ fun NoInternetView(onRetry: () -> Unit) {
         Icon(
             Icons.Default.WifiOff,
             contentDescription = null,
-            tint = Color.Gray,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(80.dp)
         )
 
@@ -351,7 +352,7 @@ fun NoInternetView(onRetry: () -> Unit) {
             text = "No Internet Connection",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -359,7 +360,7 @@ fun NoInternetView(onRetry: () -> Unit) {
         Text(
             text = "Please check your connection and try again",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 

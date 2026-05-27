@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient
 
 import androidx.compose.foundation.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -66,12 +67,13 @@ fun AppointmentCancellationFlow(
             color = MaterialTheme.colorScheme.surface
         ) {
             Box {
+                val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                 // Background pattern / decoration
                 Canvas(modifier = Modifier.matchParentSize()) {
                     val gridStep = 40.dp.toPx()
                     for (x in 0 until (size.width / gridStep).toInt()) {
                         drawLine(
-                            color = Color(0xFFE53935).copy(alpha = 0.05f),
+                            color = gridColor,
                             start = Offset(x * gridStep, 0f),
                             end = Offset(x * gridStep, size.height),
                             strokeWidth = 1f
@@ -79,7 +81,7 @@ fun AppointmentCancellationFlow(
                     }
                     for (y in 0 until (size.height / gridStep).toInt()) {
                         drawLine(
-                            color = Color(0xFFE53935).copy(alpha = 0.05f),
+                            color = gridColor,
                             start = Offset(0f, y * gridStep),
                             end = Offset(size.width, y * gridStep),
                             strokeWidth = 1f
@@ -144,13 +146,13 @@ private fun CancellationConfirmContent(
         Box(
             modifier = Modifier
                 .size(120.dp)
-                .background(Color(0xFFFFEBEE), CircleShape),
+                .background(MaterialTheme.colorScheme.surface, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.Cancel,
                 contentDescription = null,
-                tint = Color(0xFFE53935),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(60.dp)
             )
         }
@@ -181,9 +183,9 @@ private fun CancellationConfirmContent(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, Color(0xFFFFEBEE))
         ) {
-            Text("No, don't cancel", color = Color(0xFFE53935))
+            Text("No, don't cancel", color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -219,9 +221,9 @@ private fun CancellationReasonContent(
     ) {
         IconButton(
             onClick = onKeepAppointment,
-            modifier = Modifier.align(Alignment.End).background(Color(0xFFFFEBEE), RoundedCornerShape(8.dp))
+            modifier = Modifier.align(Alignment.End).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
         ) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFFE53935))
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         
         Text(
@@ -319,7 +321,7 @@ private fun CancellationReasonContent(
             onClick = onKeepAppointment,
             modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
-            Text("Keep Appointment", color = Color(0xFFE53935), fontWeight = FontWeight.SemiBold)
+            Text("Keep Appointment", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -361,8 +363,8 @@ private fun CancellationSuccessContent(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Block, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(40.dp))
-                    Text("CANCELLED", color = Color(0xFFE53935), fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
+                    Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+                    Text("CANCELLED", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
                 }
             }
         }

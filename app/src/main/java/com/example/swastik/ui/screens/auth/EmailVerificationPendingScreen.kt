@@ -20,6 +20,7 @@ import com.example.swastik.ui.components.SwastikButton
 import com.example.swastik.ui.components.SwastikTopBar
 import com.example.swastik.ui.theme.SwastikPrimary
 import kotlinx.coroutines.delay
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Screen shown after successful registration.
@@ -47,7 +48,7 @@ fun EmailVerificationPendingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         // Top Bar
         SwastikTopBar(
@@ -80,7 +81,7 @@ fun EmailVerificationPendingScreen(
             text = if (uiState.emailVerificationComplete) "Email Verified" else "Verify Your Email",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
@@ -102,7 +103,7 @@ fun EmailVerificationPendingScreen(
                     "We've sent a 6-digit verification code to your email address.\nPlease enter it below to verify your account."
                 },
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp),
@@ -130,7 +131,7 @@ fun EmailVerificationPendingScreen(
             Text(
                 text = if (uiState.emailVerificationComplete) "You can move ahead with sign in now" else "Don't forget to check your spam folder",
                 fontSize = 12.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -243,7 +244,7 @@ fun EmailVerificationPendingScreen(
             Text(
                 text = "After verifying your email, you can log in with your credentials.",
                 fontSize = 12.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )

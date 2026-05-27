@@ -77,7 +77,7 @@ fun NotificationPanelDialog(
                     .fillMaxWidth(0.85f)
                     .clickable(enabled = false) {}, // prevent click-through
                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-                color = Color.White, // Forced White Background
+                color = MaterialTheme.colorScheme.onPrimary, // Forced White Background
                 tonalElevation = 8.dp
             ) {
                 Column(
@@ -89,7 +89,7 @@ fun NotificationPanelDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.White)
+                            .background(MaterialTheme.colorScheme.surface)
                             .padding(20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -98,7 +98,7 @@ fun NotificationPanelDialog(
                             stringResource(R.string.notifications),
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 24.sp,
-                            color = Color(0xFF1A1A2E)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (notifications.isNotEmpty()) {
@@ -111,12 +111,12 @@ fun NotificationPanelDialog(
                                 }
                             }
                             IconButton(onClick = onDismiss) {
-                                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = Color.Gray)
+                                Icon(Icons.Outlined.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
 
-                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                     // Filter Chips
                     LazyRow(
@@ -131,7 +131,7 @@ fun NotificationPanelDialog(
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = SwastikPrimary,
                                     selectedLabelColor = Color.White,
-                                    containerColor = Color(0xFFF3F4F6)
+                                    containerColor = MaterialTheme.colorScheme.surface
                                 ),
                                 border = null
                             )
@@ -150,13 +150,13 @@ fun NotificationPanelDialog(
                                 Icon(
                                     Icons.Outlined.Notifications,
                                     contentDescription = null,
-                                    tint = Color.LightGray,
+                                    tint = MaterialTheme.colorScheme.outlineVariant,
                                     modifier = Modifier.size(64.dp)
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     stringResource(R.string.no_notifications_1),
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 15.sp
                                 )
                             }
@@ -247,7 +247,7 @@ private fun NotificationCard(
                         text = notification.title,
                         fontSize = 14.sp,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.SemiBold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (!notification.isRead) {
                         Box(
@@ -263,7 +263,7 @@ private fun NotificationCard(
                 Text(
                     text = notification.message,
                     fontSize = 12.sp,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp
                 )
 
@@ -278,7 +278,7 @@ private fun NotificationCard(
                     Text(
                         text = notification.time,
                         fontSize = 11.sp,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
 
                     if (notification.actionLabel != null) {

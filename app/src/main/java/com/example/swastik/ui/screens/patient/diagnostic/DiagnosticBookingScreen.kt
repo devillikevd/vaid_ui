@@ -32,6 +32,7 @@ import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 private val SwastikPrimary = Color(0xFF6C63FF)
 
@@ -179,9 +180,9 @@ fun DiagnosticBookingScreen(
                 if (uiState.centers.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Biotech, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
+                            Icon(Icons.Default.Biotech, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.no_diagnostic_centers), color = Color.Gray)
+                            Text(stringResource(R.string.no_diagnostic_centers), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
@@ -380,20 +381,20 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(center.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(center.address ?: "", color = Color.Gray, fontSize = 13.sp, maxLines = 1)
+                Text(center.address ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     center.rating?.let {
                         Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                        Text(" ${String.format(Locale.US, "%.1f", it)}", fontSize = 12.sp, color = Color.Gray)
+                        Text(" ${String.format(Locale.US, "%.1f", it)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                     }
                     center.distance?.let {
-                        Icon(Icons.Default.LocationOn, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Text(" ${String.format(Locale.US, "%.1f", it)} km", fontSize = 12.sp, color = Color.Gray)
+                        Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
+                        Text(" ${String.format(Locale.US, "%.1f", it)} km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            Icon(Icons.Default.ChevronRight, null, tint = Color.Gray)
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -425,7 +426,7 @@ private fun CenterTestsView(
 
                 if (tests.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.no_tests_available), color = Color.Gray)
+                Text(stringResource(R.string.no_tests_available), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(
@@ -484,18 +485,18 @@ private fun TestCard(
             if (isSelected) {
                 Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
             } else {
-                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(test.name, fontWeight = FontWeight.SemiBold)
-                test.category?.let { Text(it, color = Color.Gray, fontSize = 12.sp) }
+                test.category?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
                 val turnaroundLabel = test.reportTime
                     ?: test.turnaroundHours?.let { hours ->
                         if (hours == 24) "24 hours" else "$hours hours"
                     }
-                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = Color.Gray, fontSize = 12.sp) }
-                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = Color.Gray, fontSize = 12.sp) }
+                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
             }
             test.price?.let {
                 Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)

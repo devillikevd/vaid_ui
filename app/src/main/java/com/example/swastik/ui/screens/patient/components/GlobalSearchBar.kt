@@ -35,6 +35,7 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.swastik.data.model.Doctor
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun GlobalSearchBar(
@@ -99,10 +100,10 @@ fun GlobalSearchBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
-                .background(Color.White, RoundedCornerShape(24.dp))
-                .border(1.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
             singleLine = true,
-            textStyle = TextStyle(fontSize = 14.sp, color = Color.Black),
+            textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
@@ -133,7 +134,7 @@ fun GlobalSearchBar(
                     Icon(
                         Icons.Filled.Search, 
                         contentDescription = "Search", 
-                        tint = Color.Gray, 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -141,7 +142,7 @@ fun GlobalSearchBar(
                         if (query.isEmpty()) {
                             Text(
                                 "Search Doctors, Specialities, symptoms...", 
-                                color = Color.Gray, 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, 
                                 fontSize = 13.sp
                             )
                         }
@@ -152,7 +153,7 @@ fun GlobalSearchBar(
                             onClick = { query = "" },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         }
                     }
                     IconButton(
@@ -167,7 +168,7 @@ fun GlobalSearchBar(
                         },
                         modifier = Modifier.size(28.dp)
                     ) {
-                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -182,7 +183,7 @@ fun GlobalSearchBar(
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(6.dp)
                 ) {
                     LazyColumn(
@@ -192,7 +193,7 @@ fun GlobalSearchBar(
                     ) {
                         if (query.isEmpty()) {
                             item {
-                                Text("Suggested for you", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
+                                Text("Suggested for you", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             items(suggestions) { item ->
                                 SuggestionRow(item) {
@@ -208,7 +209,7 @@ fun GlobalSearchBar(
                         } else {
                             if (filteredServices.isNotEmpty()) {
                                 item {
-                                    Text("Services", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
+                                    Text("Services", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredServices) { service ->
                                     SuggestionRow(service) {
@@ -221,7 +222,7 @@ fun GlobalSearchBar(
 
                             if (filteredSpecs.isNotEmpty()) {
                                 item {
-                                    Text("Specialities", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
+                                    Text("Specialities", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredSpecs) { spec ->
                                     SuggestionRow(spec) {
@@ -234,7 +235,7 @@ fun GlobalSearchBar(
 
                             if (filteredDocs.isNotEmpty()) {
                                 item {
-                                    Text("Doctors", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
+                                    Text("Doctors", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredDocs) { doc ->
                                     Row(
@@ -248,11 +249,11 @@ fun GlobalSearchBar(
                                             .padding(16.dp, 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Filled.NorthEast, null, tint = Color.LightGray, modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(16.dp))
                                         Column {
                                             Text(doc.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                            Text(doc.specialization, fontSize = 12.sp, color = Color.Gray)
+                                            Text(doc.specialization, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
@@ -274,7 +275,7 @@ fun SuggestionRow(text: String, onClick: () -> Unit) {
             .padding(16.dp, 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Filled.NorthEast, null, tint = Color.LightGray, modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.NorthEast, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Text(text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }

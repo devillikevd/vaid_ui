@@ -47,6 +47,7 @@ import com.example.swastik.ui.theme.*
 import com.example.swastik.ui.screens.patient.components.SpecialityCard
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.MaterialTheme
 
 data class SpecialityItem(
     val name: String,
@@ -314,7 +315,7 @@ fun FindDoctorsCategoriesScreen(
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .verticalScroll(scrollState)
@@ -337,7 +338,7 @@ fun FindDoctorsCategoriesScreen(
                         Icon(
                             if (mode == "in_person") Icons.Outlined.PersonPinCircle else Icons.Outlined.Videocam,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -394,7 +395,7 @@ fun FindDoctorsCategoriesScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -430,14 +431,14 @@ fun FindDoctorsCategoriesScreen(
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     interactionSource = interactionSource,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         focusedBorderColor = SwastikPrimary,
                         unfocusedContainerColor = Color.White,
                         focusedContainerColor = Color.White
@@ -455,7 +456,7 @@ fun FindDoctorsCategoriesScreen(
                                 .fillMaxWidth()
                                 .padding(top = 4.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(4.dp)
                         ) {
                             Column {
@@ -474,14 +475,14 @@ fun FindDoctorsCategoriesScreen(
                                         Icon(
                                             if (searchQuery.isEmpty()) Icons.Default.NorthEast else Icons.Outlined.Search,
                                             contentDescription = null,
-                                            tint = Color.Gray,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(item, fontSize = 14.sp)
                                     }
                                     if (item != displayList.last()) {
-                                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                                     }
                                 }
                             }

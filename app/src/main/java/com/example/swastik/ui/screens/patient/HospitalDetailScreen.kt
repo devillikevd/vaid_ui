@@ -34,6 +34,7 @@ import com.example.swastik.utils.NavigationHelper
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -552,7 +553,7 @@ private fun HospitalReviewSection(
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color.White
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
                             } else {
                                 Text(stringResource(R.string.submit))
@@ -665,7 +666,7 @@ private fun DoctorDetailCard(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(Color(0xFFE3F2FD), RoundedCornerShape(12.dp)),
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!doctor.profileImageUrl.isNullOrBlank()) {

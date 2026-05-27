@@ -34,6 +34,7 @@ import com.example.swastik.R
 import com.example.swastik.data.model.Doctor
 import com.example.swastik.ui.theme.*
 import java.util.Locale
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun EmergencySOSBanner(onClick: () -> Unit) {
@@ -43,7 +44,7 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)), // ultra light red
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // ultra light red
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.05f))
     ) {
@@ -58,7 +59,7 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
                     .background(Color.Red, RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -71,14 +72,14 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
                 Text(
                     "Tap to call ambulance",
                     fontSize = 10.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             // Small red phone icon on right
             Box(
                 modifier = Modifier
                     .size(26.dp)
-                    .background(Color.White, CircleShape),
+                    .background(MaterialTheme.colorScheme.surface, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -110,13 +111,13 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 12.dp)
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Vaididea AI Assistant",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
             
@@ -127,7 +128,7 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .height(38.dp)
-                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -138,13 +139,13 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                 ) {
                     Text(
                         "Hi, how are you feeling today?",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                     Icon(
                         Icons.Filled.Mic,
                         null,
-                        tint = Color(0xFF00796B),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -162,7 +163,7 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
             .height(158.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8F7)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, Color(0xFFD9EEEA))
     ) {
@@ -202,7 +203,7 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
                     text = "In-person\nConsultation",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1A1A2E),
+                    color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Clip,
@@ -220,7 +221,7 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .height(158.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF6F3FF)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, Color(0xFFE3DAFF))
     ) {
@@ -260,7 +261,7 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     text = "Video\nConsultation",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1A1A2E),
+                    color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 17.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Clip,
@@ -279,7 +280,7 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF9F1)), // Light mint green
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Light mint green
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, Color(0xFFCFEBDD))
     ) {
@@ -293,10 +294,10 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(42.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp)),
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.QrCode2, null, tint = Color(0xFF333333), modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -307,7 +308,7 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                         text = "Digital Health ID",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1A1A2E),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -329,7 +330,7 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                 Text(
                     text = "View your vitals, history & more",
                     fontSize = 11.sp,
-                    color = Color(0xFF5F6B6A)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -341,13 +342,13 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                     "View Vitals",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF00796B)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
                     Icons.Filled.ChevronRight,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = Color(0xFF00796B)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -382,7 +383,7 @@ fun HealthServicesSection(
                 "Quick Actions",
                 fontWeight = FontWeight.ExtraBold, 
                 fontSize = 16.sp, 
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -454,7 +455,7 @@ private fun ServiceSquareCard(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(Color.White, CircleShape),
+                    .background(MaterialTheme.colorScheme.surface, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, null, tint = iconColor, modifier = Modifier.size(24.dp))
@@ -464,7 +465,7 @@ private fun ServiceSquareCard(
                 text = title,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 lineHeight = 14.sp
             )
@@ -480,7 +481,7 @@ fun CommunityQABanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF8F3)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, Color(0xFFD3EFE5))
     ) {
@@ -495,13 +496,13 @@ fun CommunityQABanner(onClick: () -> Unit) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White),
+                    .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Forum,
                     contentDescription = null,
-                    tint = Color(0xFF00796B),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -516,14 +517,14 @@ fun CommunityQABanner(onClick: () -> Unit) {
                     "Community Q&A",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp,
-                    color = Color(0xFF152E2A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     "Ask questions, get answers from verified doctors",
                     fontSize = 10.sp,
-                    color = Color(0xFF63736F),
+                    color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 12.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -535,7 +536,7 @@ fun CommunityQABanner(onClick: () -> Unit) {
             Icon(
                 Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = Color(0xFF00796B),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -561,7 +562,7 @@ fun SecondaryActionsGrid(
                 .fillMaxHeight()
                 .clickable(onClick = onReportsClick),
             shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F4F8)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             border = BorderStroke(1.dp, Color(0xFFE2E8EF))
         ) {
@@ -575,7 +576,7 @@ fun SecondaryActionsGrid(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(Color.White, CircleShape),
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -591,14 +592,14 @@ fun SecondaryActionsGrid(
                         "Reports",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = Color(0xFF1A1A2E),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "History",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -614,7 +615,7 @@ fun SecondaryActionsGrid(
                 .fillMaxHeight()
                 .clickable(onClick = onAppointmentsClick),
             shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F4F8)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             border = BorderStroke(1.dp, Color(0xFFE2E8EF))
         ) {
@@ -628,7 +629,7 @@ fun SecondaryActionsGrid(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(Color.White, CircleShape),
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -644,14 +645,14 @@ fun SecondaryActionsGrid(
                         "Appointments",
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
-                        color = Color(0xFF1A1A2E),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "Upcoming",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -738,7 +739,7 @@ private fun HealthcareServiceCard(
                     text = title,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Color(0xFF1A1A1A),
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     lineHeight = 17.sp
@@ -748,7 +749,7 @@ private fun HealthcareServiceCard(
                     Text(
                         text = subtitle,
                         fontSize = 11.sp,
-                        color = Color(0xFF5F6B6A),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -845,7 +846,7 @@ fun RecommendedDoctorsSection(
                 "Recommended Doctor", 
                 fontWeight = FontWeight.ExtraBold, 
                 fontSize = 17.sp, 
-                color = Color(0xFF1A1A1A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -854,13 +855,13 @@ fun RecommendedDoctorsSection(
                 Text(
                     "View all", 
                     fontSize = 13.sp, 
-                    color = Color(0xFF00796B), 
+                    color = MaterialTheme.colorScheme.onSurface, 
                     fontWeight = FontWeight.Bold
                 )
                 Icon(
                     Icons.Filled.ChevronRight, 
                     null, 
-                    tint = Color(0xFF00796B), 
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -907,9 +908,9 @@ fun DoctorCard(
             .fillMaxWidth()
             .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -921,7 +922,7 @@ fun DoctorCard(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF0F4F8)),
+                        .background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!doctor.profileImageUrl.isNullOrBlank()) {
@@ -938,14 +939,14 @@ fun DoctorCard(
                 Box(
                     modifier = Modifier
                         .size(20.dp)
-                        .background(Color.White, CircleShape)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
                         .padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.CheckCircle, 
                         null, 
-                        tint = Color(0xFF00796B), 
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant, 
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -960,7 +961,7 @@ fun DoctorCard(
                         doctor.name, 
                         fontWeight = FontWeight.Bold, 
                         fontSize = 15.sp, 
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Surface(
@@ -971,9 +972,9 @@ fun DoctorCard(
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Verified, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(10.dp))
+                            Icon(Icons.Filled.Verified, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(10.dp))
                             Spacer(modifier = Modifier.width(2.dp))
-                            Text("Verified", fontSize = 8.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                            Text("Verified", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -981,20 +982,20 @@ fun DoctorCard(
                 Text(
                     doctor.specialization, 
                     fontSize = 12.sp, 
-                    color = Color(0xFF00796B), 
+                    color = MaterialTheme.colorScheme.onSurface, 
                     fontWeight = FontWeight.Bold
                 )
                 
                 Text(
                     text = "${doctor.qualifications ?: "MBBS, MS"} • ${doctor.experienceYears ?: 5} Years Exp.",
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(12.dp))
                     val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
-                    Text(" $ratingText", fontSize = 11.sp, color = Color.Gray)
+                    Text(" $ratingText", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -1004,12 +1005,12 @@ fun DoctorCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Consultation Fee", fontSize = 10.sp, color = Color.Gray)
+                    Text("Consultation Fee", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         "₹${doctor.consultationFee ?: 500}", 
                         fontSize = 17.sp, 
                         fontWeight = FontWeight.ExtraBold, 
-                        color = Color(0xFF00796B)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 

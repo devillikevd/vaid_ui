@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.patient
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -194,7 +195,7 @@ fun HealthCardScreen(
                             } else if (hcState.hasActiveCard && hcState.url != null) {
                                 Box(
                                     modifier = Modifier
-                                        .background(Color.White, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
+                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
                                         .padding(8.dp)
                                 ) {
                                     if (qrBitmap != null) {
@@ -208,7 +209,7 @@ fun HealthCardScreen(
                                         Icon(
                                             Icons.Outlined.QrCodeScanner,
                                             contentDescription = "QR Code unavailable",
-                                            tint = Color.LightGray,
+                                            tint = MaterialTheme.colorScheme.outlineVariant,
                                             modifier = Modifier.size(80.dp)
                                         )
                                     }
@@ -246,7 +247,7 @@ fun HealthCardScreen(
                             Icon(
                                 Icons.Filled.Person,
                                 contentDescription = "Profile",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .background(MaterialTheme.colorScheme.primary, CircleShape)
@@ -343,14 +344,14 @@ fun HealthCardScreen(
                             Surface(
                                 modifier = Modifier.size(56.dp),
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 shadowElevation = 2.dp
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Outlined.Favorite,
                                         contentDescription = null,
-                                        tint = Color(0xFF6A5AE0),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(32.dp)
                                     )
                                 }
@@ -362,7 +363,7 @@ fun HealthCardScreen(
                                 Text(
                                     "Google Health Connect",
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color.Black,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 17.sp
                                 )
                                 
@@ -370,16 +371,16 @@ fun HealthCardScreen(
                                     Text(
                                         text = "Last sync: $lastSyncText",
                                         fontSize = 12.sp,
-                                        color = Color.Gray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                             
                             // Sync Illustration matching image
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Watch, null, modifier = Modifier.size(24.dp), tint = Color.DarkGray)
-                                Icon(Icons.Default.SyncAlt, null, modifier = Modifier.size(16.dp), tint = Color(0xFF6A5AE0))
-                                Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(24.dp), tint = Color.DarkGray)
+                                Icon(Icons.Outlined.Watch, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.SyncAlt, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Default.Smartphone, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         
@@ -418,15 +419,15 @@ fun HealthCardScreen(
                             if (syncState is ProfileUpdateState.Loading) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Syncing...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Syncing...", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             } else {
                                 Icon(Icons.Default.Sync, null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sync Now", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         
@@ -493,7 +494,7 @@ private fun HealthCardHowItWorks() {
             .fillMaxWidth()
             .padding(16.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.LightGray.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
         // Header
@@ -543,7 +544,7 @@ private fun HealthCardHowItWorks() {
                     .fillMaxWidth()
                     .padding(top = 20.dp)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color.LightGray.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
                 StepItem(
@@ -685,7 +686,7 @@ private fun StepItem(
             ) {
                 Text(
                     text = number,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )

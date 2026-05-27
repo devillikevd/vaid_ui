@@ -31,6 +31,7 @@ import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +63,7 @@ fun RemindersTabContent(
             FloatingActionButton(
                 onClick = { showCreateSheet = true },
                 containerColor = SwastikPrimary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(Icons.Filled.Add, "Add Reminder")
             }
@@ -105,7 +106,7 @@ fun RemindersTabContent(
                             .clickable { selectedFilter = filter },
                         shape = RoundedCornerShape(16.dp),
                         color = if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surface,
-                        border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray) else null
+                        border = if (!isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
                     ) {
                         Text(
                             text = filter,
@@ -134,7 +135,7 @@ fun RemindersTabContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.Alarm, null, tint = Color.LightGray, modifier = Modifier.size(64.dp))
+                        Icon(Icons.Filled.Alarm, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(64.dp))
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "No upcoming reminders.",
@@ -150,6 +151,7 @@ fun RemindersTabContent(
                 ) {
                     itemsIndexed(filteredReminders, key = { _, it -> it.id }) { index, reminder ->
                         val isLast = index == filteredReminders.size - 1
+                        val outlineVariant = MaterialTheme.colorScheme.outlineVariant
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = {
                                 if (it == SwipeToDismissBoxValue.EndToStart) {
@@ -170,7 +172,7 @@ fun RemindersTabContent(
                                         val xOffset = 13.dp.toPx()
                                         val yStart = 24.dp.toPx()
                                         drawLine(
-                                            color = Color.LightGray.copy(alpha = 0.5f),
+                                            color = outlineVariant.copy(alpha = 0.5f),
                                             start = androidx.compose.ui.geometry.Offset(xOffset, yStart),
                                             end = androidx.compose.ui.geometry.Offset(xOffset, size.height),
                                             strokeWidth = strokeWidth

@@ -153,13 +153,13 @@ fun PatientRegisterScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = stringResource(R.string.create_patient_account),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -168,11 +168,11 @@ fun PatientRegisterScreen(
         Surface(
             modifier = Modifier.fillMaxSize(),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = Color.White
+            color = MaterialTheme.colorScheme.onPrimary
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -187,7 +187,7 @@ fun PatientRegisterScreen(
                             text = stringResource(R.string.get_started),
                             fontSize = 30.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -457,7 +457,7 @@ fun PatientRegisterScreen(
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -470,7 +470,7 @@ fun PatientRegisterScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.or_separator), color = Color.Gray, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(stringResource(R.string.or_separator), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
                     androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
                 }
 
@@ -484,7 +484,7 @@ fun PatientRegisterScreen(
                         .height(56.dp),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(stringResource(R.string.sign_up_google), color = Color.Black, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.sign_up_google), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                 }
 
                 Row(

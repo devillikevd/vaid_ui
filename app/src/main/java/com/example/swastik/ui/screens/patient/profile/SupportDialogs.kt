@@ -35,6 +35,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 // ==================== FEEDBACK DIALOG ====================
 
@@ -55,7 +56,7 @@ fun FeedbackDialog(onDismiss: () -> Unit) {
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.how_would_you_rate_your_experience), fontSize = 14.sp, color = Color.Gray)
+                Text(stringResource(R.string.how_would_you_rate_your_experience), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
@@ -121,7 +122,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.frequently_asked_questions), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
+                Text(stringResource(R.string.frequently_asked_questions), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 faqs.forEachIndexed { index, (question, answer) ->
                     Card(
@@ -143,7 +144,7 @@ fun HelpCenterDialog(onDismiss: () -> Unit) {
                             }
                             if (expandedIndex == index) {
                                 Spacer(Modifier.height(8.dp))
-                                Text(answer, fontSize = 12.sp, color = Color.DarkGray)
+                                Text(answer, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -235,7 +236,7 @@ fun QrCodeDialog(
                     modifier = Modifier
                         .size(220.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
+                        .background(MaterialTheme.colorScheme.surface)
                         .border(2.dp, SwastikPrimary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
                         .padding(12.dp),
                     contentAlignment = Alignment.Center
@@ -245,7 +246,7 @@ fun QrCodeDialog(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(modifier = Modifier.size(48.dp), color = SwastikPrimary)
                                 Spacer(Modifier.height(8.dp))
-                                Text(stringResource(R.string.checking_health_card), fontSize = 12.sp, color = Color.Gray)
+                                Text(stringResource(R.string.checking_health_card), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                         healthCardState.error != null -> {
@@ -265,8 +266,8 @@ fun QrCodeDialog(
                         }
                         else -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Outlined.QrCode2, null, tint = Color.LightGray, modifier = Modifier.size(60.dp))
-                                Text(stringResource(R.string.tap_generate_below), fontSize = 12.sp, color = Color.Gray)
+                                Icon(Icons.Outlined.QrCode2, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(60.dp))
+                                Text(stringResource(R.string.tap_generate_below), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -275,7 +276,7 @@ fun QrCodeDialog(
                 Spacer(Modifier.height(12.dp))
                 Text(profile?.name ?: "Patient", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 if (profile?.abhaNumber?.isNotEmpty() == true) {
-                    Text("ABHA: ${profile.abhaNumber}", fontSize = 12.sp, color = Color.Gray)
+                    Text("ABHA: ${profile.abhaNumber}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 if (healthCardState.hasActiveCard && healthCardState.expiresAt != null) {
@@ -297,7 +298,7 @@ fun QrCodeDialog(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Anyone with this active QR or link can view your\nshared clinical summary until it expires or you revoke it",
-                    fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
                 )
 
                 if (healthCardState.hasActiveCard) {
@@ -329,7 +330,7 @@ fun QrCodeDialog(
                                     "Enable Guardian doctor/QR sharing from Health Card > Learn more first."
                                 },
                                 fontSize = 10.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }

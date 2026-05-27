@@ -29,6 +29,7 @@ import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,7 +106,7 @@ fun BookingHistoryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
@@ -114,7 +115,7 @@ fun BookingHistoryScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF4CAF50))
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.booking_cancelled_successfully), color = Color(0xFF2E7D32), fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.booking_cancelled_successfully), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -125,16 +126,16 @@ fun BookingHistoryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Error, null, tint = Color(0xFFE53935))
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
-                        Text(error, color = Color(0xFFC62828), modifier = Modifier.weight(1f))
+                        Text(error, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearBookingHistoryError() }) {
                             Text(stringResource(R.string.dismiss))
                         }
@@ -151,10 +152,10 @@ fun BookingHistoryScreen(
                 historyState.bookings.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Science, null, tint = Color.Gray, modifier = Modifier.size(64.dp))
+                            Icon(Icons.Default.Science, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(stringResource(R.string.no_bookings_found_1), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.Gray)
-                            Text(stringResource(R.string.your_diagnostic_bookings_will_appear_here), color = Color.Gray, fontSize = 14.sp)
+                            Text(stringResource(R.string.no_bookings_found_1), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.your_diagnostic_bookings_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                     }
                 }
@@ -227,7 +228,7 @@ private fun BookingHistoryCard(
                     )
                     Text(
                         booking.center?.name ?: "Diagnostic Center",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -236,7 +237,7 @@ private fun BookingHistoryCard(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             bookingNumber,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -266,10 +267,10 @@ private fun BookingHistoryCard(
                     Text(
                         formatBookingDate(booking.bookingDate),
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     booking.bookingTime?.let {
-                        Text(" at $it", fontSize = 13.sp, color = Color.Gray)
+                        Text(" at $it", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 booking.test?.price?.let {
@@ -286,12 +287,12 @@ private fun BookingHistoryCard(
                     // Collection type
                     booking.collectionType?.let { ct ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocalShipping, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.LocalShipping, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 "Collection: ${ct.replace("_", " ").replaceFirstChar { it.uppercase() }}",
                                 fontSize = 13.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(Modifier.height(4.dp))
@@ -300,9 +301,9 @@ private fun BookingHistoryCard(
                     // Test category
                     booking.test?.category?.let { cat ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Category, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Category, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.category_label, cat), fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.category_label, cat), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -310,9 +311,9 @@ private fun BookingHistoryCard(
                     // Report time
                     booking.test?.reportTime?.let { rt ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Timer, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Timer, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.report_type_format, rt), fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.report_type_format, rt), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -320,12 +321,12 @@ private fun BookingHistoryCard(
                     // Result status
                     booking.resultStatus?.let { rs ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Assignment, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Assignment, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 "Result: ${rs.replace("_", " ").replaceFirstChar { it.uppercase() }}",
                                 fontSize = 13.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(Modifier.height(4.dp))
@@ -333,9 +334,9 @@ private fun BookingHistoryCard(
 
                     booking.resultUploadedAt?.let { uploadedAt ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Verified, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Verified, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.uploaded_label, formatBookingDate(uploadedAt)), fontSize = 13.sp, color = Color.Gray)
+                            Text(stringResource(R.string.uploaded_label, formatBookingDate(uploadedAt)), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -343,18 +344,18 @@ private fun BookingHistoryCard(
                     // Notes
                     booking.notes?.let { notes ->
                         Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Default.Notes, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(notes, fontSize = 13.sp, color = Color.Gray)
+                            Text(notes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
 
                     booking.resultNotes?.takeIf { it.isNotBlank() }?.let { resultNotes ->
                         Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Default.Description, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(resultNotes, fontSize = 13.sp, color = Color.Gray)
+                            Text(resultNotes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -362,9 +363,9 @@ private fun BookingHistoryCard(
                     // Center phone
                     booking.center?.phone?.let { phone ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Phone, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(phone, fontSize = 13.sp, color = Color.Gray)
+                            Text(phone, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -410,7 +411,7 @@ private fun BookingHistoryCard(
             Icon(
                 if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 "Toggle details",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }

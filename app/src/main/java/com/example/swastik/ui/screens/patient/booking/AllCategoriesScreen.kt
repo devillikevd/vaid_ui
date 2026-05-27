@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.*
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +58,7 @@ fun AllCategoriesScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8F9FA))
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
@@ -100,7 +101,7 @@ fun CategoryGridCard(
             .height(230.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0EBEB)), // Matching the light teal/blue in the image
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // Matching the light teal/blue in the image
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -109,7 +110,7 @@ fun CategoryGridCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1.2f)
-                    .background(Color.White),
+                    .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
                 if (item.imageRes != null) {
@@ -142,7 +143,7 @@ fun CategoryGridCard(
                     text = item.title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1A1C1E), // Darker text for title
+                    color = MaterialTheme.colorScheme.onSurface, // Darker text for title
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -150,7 +151,7 @@ fun CategoryGridCard(
                 Text(
                     text = item.description,
                     fontSize = 11.sp,
-                    color = Color(0xFF44474E), // Medium grey for description
+                    color = MaterialTheme.colorScheme.onSurface, // Medium grey for description
                     lineHeight = 15.sp,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis

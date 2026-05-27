@@ -27,6 +27,7 @@ import com.example.swastik.ui.theme.*
 
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun FindDoctorsBySpecialitySection(
@@ -55,7 +56,7 @@ fun FindDoctorsBySpecialitySection(
                 "Book Doctor by Speciality",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 17.sp,
-                color = Color(0xFF1A1A1A),
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -66,7 +67,7 @@ fun FindDoctorsBySpecialitySection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(40.dp)
-                    .background(Color(0xFFE8F1EE), RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
                     .padding(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -216,9 +217,9 @@ private fun SpecialityHomeCard(
             .aspectRatio(0.82f)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.2f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (imageRes != null) {
@@ -246,7 +247,7 @@ private fun SpecialityHomeCard(
                     text = title,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     lineHeight = 11.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),

@@ -54,11 +54,11 @@ private fun CheckoutStepper(currentStep: CheckoutStep) {
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(if (isActive) SwastikPrimary else Color.LightGray),
+                        .background(if (isActive) SwastikPrimary else MaterialTheme.colorScheme.outlineVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     if (step.ordinal < currentStep.ordinal) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
                     } else {
                         Text("${index + 1}", color = if (isActive) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
                     }
@@ -73,7 +73,7 @@ private fun CheckoutStepper(currentStep: CheckoutStep) {
                         .weight(1f)
                         .height(2.dp)
                         .offset(y = (-10).dp)
-                        .background(if (steps[index + 1].ordinal <= currentStep.ordinal) SwastikPrimary else Color.LightGray)
+                        .background(if (steps[index + 1].ordinal <= currentStep.ordinal) SwastikPrimary else MaterialTheme.colorScheme.outlineVariant)
                 )
             }
         }

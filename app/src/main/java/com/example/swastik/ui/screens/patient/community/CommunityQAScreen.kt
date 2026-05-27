@@ -31,6 +31,7 @@ import com.example.swastik.data.model.CommunityQuestion
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.viewmodel.CommunityViewModel
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +62,7 @@ fun CommunityQAScreen(
                 onClick = { navController.navigate(com.example.swastik.navigation.Screen.AskQuestion.route) },
                 containerColor = SwastikPrimary
             ) {
-                Text("+ Ask", color = Color.White, modifier = Modifier.padding(horizontal = 16.dp))
+                Text("+ Ask", color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     ) { paddingValues ->

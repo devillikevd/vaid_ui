@@ -45,6 +45,7 @@ import com.google.android.gms.location.LocationServices
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
+import androidx.compose.material3.MaterialTheme
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -237,7 +238,7 @@ fun DashboardHeader(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
                             modifier = Modifier.size(13.dp),
-                            tint = Color(0xFF00796B)
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
@@ -320,14 +321,14 @@ fun DashboardHeader(
                         Icons.Default.DateRange,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.LightGray
+                        tint = MaterialTheme.colorScheme.outlineVariant
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = currentDate,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
 
@@ -344,13 +345,13 @@ fun DashboardHeader(
                             Icon(
                                 Icons.Default.Language,
                                 contentDescription = "Language",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedLanguage)),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -379,7 +380,7 @@ fun DashboardHeader(
                         BadgedBox(
                             badge = {
                                 if (cartItemCount > 0) {
-                                    Badge(containerColor = Color.Red, contentColor = Color.White) { 
+                                    Badge(containerColor = Color.Red, contentColor = MaterialTheme.colorScheme.onPrimary) { 
                                         Text(cartItemCount.toString(), fontSize = 10.sp) 
                                     }
                                 }
@@ -389,7 +390,7 @@ fun DashboardHeader(
                                 Icon(
                                     Icons.Outlined.ShoppingCart,
                                     contentDescription = "Cart",
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -402,7 +403,7 @@ fun DashboardHeader(
                             Icon(
                                 Icons.Outlined.Notifications,
                                 contentDescription = "Notifications",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -433,7 +434,7 @@ fun DashboardHeader(
                                 ) { count ->
                                     Text(
                                         text = if (count > 9) "9+" else count.toString(),
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onPrimary,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -487,7 +488,7 @@ fun DashboardHeader(
                         text = "Hello, $firstName! 👋",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         lineHeight = 28.sp
                     )
                     
@@ -512,13 +513,13 @@ fun DashboardHeader(
                             text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.outlineVariant
                         )
                         Icon(
                             Icons.Default.ArrowDropDown,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
-                            tint = Color.LightGray
+                            tint = MaterialTheme.colorScheme.outlineVariant
                         )
                     }
                 }
@@ -546,7 +547,7 @@ fun DashboardHeader(
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(12.dp))
-                            Text("Detecting current location...", fontSize = 14.sp, color = Color.Gray)
+                            Text("Detecting current location...", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
@@ -567,7 +568,7 @@ fun DashboardHeader(
                         }
                     )
 
-                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                     // Option to Add New Address (like in profile)
                     Row(
@@ -592,10 +593,10 @@ fun DashboardHeader(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text("Add New Address", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Save home, office etc.", fontSize = 12.sp, color = Color.Gray)
+                            Text("Save home, office etc.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, null, tint = Color.Gray)
+                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             },

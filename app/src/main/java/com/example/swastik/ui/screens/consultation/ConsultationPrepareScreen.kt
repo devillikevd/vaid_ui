@@ -158,7 +158,7 @@ fun ConsultationPrepareScreen(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                 ) {
                     Box(

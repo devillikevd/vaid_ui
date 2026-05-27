@@ -31,6 +31,7 @@ import com.example.swastik.ui.viewmodel.ProfileUpdateState
 import com.example.swastik.utils.ProfileValidation
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 // ==================== EDIT PROFILE DIALOG ====================
 
@@ -90,19 +91,19 @@ fun EditProfileDialog(
             ) {
                 if (validationError != null) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Warning, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(validationError!!, fontSize = 12.sp, color = Color(0xFFD32F2F))
+                            Text(validationError!!, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
                 if (saveState is ProfileUpdateState.Error) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -597,19 +598,19 @@ fun ChangePasswordDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (validationError != null) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Warning, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(validationError!!, fontSize = 12.sp, color = Color(0xFFD32F2F))
+                            Text(validationError!!, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
                 if (saveState is ProfileUpdateState.Error) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -680,7 +681,7 @@ fun ChangePasswordDialog(
                 if (isSaving) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         strokeWidth = 2.dp
                     )
                 } else {

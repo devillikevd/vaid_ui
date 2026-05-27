@@ -56,6 +56,7 @@ import java.time.format.TextStyle
 import java.util.*
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 /**
  * Multi-step Appointment Booking Screen:
@@ -160,7 +161,7 @@ fun AppointmentBookingScreen(
                         Text(
                             "Step $currentStep of 4",
                             fontSize = 12.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -257,7 +258,7 @@ fun AppointmentBookingScreen(
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text("Failed to load doctor details", color = MaterialTheme.colorScheme.error)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = Color.Gray)
+                                    Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Spacer(modifier = Modifier.height(24.dp))
                                     Button(onClick = onBackClick) {
                                         Text("Go Back")
@@ -267,7 +268,7 @@ fun AppointmentBookingScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     CircularProgressIndicator(color = SwastikPrimary)
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Loading doctor details...", color = Color.Gray)
+                                    Text("Loading doctor details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -382,7 +383,7 @@ private fun StepIndicator(currentStep: Int) {
                     .clip(CircleShape)
                     .background(
                         if (isActive) SwastikPrimary
-                        else Color.LightGray.copy(alpha = 0.5f)
+                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -390,7 +391,7 @@ private fun StepIndicator(currentStep: Int) {
                     Icon(
                         Icons.Outlined.Check,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                 } else {
@@ -411,7 +412,7 @@ private fun StepIndicator(currentStep: Int) {
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             if (step < currentStep) SwastikPrimary
-                            else Color.LightGray.copy(alpha = 0.3f)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
                 )
             }
@@ -532,13 +533,13 @@ private fun DoctorSelectionStep(
                                 Icons.Outlined.PersonSearch,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
-                                tint = Color.Gray
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(stringResource(R.string.no_doctors_found), color = Color.Gray, fontSize = 16.sp)
+                            Text(stringResource(R.string.no_doctors_found), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
                             Text(
                                 "Try a different search",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.outlineVariant,
                                 fontSize = 14.sp
                             )
                         }
@@ -625,7 +626,7 @@ private fun DoctorBookingCard(
                             .size(20.dp)
                             .align(Alignment.BottomEnd)
                             .offset(x = 6.dp, y = 6.dp)
-                            .background(Color.White, CircleShape)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -647,7 +648,7 @@ private fun DoctorBookingCard(
                     Text(
                         text = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed",
                         fontSize = 13.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 // Rating badge
@@ -689,7 +690,7 @@ private fun DoctorBookingCard(
                     Text(
                         text = "Consultation Fee",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed",
@@ -717,7 +718,7 @@ private fun DoctorBookingCard(
                         onClick = onSelect,
                         modifier = Modifier.weight(1f).height(40.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = Color.White),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -928,7 +929,7 @@ private fun DateTimeSelectionStep(
                         Text(
                             "Select a date above to see available slots",
                             fontSize = 14.sp,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -973,7 +974,7 @@ private fun SlotAvailabilitySummary(
         ) {
             Text(
                 text = "$availableSlotCount open",
-                color = Color(0xFF2E7D32),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
@@ -986,7 +987,7 @@ private fun SlotAvailabilitySummary(
             ) {
                 Text(
                     text = "$bookedSlotCount booked",
-                    color = Color(0xFFB26A00),
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
@@ -1008,7 +1009,7 @@ private fun NoSlotsAvailableCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -1031,7 +1032,7 @@ private fun NoSlotsAvailableCard(
                     else -> "This doctor has not published available times for the selected day."
                 },
                 fontSize = 13.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
@@ -1047,7 +1048,7 @@ private fun NoSlotsAvailableCard(
                     Text(
                         "Checking the next available dates",
                         fontSize = 12.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 suggestion != null -> {
@@ -1079,7 +1080,7 @@ private fun NoSlotsAvailableCard(
                     Text(
                         "No open slots found in the next two weeks. Try another doctor or facility.",
                         fontSize = 12.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -1111,7 +1112,7 @@ private fun TimeSlotGrid(
             Text(
                 "Booked",
                 fontSize = 12.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
             SlotChunkRows(
@@ -1151,14 +1152,14 @@ private fun SlotChunkRows(
                         shape = RoundedCornerShape(10.dp),
                         color = when {
                             isSelected -> SwastikPrimary
-                            !enabled -> Color.LightGray.copy(alpha = 0.3f)
+                            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
                         border = if (isSelected) null
                         else BorderStroke(
                             1.dp,
                             if (enabled) SwastikPrimary.copy(alpha = 0.3f)
-                            else Color.LightGray.copy(alpha = 0.2f)
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
                         )
                     ) {
                         Text(
@@ -1305,7 +1306,7 @@ private fun ConsultationDetailsStep(
                         Icons.Outlined.Warning,
                         contentDescription = "Error",
                         modifier = Modifier.size(24.dp),
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -1315,7 +1316,7 @@ private fun ConsultationDetailsStep(
                     )
                 } else if (!isDoctorLoaded) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
@@ -1396,12 +1397,12 @@ private fun ConfirmationStep(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                             }
-                            Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = Color.LightGray)
+                            Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
@@ -1413,7 +1414,7 @@ private fun ConfirmationStep(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 Text(
                                     date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
                                     fontSize = 15.sp,
@@ -1421,11 +1422,11 @@ private fun ConfirmationStep(
                                 )
                             }
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 Text(timeSlot, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                             }
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                                Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                 Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
                             }
                         }
@@ -1437,19 +1438,20 @@ private fun ConfirmationStep(
                                 horizontalArrangement = Arrangement.Start
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                                     Text(if (selectedType == "video") "📹 Video" else "🏥 In-Person", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
                                 }
                             }
                         }
                     }
 
+                    val dividerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
                     // Dotted line separator
                     androidx.compose.foundation.Canvas(
                         modifier = Modifier.fillMaxWidth().height(1.dp)
                     ) {
                         drawLine(
-                            color = Color.Gray.copy(alpha = 0.3f),
+                            color = dividerColor,
                             start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f),
                             end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f),
                             strokeWidth = 2f,
@@ -1469,7 +1471,7 @@ private fun ConfirmationStep(
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Light,
                             letterSpacing = 4.sp,
-                            color = Color.Gray.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             maxLines = 1
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -1477,7 +1479,7 @@ private fun ConfirmationStep(
                             stringResource(R.string.swastik_healthcare),
                             fontSize = 10.sp,
                             letterSpacing = 2.sp,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -1500,7 +1502,7 @@ private fun ConfirmationStep(
             ) {
                 if (isBooking) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
@@ -1538,7 +1540,7 @@ private fun SummaryRow(icon: String, label: String, value: String) {
         Text(
             label,
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(80.dp)
         )
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)

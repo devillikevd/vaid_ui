@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -71,13 +72,13 @@ fun FitnessTrackingCard(
                     icon = Icons.Default.Timer,
                     value = "${displayLog.activeMinutes}m",
                     label = "Active",
-                    color = Color(0xFFE65100) // Orange
+                    color = MaterialTheme.colorScheme.onSurface // Orange
                 )
                 FitnessStatItem(
                     icon = Icons.Default.LocalFireDepartment,
                     value = "${displayLog.caloriesBurned.toInt()} kcal",
                     label = "Burned",
-                    color = Color(0xFFD32F2F) // Red
+                    color = MaterialTheme.colorScheme.onSurface // Red
                 )
             }
         }

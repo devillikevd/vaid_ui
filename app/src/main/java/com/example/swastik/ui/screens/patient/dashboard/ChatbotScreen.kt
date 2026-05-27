@@ -65,6 +65,7 @@ import java.io.File
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material3.MaterialTheme
 
 
 data class ChatQuickAction(
@@ -751,7 +752,7 @@ private fun VoiceListeningBar(partialResult: String, language: ChatLanguage, onS
                 onClick = onStop,
                 modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFD32F2F))
             ) {
-                Icon(Icons.Filled.Stop, contentDescription = "Stop listening", tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.Stop, contentDescription = "Stop listening", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -947,7 +948,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                         Surface(
                             modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 220.dp),
                             shape = RoundedCornerShape(8.dp),
-                            color = Color.White.copy(alpha = 0.2f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)
                         ) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
@@ -1403,7 +1404,7 @@ private fun ChatInputBar(
                     Icon(
                         if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
                         contentDescription = if (isListening) "Stop listening" else "Voice input",
-                        tint = Color.White, modifier = Modifier.size(22.dp)
+                        tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp)
                     )
                 }
             } else {
@@ -1413,7 +1414,7 @@ private fun ChatInputBar(
                         if (inputEnabled && value.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
                 }
             }
         }

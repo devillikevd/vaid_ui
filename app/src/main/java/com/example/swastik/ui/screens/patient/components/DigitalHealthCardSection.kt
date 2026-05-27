@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikPrimary
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun DigitalHealthCardSection(
@@ -49,13 +50,13 @@ fun DigitalHealthCardSection(
                 Box(
                     modifier = Modifier
                         .size(56.dp)
-                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Outlined.QrCode,
                         contentDescription = "Digital Health Card",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -65,13 +66,13 @@ fun DigitalHealthCardSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "Digital Health Card",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         "Tap to view Vitals & QR Code",
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
                         fontSize = 13.sp
                     )
                 }
