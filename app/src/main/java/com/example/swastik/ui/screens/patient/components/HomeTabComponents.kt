@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
@@ -160,7 +159,8 @@ private val HealthIdTeal = Color(0xFF00796B)
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
         modifier = modifier
-            .height(158.dp)
+            .aspectRatio(0.88f)
+            .heightIn(min = 136.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -218,7 +218,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
         modifier = modifier
-            .height(158.dp)
+            .aspectRatio(0.88f)
+            .heightIn(min = 136.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -284,74 +285,92 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 70.dp)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        BoxWithConstraints {
+            val compact = maxWidth < 340.dp
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .heightIn(min = 70.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-            }
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                }
 
-            Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Digital Health ID",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Filled.Verified,
+                            contentDescription = "Verified",
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Verified",
+                            fontSize = 9.sp,
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = 2.dp)
+                        )
+                    }
                     Text(
-                        text = "Digital Health ID",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        text = "View your vitals, history & more",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                }
+
+                if (!compact) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable(onClick = onClick)
+                    ) {
+                        Text(
+                            "View Vitals",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
                     Icon(
-                        Icons.Filled.Verified,
-                        contentDescription = "Verified",
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "Verified",
-                        fontSize = 9.sp,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(start = 2.dp)
+                        Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    text = "View your vitals, history & more",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(onClick = onClick)
-            ) {
-                Text(
-                    "View Vitals",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Icon(
-                    Icons.Filled.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -389,80 +408,104 @@ fun HealthServicesSection(
             )
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ServiceSquareCard(
-                modifier = Modifier.weight(1f),
-                title = "Book Clinic\n(OPD)",
-                icon = Icons.Outlined.CalendarToday,
-                onClick = onClinicClick
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val useTwoColumns = maxWidth < 360.dp
+            val items = listOf(
+                QuickActionItem("Book Clinic\n(OPD)", R.drawable.inperson_consultation, onClinicClick),
+                QuickActionItem("Order\nMedicine", R.drawable.order_medicine, onPharmacyClick),
+                QuickActionItem("Book\nLab Test", R.drawable.book_test_lab, onLabTestsClick),
+                QuickActionItem("Find\nHospitals", R.drawable.find_hospital, onHospitalsClick)
             )
-            ServiceSquareCard(
-                modifier = Modifier.weight(1f),
-                title = "Order\nMedicine",
-                icon = Icons.Outlined.ShoppingBag,
-                onClick = onPharmacyClick
-            )
-            ServiceSquareCard(
-                modifier = Modifier.weight(1f),
-                title = "Book\nLab Test",
-                icon = Icons.Outlined.Science,
-                onClick = onLabTestsClick
-            )
-            ServiceSquareCard(
-                modifier = Modifier.weight(1f),
-                title = "Find\nHospitals",
-                icon = Icons.Outlined.Business,
-                onClick = onHospitalsClick
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items.chunked(if (useTwoColumns) 2 else 4).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowItems.forEach { item ->
+                            ServiceSquareCard(
+                                modifier = Modifier.weight(1f),
+                                title = item.title,
+                                imageRes = item.imageRes,
+                                onClick = item.onClick
+                            )
+                        }
+                        repeat((if (useTwoColumns) 2 else 4) - rowItems.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+private data class QuickActionItem(
+    val title: String,
+    val imageRes: Int,
+    val onClick: () -> Unit
+)
 
 @Composable
 private fun ServiceSquareCard(
     modifier: Modifier = Modifier,
     title: String,
-    icon: ImageVector,
+    imageRes: Int,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(0.85f)
+            .aspectRatio(0.82f)
+            .heightIn(min = 112.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 5.dp, top = 7.dp, end = 5.dp, bottom = 30.dp),
+                contentScale = ContentScale.Fit
+            )
+
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    )
+                    .padding(start = 4.dp, top = 18.dp, end = 4.dp, bottom = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Text(
+                    text = title,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 10.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = title,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 14.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
@@ -546,14 +589,14 @@ fun SecondaryActionsGrid(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .height(66.dp),
+            .heightIn(min = 66.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Reports Card
         Card(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight()
+                .heightIn(min = 66.dp)
                 .clickable(onClick = onReportsClick),
             shape = RoundedCornerShape(10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -562,8 +605,8 @@ fun SecondaryActionsGrid(
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -581,7 +624,7 @@ fun SecondaryActionsGrid(
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
                         "Reports",
                         fontWeight = FontWeight.Bold,
@@ -606,7 +649,7 @@ fun SecondaryActionsGrid(
         Card(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight()
+                .heightIn(min = 66.dp)
                 .clickable(onClick = onAppointmentsClick),
             shape = RoundedCornerShape(10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -615,8 +658,8 @@ fun SecondaryActionsGrid(
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -634,7 +677,7 @@ fun SecondaryActionsGrid(
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
                         "Appointments",
                         fontWeight = FontWeight.Bold,
@@ -914,7 +957,7 @@ fun DoctorCard(
             Box(contentAlignment = Alignment.BottomEnd) {
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
+                        .size(64.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
@@ -946,7 +989,7 @@ fun DoctorCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             // Info Column
             Column(modifier = Modifier.weight(1f)) {
@@ -1002,6 +1045,7 @@ fun DoctorCard(
 
             // Right side: Price and Action
             Column(
+                modifier = Modifier.widthIn(min = 82.dp, max = 104.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1022,9 +1066,9 @@ fun DoctorCard(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF004D40)),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.height(34.dp)
+                    modifier = Modifier.heightIn(min = 34.dp)
                 ) {
-                    Text("Book Now", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Book Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

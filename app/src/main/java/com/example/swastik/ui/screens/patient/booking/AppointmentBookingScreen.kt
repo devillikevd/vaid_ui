@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -635,20 +636,26 @@ private fun DoctorBookingCard(
                         text = doctor.name,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = doctor.specialization,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = SwastikPrimary
+                        color = SwastikPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed",
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 // Rating badge
@@ -681,12 +688,15 @@ private fun DoctorBookingCard(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val compact = maxWidth < 340.dp
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Consultation Fee",
                         fontSize = 12.sp,
@@ -696,33 +706,65 @@ private fun DoctorBookingCard(
                         text = doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed",
                         color = SwastikPrimary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-                
+
+                if (!compact) {
                 Row(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
                         onClick = onViewProfile,
-                        modifier = Modifier.weight(1f).height(40.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 40.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
                         border = BorderStroke(1.5.dp, SwastikPrimary),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Button(
                         onClick = onSelect,
-                        modifier = Modifier.weight(1f).height(40.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 40.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                }
+                }
+                }
+                if (compact) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onViewProfile,
+                            modifier = Modifier.weight(1f).heightIn(min = 40.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
+                            border = BorderStroke(1.5.dp, SwastikPrimary),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Button(
+                            onClick = onSelect,
+                            modifier = Modifier.weight(1f).heightIn(min = 40.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
                 }
             }
         }

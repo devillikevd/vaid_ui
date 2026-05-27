@@ -184,7 +184,10 @@ fun DashboardHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 // Profile Picture
                 Box(
                     modifier = Modifier
@@ -216,19 +219,22 @@ fun DashboardHeader(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
                         text = firstName,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     // Location Picker
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
+                            .fillMaxWidth()
                             .clickable { 
                                 locationInput = profile?.location ?: ""
                                 showLocationDialog = true 
@@ -248,7 +254,7 @@ fun DashboardHeader(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 200.dp)
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         Icon(
                             Icons.Default.ArrowDropDown,

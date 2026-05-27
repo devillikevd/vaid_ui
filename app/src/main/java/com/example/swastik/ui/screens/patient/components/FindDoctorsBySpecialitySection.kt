@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
 
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 
 @Composable
@@ -94,18 +92,28 @@ fun FindDoctorsBySpecialitySection(
             }
         }
 
-        // Horizontally scrollable list - shows all 8 cards
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(currentList) { speciality ->
-                SpecialityHomeCard(
-                    title = speciality,
-                    modifier = Modifier.width(92.dp), // Compressed size to fit ~4 on screen
-                    onClick = { onSpecialityClick(speciality) }
-                )
+            currentList.chunked(4).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    rowItems.forEach { speciality ->
+                        SpecialityHomeCard(
+                            title = speciality,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSpecialityClick(speciality) }
+                        )
+                    }
+                    repeat(4 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -215,6 +223,7 @@ private fun SpecialityHomeCard(
     Card(
         modifier = modifier
             .aspectRatio(0.82f)
+            .heightIn(min = 88.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -245,11 +254,11 @@ private fun SpecialityHomeCard(
             ) {
                 Text(
                     text = title,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
-                    lineHeight = 11.sp,
+                    lineHeight = 10.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis

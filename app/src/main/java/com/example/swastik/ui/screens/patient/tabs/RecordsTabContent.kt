@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -446,7 +447,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(45.dp)
@@ -457,12 +458,12 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
                         Text(consultation.doctorEmoji, fontSize = 22.sp)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(consultation.doctorName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
-                        Text(consultation.doctorSpecialty, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(consultation.doctorName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(consultation.doctorSpecialty, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                Text(consultation.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(consultation.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -470,7 +471,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(consultation.diagnosis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
+                Text(consultation.diagnosis, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
 
             if (consultation.notes.isNotEmpty()) {
@@ -478,7 +479,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(Icons.Outlined.Notes, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(consultation.notes, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                    Text(consultation.notes, fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -579,7 +580,9 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 Text(
                     text = prescription.instructions,
                     fontSize = 12.sp,
-                    color = colorScheme.onSurfaceVariant
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -603,21 +606,21 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
         Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(prescription.medicineName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+            Text(prescription.medicineName, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(color = colorScheme.secondaryContainer, shape = RoundedCornerShape(6.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Medication, contentDescription = null, tint = colorScheme.onSecondaryContainer, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(prescription.dosage, fontSize = 11.sp, color = colorScheme.onSecondaryContainer)
+                        Text(prescription.dosage, fontSize = 11.sp, color = colorScheme.onSecondaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Surface(color = colorScheme.tertiaryContainer, shape = RoundedCornerShape(6.dp)) {
                     Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Schedule, contentDescription = null, tint = colorScheme.onTertiaryContainer, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(prescription.frequency, fontSize = 11.sp, color = colorScheme.onTertiaryContainer)
+                        Text(prescription.frequency, fontSize = 11.sp, color = colorScheme.onTertiaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -625,7 +628,7 @@ private fun PrescriptionItemRow(index: Int, prescription: PrescriptionItem) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.DateRange, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(R.string.duration_format, prescription.duration), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.duration_format, prescription.duration), fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -684,9 +687,9 @@ private fun DocumentItem(document: MedicalDocument) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(document.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
-                Row {
-                    Text(document.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(document.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(document.date, fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!document.size.isNullOrBlank()) {
                         Text(" • ${document.size}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                     }

@@ -282,7 +282,7 @@ private fun AppointmentCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val (bgColor, txtColor, statusText) = when {
                     isCompleted -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary, "Completed")
                     isUpcoming -> Triple(Color(0xFFE3F2FD), MaterialTheme.colorScheme.primary, "Upcoming")
@@ -290,12 +290,12 @@ private fun AppointmentCard(
                     else -> Triple(colorScheme.surfaceVariant, colorScheme.onSurfaceVariant, appointment.status.replaceFirstChar { it.uppercase() })
                 }
                 Box(modifier = Modifier.background(bgColor, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                    Text(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor)
+                    Text(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Icon(if (isVideo) Icons.Outlined.VideoCall else Icons.Outlined.Person, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = if (isVideo) "Video" else "In-Person", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                    Text(text = if (isVideo) "Video" else "In-Person", fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -323,7 +323,8 @@ private fun AppointmentCard(
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -332,25 +333,25 @@ private fun AppointmentCard(
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.35f))
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = appointment.date, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                    Text(text = appointment.date, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                    Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (isVideo) {
-                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.start_video_consultation), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.start_video_consultation), fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Surface(
@@ -368,7 +369,10 @@ private fun AppointmentCard(
                                 text = inPersonVisitLabel,
                                 fontSize = 13.sp,
                                 color = colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -376,13 +380,13 @@ private fun AppointmentCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = onCancelClick,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
                     shape = RoundedCornerShape(12.dp),
                     border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(colorScheme.error))
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, tint = colorScheme.error, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.cancel_appointment), color = colorScheme.error, fontSize = 13.sp)
+                    Text(stringResource(R.string.cancel_appointment), color = colorScheme.error, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (isCompleted) {
@@ -390,7 +394,7 @@ private fun AppointmentCard(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = onPrescriptionClick, 
-                        modifier = Modifier.weight(1f).height(44.dp), 
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                         shape = RoundedCornerShape(12.dp), 
                         border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)),
                         contentPadding = PaddingValues(horizontal = 4.dp)
@@ -407,7 +411,7 @@ private fun AppointmentCard(
                     }
                     OutlinedButton(
                         onClick = onBookAgainClick, 
-                        modifier = Modifier.weight(1f).height(44.dp), 
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                         shape = RoundedCornerShape(12.dp), 
                         border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)),
                         contentPadding = PaddingValues(horizontal = 4.dp)
@@ -454,10 +458,10 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
             fontSize = 14.sp, color = colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onBookClick, modifier = Modifier.fillMaxWidth(0.6f).height(50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+        Button(onClick = onBookClick, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.book_appointment), fontSize = 15.sp)
+            Text(stringResource(R.string.book_appointment), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

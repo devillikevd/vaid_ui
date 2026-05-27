@@ -110,18 +110,37 @@ fun HomeTabContent(
         Spacer(modifier = Modifier.height(12.dp))
         
         // Primary Actions (Redesigned side-by-side)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
         ) {
-            InPersonConsultationCard(
-                modifier = Modifier.weight(1f),
-                onClick = onStartInPersonConsultation
-            )
-            VideoConsultationCard(
-                modifier = Modifier.weight(1f),
-                onClick = onStartVideoConsultation
-            )
+            if (maxWidth < 260.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    InPersonConsultationCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onStartInPersonConsultation
+                    )
+                    VideoConsultationCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onStartVideoConsultation
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    InPersonConsultationCard(
+                        modifier = Modifier.weight(1f),
+                        onClick = onStartInPersonConsultation
+                    )
+                    VideoConsultationCard(
+                        modifier = Modifier.weight(1f),
+                        onClick = onStartVideoConsultation
+                    )
+                }
+            }
         }
         
         Spacer(modifier = Modifier.height(12.dp))

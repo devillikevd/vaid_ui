@@ -25,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikPrimary
@@ -42,7 +43,7 @@ fun PatientBottomNavigation(
         containerColor = MaterialTheme.colorScheme.surface, // Restoring original surface color
         tonalElevation = 0.dp,
         modifier = Modifier
-            .height(68.dp)
+            .heightIn(min = 72.dp)
             .shadow(
                 elevation = 16.dp,
                 spotColor = Color.Black.copy(alpha = 0.05f),
@@ -61,7 +62,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Home"
                 )
             },
-            label = { Text(stringResource(R.string.home), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.home), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -83,7 +84,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Reminders"
                 )
             },
-            label = { Text(stringResource(R.string.reminders), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.reminders), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -105,7 +106,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Medicine"
                 )
             },
-            label = { Text(stringResource(R.string.medicine), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.medicine), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -127,7 +128,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Records"
                 )
             },
-            label = { Text(stringResource(R.string.records), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.records), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
@@ -149,7 +150,7 @@ fun PatientBottomNavigation(
                     contentDescription = "Profile"
                 )
             },
-            label = { Text(stringResource(R.string.profile), fontSize = 10.sp, fontWeight = FontWeight.Medium) },
+            label = { Text(stringResource(R.string.profile), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             alwaysShowLabel = false,
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = SwastikPrimary,
