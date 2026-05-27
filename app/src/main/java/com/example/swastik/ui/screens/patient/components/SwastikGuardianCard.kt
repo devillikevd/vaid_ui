@@ -104,7 +104,7 @@ fun SwastikGuardianCard(
                             color = Color.Black
                         )
                         Text(
-                            text = "Auto SOS • Safety Monitoring",
+                            text = "Fall alerts • Crash SOS",
                             fontSize = 12.sp,
                             color = Color.Gray
                         )
@@ -136,7 +136,7 @@ fun SwastikGuardianCard(
             ) {
                 GuardianFeatureItem(
                     icon = Icons.Default.Hiking,
-                    label = "Fall SOS",
+                    label = "Fall Alert",
                     status = if (featurePreferences.fallDetection) "Allowed" else "Off",
                     isAllowed = featurePreferences.fallDetection,
                     modifier = Modifier.weight(1f)
@@ -319,20 +319,20 @@ fun GuardianLearnMoreDialog(
 
                         FeatureConsentItem(
                             icon = Icons.Default.Warning,
-                            title = "1. Auto-SOS and Fall Detection",
-                            reliability = "Detection of sudden impacts and falls.",
+                            title = "1. Fall Detection Alerts",
+                            reliability = "Firebase notification to emergency contacts only.",
                             checked = selectedFeatures.fallDetection,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(fallDetection = it) },
-                            description = "Uses motion sensors to detect falls. If you don't respond to a 30-sec countdown, help is dispatched."
+                            description = "Uses motion sensors to detect verified falls and notifies your emergency contacts. It does not trigger SOS or ambulance dispatch."
                         )
 
                         FeatureConsentItem(
                             icon = Icons.Default.DirectionsCar,
                             title = "2. Vehicle Crash Detection",
-                            reliability = "Detection of high-speed impacts.",
+                            reliability = "Tightened high-speed impact detection.",
                             checked = selectedFeatures.crashDetection,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(crashDetection = it) },
-                            description = "Monitors for sudden deceleration when moving at vehicle speeds."
+                            description = "Monitors for severe impacts at vehicle speeds. If the countdown is not cancelled, it triggers SOS ambulance dispatch and notifies emergency contacts."
                         )
 
                         FeatureConsentItem(

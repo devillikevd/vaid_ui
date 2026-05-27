@@ -8,6 +8,7 @@ const appointmentService = require('../../services/appointmentService');
 const doctorService = require('../../services/doctorService');
 const reportService = require('../../services/reportService');
 const dispatchService = require('../../services/dispatchService');
+const emergencyContactNotificationService = require('../../services/emergencyContactNotificationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
 const eventEmitter = require('../../services/eventEmitter');
@@ -34,6 +35,11 @@ const normalizeEmergencyStatus = (request) => {
     ? { ...request, status: 'broadcasting' }
     : request;
 };
+const MAX_HEALTH_CONNECT_DAILY_STEPS = 70000;
+const MIN_HEALTH_CONNECT_HEART_RATE = 25;
+const MAX_HEALTH_CONNECT_HEART_RATE = 230;
+const MIN_HEALTH_CONNECT_TEMP_C = 30;
+const MAX_HEALTH_CONNECT_TEMP_C = 45;
 const getOrderStatusFilters = (status) => {
   const normalizedStatus = normalizeOrderStatus(status);
   if (normalizedStatus === 'dispatched') {
@@ -273,6 +279,7 @@ router.post('/vitals/sync',
 
     vitals.forEach(v => {
       const val = parseFloat(v.value);
+      if (!Number.isFinite(val)) return;
       const row = {
         patient_id: patient.id,
         recorded_by: req.user.id,
@@ -281,12 +288,19 @@ router.post('/vitals/sync',
       };
       
       switch (v.type) {
-        case 'heart_rate': row.heart_rate = Math.round(val); break;
+        case 'heart_rate':
+          if (val < MIN_HEALTH_CONNECT_HEART_RATE || val > MAX_HEALTH_CONNECT_HEART_RATE) return;
+          row.heart_rate = Math.round(val);
+          break;
         case 'temperature': 
+          if (val < MIN_HEALTH_CONNECT_TEMP_C || val > MAX_HEALTH_CONNECT_TEMP_C) return;
           row.temperature = val; 
           if (val > 100.4 || val > 38.0) feverTriggered = true;
           break;
-        case 'steps': row.steps = Math.round(val); break;
+        case 'steps':
+          if (val < 0 || val > MAX_HEALTH_CONNECT_DAILY_STEPS) return;
+          row.steps = Math.round(val);
+          break;
       }
       if (row.heart_rate !== undefined || row.temperature !== undefined || row.steps !== undefined) {
          insertPayload.push(row);
@@ -443,6 +457,23 @@ router.delete('/emergency-contacts/:id',
   asyncHandler(async (req, res) => {
     const result = await patientService.deleteEmergencyContact(req.user.id, req.params.id);
     res.json({ success: true, ...result });
+  })
+);
+
+// Notify emergency contacts without creating an ambulance/SOS request.
+// Used by Guardian fall detection: contacts get FCM/notification only.
+router.post('/emergency-contact-alert',
+  [
+    body('alertType').optional().isIn(['fall_detected', 'fall', 'car_crash', 'crash', 'accident', 'sos', 'emergency']),
+    body('latitude').optional({ nullable: true }).isFloat(),
+    body('longitude').optional({ nullable: true }).isFloat(),
+    body('notes').optional({ nullable: true }).isString(),
+    body('sourceId').optional({ nullable: true }).isString(),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await emergencyContactNotificationService.notifyEmergencyContacts(req.user.id, req.body);
+    res.status(202).json({ success: true, data: result });
   })
 );
 
@@ -971,11 +1002,17 @@ router.get('/emergency/active',
 
 // Cancel emergency
 router.put('/emergency/:id/cancel',
+  [
+    param('id').isUUID().withMessage('Valid emergency request ID is required'),
+    body('reason').trim().isLength({ min: 12, max: 500 }).withMessage('Cancellation reason must be 12-500 characters'),
+    body('legalNoticeAccepted').custom(value => value === true).withMessage('Cancellation policy acknowledgement is required'),
+  ],
+  validate,
   asyncHandler(async (req, res) => {
     const result = await dispatchService.cancelByPatient(
       req.user.id,
       req.params.id,
-      req.body.reason
+      req.body
     );
     res.json({ success: true, ...result });
   })

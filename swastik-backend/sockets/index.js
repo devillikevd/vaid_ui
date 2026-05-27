@@ -93,6 +93,29 @@ const verifyConsultationParticipant = async (userId, role, consultationId) => {
   return consultation;
 };
 
+const ensureConsultationRoomAccess = async (socket, roomPrefix, roomId) => {
+  if (!roomId || typeof roomId !== 'string') return false;
+
+  const room = `${roomPrefix}:${roomId}`;
+  socket.verifiedConsultationRooms ||= new Set();
+
+  if (!socket.verifiedConsultationRooms.has(room)) {
+    try {
+      await verifyConsultationParticipant(socket.userId, socket.userRole, roomId);
+      socket.verifiedConsultationRooms.add(room);
+    } catch (dbErr) {
+      console.warn(`C10: Ownership check failed for ${room}, user ${socket.userId}:`, dbErr.message);
+      socket.emit('error', { message: dbErr.message || 'Unable to verify consultation access' });
+      return false;
+    }
+  }
+
+  if (!socket.rooms.has(room)) {
+    socket.join(room);
+  }
+  return true;
+};
+
 const initializeSocketIO = (io) => {
   // Authentication middleware for Socket.IO
   io.use(async (socket, next) => {
@@ -447,16 +470,7 @@ const initializeSocketIO = (io) => {
       }
       if (!roomId || typeof roomId !== 'string') return;
 
-      // C10 Fix: Verify the user is a participant in this consultation before allowing join
-      try {
-        await verifyConsultationParticipant(userId, socket.userRole, roomId);
-      } catch (dbErr) {
-        // DB check failed — deny access to be safe
-        console.warn(`C10: Ownership check failed for video:${roomId}, user ${userId}:`, dbErr.message);
-        return socket.emit('error', { message: dbErr.message || 'Unable to verify consultation access' });
-      }
-
-      socket.join(`video:${roomId}`);
+      if (!await ensureConsultationRoomAccess(socket, 'video', roomId)) return;
 
       // Send current room state to the joining socket so clients can decide
       // whether they should initiate WebRTC immediately even if peers joined earlier.
@@ -491,41 +505,49 @@ const initializeSocketIO = (io) => {
       });
     }));
 
-    socket.on('video:offer', safeHandler(socket, (data) => {
+    socket.on('video:offer', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
       if (!validateData(data, ['roomId', 'offer'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
       socket.to(`video:${data.roomId}`).emit('video:offer', {
         offer: data.offer,
         from: userId,
       });
     }));
 
-    socket.on('video:answer', safeHandler(socket, (data) => {
+    socket.on('video:answer', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
       if (!validateData(data, ['roomId', 'answer'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
       socket.to(`video:${data.roomId}`).emit('video:answer', {
         answer: data.answer,
         from: userId,
       });
     }));
 
-    socket.on('video:ice-candidate', safeHandler(socket, (data) => {
+    socket.on('video:ice-candidate', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
       if (!validateData(data, ['roomId', 'candidate'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
       socket.to(`video:${data.roomId}`).emit('video:ice-candidate', {
         candidate: data.candidate,
         from: userId,
       });
     }));
 
-    socket.on('video:mode', safeHandler(socket, (data) => {
+    socket.on('video:mode', safeHandler(socket, async (data) => {
       if (!hasRole(socket, VIDEO_ROLES)) return;
       if (!validateData(data, ['roomId', 'mode'])) return;
       if (!['video', 'audio', 'chat'].includes(data.mode)) return;
+      if (data.preferredMode && !['video', 'audio', 'chat'].includes(data.preferredMode)) return;
+      if (data.effectiveMode && !['video', 'audio', 'chat'].includes(data.effectiveMode)) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
 
       socket.to(`video:${data.roomId}`).emit('video:mode', {
         roomId: data.roomId,
         mode: data.mode,
+        preferredMode: data.preferredMode || 'video',
+        effectiveMode: data.effectiveMode || data.mode,
         from: userId,
         timestamp: new Date().toISOString(),
       });
@@ -539,16 +561,7 @@ const initializeSocketIO = (io) => {
       }
       if (!consultationId || typeof consultationId !== 'string') return;
 
-      // C10 Fix: Verify the user is a participant in this consultation
-      try {
-        await verifyConsultationParticipant(userId, socket.userRole, consultationId);
-      } catch (dbErr) {
-        // Fix #1: DB check failed — deny access to be safe
-        console.warn(`C10: Ownership check failed for chat:${consultationId}, user ${userId}:`, dbErr.message);
-        return socket.emit('error', { message: dbErr.message || 'Unable to verify consultation access' });
-      }
-
-      socket.join(`chat:${consultationId}`);
+      if (!await ensureConsultationRoomAccess(socket, 'chat', consultationId)) return;
       socket.emit('chat:joined', { consultationId });
     }));
 
@@ -571,14 +584,7 @@ const initializeSocketIO = (io) => {
       // if the client sends immediately after entering fallback chat mode.
       const chatRoom = `chat:${data.consultationId}`;
       (async () => {
-        if (!socket.rooms.has(chatRoom)) {
-          try {
-            await verifyConsultationParticipant(userId, socket.userRole, data.consultationId);
-            socket.join(chatRoom);
-          } catch (err) {
-            return socket.emit('error', { message: err.message || 'You must join the chat room first' });
-          }
-        }
+        if (!await ensureConsultationRoomAccess(socket, 'chat', data.consultationId)) return;
 
         // Rate limit: max 5 messages per second per user
         const chatRateLimitKey = `${RATE_LIMIT_PREFIX}chat:${userId}`;
@@ -621,9 +627,10 @@ const initializeSocketIO = (io) => {
       })();
     }));
 
-    socket.on('chat:typing', safeHandler(socket, (data) => {
+    socket.on('chat:typing', safeHandler(socket, async (data) => {
       if (!hasRole(socket, CHAT_ROLES)) return;
       if (!validateData(data, ['consultationId'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'chat', data.consultationId)) return;
       socket.to(`chat:${data.consultationId}`).emit('chat:typing', {
         userId,
         isTyping: !!data.isTyping,

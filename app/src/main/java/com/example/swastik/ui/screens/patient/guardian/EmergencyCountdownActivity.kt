@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.guardian
 
 import android.app.KeyguardManager
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -55,9 +56,15 @@ class EmergencyCountdownActivity : ComponentActivity() {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var sosRequestInFlight = false
+    private var isTestMode = false
+
+    companion object {
+        private const val CRASH_ALERT_NOTIFICATION_ID = 1003
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        getSystemService(NotificationManager::class.java)?.cancel(CRASH_ALERT_NOTIFICATION_ID)
         
         // Turn screen on and show over lockscreen
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -72,10 +79,25 @@ class EmergencyCountdownActivity : ComponentActivity() {
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+        )
 
         val gracePeriod = intent.getIntExtra("GRACE_PERIOD", 30)
         val emergencyType = intent.getStringExtra("EMERGENCY_TYPE") ?: "Emergency Detected"
+        isTestMode = intent.getBooleanExtra("is_test", false)
+
+        if (!isCrashEmergency(emergencyType) && !isTestMode) {
+            lifecycleScope.launch {
+                guardianRepository.logEvent(
+                    eventType = "NON_CRASH_SOS_BLOCKED",
+                    locationContext = emergencyType
+                )
+            }
+            finish()
+            return
+        }
 
         startAlarmAndVibration()
 
@@ -85,7 +107,11 @@ class EmergencyCountdownActivity : ComponentActivity() {
                     gracePeriodSeconds = gracePeriod,
                     emergencyType = emergencyType,
                     onCancel = { 
-                        lifecycleScope.launch { guardianRepository.logEvent("FALL_CANCELLED") }
+                        lifecycleScope.launch {
+                            guardianRepository.logEvent(
+                                if (isCrashEmergency(emergencyType)) "CRASH_SOS_CANCELLED" else "SOS_TEST_CANCELLED"
+                            )
+                        }
                         finishAndStopAlarm() 
                     },
                     onSendSos = {
@@ -100,6 +126,17 @@ class EmergencyCountdownActivity : ComponentActivity() {
         if (sosRequestInFlight) return
         sosRequestInFlight = true
         stopAlarm()
+
+        if (isTestMode || !isCrashEmergency(emergencyType)) {
+            lifecycleScope.launch {
+                guardianRepository.logEvent(
+                    eventType = if (isTestMode) "SOS_TEST_COMPLETED" else "NON_CRASH_SOS_BLOCKED",
+                    locationContext = emergencyType
+                )
+            }
+            finish()
+            return
+        }
 
         lifecycleScope.launch {
             val freshLocation = try {
@@ -122,11 +159,7 @@ class EmergencyCountdownActivity : ComponentActivity() {
                 return@launch
             }
 
-            val apiEmergencyType = if (emergencyType.contains("crash", ignoreCase = true)) {
-                "accident"
-            } else {
-                "trauma"
-            }
+            val apiEmergencyType = "accident"
             val speedKmh = intent.getFloatExtra("SPEED_KMH", 0f)
             val notes = "Vaididea Guardian auto-SOS: $emergencyType. " +
                 "Grace period expired without user cancellation. Speed=${"%.1f".format(speedKmh)} km/h."
@@ -208,6 +241,11 @@ class EmergencyCountdownActivity : ComponentActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun isCrashEmergency(emergencyType: String): Boolean {
+        return emergencyType.contains("crash", ignoreCase = true) ||
+            emergencyType.contains("accident", ignoreCase = true)
     }
 
     private fun finishAndStopAlarm() {

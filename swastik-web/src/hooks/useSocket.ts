@@ -107,6 +107,8 @@ export type ConsultationVideoMode = 'video' | 'audio' | 'chat';
 export interface ConsultationModeUpdate {
     roomId: string;
     mode: ConsultationVideoMode;
+    preferredMode?: ConsultationVideoMode;
+    effectiveMode?: ConsultationVideoMode;
     from?: string;
     timestamp?: string;
 }
@@ -544,21 +546,42 @@ export function useVitalsUpdates(onNewVital?: (vital: VitalUpdate) => void) {
 /**
  * Hook for video consultation events
  */
-export function useVideoConsultation(roomId: string | null, localMode?: ConsultationVideoMode) {
+export function useVideoConsultation(
+    roomId: string | null,
+    localMode?: ConsultationVideoMode,
+    localPreferredMode: ConsultationVideoMode = 'video',
+    localEffectiveMode: ConsultationVideoMode = localMode || localPreferredMode
+) {
     const { emit, on } = useSocket();
     const [participants, setParticipants] = useState<string[]>([]);
     const [offer, setOffer] = useState<RTCSessionDescriptionInit | null>(null);
     const [answer, setAnswer] = useState<RTCSessionDescriptionInit | null>(null);
     const [iceCandidate, setIceCandidate] = useState<RTCIceCandidateInit | null>(null);
     const [remoteMode, setRemoteMode] = useState<ConsultationVideoMode>('video');
+    const [remotePreferredMode, setRemotePreferredMode] = useState<ConsultationVideoMode>('video');
+    const [remoteEffectiveMode, setRemoteEffectiveMode] = useState<ConsultationVideoMode>('video');
     const localModeRef = useRef<ConsultationVideoMode | undefined>(localMode);
+    const localPreferredModeRef = useRef<ConsultationVideoMode>(localPreferredMode);
+    const localEffectiveModeRef = useRef<ConsultationVideoMode>(localEffectiveMode);
+
+    const emitModeState = useCallback((targetRoomId: string) => {
+        if (!localModeRef.current) return;
+        emit('video:mode', {
+            roomId: targetRoomId,
+            mode: localModeRef.current,
+            preferredMode: localPreferredModeRef.current,
+            effectiveMode: localEffectiveModeRef.current,
+        });
+    }, [emit]);
 
     useEffect(() => {
         localModeRef.current = localMode;
+        localPreferredModeRef.current = localPreferredMode;
+        localEffectiveModeRef.current = localEffectiveMode;
         if (roomId && localMode) {
-            emit('video:mode', { roomId, mode: localMode });
+            emitModeState(roomId);
         }
-    }, [roomId, localMode, emit]);
+    }, [roomId, localMode, localPreferredMode, localEffectiveMode, emitModeState]);
 
     useEffect(() => {
         if (!roomId) return;
@@ -566,9 +589,7 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
         const joinRoom = () => emit('video:join', roomId);
         const handleConnect = () => {
             joinRoom();
-            if (localModeRef.current) {
-                emit('video:mode', { roomId, mode: localModeRef.current });
-            }
+            emitModeState(roomId);
         };
 
         // BUG-21 Fix: Only update state if the participant is actually new
@@ -584,6 +605,8 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
                 const next = prev.filter((id) => id !== data.userId);
                 if (next.length === 0) {
                     setRemoteMode('video');
+                    setRemotePreferredMode('video');
+                    setRemoteEffectiveMode('video');
                 }
                 return next;
             });
@@ -603,6 +626,16 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
             if (!data?.roomId || data.roomId !== roomId) return;
             if (data.mode === 'video' || data.mode === 'audio' || data.mode === 'chat') {
                 setRemoteMode(data.mode);
+                setRemotePreferredMode(
+                    data.preferredMode === 'video' || data.preferredMode === 'audio' || data.preferredMode === 'chat'
+                        ? data.preferredMode
+                        : 'video'
+                );
+                setRemoteEffectiveMode(
+                    data.effectiveMode === 'video' || data.effectiveMode === 'audio' || data.effectiveMode === 'chat'
+                        ? data.effectiveMode
+                        : data.mode
+                );
             }
         };
 
@@ -624,15 +657,15 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
         setAnswer(null);
         setIceCandidate(null);
         setRemoteMode('video');
+        setRemotePreferredMode('video');
+        setRemoteEffectiveMode('video');
         joinRoom();
-        if (localModeRef.current) {
-            emit('video:mode', { roomId, mode: localModeRef.current });
-        }
+        emitModeState(roomId);
         return () => {
             emit('video:leave', roomId);
             unsubs.forEach((unsub) => unsub());
         };
-    }, [roomId, emit, on]);
+    }, [roomId, emit, emitModeState, on]);
 
     const sendOffer = useCallback(
         (offerData: RTCSessionDescriptionInit) => {
@@ -656,8 +689,12 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
     );
 
     const sendModeChange = useCallback(
-        (mode: ConsultationVideoMode) => {
-            emit('video:mode', { roomId, mode });
+        (
+            mode: ConsultationVideoMode,
+            preferredMode: ConsultationVideoMode = localPreferredModeRef.current,
+            effectiveMode: ConsultationVideoMode = localEffectiveModeRef.current
+        ) => {
+            emit('video:mode', { roomId, mode, preferredMode, effectiveMode });
         },
         [roomId, emit]
     );
@@ -668,6 +705,8 @@ export function useVideoConsultation(roomId: string | null, localMode?: Consulta
         answer,
         iceCandidate,
         remoteMode,
+        remotePreferredMode,
+        remoteEffectiveMode,
         sendOffer,
         sendAnswer,
         sendIceCandidate,
@@ -948,7 +987,6 @@ function filterVitalsPayload<T extends VitalsStreamData & Record<string, unknown
 ): T | null {
     if (!vitals) return null;
     if (!toggles) return vitals;
-    if (toggles.ai_vitals_monitoring === false) return null;
 
     const filtered: Record<string, unknown> = {
         session_id: vitals.session_id,
@@ -1161,11 +1199,6 @@ export function useVitalsStream(
     useEffect(() => {
         isUnmountedRef.current = false;
         connectRef.current = connect;
-        if (signalToggles?.ai_vitals_monitoring === false) {
-            setLatestVitals(null);
-            setVitalsHistory([]);
-            setAlerts([]);
-        }
         if (role === 'doctor') {
             bootstrapFromBackend();
             restPollingRef.current = setInterval(() => {

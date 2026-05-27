@@ -43,13 +43,19 @@ import kotlin.math.sqrt
 
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import com.example.swastik.data.remote.dto.EmergencyContactAlertRequest
+import com.example.swastik.data.repository.EmergencyRepository
 import com.example.swastik.data.repository.GuardianRepository
+import com.example.swastik.data.repository.Result
 
 @AndroidEntryPoint
 class GuardianService : Service(), SensorEventListener {
 
     @Inject
     lateinit var guardianRepository: GuardianRepository
+
+    @Inject
+    lateinit var emergencyRepository: EmergencyRepository
 
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
@@ -66,6 +72,7 @@ class GuardianService : Service(), SensorEventListener {
     private var lastImpactDelta = 0f
     private var impactActivityType: Int = DetectedActivity.UNKNOWN
     private var impactSpeedKmh: Float = 0f
+    private var lastEmergencyAlertMs: Long = 0L
 
     // We keep track of angular speed to verify tumbling
     private var angularSpeedSum = 0f
@@ -111,14 +118,21 @@ class GuardianService : Service(), SensorEventListener {
     companion object {
         const val CHANNEL_ID = "GuardianServiceChannel"
         private const val TAG = "GuardianService"
+        private const val CRASH_ALERT_CHANNEL_ID = "GuardianCrashAlertChannel"
+        private const val CRASH_ALERT_NOTIFICATION_ID = 1003
 
         // Thresholds based on sensitivity
-        private const val THRESHOLD_HIGH = 25f // Very sensitive, lower G force required (approx 2.5g)
-        private const val THRESHOLD_MEDIUM = 35f // Approx 3.5g
-        private const val THRESHOLD_LOW = 45f // Only extreme impacts (approx 4.5g)
+        private const val THRESHOLD_HIGH = 35f // Approx 3.5g
+        private const val THRESHOLD_MEDIUM = 45f // Approx 4.5g
+        private const val THRESHOLD_LOW = 60f // Only extreme impacts
 
-        private const val TUMBLE_THRESHOLD = 3.0f // Rad/s over the sample period
-        private const val CRASH_SPEED_KMH = 30f
+        private const val TUMBLE_THRESHOLD = 4.8f // Rad/s over the recent sample period
+        private const val CRASH_TUMBLE_THRESHOLD = 6.0f
+        private const val CRASH_SPEED_KMH = 45f
+        private const val FALL_MAX_SPEED_KMH = 12f
+        private const val FALL_MIN_IMPACT_DELTA = 38f
+        private const val CRASH_MIN_IMPACT_DELTA = 55f
+        private const val MIN_ALERT_INTERVAL_MS = 2 * 60 * 1000L
         private const val TABLE_LIGHT_LUX = 80f
         private const val GAIT_ANALYSIS_WINDOW_MS = 20_000L
         private const val MIN_GAIT_LOG_INTERVAL_MS = 15 * 60 * 1000L
@@ -355,7 +369,7 @@ class GuardianService : Service(), SensorEventListener {
             val angularSpeed = sqrt((rx * rx + ry * ry + rz * rz).toDouble()).toFloat()
             
             // Keep a decaying sum of angular speed to represent recent tumbling
-            angularSpeedSum = angularSpeedSum * 0.9f + angularSpeed
+            angularSpeedSum = (angularSpeedSum * 0.75f + angularSpeed).coerceAtMost(20f)
         } else if (event.sensor.type == Sensor.TYPE_PROXIMITY) {
             val maxRange = event.sensor.maximumRange
             proximityNear = event.values.firstOrNull()?.let { it < maxRange }
@@ -385,14 +399,22 @@ class GuardianService : Service(), SensorEventListener {
             return
         }
 
+        val emergencyType = classifyPotentialEmergency()
+        if (emergencyType == null) {
+            Log.d(TAG, "Impact rejected by tightened fall/crash classifier")
+            angularSpeedSum = 0f
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (now - lastEmergencyAlertMs < MIN_ALERT_INTERVAL_MS) {
+            Log.d(TAG, "Impact ignored because Guardian alert cooldown is active")
+            angularSpeedSum = 0f
+            return
+        }
+
         Log.d(TAG, "Impact + Tumble detected! Speed: $lastKnownSpeed m/s. Entering 10s verification phase...")
         isVerificationPhase = true
-        
-        // Determine Emergency Type
-        val emergencyType = if (
-            impactActivityType == DetectedActivity.IN_VEHICLE &&
-            impactSpeedKmh >= CRASH_SPEED_KMH
-        ) "Crash Detected" else "Fall Detected"
 
         val features = AppSettingsStore.settings.value.guardianFeatures
         val featureAllowed = if (emergencyType == "Crash Detected") {
@@ -416,23 +438,53 @@ class GuardianService : Service(), SensorEventListener {
         }
     }
 
-    private fun verifyStillStateAndLaunchUI(emergencyType: String) {
-        // We check Activity Recognition. If the user is WALKING or RUNNING, it's a false positive.
-        // If the user is STILL or we don't have permission/data, we trigger the alarm to be safe.
-        
-        val isStill = currentActivityType == DetectedActivity.STILL || 
-                      currentActivityType == DetectedActivity.UNKNOWN ||
-                      currentActivityType == DetectedActivity.IN_VEHICLE
-                      
-        val isWalkingOrRunning = currentActivityType == DetectedActivity.WALKING || 
-                                 currentActivityType == DetectedActivity.RUNNING || 
-                                 currentActivityType == DetectedActivity.ON_BICYCLE
+    private fun classifyPotentialEmergency(): String? {
+        val isVehicleContext = impactActivityType == DetectedActivity.IN_VEHICLE ||
+            currentActivityType == DetectedActivity.IN_VEHICLE
 
-        if (isStill || !isWalkingOrRunning) {
-            Log.d(TAG, "Device is STILL. Triggering Grace Period UI! Type: $emergencyType")
+        if (
+            isVehicleContext &&
+            impactSpeedKmh >= CRASH_SPEED_KMH &&
+            lastImpactDelta >= CRASH_MIN_IMPACT_DELTA &&
+            angularSpeedSum >= CRASH_TUMBLE_THRESHOLD
+        ) {
+            return "Crash Detected"
+        }
+
+        val isVehicleLikeActivity = impactActivityType == DetectedActivity.IN_VEHICLE ||
+            impactActivityType == DetectedActivity.ON_BICYCLE ||
+            currentActivityType == DetectedActivity.IN_VEHICLE ||
+            currentActivityType == DetectedActivity.ON_BICYCLE
+
+        if (
+            !isVehicleLikeActivity &&
+            impactSpeedKmh <= FALL_MAX_SPEED_KMH &&
+            lastImpactDelta >= FALL_MIN_IMPACT_DELTA &&
+            angularSpeedSum >= TUMBLE_THRESHOLD
+        ) {
+            return "Fall Detected"
+        }
+
+        return null
+    }
+
+    private fun verifyStillStateAndLaunchUI(emergencyType: String) {
+        val isCrash = emergencyType == "Crash Detected"
+        val isMovementDismissal = currentActivityType == DetectedActivity.WALKING ||
+            currentActivityType == DetectedActivity.RUNNING ||
+            currentActivityType == DetectedActivity.ON_BICYCLE
+        val isConfirmed = if (isCrash) {
+            !isMovementDismissal && impactSpeedKmh >= CRASH_SPEED_KMH
+        } else {
+            currentActivityType == DetectedActivity.STILL && impactSpeedKmh <= FALL_MAX_SPEED_KMH
+        }
+
+        if (isConfirmed) {
+            Log.d(TAG, "Guardian event verified. Type: $emergencyType")
+            lastEmergencyAlertMs = System.currentTimeMillis()
             scope.launch {
                 guardianRepository.logEvent(
-                    eventType = if (emergencyType == "Crash Detected") "CRASH_DETECTED" else "FALL_DETECTED",
+                    eventType = if (isCrash) "CRASH_DETECTED" else "FALL_DETECTED",
                     latitude = lastKnownLocation?.latitude,
                     longitude = lastKnownLocation?.longitude,
                     locationContext = "Post-impact activity=$currentActivityType",
@@ -448,14 +500,53 @@ class GuardianService : Service(), SensorEventListener {
                         .toString()
                 )
             }
-            launchEmergencyCountdown(emergencyType)
+            if (isCrash) {
+                launchEmergencyCountdown(emergencyType)
+            } else {
+                notifyEmergencyContactsForFall()
+            }
         } else {
-            Log.d(TAG, "User is moving ($currentActivityType). False positive dismissed.")
+            Log.d(TAG, "Guardian event dismissed by post-impact activity=$currentActivityType")
         }
         
         // Reset and resume monitoring
         angularSpeedSum = 0f
         isVerificationPhase = false
+    }
+
+    private fun notifyEmergencyContactsForFall() {
+        val sourceId = "fall-${System.currentTimeMillis()}"
+        scope.launch {
+            val request = EmergencyContactAlertRequest(
+                alertType = "fall_detected",
+                latitude = lastKnownLocation?.latitude,
+                longitude = lastKnownLocation?.longitude,
+                notes = "Guardian fall detection verified after post-impact stillness.",
+                sourceId = sourceId
+            )
+
+            when (val result = emergencyRepository.notifyEmergencyContacts(request)) {
+                is Result.Success -> {
+                    guardianRepository.logEvent(
+                        eventType = "FALL_CONTACTS_NOTIFIED",
+                        latitude = lastKnownLocation?.latitude,
+                        longitude = lastKnownLocation?.longitude,
+                        locationContext = "notified=${result.data.notifiedUserCount}, matched=${result.data.matchedUserCount}",
+                        sensorDataSnippet = sourceId
+                    )
+                }
+                is Result.Error -> {
+                    guardianRepository.logEvent(
+                        eventType = "FALL_CONTACTS_NOTIFY_FAILED",
+                        latitude = lastKnownLocation?.latitude,
+                        longitude = lastKnownLocation?.longitude,
+                        locationContext = result.message,
+                        sensorDataSnippet = sourceId
+                    )
+                }
+                is Result.Loading -> Unit
+            }
+        }
     }
 
     private fun isLikelyPhoneOnlyImpact(): Boolean {
@@ -482,7 +573,33 @@ class GuardianService : Service(), SensorEventListener {
             putExtra("SPEED_KMH", impactSpeedKmh)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        startActivity(intent)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            CRASH_ALERT_NOTIFICATION_ID,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, CRASH_ALERT_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Crash SOS detected")
+            .setContentText("Unlock not required. Cancel if you are safe.")
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(CRASH_ALERT_NOTIFICATION_ID, notification)
+
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Crash countdown activity launch deferred to full-screen notification: ${e.message}")
+        }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -496,8 +613,17 @@ class GuardianService : Service(), SensorEventListener {
                 "Guardian Background Service",
                 NotificationManager.IMPORTANCE_LOW
             )
+            val crashAlertChannel = NotificationChannel(
+                CRASH_ALERT_CHANNEL_ID,
+                "Guardian Crash SOS Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                description = "Full-screen crash SOS countdown alerts"
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(serviceChannel)
+            manager?.createNotificationChannel(crashAlertChannel)
         }
     }
 

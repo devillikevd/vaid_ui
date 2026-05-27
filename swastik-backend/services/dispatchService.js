@@ -20,6 +20,7 @@ const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, formatDistance, calculateETA, getBoundingBox } = require('../utils/geo');
 const { v4: uuidv4 } = require('uuid');
 const notificationService = require('./notificationService');
+const emergencyContactNotificationService = require('./emergencyContactNotificationService');
 const eventEmitter = require('./eventEmitter');
 const hospitalManagerService = require('./hospitalManagerService');
 
@@ -40,6 +41,15 @@ const HOSPITAL_VISIBLE_EMERGENCY_STATUSES = [
 ];
 
 const ACTIVE_PATIENT_EMERGENCY_STATUSES = [...HOSPITAL_VISIBLE_EMERGENCY_STATUSES];
+const PATIENT_CANCELLABLE_STATUSES = [
+  'pending',
+  'broadcasting',
+  'assigned',
+  'accepted',
+  'dispatched',
+  'en_route',
+];
+const MIN_CANCELLATION_REASON_LENGTH = 12;
 
 // ── Status State Machine ────────────────────────────────────────
 const STATUS_TRANSITIONS = {
@@ -81,6 +91,16 @@ function derivePriority(emergencyType) {
   if (critical.includes(emergencyType)) return 'critical';
   if (high.includes(emergencyType)) return 'high';
   return 'normal';
+}
+
+function normalizeCancellationReason(reason) {
+  return String(reason || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+function isMissingColumnError(error, columnName) {
+  return error &&
+    String(error.code) === '42703' &&
+    String(error.message || '').toLowerCase().includes(columnName.toLowerCase());
 }
 
 class DispatchService {
@@ -412,6 +432,17 @@ class DispatchService {
 
     // Start broadcast round 1
     const broadcastResult = await this._broadcastToNearestAmbulances(requestId, latitude, longitude, 1);
+
+    emergencyContactNotificationService.notifyEmergencyContacts(userId, {
+      alertType: emergencyType === 'accident' ? 'car_crash' : 'sos',
+      latitude,
+      longitude,
+      notes,
+      sourceId: requestId,
+      idempotencyKey: `sos:${requestId}`,
+    }).catch((err) => {
+      console.warn('[dispatch] emergency contact notification failed:', err.message);
+    });
 
     // Emit to hospital dashboards / admin
     eventEmitter.emitEmergencyRequest({
@@ -1345,15 +1376,33 @@ class DispatchService {
   }
 
   // ── Patient cancel ─────────────────────────────────────────────
-  async cancelByPatient(userId, requestId, reason) {
+  async cancelByPatient(userId, requestId, cancellation = {}) {
+    const payload = typeof cancellation === 'string'
+      ? { reason: cancellation, legalNoticeAccepted: false }
+      : (cancellation || {});
+    const reason = normalizeCancellationReason(payload.reason);
+    const legalNoticeAccepted = payload.legalNoticeAccepted === true;
+
+    if (reason.length < MIN_CANCELLATION_REASON_LENGTH) {
+      throw new ApiError(400, 'A clear cancellation reason is required');
+    }
+
+    if (!legalNoticeAccepted) {
+      throw new ApiError(400, 'Please acknowledge the emergency cancellation policy before cancelling');
+    }
+
     const { data: patient } = await supabaseAdmin
       .from('patients').select('id').eq('user_id', userId).single();
 
+    if (!patient?.id) {
+      throw new ApiError(404, 'Patient profile not found');
+    }
+
     const { data: request } = await supabaseAdmin
       .from('emergency_requests')
-      .select('*, vehicle:ambulances(id, driver_user_id)')
+      .select('*, vehicle:ambulances(id, driver_user_id, operator_id, vehicle_number)')
       .eq('id', requestId)
-      .eq('patient_id', patient?.id || userId)
+      .eq('patient_id', patient.id)
       .single();
 
     if (!request) {
@@ -1364,17 +1413,60 @@ class DispatchService {
       throw new ApiError(400, 'Cannot cancel a completed or already cancelled request');
     }
 
-    await supabaseAdmin
+    if (!PATIENT_CANCELLABLE_STATUSES.includes(request.status)) {
+      throw new ApiError(409, 'Ambulance team has already reached or picked up the patient. Please call the driver to close or update this request.');
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: recentCancellationCount } = await supabaseAdmin
       .from('emergency_requests')
-      .update({
-        status: 'cancelled',
-        cancellation_reason: reason,
-        cancelled_by: userId,
-        cancelled_at: new Date().toISOString(),
-      })
+      .select('id', { count: 'exact', head: true })
+      .eq('patient_id', patient.id)
+      .eq('status', 'cancelled')
+      .gte('created_at', since);
+    const totalRecentCancellations = (recentCancellationCount || 0) + 1;
+    const misuseReviewRequired = totalRecentCancellations >= 3;
+    const cancelledAt = new Date().toISOString();
+    const adminNotes = misuseReviewRequired
+      ? `Repeated patient SOS cancellations in 24h: ${totalRecentCancellations}. Review for misuse. Latest reason: ${reason}`
+      : request.admin_notes;
+
+    const updatePayload = {
+      status: 'cancelled',
+      cancellation_reason: reason,
+      cancelled_by: userId,
+      cancelled_at: cancelledAt,
+    };
+    if (adminNotes !== undefined) updatePayload.admin_notes = adminNotes;
+
+    let { error: updateError } = await supabaseAdmin
+      .from('emergency_requests')
+      .update(updatePayload)
       .eq('id', requestId);
 
-    await this._appendStatusHistory(requestId, 'cancelled', { by: userId, reason });
+    if (isMissingColumnError(updateError, 'cancelled_at')) {
+      delete updatePayload.cancelled_at;
+      ({ error: updateError } = await supabaseAdmin
+        .from('emergency_requests')
+        .update(updatePayload)
+        .eq('id', requestId));
+    }
+
+    if (updateError) {
+      console.error('[dispatch] patient cancel update failed:', updateError);
+      throw new ApiError(500, 'Failed to cancel emergency request');
+    }
+
+    await this._appendStatusHistory(requestId, 'cancelled', {
+      by: userId,
+      reason,
+      actor: 'patient',
+      legalNoticeAccepted,
+      cancelledAt,
+      previousStatus: request.status,
+      misuseReviewRequired,
+      recentPatientCancellations24h: totalRecentCancellations,
+    });
 
     // Release ambulance if assigned
     if (request.vehicle_id) {
@@ -1390,22 +1482,51 @@ class DispatchService {
       this.pendingTimeouts.delete(requestId);
     }
 
-    // Notify driver
-    const driverUserId = request.vehicle?.driver_user_id;
-    if (driverUserId) {
-      await notificationService.sendNotification(driverUserId, {
-        title: 'Request Cancelled',
-        message: 'Patient has cancelled the ambulance request',
+    const recipientUserIds = new Set();
+    const assignedRecipients = await this._resolveAmbulanceRecipientUserIds(request.vehicle);
+    assignedRecipients.forEach((recipientUserId) => recipientUserIds.add(recipientUserId));
+
+    const broadcastIds = Array.isArray(request.broadcast_ambulance_ids)
+      ? request.broadcast_ambulance_ids
+      : [];
+    if (broadcastIds.length > 0) {
+      const { data: broadcastAmbulances } = await supabaseAdmin
+        .from('ambulances')
+        .select('id, driver_user_id, operator_id')
+        .in('id', broadcastIds);
+
+      for (const ambulance of broadcastAmbulances || []) {
+        const recipients = await this._resolveAmbulanceRecipientUserIds(ambulance);
+        recipients.forEach((recipientUserId) => recipientUserIds.add(recipientUserId));
+      }
+    }
+
+    for (const recipientUserId of recipientUserIds) {
+      await notificationService.sendNotification(recipientUserId, {
+        title: 'Emergency request cancelled',
+        message: `Patient cancelled the SOS request. Reason: ${reason}`,
         type: 'ambulance_cancelled',
-        data: { requestId },
+        data: {
+          requestId,
+          reason,
+          previousStatus: request.status,
+          misuseReviewRequired,
+        },
       });
 
-      eventEmitter.notifyUser(driverUserId, 'ambulance:request-cancelled', { requestId });
+      eventEmitter.notifyUser(recipientUserId, 'ambulance:request-cancelled', {
+        requestId,
+        reason,
+        previousStatus: request.status,
+        misuseReviewRequired,
+      });
     }
 
     eventEmitter.emitEmergencyDispatch('emergency:updated', {
       requestId,
       status: 'cancelled',
+      cancellationReason: reason,
+      misuseReviewRequired,
       hospitalId: request.hospital_id || null,
       destinationHospitalId: request.destination_hospital_id || null,
     });
@@ -1417,6 +1538,7 @@ class DispatchService {
         requestId,
         status: 'cancelled',
         message: 'Request cancelled successfully',
+        cancellationReason: reason,
       },
     };
   }

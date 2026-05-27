@@ -112,7 +112,7 @@ fun EmergencyScreen(
                 // Show active emergency tracking
                 ActiveEmergencyView(
                     uiState = uiState,
-                    onCancel = { viewModel.cancelEmergency() },
+                    onCancel = { reason -> viewModel.cancelEmergency(reason) },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -120,7 +120,7 @@ fun EmergencyScreen(
                 // Show confirmation
                 EmergencyConfirmation(
                     uiState = uiState,
-                    onCancel = { viewModel.cancelEmergency() },
+                    onCancel = { reason -> viewModel.cancelEmergency(reason) },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -703,7 +703,7 @@ private fun EmergencyMetricTile(
 @Composable
 private fun ActiveEmergencyView(
     uiState: EmergencyUiState,
-    onCancel: () -> Unit,
+    onCancel: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -714,6 +714,14 @@ private fun ActiveEmergencyView(
     val resolvedDriverPhone = uiState.driverPhone ?: emergency?.resolvedDriverPhone()
     val resolvedVehicleNumber = uiState.vehicleNumber ?: emergency?.resolvedVehicleNumber()
     val colorScheme = MaterialTheme.colorScheme
+    val canPatientCancel = resolvedStatus in listOf(
+        "pending",
+        "broadcasting",
+        "assigned",
+        "accepted",
+        "dispatched",
+        "en_route"
+    )
 
     val statusText = when (resolvedStatus) {
         "pending" -> "Finding Ambulance..."
@@ -1039,33 +1047,25 @@ private fun ActiveEmergencyView(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
                 border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
                 shape = RoundedCornerShape(14.dp),
-                enabled = !uiState.isLoading
+                enabled = !uiState.isLoading && canPatientCancel
             ) {
-                Text(stringResource(R.string.cancel_emergency_request))
+                Text(
+                    if (canPatientCancel) {
+                        stringResource(R.string.cancel_emergency_request)
+                    } else {
+                        "Call driver to close request"
+                    }
+                )
             }
         }
     }
 
     if (showCancelDialog) {
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Cancel Emergency Request?") },
-            text = { Text("Are you sure you want to cancel? This will cancel the dispatched ambulance and notify the driver.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showCancelDialog = false
-                        onCancel()
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
-                ) {
-                    Text("Yes, Cancel")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("No, Keep Request")
-                }
+        EmergencyCancellationDialog(
+            onDismiss = { showCancelDialog = false },
+            onConfirm = { reason ->
+                showCancelDialog = false
+                onCancel(reason)
             }
         )
     }
@@ -1228,10 +1228,11 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
 @Composable
 private fun EmergencyConfirmation(
     uiState: EmergencyUiState,
-    onCancel: () -> Unit,
+    onCancel: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    var showCancelDialog by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -1277,7 +1278,7 @@ private fun EmergencyConfirmation(
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedButton(
-            onClick = onCancel,
+            onClick = { showCancelDialog = true },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
             border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
             shape = RoundedCornerShape(14.dp),
@@ -1286,6 +1287,103 @@ private fun EmergencyConfirmation(
             Text(stringResource(R.string.cancel_request))
         }
     }
+
+    if (showCancelDialog) {
+        EmergencyCancellationDialog(
+            onDismiss = { showCancelDialog = false },
+            onConfirm = { reason ->
+                showCancelDialog = false
+                onCancel(reason)
+            }
+        )
+    }
+}
+
+@Composable
+private fun EmergencyCancellationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val reasons = listOf(
+        "Accidental SOS trigger",
+        "Patient is stable now",
+        "Private transport arranged",
+        "Duplicate request"
+    )
+    var selectedReason by remember { mutableStateOf(reasons.first()) }
+    var details by remember { mutableStateOf("") }
+    var acceptedNotice by remember { mutableStateOf(false) }
+    val finalReason = listOf(selectedReason, details.trim())
+        .filter { it.isNotBlank() }
+        .joinToString(": ")
+        .take(500)
+    val canConfirm = acceptedNotice && finalReason.length >= 12
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cancel Emergency Request?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "This will cancel the ambulance dispatch and notify the ambulance team with your reason.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                reasons.forEach { reason ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedReason = reason },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedReason == reason,
+                            onClick = { selectedReason = reason }
+                        )
+                        Text(reason, modifier = Modifier.padding(start = 4.dp))
+                    }
+                }
+                OutlinedTextField(
+                    value = details,
+                    onValueChange = { details = it.take(300) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Reason details") },
+                    minLines = 2,
+                    maxLines = 4
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { acceptedNotice = !acceptedNotice },
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Checkbox(
+                        checked = acceptedNotice,
+                        onCheckedChange = { acceptedNotice = it }
+                    )
+                    Text(
+                        "I understand false or repeated SOS misuse can be reviewed and may lead to action under emergency-service policy.",
+                        modifier = Modifier.padding(top = 12.dp),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(finalReason) },
+                enabled = canConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
+            ) {
+                Text("Confirm Cancel")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Keep Request")
+            }
+        }
+    )
 }
 
 @Composable

@@ -150,14 +150,15 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                             Icon(Icons.Default.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Test Emergency Siren", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                                Text("Preview the sound played during a fall.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Test Crash SOS Siren", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Preview the sound used only for crash SOS.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Button(
                                 onClick = {
                                     // Trigger test siren activity
                                     val intent = Intent(context, com.example.swastik.ui.screens.patient.guardian.EmergencyCountdownActivity::class.java).apply {
                                         putExtra("is_test", true)
+                                        putExtra("EMERGENCY_TYPE", "Crash Detected")
                                     }
                                     context.startActivity(intent)
                                 },

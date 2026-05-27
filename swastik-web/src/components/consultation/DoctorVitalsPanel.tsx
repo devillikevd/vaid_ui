@@ -7,7 +7,7 @@ import {
     Activity, Heart, Wind, Thermometer, Eye, AlertTriangle,
     Brain, Shield, Settings2, ChevronDown, ChevronUp, Loader2,
     Send, Zap, TrendingUp, TrendingDown, Minus, X,
-    ToggleLeft, ToggleRight, Bot, FileText
+    ToggleLeft, ToggleRight
 } from 'lucide-react';
 
 /* ──────────── Types ──────────── */
@@ -155,8 +155,6 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
 
     // HR history for sparkline
     const hrHistory = vitalsHistory.map(v => v.heart_rate).filter(Boolean) as number[];
-    const aiAssistantEnabled = toggles?.ai_consultation_assistant !== false;
-
     // Load toggles
     useEffect(() => {
         if (!isDoctor) return;
@@ -178,10 +176,6 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     // AI query handler
     const handleAIQuery = useCallback(async () => {
         if (!aiQuery.trim() || aiLoading) return;
-        if (!aiAssistantEnabled) {
-            setAiError('AI consultation assistant is turned off in feature toggles.');
-            return;
-        }
         const q = aiQuery.trim();
         setAiQuery('');
         setAiLoading(true);
@@ -198,7 +192,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
             setAiError(error instanceof Error ? error.message : 'AI assistant is temporarily unavailable.');
         }
         setAiLoading(false);
-    }, [aiAssistantEnabled, aiLoading, aiQuery, consultationId]);
+    }, [aiLoading, aiQuery, consultationId]);
 
     if (!isDoctor) return null;
 
@@ -255,9 +249,15 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                 {/* Settings Dropdown */}
                 {showSettings && toggles && (
                     <div className="border-b border-gray-800 bg-gray-800/50 p-3 max-h-64 overflow-y-auto space-y-0.5">
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Patient Monitoring</p>
-                        <ToggleSwitch label="AI Vitals Stream (Device Edge)" value={toggles.ai_vitals_monitoring} onChange={v => handleToggle('ai_vitals_monitoring', v)} />
-                        <ToggleSwitch label="AI Consultation Assistant" value={toggles.ai_consultation_assistant} onChange={v => handleToggle('ai_consultation_assistant', v)} />
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Signal Display</p>
+                        <ToggleSwitch label="Heart Rate" value={toggles.heart_rate_rppg} onChange={v => handleToggle('heart_rate_rppg', v)} />
+                        <ToggleSwitch label="Respiration" value={toggles.respiration_monitoring} onChange={v => handleToggle('respiration_monitoring', v)} />
+                        <ToggleSwitch label="SpO2" value={toggles.spo2_estimation} onChange={v => handleToggle('spo2_estimation', v)} />
+                        <ToggleSwitch label="Stress / HRV" value={toggles.stress_hrv} onChange={v => handleToggle('stress_hrv', v)} />
+                        <ToggleSwitch label="Drowsiness" value={toggles.drowsiness_detection} onChange={v => handleToggle('drowsiness_detection', v)} />
+                        <ToggleSwitch label="Pain Signals" value={toggles.pain_level_facs} onChange={v => handleToggle('pain_level_facs', v)} />
+                        <ToggleSwitch label="Posture" value={toggles.posture_analysis} onChange={v => handleToggle('posture_analysis', v)} />
+                        <ToggleSwitch label="Alerts" value={toggles.risk_alerts} onChange={v => handleToggle('risk_alerts', v)} />
                     </div>
                 )}
 
@@ -389,11 +389,6 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                 {activeTab === 'ai' && (
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                            {!aiAssistantEnabled && (
-                                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs text-amber-200">
-                                    AI consultation assistant is disabled in feature toggles. Re-enable it from the settings switch in this panel to use live clinical reasoning.
-                                </div>
-                            )}
                             {aiError && (
                                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-3 text-xs text-red-200">
                                     {aiError}
@@ -407,8 +402,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     <div className="mt-4 space-y-1.5 w-full">
                                         {['Interpret current vitals', 'Suggest differential diagnosis', 'Any drug interactions?'].map(q => (
                                             <button key={q} onClick={() => { setAiQuery(q); }}
-                                                disabled={!aiAssistantEnabled}
-                                                className="w-full text-left text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-800 px-3 py-2 rounded-lg border border-gray-700/50 transition-all disabled:cursor-not-allowed disabled:opacity-50">
+                                                className="w-full text-left text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-800 px-3 py-2 rounded-lg border border-gray-700/50 transition-all">
                                                 {q}
                                             </button>
                                         ))}
@@ -511,8 +505,8 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     onKeyDown={e => e.key === 'Enter' && handleAIQuery()}
                                     placeholder="Ask about meds, interactions..."
                                     className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500"
-                                    disabled={aiLoading || !aiAssistantEnabled} />
-                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim() || !aiAssistantEnabled}
+                                    disabled={aiLoading} />
+                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim()}
                                     className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-40">
                                     {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>

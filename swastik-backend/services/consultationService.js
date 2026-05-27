@@ -576,6 +576,18 @@ const buildLocalClinicalFallback = ({ query, vitalsData, patientHistory, doctor 
     if (vitalsData.respiration_rate > 25) {
       pushAlert('TACHYPNEA', 'respiration_rate', 'warning', `Elevated respiratory rate: ${vitalsData.respiration_rate}/min`, 25, vitalsData.respiration_rate);
     }
+    if (vitalsData.temperature > 38.5) {
+      pushAlert('FEVER', 'temperature', 'warning', `Fever-range temperature detected: ${vitalsData.temperature}°C`, 38.5, vitalsData.temperature);
+    }
+    if (vitalsData.temperature && vitalsData.temperature < 35.5) {
+      pushAlert('HYPOTHERMIA', 'temperature', 'critical', `Low temperature detected: ${vitalsData.temperature}°C`, 35.5, vitalsData.temperature);
+    }
+    if (vitalsData.stress_level === 'critical' || vitalsData.stress_level === 'high') {
+      pushAlert('ELEVATED_STRESS', 'stress_level', vitalsData.stress_level === 'critical' ? 'critical' : 'warning', `Elevated stress/HRV signal: ${vitalsData.stress_level}`, null, vitalsData.stress_level);
+    }
+    if (vitalsData.drowsiness_score > 0.8) {
+      pushAlert('DROWSINESS', 'drowsiness_score', 'warning', `Severe drowsiness detected: ${Math.round(vitalsData.drowsiness_score * 100)}%`, 0.8, vitalsData.drowsiness_score);
+    }
     if (vitalsData.fall_detected) {
       pushAlert('FALL_DETECTED', 'fall_detected', 'critical', 'Fall detected during consultation', null, true);
     }
@@ -585,6 +597,15 @@ const buildLocalClinicalFallback = ({ query, vitalsData, patientHistory, doctor 
     if (vitalsData.facial_asymmetry_score > 0.35) {
       pushAlert('FACIAL_ASYMMETRY', 'facial_asymmetry_score', 'critical', 'Significant facial asymmetry detected; consider urgent neuro screen', 0.35, vitalsData.facial_asymmetry_score);
     }
+    if (vitalsData.tremor_detected && vitalsData.tremor_severity > 6) {
+      pushAlert('TREMOR', 'tremor_severity', 'warning', `Marked tremor detected: ${vitalsData.tremor_severity}/10`, 6, vitalsData.tremor_severity);
+    }
+    if (vitalsData.pallor_score > 0.5) {
+      pushAlert('PALLOR', 'pallor_score', 'warning', 'Pallor signal detected; consider anemia/perfusion correlation', 0.5, vitalsData.pallor_score);
+    }
+    if (vitalsData.blood_pressure_systolic > 180) {
+      pushAlert('SEVERE_HYPERTENSION', 'blood_pressure_systolic', 'critical', `Severely elevated systolic BP: ${vitalsData.blood_pressure_systolic} mmHg`, 180, vitalsData.blood_pressure_systolic);
+    }
   }
 
   const vitalsLine = vitalsData
@@ -593,6 +614,10 @@ const buildLocalClinicalFallback = ({ query, vitalsData, patientHistory, doctor 
         vitalsData.respiration_rate ? `RR ${vitalsData.respiration_rate}/min` : null,
         vitalsData.spo2 ? `SpO2 ${vitalsData.spo2}%` : null,
         vitalsData.temperature ? `Temp ${vitalsData.temperature}°C` : null,
+        vitalsData.blood_pressure_systolic ? `BP ${vitalsData.blood_pressure_systolic}/${vitalsData.blood_pressure_diastolic || '?'} mmHg` : null,
+        vitalsData.stress_level ? `Stress ${vitalsData.stress_level}` : null,
+        vitalsData.pain_score ? `Pain ${vitalsData.pain_score}/10` : null,
+        vitalsData.drowsiness_score ? `Drowsiness ${Math.round(vitalsData.drowsiness_score * 100)}%` : null,
       ].filter(Boolean).join(', ') || 'No numeric live vitals available'
     : 'No live vitals available';
 
@@ -957,12 +982,6 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     }
   }
 
-  // 3. Check if AI consultation assistant is enabled
-  const toggles = await featureToggleService.getToggles(doctorUserId);
-  if (!toggles.ai_consultation_assistant) {
-    throw new ApiError(400, 'AI consultation assistant is disabled. Enable it in feature toggles.');
-  }
-
   let vitalsData = null;
   try {
     const vitalsService = require('./vitalsService');
@@ -1027,10 +1046,13 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     if (response.data?.success) {
       return response.data.data;
     }
+    if (response.data?.response || response.data?.answer) {
+      return response.data;
+    }
 
     throw new Error('FastAPI returned unsuccessful response');
   } catch (err) {
-    console.error('[ConsultationService] FastAPI AI call failed:', err.message);
+    console.warn('[ConsultationService] FastAPI AI unavailable; using local clinical fallback:', err.message);
     return buildLocalClinicalFallback({ query, vitalsData, patientHistory, doctor });
   }
 };

@@ -102,16 +102,20 @@ class WebRTCManager(
         fun toNetworkQuality(currentMode: String = "video"): NetworkQuality {
             val isVideoActive = currentMode.equals("video", ignoreCase = true)
             val modeBitrate = if (isVideoActive) videoBitrateBps else audioBitrateBps
+            val estimatedCapacityBps = if (availableBitrateBps > 0) availableBitrateBps else modeBitrate
 
             return when {
             // CRITICAL: >15% loss OR RTT >800ms
             packetLossPercent > 15.0 || (roundTripTimeMs > 800 && roundTripTimeMs > 0) -> NetworkQuality.CRITICAL
-            // POOR: >5% loss OR RTT >400ms. For active video, also consider video bitrate.
-            packetLossPercent > 5.0 || (roundTripTimeMs > 400 && roundTripTimeMs > 0)
-                || (isVideoActive && modeBitrate in 1..80_000) -> NetworkQuality.POOR
-            // EXCELLENT: <1% loss AND RTT <100ms AND bitrate >500kbps
-            packetLossPercent < 1.0 && roundTripTimeMs in 0.0..100.0
-                && (!isVideoActive || modeBitrate > 500_000) -> NetworkQuality.EXCELLENT
+            // POOR: sustained transport issues. Do not downgrade on bitrate alone:
+            // static frames and codec adaptation can look "low bitrate" on a healthy link.
+            packetLossPercent > 5.0 || (roundTripTimeMs > 400 && roundTripTimeMs > 0) -> NetworkQuality.POOR
+            // EXCELLENT: low loss/latency plus enough estimated network capacity.
+            packetLossPercent < 1.0 && roundTripTimeMs in 0.0..100.0 &&
+                (
+                    (isVideoActive && estimatedCapacityBps > 500_000) ||
+                    (!isVideoActive && estimatedCapacityBps > 24_000)
+                ) -> NetworkQuality.EXCELLENT
             // GOOD: everything else
             else -> NetworkQuality.GOOD
             }

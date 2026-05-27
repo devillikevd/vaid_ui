@@ -67,8 +67,10 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
                                 if (activeSessionStartTime > 0) {
                                     val durationMillis = timestamp - activeSessionStartTime
                                     val durationMinutes = (durationMillis / (1000 * 60)).toInt()
-                                    if (durationMinutes > 0) {
+                                    if (durationMinutes in 1..180) {
                                         fitnessRepository.addActiveTime(durationMinutes)
+                                    } else {
+                                        Log.d("ActivityTransition", "Ignored unrealistic active session: ${durationMinutes}m")
                                     }
                                     activeSessionStartTime = 0L
                                 }

@@ -128,8 +128,9 @@ class VideoConsultationViewModel @Inject constructor(
     private var bannerJob: kotlinx.coroutines.Job? = null
     private var localBandwidthMode = ConsultationMode.VIDEO
     private var remoteRequestedMode = ConsultationMode.VIDEO
+    private var remotePreferredMode = ConsultationMode.VIDEO
     private var userMicPreference = true
-    private var lastPublishedModeConstraint = ConsultationMode.VIDEO
+    private var lastPublishedModeState: String? = null
     private var pendingAppointmentId: String? = null
     private var currentAppointmentId: String? = null
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
@@ -222,15 +223,6 @@ class VideoConsultationViewModel @Inject constructor(
                         settings.guardianConsentAccepted &&
                         settings.guardianFeatures.doctorQrSharing
                 )
-                if (!_uiState.value.guardianAnalyticsSharingAllowed) {
-                    stopVitalsStreaming()
-                    detachCvAnalyzer()
-                } else {
-                    attachCvAnalyzerIfAllowed()
-                    if (_uiState.value.isConnected && vitalsStreamJob?.isActive != true) {
-                        startVitalsStreaming()
-                    }
-                }
             }
         }
     }
@@ -258,7 +250,7 @@ class VideoConsultationViewModel @Inject constructor(
                 // Set up callbacks
                 onLocalVideoTrack = { track ->
                     _localVideoTrack.value = track
-                    attachCvAnalyzerIfAllowed()
+                    attachCvAnalyzerIfPossible()
                 }
                 onRemoteVideoTrack = { track ->
                     _remoteVideoTrack.value = track
@@ -300,8 +292,13 @@ class VideoConsultationViewModel @Inject constructor(
                             if (localBandwidthMode != ConsultationMode.VIDEO && _uiState.value.isConnected) {
                                 localBandwidthMode = ConsultationMode.VIDEO
                                 publishModeConstraintIfNeeded()
+                                val restoredMode = effectiveMode()
                                 applyEffectiveMediaState(
-                                    banner = "✅ Connection restored — Video mode active",
+                                    banner = if (restoredMode == ConsultationMode.VIDEO) {
+                                        "✅ Connection restored — Video mode active"
+                                    } else {
+                                        "✅ Connection restored"
+                                    },
                                     clearDelayMs = 4000
                                 )
                             } else {
@@ -319,12 +316,9 @@ class VideoConsultationViewModel @Inject constructor(
                             publishModeConstraintIfNeeded()
                             applyEffectiveMediaState()
                             startNetworkQualityMonitor()
-                            if (_uiState.value.guardianAnalyticsSharingAllowed) {
-                                if (vitalsStreamJob?.isActive != true) {
-                                    startVitalsStreaming() // Launch parallel Edge CV MediaPipe processor
-                                }
-                            } else {
-                                stopVitalsStreaming()
+                            attachCvAnalyzerIfPossible()
+                            if (vitalsStreamJob?.isActive != true) {
+                                startVitalsStreaming()
                             }
                         }
                         PeerConnection.IceConnectionState.DISCONNECTED -> {
@@ -416,7 +410,6 @@ class VideoConsultationViewModel @Inject constructor(
 
                 if (localVideoTrack == null) {
                     userPreferredMode = ConsultationMode.AUDIO
-                    localBandwidthMode = ConsultationMode.AUDIO
                     applyEffectiveMediaState(
                         banner = "Camera unavailable - switched to Audio-only mode",
                         clearDelayMs = 4000
@@ -621,14 +614,24 @@ class VideoConsultationViewModel @Inject constructor(
                 )
             }
             nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.CHAT -> {
+                val restoredMode = effectiveMode()
                 applyEffectiveMediaState(
-                    banner = "✅ Network recovered — Video restored!",
+                    banner = if (restoredMode == ConsultationMode.VIDEO) {
+                        "✅ Network recovered — Video restored!"
+                    } else {
+                        "✅ Network recovered"
+                    },
                     clearDelayMs = 4000
                 )
             }
             nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.AUDIO -> {
+                val restoredMode = effectiveMode()
                 applyEffectiveMediaState(
-                    banner = "✅ Network improved — Video restored!",
+                    banner = if (restoredMode == ConsultationMode.VIDEO) {
+                        "✅ Network improved — Video restored!"
+                    } else {
+                        "✅ Network improved"
+                    },
                     clearDelayMs = 4000
                 )
             }
@@ -699,27 +702,49 @@ class VideoConsultationViewModel @Inject constructor(
                 val sessionRoomId = _uiState.value.session?.sessionId ?: return
                 if (event.roomId != sessionRoomId) return
 
-                val nextRemoteMode = consultationModeFromWire(event.mode)
-                if (nextRemoteMode == remoteRequestedMode) return
+                val nextRemoteModeConstraint = consultationModeFromWire(event.mode)
+                val nextRemotePreferredMode = consultationModeFromWire(event.preferredMode)
+                if (nextRemoteModeConstraint == remoteRequestedMode &&
+                    nextRemotePreferredMode == remotePreferredMode) return
 
-                val previousRemoteMode = remoteRequestedMode
-                remoteRequestedMode = nextRemoteMode
+                val previousRemoteModeConstraint = remoteRequestedMode
+                val previousRemotePreferredMode = remotePreferredMode
+                remoteRequestedMode = nextRemoteModeConstraint
+                remotePreferredMode = nextRemotePreferredMode
                 when {
-                    nextRemoteMode == ConsultationMode.CHAT -> {
+                    nextRemoteModeConstraint == ConsultationMode.CHAT -> {
                         applyEffectiveMediaState(
                             banner = "Doctor switched to Chat mode due to network constraints",
                             clearDelayMs = 8000
                         )
                     }
-                    nextRemoteMode == ConsultationMode.AUDIO -> {
+                    nextRemoteModeConstraint == ConsultationMode.AUDIO -> {
                         applyEffectiveMediaState(
                             banner = "Doctor switched to Audio-only mode due to network constraints",
                             clearDelayMs = 6000
                         )
                     }
-                    previousRemoteMode != ConsultationMode.VIDEO -> {
+                    nextRemotePreferredMode == ConsultationMode.CHAT -> {
+                        applyEffectiveMediaState(
+                            banner = "Doctor switched to Chat mode",
+                            clearDelayMs = 8000
+                        )
+                    }
+                    nextRemotePreferredMode == ConsultationMode.AUDIO -> {
+                        applyEffectiveMediaState(
+                            banner = "Doctor camera is off — Audio-only mode active",
+                            clearDelayMs = 6000
+                        )
+                    }
+                    previousRemoteModeConstraint != ConsultationMode.VIDEO -> {
                         applyEffectiveMediaState(
                             banner = "Doctor's network recovered — Video restored!",
+                            clearDelayMs = 4000
+                        )
+                    }
+                    previousRemotePreferredMode != ConsultationMode.VIDEO -> {
+                        applyEffectiveMediaState(
+                            banner = "Doctor video restored",
                             clearDelayMs = 4000
                         )
                     }
@@ -728,6 +753,7 @@ class VideoConsultationViewModel @Inject constructor(
             }
             is SignalingEvent.UserLeft -> {
                 remoteRequestedMode = ConsultationMode.VIDEO
+                remotePreferredMode = ConsultationMode.VIDEO
                 // Remote user left — clean up
                 _remoteVideoTrack.value = null
                 _uiState.value = _uiState.value.copy(
@@ -1273,14 +1299,14 @@ class VideoConsultationViewModel @Inject constructor(
     private fun stopVitalsStreaming() {
         vitalsStreamJob?.cancel()
         vitalsStreamJob = null
-        vitalsWebSocket?.close(1000, "Vitals sharing disabled")
+        vitalsWebSocket?.close(1000, "Consultation AI vitals stopped")
         vitalsWebSocket = null
     }
 
-    private fun attachCvAnalyzerIfAllowed() {
+    private fun attachCvAnalyzerIfPossible() {
         val track = _localVideoTrack.value ?: return
         val analyzer = cvAnalyzer ?: return
-        if (!_uiState.value.guardianAnalyticsSharingAllowed || isCvAnalyzerAttached) return
+        if (isCvAnalyzerAttached) return
         try {
             track.addSink(analyzer)
             isCvAnalyzerAttached = true
@@ -1324,8 +1350,9 @@ class VideoConsultationViewModel @Inject constructor(
         userPreferredMode = ConsultationMode.VIDEO
         localBandwidthMode = ConsultationMode.VIDEO
         remoteRequestedMode = ConsultationMode.VIDEO
+        remotePreferredMode = ConsultationMode.VIDEO
         userMicPreference = true
-        lastPublishedModeConstraint = ConsultationMode.VIDEO
+        lastPublishedModeState = null
         
         consecutiveDegradeCount = 0
         consecutiveRestoreCount = 0
@@ -1334,7 +1361,7 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun effectiveMode(): ConsultationMode =
-        mostRestrictiveMode(userPreferredMode, localBandwidthMode, remoteRequestedMode)
+        mostRestrictiveMode(userPreferredMode, localBandwidthMode, remoteRequestedMode, remotePreferredMode)
 
     private fun applyEffectiveMediaState(
         banner: String? = null,
@@ -1357,13 +1384,26 @@ class VideoConsultationViewModel @Inject constructor(
         if (banner != null && clearDelayMs != null) {
             clearBannerAfterDelay(clearDelayMs)
         }
+
+        publishModeConstraintIfNeeded()
     }
 
     private fun publishModeConstraintIfNeeded(force: Boolean = false) {
         val roomId = _uiState.value.session?.sessionId ?: return
-        if (!force && localBandwidthMode == lastPublishedModeConstraint) return
-        socketManager.sendVideoMode(roomId, localBandwidthMode.toWireValue())
-        lastPublishedModeConstraint = localBandwidthMode
+        val effectiveMode = effectiveMode()
+        val modeStateKey = listOf(
+            localBandwidthMode,
+            userPreferredMode,
+            effectiveMode
+        ).joinToString(":") { it.toWireValue() }
+        if (!force && modeStateKey == lastPublishedModeState) return
+        socketManager.sendVideoMode(
+            roomId = roomId,
+            mode = localBandwidthMode.toWireValue(),
+            preferredMode = userPreferredMode.toWireValue(),
+            effectiveMode = effectiveMode.toWireValue()
+        )
+        lastPublishedModeState = modeStateKey
     }
 
     private fun applySpeakerRoute(isSpeakerOn: Boolean) {

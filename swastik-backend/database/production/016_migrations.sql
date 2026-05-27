@@ -84,6 +84,7 @@ ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS assigned_by UUID;
 ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS hospital_id UUID;
 ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS rejection_count INTEGER DEFAULT 0;
 ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS timeout_at TIMESTAMPTZ;
+ALTER TABLE emergency_requests ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 
 -- ============================================================
 -- CHECK CONSTRAINTS (data integrity safety nets)

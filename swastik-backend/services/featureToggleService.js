@@ -3,8 +3,8 @@
  * Manages doctor-level AI feature toggles for consultations.
  * Stored in Supabase (persistent) + cached in Redis (fast reads).
  *
- * When a doctor disables a feature, the vitals pipeline skips
- * that signal and the AI assistant omits it from context.
+ * Core consultation AI is always available during an active video visit.
+ * Doctor toggles only tune optional signal visibility/context.
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
@@ -47,6 +47,14 @@ const DEFAULT_TOGGLES = {
 
 const REDIS_KEY = (doctorUserId) => `feature_toggles:${doctorUserId}`;
 const CACHE_TTL = 600; // 10 minutes
+const CORE_ALWAYS_ON_TOGGLES = new Set(['ai_vitals_monitoring', 'ai_consultation_assistant']);
+
+const normalizeToggles = (toggles = {}) => ({
+  ...DEFAULT_TOGGLES,
+  ...toggles,
+  ai_vitals_monitoring: true,
+  ai_consultation_assistant: true,
+});
 
 /**
  * Get feature toggles for a doctor.
@@ -56,7 +64,7 @@ const getToggles = async (doctorUserId) => {
   // 1. Try Redis cache
   const cached = await cacheGet(REDIS_KEY(doctorUserId));
   if (cached && typeof cached === 'object') {
-    return { ...DEFAULT_TOGGLES, ...cached };
+    return normalizeToggles(cached);
   }
 
   // 2. Try Supabase
@@ -68,7 +76,7 @@ const getToggles = async (doctorUserId) => {
       .single();
 
     if (!error && data?.toggles) {
-      const toggles = { ...DEFAULT_TOGGLES, ...data.toggles };
+      const toggles = normalizeToggles(data.toggles);
       await cacheSet(REDIS_KEY(doctorUserId), toggles, CACHE_TTL);
       return toggles;
     }
@@ -77,7 +85,7 @@ const getToggles = async (doctorUserId) => {
   }
 
   // 3. Return defaults
-  return { ...DEFAULT_TOGGLES };
+  return normalizeToggles();
 };
 
 /**
@@ -90,7 +98,7 @@ const updateToggles = async (doctorUserId, updates) => {
 
   for (const [key, value] of Object.entries(updates)) {
     if (validKeys.includes(key) && typeof value === 'boolean') {
-      sanitized[key] = value;
+      sanitized[key] = CORE_ALWAYS_ON_TOGGLES.has(key) ? true : value;
     }
   }
 
@@ -100,7 +108,7 @@ const updateToggles = async (doctorUserId, updates) => {
 
   // Get current toggles and merge
   const current = await getToggles(doctorUserId);
-  const merged = { ...current, ...sanitized };
+  const merged = normalizeToggles({ ...current, ...sanitized });
 
   // Upsert to Supabase
   const { error } = await supabaseAdmin
@@ -138,10 +146,6 @@ const isFeatureEnabled = async (doctorUserId, featureKey) => {
  */
 const filterVitalsByToggles = async (doctorUserId, vitalsData) => {
   const toggles = await getToggles(doctorUserId);
-
-  if (!toggles.ai_vitals_monitoring) {
-    return null; // All vitals monitoring disabled
-  }
 
   const filtered = { session_id: vitalsData.session_id };
 
@@ -261,6 +265,8 @@ const resetToggles = async (doctorUserId) => {
 
 module.exports = {
   DEFAULT_TOGGLES,
+  CORE_ALWAYS_ON_TOGGLES,
+  normalizeToggles,
   getToggles,
   updateToggles,
   isFeatureEnabled,

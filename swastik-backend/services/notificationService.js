@@ -21,6 +21,9 @@ const EMAIL_CRITICAL_TYPES = [
   'prescription_expiry_reminder',
   'medicine_missed',
   'emergency',
+  'fall_detected',
+  'crash_sos',
+  'sos_contact_alert',
   'consultation_started',
 ];
 

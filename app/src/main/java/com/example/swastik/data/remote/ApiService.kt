@@ -163,6 +163,11 @@ interface ApiService {
     
     @POST("patients/emergency")
     suspend fun requestEmergency(@Body request: com.example.swastik.data.remote.dto.EmergencyRequest): Response<ApiResponse<EmergencyResponse>>
+
+    @POST("patients/emergency-contact-alert")
+    suspend fun notifyEmergencyContacts(
+        @Body request: EmergencyContactAlertRequest
+    ): Response<ApiResponse<EmergencyContactAlertResponse>>
     
     @GET("patients/emergency/active")
     suspend fun getActiveEmergency(): Response<ApiResponse<EmergencyResponse>>

@@ -136,6 +136,7 @@
             android:name=".ui.screens.patient.guardian.EmergencyCountdownActivity"
             android:theme="@style/Theme.Swastik"
             android:showOnLockScreen="true"
+            android:showForAllUsers="true"
             android:turnScreenOn="true"
             android:launchMode="singleTop"
             android:exported="false" />

@@ -12,8 +12,9 @@ import javax.inject.Inject
  */
 interface EmergencyRepository {
     suspend fun requestEmergency(request: EmergencyRequest): Result<EmergencyResponse>
+    suspend fun notifyEmergencyContacts(request: EmergencyContactAlertRequest): Result<EmergencyContactAlertResponse>
     suspend fun getActiveEmergency(): Result<EmergencyResponse?>
-    suspend fun cancelEmergency(id: String, reason: String): Result<EmergencyResponse>
+    suspend fun cancelEmergency(id: String, reason: String, legalNoticeAccepted: Boolean = true): Result<EmergencyResponse>
     suspend fun getNearbyAmbulances(latitude: Double, longitude: Double, radius: Int): Result<List<AmbulanceDto>>
     suspend fun trackAmbulance(requestId: String): Result<AmbulanceTrack>
 }
@@ -48,6 +49,21 @@ class EmergencyRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun notifyEmergencyContacts(
+        request: EmergencyContactAlertRequest
+    ): Result<EmergencyContactAlertResponse> {
+        return try {
+            val response = apiService.notifyEmergencyContacts(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data ?: EmergencyContactAlertResponse())
+            } else {
+                Result.Error(response.apiError("Failed to notify emergency contacts"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     override suspend fun getActiveEmergency(): Result<EmergencyResponse?> {
         return try {
             val response = apiService.getActiveEmergency()
@@ -75,9 +91,16 @@ class EmergencyRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun cancelEmergency(id: String, reason: String): Result<EmergencyResponse> {
+    override suspend fun cancelEmergency(
+        id: String,
+        reason: String,
+        legalNoticeAccepted: Boolean
+    ): Result<EmergencyResponse> {
         return try {
-            val response = apiService.cancelEmergency(id, CancelRequest(reason))
+            val response = apiService.cancelEmergency(
+                id,
+                CancelRequest(reason = reason, legalNoticeAccepted = legalNoticeAccepted)
+            )
             if (response.isSuccessful && response.body()?.success == true) {
                 response.body()?.data?.let {
                     Result.Success(it)

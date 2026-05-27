@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.swastik.data.fitness.FitnessStepSanitizer
 import com.example.swastik.data.model.DailyFitnessLog
 import com.example.swastik.ui.theme.SwastikPrimary
 
@@ -25,6 +26,7 @@ fun FitnessTrackingCard(
     containerColor: Color = MaterialTheme.colorScheme.surface
 ) {
     if (fitnessLog == null) return
+    val displayLog = FitnessStepSanitizer.sanitizeStoredLog(fitnessLog)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -61,19 +63,19 @@ fun FitnessTrackingCard(
             ) {
                 FitnessStatItem(
                     icon = Icons.Default.DirectionsRun,
-                    value = "${fitnessLog.totalSteps}",
+                    value = "${displayLog.totalSteps}",
                     label = "Steps",
                     color = SwastikPrimary
                 )
                 FitnessStatItem(
                     icon = Icons.Default.Timer,
-                    value = "${fitnessLog.activeMinutes}m",
+                    value = "${displayLog.activeMinutes}m",
                     label = "Active",
                     color = Color(0xFFE65100) // Orange
                 )
                 FitnessStatItem(
                     icon = Icons.Default.LocalFireDepartment,
-                    value = "${fitnessLog.caloriesBurned.toInt()} kcal",
+                    value = "${displayLog.caloriesBurned.toInt()} kcal",
                     label = "Burned",
                     color = Color(0xFFD32F2F) // Red
                 )

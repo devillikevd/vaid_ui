@@ -33,6 +33,23 @@ data class EmergencyRequest(
     val notes: String?
 )
 
+data class EmergencyContactAlertRequest(
+    val alertType: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val notes: String? = null,
+    val sourceId: String? = null
+)
+
+data class EmergencyContactAlertResponse(
+    val alertType: String? = null,
+    val contactCount: Int = 0,
+    val matchedUserCount: Int = 0,
+    val notifiedUserCount: Int = 0,
+    val skippedContactCount: Int = 0,
+    val message: String? = null
+)
+
 data class ReviewRequest(
     val doctorId: String? = null,
     val hospitalId: String? = null,
@@ -852,7 +869,8 @@ data class AmbulanceTrackLocation(
 )
 
 data class CancelRequest(
-    val reason: String?
+    val reason: String?,
+    val legalNoticeAccepted: Boolean = false
 )
 
 // ==================== PHARMACY / CLINIC / DIAGNOSTIC DTOs ====================

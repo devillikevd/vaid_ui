@@ -313,14 +313,25 @@ class EmergencyViewModel @Inject constructor(
     /**
      * Cancel current emergency request.
      */
-    fun cancelEmergency() {
+    fun cancelEmergency(reason: String) {
         val emergencyId = _uiState.value.activeEmergency?.resolvedRequestId()
         if (emergencyId.isNullOrEmpty()) return
+        val normalizedReason = reason.trim()
+        if (normalizedReason.length < 12) {
+            _uiState.value = _uiState.value.copy(
+                error = "Please give a clear cancellation reason."
+            )
+            return
+        }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            when (val result = emergencyRepository.cancelEmergency(emergencyId, "Cancelled by user")) {
+            when (val result = emergencyRepository.cancelEmergency(
+                emergencyId,
+                normalizedReason,
+                legalNoticeAccepted = true
+            )) {
                 is Result.Success -> {
                     socketManager.untrackAmbulance(emergencyId)
                     stopPatientLocationStream()

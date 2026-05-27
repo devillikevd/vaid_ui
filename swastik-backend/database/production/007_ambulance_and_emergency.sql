@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS emergency_requests (
     admin_notes TEXT,
     cancellation_reason TEXT,
     cancelled_by UUID,
+    cancelled_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

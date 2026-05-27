@@ -49,7 +49,7 @@ class HealthConnectManager(private val context: Context) {
             val stepsResponse = healthConnectClient.aggregateGroupByPeriod(stepsRequest)
             stepsResponse.mapNotNull { group ->
                 val total = group.result[StepsRecord.COUNT_TOTAL]
-                if (total != null && total > 0) {
+                if (total != null && total in 1..MAX_DAILY_HEALTH_CONNECT_STEPS) {
                     VitalsPoint(total, group.startTime.atZone(java.time.ZoneId.systemDefault()).toInstant())
                 } else null
             }
@@ -83,6 +83,10 @@ class HealthConnectManager(private val context: Context) {
             recentHeartRates = hrPoints,
             recentTemperatures = tempPoints
         )
+    }
+
+    companion object {
+        const val MAX_DAILY_HEALTH_CONNECT_STEPS = 70_000L
     }
 }
 

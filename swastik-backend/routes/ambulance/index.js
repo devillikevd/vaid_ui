@@ -110,10 +110,14 @@ router.post('/request', authenticate,
 );
 
 router.post('/cancel/:requestId', authenticate,
-  [validateUUID('requestId'), body('reason').optional().isString()],
+  [
+    validateUUID('requestId'),
+    body('reason').trim().isLength({ min: 12, max: 500 }).withMessage('Cancellation reason must be 12-500 characters'),
+    body('legalNoticeAccepted').custom(value => value === true).withMessage('Cancellation policy acknowledgement is required'),
+  ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await dispatchService.cancelByPatient(req.user.id, req.params.requestId, req.body.reason);
+    const result = await dispatchService.cancelByPatient(req.user.id, req.params.requestId, req.body);
     res.json({ success: true, ...result });
   })
 );

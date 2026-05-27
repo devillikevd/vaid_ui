@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class GuardianEventEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val eventType: String, // FALL_DETECTED, CANCELLED_BY_USER, SOS_TRIGGERED, GAIT_ANOMALY, HIGH_HR_STILL
+    val eventType: String, // FALL_DETECTED, CRASH_DETECTED, SOS_TRIGGERED, GAIT_ANOMALY, HIGH_HR_STILL
     val timestamp: Long,
     val latitude: Double? = null,
     val longitude: Double? = null,

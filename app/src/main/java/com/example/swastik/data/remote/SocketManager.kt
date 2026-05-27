@@ -24,7 +24,13 @@ sealed class SignalingEvent {
     data class Offer(val sdp: String, val type: String) : SignalingEvent()
     data class Answer(val sdp: String, val type: String) : SignalingEvent()
     data class IceCandidate(val sdpMid: String, val sdpMLineIndex: Int, val sdp: String) : SignalingEvent()
-    data class ModeChanged(val roomId: String, val mode: String, val fromUserId: String?) : SignalingEvent()
+    data class ModeChanged(
+        val roomId: String,
+        val mode: String,
+        val preferredMode: String?,
+        val effectiveMode: String?,
+        val fromUserId: String?
+    ) : SignalingEvent()
     data class UserLeft(val userId: String) : SignalingEvent()
 }
 
@@ -226,6 +232,8 @@ class SocketManager @Inject constructor(
     /** Track active consultation rooms for reconnect re-subscription */
     private var activeVideoRoomId: String? = null
     private var activeVideoMode: String? = null
+    private var activeVideoPreferredMode: String? = null
+    private var activeVideoEffectiveMode: String? = null
     private var activeChatConsultationId: String? = null
 
     companion object {
@@ -334,6 +342,8 @@ class SocketManager @Inject constructor(
                     socket?.emit("video:mode", JSONObject().apply {
                         put("roomId", roomId)
                         put("mode", mode)
+                        put("preferredMode", activeVideoPreferredMode ?: "video")
+                        put("effectiveMode", activeVideoEffectiveMode ?: mode)
                     })
                     Log.d(TAG, "Re-published video mode for room $roomId: $mode")
                 }
@@ -475,6 +485,8 @@ class SocketManager @Inject constructor(
                         SignalingEvent.ModeChanged(
                             roomId = data.optString("roomId", ""),
                             mode = data.optString("mode", "video"),
+                            preferredMode = data.optNullableString("preferredMode"),
+                            effectiveMode = data.optNullableString("effectiveMode"),
                             fromUserId = data.optNullableString("from")
                         )
                     )
@@ -800,6 +812,8 @@ class SocketManager @Inject constructor(
         activeTrackingRequestId = null
         activeVideoRoomId = null
         activeVideoMode = null
+        activeVideoPreferredMode = null
+        activeVideoEffectiveMode = null
         activeChatConsultationId = null
         scope.cancel()
         // Recreate scope so singleton can be reused after re-login
@@ -823,7 +837,12 @@ class SocketManager @Inject constructor(
         if (s?.connected() == true) {
             s.emit("video:join", roomId)
             activeVideoMode?.let { mode ->
-                sendVideoMode(roomId, mode)
+                sendVideoMode(
+                    roomId,
+                    mode,
+                    activeVideoPreferredMode ?: "video",
+                    activeVideoEffectiveMode ?: mode
+                )
             }
         } else {
             Log.w(TAG, "Socket not connected yet; video room will auto-join on connect: $roomId")
@@ -835,16 +854,27 @@ class SocketManager @Inject constructor(
         if (activeVideoRoomId == roomId) {
             activeVideoRoomId = null
             activeVideoMode = null
+            activeVideoPreferredMode = null
+            activeVideoEffectiveMode = null
         }
         socket?.emit("video:leave", roomId)
     }
 
-    fun sendVideoMode(roomId: String, mode: String) {
+    fun sendVideoMode(
+        roomId: String,
+        mode: String,
+        preferredMode: String = "video",
+        effectiveMode: String = mode
+    ) {
         activeVideoRoomId = roomId
         activeVideoMode = mode
+        activeVideoPreferredMode = preferredMode
+        activeVideoEffectiveMode = effectiveMode
         val payload = JSONObject().apply {
             put("roomId", roomId)
             put("mode", mode)
+            put("preferredMode", preferredMode)
+            put("effectiveMode", effectiveMode)
         }
 
         val s = socket

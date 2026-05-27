@@ -266,7 +266,7 @@ fun ConsultationPrepareScreen(
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.Analytics,
                             title = "Real-time AI Vitals",
-                            description = "Vision vitals are shared only when you enable Guardian doctor sharing from Health Card consent."
+                            description = "Live AI checks run with the video visit. Older records and Guardian analytics are shared only when you choose to share them."
                         )
                         ConsultationPrepFeatureCard(
                             icon = Icons.Outlined.Description,
