@@ -180,7 +180,7 @@ fun DashboardHeader(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -191,7 +191,7 @@ fun DashboardHeader(
                 // Profile Picture
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onProfileClick() },
@@ -210,7 +210,7 @@ fun DashboardHeader(
                     } else {
                         Text(
                             profile?.initials?.ifEmpty { "👤" } ?: "👤",
-                            fontSize = 20.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPrimary
                         )
@@ -224,7 +224,7 @@ fun DashboardHeader(
                     Text(
                         text = firstName,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -243,13 +243,13 @@ fun DashboardHeader(
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
-                            modifier = Modifier.size(13.dp),
+                            modifier = Modifier.size(12.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -259,7 +259,7 @@ fun DashboardHeader(
                         Icon(
                             Icons.Default.ArrowDropDown,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -273,7 +273,7 @@ fun DashboardHeader(
                         Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
                         tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 androidx.compose.animation.AnimatedVisibility(

@@ -72,7 +72,7 @@ fun HomeTabContent(
             isHomeTab = true
         )
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         // Search Bar overlay
         GlobalSearchBar(
@@ -115,7 +115,7 @@ fun HomeTabContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
         ) {
-            if (maxWidth < 260.dp) {
+            if (maxWidth < 330.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     InPersonConsultationCard(
                         modifier = Modifier.fillMaxWidth(),
@@ -165,7 +165,7 @@ fun HomeTabContent(
             onHospitalsClick = onNavigateToHospitals
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Recommended Doctors (Moved up as requested)
         RecommendedDoctorsSection(
@@ -176,7 +176,7 @@ fun HomeTabContent(
             onRetry = onRefresh
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
         // Book Doctor by Speciality
         FindDoctorsBySpecialitySection(
@@ -188,7 +188,7 @@ fun HomeTabContent(
         // Community Q&A Banner (Moved to the bottom)
         CommunityQABanner(onClick = onNavigateToCommunityQA)
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     selectedDoctorForProfile?.let { doctor ->

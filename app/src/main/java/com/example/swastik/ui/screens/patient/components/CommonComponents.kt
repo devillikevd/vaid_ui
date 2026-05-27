@@ -5,6 +5,7 @@ import com.example.swastik.R
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,127 +40,123 @@ fun PatientBottomNavigation(
     onTabSelected: (Int) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val items = listOf(
+        BottomNavItem(
+            label = stringResource(R.string.home),
+            selectedIcon = Icons.Filled.Home,
+            unselectedIcon = Icons.Outlined.Home,
+            contentDescription = "Home"
+        ),
+        BottomNavItem(
+            label = stringResource(R.string.reminders),
+            selectedIcon = Icons.Filled.Alarm,
+            unselectedIcon = Icons.Outlined.Alarm,
+            contentDescription = "Reminders"
+        ),
+        BottomNavItem(
+            label = stringResource(R.string.medicine),
+            selectedIcon = Icons.Filled.MedicalServices,
+            unselectedIcon = Icons.Outlined.MedicalServices,
+            contentDescription = "Medicine"
+        ),
+        BottomNavItem(
+            label = stringResource(R.string.records),
+            selectedIcon = Icons.Filled.Folder,
+            unselectedIcon = Icons.Outlined.Folder,
+            contentDescription = "Records"
+        ),
+        BottomNavItem(
+            label = stringResource(R.string.profile),
+            selectedIcon = Icons.Filled.Person,
+            unselectedIcon = Icons.Outlined.Person,
+            contentDescription = "Profile"
+        )
+    )
 
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface, // Restoring original surface color
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         modifier = Modifier
-            .heightIn(min = 72.dp)
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .height(68.dp) // Reduced height from 72dp
             .shadow(
-                elevation = 16.dp,
-                spotColor = Color.Black.copy(alpha = 0.05f),
+                elevation = 8.dp,
+                spotColor = Color.Black.copy(alpha = 0.1f),
                 ambientColor = Color.Transparent
             )
     ) {
-        NavigationBarItem(
-            selected = selectedTab == 0,
-            onClick = { 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onTabSelected(0) 
-            },
-            icon = {
-                Icon(
-                    if (selectedTab == 0) Icons.Filled.Home else Icons.Outlined.Home,
-                    contentDescription = "Home"
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEachIndexed { index, item ->
+                CompactBottomNavItem(
+                    item = item,
+                    selected = selectedTab == index,
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onTabSelected(index)
+                    }
                 )
-            },
-            label = { Text(stringResource(R.string.home), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            alwaysShowLabel = false,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPrimary,
-                selectedTextColor = SwastikPrimary,
-                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray
+            }
+        }
+    }
+}
+
+private data class BottomNavItem(
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
+    val contentDescription: String
+)
+
+@Composable
+private fun CompactBottomNavItem(
+    item: BottomNavItem,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val tint = if (selected) SwastikPrimary else Color(0xFF6F777B)
+    val fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp) // Reduced from 40dp
+                .clip(CircleShape)
+                .background(if (selected) SwastikPrimary.copy(alpha = 0.12f) else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                contentDescription = item.contentDescription,
+                tint = tint,
+                modifier = Modifier.size(22.dp) // Reduced from 24dp
             )
-        )
-        NavigationBarItem(
-            selected = selectedTab == 1,
-            onClick = { 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onTabSelected(1) 
-            },
-            icon = {
-                Icon(
-                    if (selectedTab == 1) Icons.Filled.Alarm else Icons.Outlined.Alarm,
-                    contentDescription = "Reminders"
-                )
-            },
-            label = { Text(stringResource(R.string.reminders), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            alwaysShowLabel = false,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPrimary,
-                selectedTextColor = SwastikPrimary,
-                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray
-            )
-        )
-        NavigationBarItem(
-            selected = selectedTab == 2,
-            onClick = { 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onTabSelected(2) 
-            },
-            icon = {
-                Icon(
-                    if (selectedTab == 2) Icons.Filled.MedicalServices else Icons.Outlined.MedicalServices,
-                    contentDescription = "Medicine"
-                )
-            },
-            label = { Text(stringResource(R.string.medicine), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            alwaysShowLabel = false,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPrimary,
-                selectedTextColor = SwastikPrimary,
-                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray
-            )
-        )
-        NavigationBarItem(
-            selected = selectedTab == 3,
-            onClick = { 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onTabSelected(3) 
-            },
-            icon = {
-                Icon(
-                    if (selectedTab == 3) Icons.Filled.Folder else Icons.Outlined.Folder,
-                    contentDescription = "Records"
-                )
-            },
-            label = { Text(stringResource(R.string.records), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            alwaysShowLabel = false,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPrimary,
-                selectedTextColor = SwastikPrimary,
-                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray
-            )
-        )
-        NavigationBarItem(
-            selected = selectedTab == 4,
-            onClick = { 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onTabSelected(4) 
-            },
-            icon = {
-                Icon(
-                    if (selectedTab == 4) Icons.Filled.Person else Icons.Outlined.Person,
-                    contentDescription = "Profile"
-                )
-            },
-            label = { Text(stringResource(R.string.profile), fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            alwaysShowLabel = false,
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = SwastikPrimary,
-                selectedTextColor = SwastikPrimary,
-                indicatorColor = SwastikPrimary.copy(alpha = 0.15f),
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray
-            )
+        }
+
+        Spacer(modifier = Modifier.height(2.dp)) // Reduced from 4dp
+        
+        Text(
+            text = item.label,
+            fontSize = 10.sp, // Reduced from 11sp
+            fontWeight = fontWeight,
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

@@ -92,26 +92,29 @@ fun FindDoctorsBySpecialitySection(
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            currentList.chunked(4).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    rowItems.forEach { speciality ->
-                        SpecialityHomeCard(
-                            title = speciality,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSpecialityClick(speciality) }
-                        )
-                    }
-                    repeat(4 - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val columns = if (maxWidth < 340.dp) 2 else 4
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                currentList.chunked(columns).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowItems.forEach { speciality ->
+                            SpecialityHomeCard(
+                                title = speciality,
+                                modifier = Modifier.weight(1f),
+                                onClick = { onSpecialityClick(speciality) }
+                            )
+                        }
+                        repeat(columns - rowItems.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -222,10 +225,10 @@ private fun SpecialityHomeCard(
 
     Card(
         modifier = modifier
-            .aspectRatio(0.82f)
-            .heightIn(min = 88.dp)
+            .aspectRatio(0.92f)
+            .heightIn(min = 82.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
@@ -250,11 +253,11 @@ private fun SpecialityHomeCard(
                             startY = 0f
                         )
                     )
-                    .padding(bottom = 8.dp, top = 16.dp)
+                    .padding(bottom = 8.dp, top = 18.dp)
             ) {
                 Text(
                     text = title,
-                    fontSize = 9.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,

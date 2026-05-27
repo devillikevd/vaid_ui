@@ -99,9 +99,9 @@ fun GlobalSearchBar(
             interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                .height(46.dp)
+                .background(Color(0xFFE3F2FD), RoundedCornerShape(23.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), RoundedCornerShape(23.dp)),
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -128,14 +128,14 @@ fun GlobalSearchBar(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Filled.Search, 
                         contentDescription = "Search", 
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(19.dp)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Box(modifier = Modifier.weight(1f)) {
@@ -143,7 +143,7 @@ fun GlobalSearchBar(
                             Text(
                                 "Search Doctors, Specialities, symptoms...", 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
                         }
                         innerTextField()
@@ -151,7 +151,7 @@ fun GlobalSearchBar(
                     if (query.isNotEmpty()) {
                         IconButton(
                             onClick = { query = "" },
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Icon(Icons.Filled.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         }
@@ -166,9 +166,9 @@ fun GlobalSearchBar(
                                 speechRecognizerLauncher.launch(intent)
                             } catch (e: Exception) {}
                         },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
-                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                 }
             }

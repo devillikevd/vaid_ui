@@ -35,6 +35,12 @@ import com.example.swastik.ui.theme.*
 import java.util.Locale
 import androidx.compose.material3.MaterialTheme
 
+private val HomeSoftSurface = Color(0xFFF8FBFB)
+private val EmergencyRed = Color(0xFFFF5252)
+private val EmergencyTextRed = Color(0xFFD32F2F)
+private val EmergencySoftRed = Color(0xFFFFEBEE)
+private val AssistantDarkGreen = Color(0xFF00796B)
+
 @Composable
 fun EmergencySOSBanner(onClick: () -> Unit) {
     Card(
@@ -43,9 +49,9 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), // ultra light red
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.05f))
+        border = BorderStroke(1.dp, EmergencySoftRed)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -54,11 +60,11 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
             // Compact icon box
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .background(Color.Red, RoundedCornerShape(6.dp)),
+                    .size(30.dp)
+                    .background(EmergencySoftRed, RoundedCornerShape(7.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Add, null, tint = EmergencyRed, modifier = Modifier.size(17.dp))
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -66,7 +72,7 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
                     "Emergency / SOS",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.sp,
-                    color = Color.Red
+                    color = EmergencyTextRed
                 )
                 Text(
                     "Tap to call ambulance",
@@ -78,13 +84,13 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(26.dp)
-                    .background(MaterialTheme.colorScheme.surface, CircleShape),
+                    .background(EmergencySoftRed.copy(alpha = 0.65f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.Call, 
                     null, 
-                    tint = Color.Red, 
+                    tint = EmergencyTextRed, 
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -100,8 +106,8 @@ fun SwastikAIBanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF004D40)), // Dark green
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = AssistantDarkGreen),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier.padding(vertical = 10.dp)
@@ -110,12 +116,12 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 12.dp)
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(17.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Vaididea AI Assistant",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -126,8 +132,8 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
-                    .height(38.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                    .height(36.dp)
+                    .background(HomeSoftSurface, RoundedCornerShape(8.dp))
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -139,13 +145,13 @@ fun SwastikAIBanner(onClick: () -> Unit) {
                     Text(
                         "Hi, how are you feeling today?",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        fontSize = 11.sp
                     )
                     Icon(
                         Icons.Filled.Mic,
                         null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(11.dp)
                     )
                 }
             }
@@ -281,26 +287,26 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF9F1)), // Light mint green
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
         BoxWithConstraints {
             val compact = maxWidth < 340.dp
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 70.dp)
+                    .heightIn(min = 66.dp)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
+                        .size(38.dp)
+                        .background(Color.White, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -310,7 +316,7 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                         Text(
                             text = "Digital Health ID",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -409,7 +415,7 @@ fun HealthServicesSection(
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val useTwoColumns = maxWidth < 360.dp
+            val useTwoColumns = maxWidth < 340.dp
             val items = listOf(
                 QuickActionItem("Book Clinic\n(OPD)", R.drawable.inperson_consultation, onClinicClick),
                 QuickActionItem("Order\nMedicine", R.drawable.order_medicine, onPharmacyClick),
@@ -420,12 +426,12 @@ fun HealthServicesSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items.chunked(if (useTwoColumns) 2 else 4).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowItems.forEach { item ->
                             ServiceSquareCard(
@@ -460,10 +466,10 @@ private fun ServiceSquareCard(
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(0.82f)
-            .heightIn(min = 112.dp)
+            .aspectRatio(0.88f)
+            .heightIn(min = 104.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -474,7 +480,7 @@ private fun ServiceSquareCard(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 5.dp, top = 7.dp, end = 5.dp, bottom = 30.dp),
+                    .padding(start = 6.dp, top = 8.dp, end = 6.dp, bottom = 28.dp),
                 contentScale = ContentScale.Fit
             )
 
@@ -491,7 +497,7 @@ private fun ServiceSquareCard(
                             )
                         )
                     )
-                    .padding(start = 4.dp, top = 18.dp, end = 4.dp, bottom = 8.dp),
+                    .padding(start = 4.dp, top = 16.dp, end = 4.dp, bottom = 7.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -589,37 +595,37 @@ fun SecondaryActionsGrid(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .heightIn(min = 66.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .heightIn(min = 62.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Reports Card
         Card(
             modifier = Modifier
                 .weight(1f)
-                .heightIn(min = 66.dp)
+                .heightIn(min = 62.dp)
                 .clickable(onClick = onReportsClick),
             shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF9F1)), // Light mint green
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape),
+                        .size(36.dp)
+                        .background(Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.report_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -649,30 +655,30 @@ fun SecondaryActionsGrid(
         Card(
             modifier = Modifier
                 .weight(1f)
-                .heightIn(min = 66.dp)
+                .heightIn(min = 62.dp)
                 .clickable(onClick = onAppointmentsClick),
             shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF9F1)), // Light mint green
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape),
+                        .size(36.dp)
+                        .background(Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.appoinment_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -944,8 +950,8 @@ fun DoctorCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onViewProfile),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
@@ -957,9 +963,9 @@ fun DoctorCard(
             Box(contentAlignment = Alignment.BottomEnd) {
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface),
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!doctor.profileImageUrl.isNullOrBlank()) {
@@ -975,8 +981,8 @@ fun DoctorCard(
                 }
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .size(18.dp)
+                        .background(Color.White, CircleShape)
                         .padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -984,7 +990,7 @@ fun DoctorCard(
                         Icons.Filled.CheckCircle, 
                         null, 
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, 
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -1045,7 +1051,7 @@ fun DoctorCard(
 
             // Right side: Price and Action
             Column(
-                modifier = Modifier.widthIn(min = 82.dp, max = 104.dp),
+                modifier = Modifier.widthIn(min = 88.dp, max = 110.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1053,7 +1059,7 @@ fun DoctorCard(
                     Text("Consultation Fee", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         "₹${doctor.consultationFee ?: 500}", 
-                        fontSize = 17.sp, 
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold, 
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -1065,8 +1071,8 @@ fun DoctorCard(
                     onClick = onBookClick,
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF004D40)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.heightIn(min = 34.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                    modifier = Modifier.heightIn(min = 38.dp)
                 ) {
                     Text("Book Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
