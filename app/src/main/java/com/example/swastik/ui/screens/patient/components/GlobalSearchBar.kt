@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.patient.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -9,22 +10,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.app.Activity
@@ -34,7 +36,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.swastik.data.model.Doctor
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlobalSearchBar(
     doctors: List<Doctor>,
@@ -60,29 +61,20 @@ fun GlobalSearchBar(
         }
     }
 
-    // Home screen services for direct navigation
     val homeServices = listOf(
         "Hospitals", "Clinics", "Pharmacy", "Diagnostics", "Lab Tests", 
         "Appointments", "Reports", "Prescriptions", "Vitals", 
         "Health Card", "Emergency", "SOS", "Ambulance", "AI Assistant", "Chatbot"
     )
 
-    // Default suggestions when focused but empty
     val suggestions = searchSuggestions.ifEmpty { 
         listOf("Hospitals", "Fever", "Headache", "Dermatologist", "Gynecologist", "Ambulance", "Dentist")
     }
 
-    // Filter logic
-    val filteredServices = if (query.isEmpty()) emptyList() else {
-        homeServices.filter { it.contains(query, ignoreCase = true) }
-    }
-    val filteredDocs = if (query.isEmpty()) emptyList() else {
-        doctors.filter { it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) }
-    }
+    val filteredServices = if (query.isEmpty()) emptyList() else homeServices.filter { it.contains(query, ignoreCase = true) }
+    val filteredDocs = if (query.isEmpty()) emptyList() else doctors.filter { it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) }
     val specialitiesList = listOf("General Physician", "Dermatologist", "Gynecologist", "Orthopedist", "Pediatrician", "ENT Specialist", "Cardiologist", "Neurologist", "Psychiatrist", "Gastroenterologist")
-    val filteredSpecs = if (query.isEmpty()) emptyList() else {
-        specialitiesList.filter { it.contains(query, ignoreCase = true) }
-    }
+    val filteredSpecs = if (query.isEmpty()) emptyList() else specialitiesList.filter { it.contains(query, ignoreCase = true) }
 
     if (isFocused || query.isNotEmpty()) {
         BackHandler {
@@ -99,58 +91,30 @@ fun GlobalSearchBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        OutlinedTextField(
+        // Redesigned with BasicTextField for perfect vertical centering
+        BasicTextField(
             value = query,
             onValueChange = { query = it },
-            placeholder = { Text("Search Doctors, Specialities...", color = Color.Gray, fontSize = 14.sp) },
-            leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.Gray)
-            },
-            trailingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = Color.Gray)
-                        }
-                    }
-                    IconButton(onClick = {
-                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search...")
-                        }
-                        try {
-                            speechRecognizerLauncher.launch(intent)
-                        } catch (e: Exception) {}
-                    }) {
-                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = Color.Gray)
-                    }
-                }
-            },
             interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                unfocusedBorderColor = Color.Transparent,
-                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            ),
+                .height(48.dp)
+                .background(Color.White, RoundedCornerShape(24.dp))
+                .border(1.dp, Color.LightGray.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 14.sp, color = Color.Black),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
                     if (query.isNotEmpty()) {
-                        // Priority 1: Home Services
                         val serviceMatch = filteredServices.firstOrNull()
                         if (serviceMatch != null) {
                             onServiceSelect(serviceMatch)
                         } else {
-                            // Priority 2: Doctors
                             val doctorMatch = filteredDocs.firstOrNull()
                             if (doctorMatch != null) {
                                 onDoctorSelect(doctorMatch)
                             } else {
-                                // Priority 3: Specialities
                                 onSpecialitySelect(query)
                             }
                         }
@@ -159,7 +123,54 @@ fun GlobalSearchBar(
                     }
                 }
             ),
-            singleLine = true
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Filled.Search, 
+                        contentDescription = "Search", 
+                        tint = Color.Gray, 
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (query.isEmpty()) {
+                            Text(
+                                "Search Doctors, Specialities, symptoms...", 
+                                color = Color.Gray, 
+                                fontSize = 13.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = { query = "" },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search...")
+                            }
+                            try {
+                                speechRecognizerLauncher.launch(intent)
+                            } catch (e: Exception) {}
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Filled.Mic, contentDescription = "Voice Search", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
         )
         
         if (isFocused || query.isNotEmpty()) {
@@ -179,7 +190,6 @@ fun GlobalSearchBar(
                             .fillMaxWidth()
                             .heightIn(max = 350.dp)
                     ) {
-                        // Show Suggestions if query is empty
                         if (query.isEmpty()) {
                             item {
                                 Text("Suggested for you", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
@@ -196,7 +206,6 @@ fun GlobalSearchBar(
                                 }
                             }
                         } else {
-                            // Show Filtered Services
                             if (filteredServices.isNotEmpty()) {
                                 item {
                                     Text("Services", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
@@ -210,7 +219,6 @@ fun GlobalSearchBar(
                                 }
                             }
 
-                            // Show Filtered Specialities
                             if (filteredSpecs.isNotEmpty()) {
                                 item {
                                     Text("Specialities", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)
@@ -224,7 +232,6 @@ fun GlobalSearchBar(
                                 }
                             }
 
-                            // Show Filtered Doctors
                             if (filteredDocs.isNotEmpty()) {
                                 item {
                                     Text("Doctors", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = Color.Gray, fontSize = 12.sp)

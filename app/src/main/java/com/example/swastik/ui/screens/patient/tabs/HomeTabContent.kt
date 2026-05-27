@@ -109,50 +109,65 @@ fun HomeTabContent(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Primary Actions (Redesigned as per image)
-        InPersonConsultationCard(onClick = onStartInPersonConsultation)
+        // Primary Actions (Redesigned side-by-side)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InPersonConsultationCard(
+                modifier = Modifier.weight(1f),
+                onClick = onStartInPersonConsultation
+            )
+            VideoConsultationCard(
+                modifier = Modifier.weight(1f),
+                onClick = onStartVideoConsultation
+            )
+        }
         
-        Spacer(modifier = Modifier.height(10.dp))
-        
-        VideoConsultationCard(onClick = onStartVideoConsultation)
-        
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         CompactHealthIdCard(onClick = onNavigateToHealthCard)
         
         Spacer(modifier = Modifier.height(10.dp))
         
-        // Secondary Actions (Reports, Appointments, Community Q&A)
+        // Secondary Actions (Reports, Appointments)
         SecondaryActionsGrid(
             onReportsClick = onNavigateToReports,
-            onAppointmentsClick = onNavigateToAppointments,
-            onCommunityQAClick = onNavigateToCommunityQA
+            onAppointmentsClick = onNavigateToAppointments
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Redesigned Health Services Row (Moved to Community Q&A spot)
+        HealthServicesSection(
+            onClinicClick = onNavigateToClinics,
+            onPharmacyClick = onNavigateToPharmacies,
+            onLabTestsClick = onNavigateToDiagnostic,
+            onHospitalsClick = onNavigateToHospitals
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Recommended Doctors (Moved up as requested)
+        RecommendedDoctorsSection(
+            doctors = doctors,
+            onBookClick = { onNavigateToBooking(it.id) },
+            onViewProfile = { selectedDoctorForProfile = it },
+            onViewAllClick = { onNavigateToBooking(null) },
+            onRetry = onRefresh
         )
         
         Spacer(modifier = Modifier.height(20.dp))
         
         // Book Doctor by Speciality
-        FindDoctorsBySpecialitySection(onSpecialityClick = onFindDoctorSpecialityClick)
-        
-        Spacer(modifier = Modifier.height(20.dp))
-        
-        // Healthcare Services
-        HealthcareServicesSection(
-            onHospitalsClick = onNavigateToHospitals,
-            onClinicsClick = onNavigateToClinics,
-            onPharmacyClick = onNavigateToPharmacies,
-            onDiagnosticsClick = onNavigateToDiagnostic
+        FindDoctorsBySpecialitySection(
+            onSpecialityClick = onFindDoctorSpecialityClick
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
-        // Recommended Doctors
-        RecommendedDoctorsSection(
-            doctors = doctors,
-            onBookClick = { onNavigateToBooking(it.id) },
-            onViewProfile = { selectedDoctorForProfile = it },
-            onRetry = onRefresh
-        )
+        // Community Q&A Banner (Moved to the bottom)
+        CommunityQABanner(onClick = onNavigateToCommunityQA)
         
         Spacer(modifier = Modifier.height(24.dp))
     }

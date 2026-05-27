@@ -111,10 +111,24 @@ fun SwastikGuardianCard(
                     }
                 }
 
-                // Right side: Toggle opens Guardian setup / learn-more flow
                 Switch(
                     checked = isActive,
-                    onCheckedChange = { showLearnMore = true },
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            showLearnMore = true
+                        } else {
+                            onFeaturePreferencesChange(
+                                GuardianFeaturePreferences(
+                                    fallDetection = false,
+                                    crashDetection = false,
+                                    mobilityAnalysis = false,
+                                    respiratoryTracker = false,
+                                    doctorQrSharing = false
+                                )
+                            )
+                            onToggle(false)
+                        }
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = Color(0xFF6A5AE0),
@@ -252,7 +266,7 @@ fun GuardianLearnMoreDialog(
     var understood by remember { mutableStateOf(consentAccepted) }
     val scrollState = rememberScrollState()
     
-    val canProceed = understood && (selectedFeatures.fallDetection || selectedFeatures.crashDetection || selectedFeatures.mobilityAnalysis || selectedFeatures.doctorQrSharing)
+    val canProceed = understood
     val latestOnProceed by rememberUpdatedState(onProceed)
 
     androidx.compose.ui.window.Dialog(

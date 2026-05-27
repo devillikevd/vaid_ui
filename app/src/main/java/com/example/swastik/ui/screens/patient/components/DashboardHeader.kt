@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.with
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -155,6 +156,16 @@ fun DashboardHeader(
     val appSettings by AppSettingsStore.settings.collectAsState()
     val selectedLanguage = appSettings.language
 
+    fun getGreeting(): String {
+        val calendar = Calendar.getInstance()
+        return when (calendar.get(Calendar.HOUR_OF_DAY)) {
+            in 0..11 -> "Good Morning"
+            in 12..16 -> "Good Afternoon"
+            in 17..20 -> "Good Evening"
+            else -> "Good Night"
+        }
+    }
+
     if (isHomeTab) {
         // Redesigned Header for Home Tab (Matching Screenshot style but adding functional elements)
         val currentDate = remember {
@@ -168,7 +179,7 @@ fun DashboardHeader(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -176,7 +187,7 @@ fun DashboardHeader(
                 // Profile Picture
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onProfileClick() },
@@ -195,7 +206,7 @@ fun DashboardHeader(
                     } else {
                         Text(
                             profile?.initials?.ifEmpty { "👤" } ?: "👤",
-                            fontSize = 18.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPrimary
                         )
@@ -207,9 +218,9 @@ fun DashboardHeader(
                 Column {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
                     Text(
-                        text = "Hello $firstName! 👋",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = "${getGreeting()}, $firstName 👋",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
@@ -217,7 +228,6 @@ fun DashboardHeader(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
                             .clickable { 
                                 locationInput = profile?.location ?: ""
                                 showLocationDialog = true 
@@ -226,15 +236,18 @@ fun DashboardHeader(
                         Icon(
                             Icons.Outlined.LocationOn,
                             contentDescription = "Location",
-                            modifier = Modifier.size(14.dp),
-                            tint = SwastikPrimary
+                            modifier = Modifier.size(13.dp),
+                            tint = Color(0xFF00796B)
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = profile?.location?.ifEmpty { "Set Location" } ?: "Set Location",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 200.dp)
                         )
                         Icon(
                             Icons.Default.ArrowDropDown,
@@ -246,16 +259,14 @@ fun DashboardHeader(
                 }
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-
-                // Notification Bell
-                Box {
+            // Notification Bell
+            Box {
                 IconButton(onClick = onNotificationClick) {
                     Icon(
                         Icons.Outlined.Notifications,
                         contentDescription = "Notifications",
                         tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
                 androidx.compose.animation.AnimatedVisibility(
@@ -264,37 +275,18 @@ fun DashboardHeader(
                     exit = androidx.compose.animation.scaleOut() + androidx.compose.animation.fadeOut(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = (-4).dp, y = 4.dp)
+                        .offset(x = (-6).dp, y = 6.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(16.dp)
-                            .background(MaterialTheme.colorScheme.error, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        androidx.compose.animation.AnimatedContent(
-                            targetState = unreadNotificationsCount,
-                            transitionSpec = {
-                                if (targetState > initialState) {
-                                    (androidx.compose.animation.slideInVertically { height -> height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> -height } + androidx.compose.animation.fadeOut())
-                                } else {
-                                    (androidx.compose.animation.slideInVertically { height -> -height } + androidx.compose.animation.fadeIn()).with(androidx.compose.animation.slideOutVertically { height -> height } + androidx.compose.animation.fadeOut())
-                                }.using(androidx.compose.animation.SizeTransform(clip = false))
-                            },
-                            label = "unreadCount"
-                        ) { count ->
-                            Text(
-                                text = if (count > 9) "9+" else count.toString(),
-                                color = MaterialTheme.colorScheme.onError,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                            .size(10.dp)
+                            .background(Color.Red, CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                    )
                 }
-                }
-            } // Close inner Row
-        } // Close outer Row
+            }
+        }
+// Close outer Row
     } else {
         // Standard Header for other tabs (Includes Language & Notifications)
         val currentDate = remember {

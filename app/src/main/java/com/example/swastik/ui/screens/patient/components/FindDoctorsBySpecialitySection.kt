@@ -1,146 +1,110 @@
 package com.example.swastik.ui.screens.patient.components
 
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.automirrored.outlined.*
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
-import com.example.swastik.ui.screens.patient.booking.getSpecialityImage
 
-private data class HomeSpeciality(
-    val name: String,
-    val icon: ImageVector,
-    val bgColor: Color,
-    val iconTint: Color
-)
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 
-private val generalCareItems = listOf(
-    HomeSpeciality("General\nPhysician", Icons.Outlined.MedicalServices, Color(0xFFE8F0FE), Color(0xFF4285F4)),
-    HomeSpeciality("Women's\nHealth", Icons.Outlined.PregnantWoman, Color(0xFFF3E5F5), Color(0xFF9C27B0)),
-    HomeSpeciality("Skin\nSpecialist", Icons.Outlined.Face, Color(0xFFFCE4EC), Color(0xFFE91E63)),
-    HomeSpeciality("Child\nCare", Icons.Outlined.ChildCare, Color(0xFFFFF3E0), Color(0xFFFF9800)),
-    HomeSpeciality("Dentist", Icons.Outlined.Mood, Color(0xFFE0F7FA), Color(0xFF00BCD4)),
-    HomeSpeciality("Eye\nSpecialist", Icons.Outlined.Visibility, Color(0xFFE3F2FD), Color(0xFF2196F3)),
-    HomeSpeciality("Ear, Nose &\nThroat", Icons.Outlined.Hearing, Color(0xFFE8EAF6), Color(0xFF3F51B5)),
-    HomeSpeciality("Mental\nWellness", Icons.Outlined.Psychology, Color(0xFFE0F2F1), Color(0xFF009688))
-)
-
-private val advancedCareItems = listOf(
-    HomeSpeciality("Bones &\nJoints", Icons.Outlined.Accessibility, Color(0xFFFBE9E7), Color(0xFFFF5722)),
-    HomeSpeciality("Brain &\nNerves", Icons.Outlined.Psychology, Color(0xFFF3E5F5), Color(0xFF7B1FA2)),
-    HomeSpeciality("Urinary\nIssues", Icons.Outlined.WaterDrop, Color(0xFFE8EAF6), Color(0xFF5C6BC0)),
-    HomeSpeciality("Lungs &\nBreathing", Icons.Outlined.Air, Color(0xFFE1F5FE), Color(0xFF03A9F4)),
-    HomeSpeciality("Heart\nSpecialist", Icons.Outlined.Favorite, Color(0xFFFFEBEE), Color(0xFFF44336)),
-    HomeSpeciality("Stomach &\nDigestion", Icons.Outlined.Sick, Color(0xFFFFF8E1), Color(0xFFFFC107)),
-    HomeSpeciality("Diabetes\nManagement", Icons.Outlined.MonitorHeart, Color(0xFFE0F7FA), Color(0xFF0097A7)),
-    HomeSpeciality("Cancer\nSpecialist", Icons.Outlined.LocalHospital, Color(0xFFFCE4EC), Color(0xFFC2185B))
-)
-
-/**
- * "Find doctors by speciality" section for the Home tab,
- * matching screenshots 7-10 with General Care / Advanced Care tabs
- * and horizontally scrollable speciality cards.
- */
 @Composable
 fun FindDoctorsBySpecialitySection(
-    onSpecialityClick: (String) -> Unit = {}
+    onSpecialityClick: (String) -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val items = if (selectedTab == 0) generalCareItems else advancedCareItems
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: General, 1: Advanced
 
-    Column(
-        modifier = Modifier.padding(horizontal = 20.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.book_doctor_by_speciality),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+    val generalCare = listOf(
+        "General Physician", "Dentist", "Ear, Nose & Throat", "Eye Specialist",
+        "Skin Specialist", "Child Care", "Women's Health", "Mental Wellness"
+    )
+    val advancedCare = listOf(
+        "Heart Specialist", "Brain & Nerves", "Bones & Joints", "Stomach & Digestion",
+        "Urinary Issues", "Diabetes Management", "Cancer Specialist", "Lungs & Breathing"
+    )
 
-        Spacer(modifier = Modifier.height(14.dp))
+    val currentList = if (selectedTab == 0) generalCare else advancedCare
 
-        // Tabs
-        Row(
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFF0F0F5))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            listOf("General Care", "Advanced Care").forEachIndexed { index, label ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            if (selectedTab == index) Color.White else Color.Transparent
+            Text(
+                "Book Doctor by Speciality",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 17.sp,
+                color = Color(0xFF1A1A1A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .background(Color(0xFFE8F1EE), RoundedCornerShape(20.dp))
+                    .padding(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf("General Care", "Advanced Care").forEachIndexed { index, title ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (selectedTab == index) Color(0xFF00796B) else Color.Transparent)
+                            .clickable { selectedTab = index },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (selectedTab == index) Color.White else Color(0xFF5F6B6A),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        .clickable { selectedTab = index }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        fontSize = 14.sp,
-                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                        color = if (selectedTab == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Horizontally scrollable speciality cards - 2 rows
-        val rows = items.chunked(4)
-        Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Horizontally scrollable list - shows all 8 cards
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            rows.forEach { row ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    row.forEach { item ->
-                        SpecialityCard(
-                            name = item.name,
-                            icon = item.icon,
-                            bgColor = item.bgColor,
-                            iconTint = item.iconTint,
-                            imageRes = getSpecialityImage(item.name),
-                            onClick = { onSpecialityClick(item.name.replace("\n", " ")) }
-                        )
-                    }
-                }
+            items(currentList) { speciality ->
+                SpecialityHomeCard(
+                    title = speciality,
+                    modifier = Modifier.width(92.dp), // Compressed size to fit ~4 on screen
+                    onClick = { onSpecialityClick(speciality) }
+                )
             }
         }
     }
@@ -149,7 +113,7 @@ fun FindDoctorsBySpecialitySection(
 @Composable
 fun SpecialityCard(
     name: String,
-    icon: ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     bgColor: Color,
     iconTint: Color,
     imageRes: Int? = null,
@@ -190,13 +154,12 @@ fun SpecialityCard(
             }
 
             // Seamless Text Overlay at the bottom
-            // Using a subtle gradient to ensure text readability without a "line"
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                        Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
@@ -215,6 +178,79 @@ fun SpecialityCard(
                     maxLines = 2,
                     lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpecialityHomeCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val imageRes = when (title) {
+        "General Physician" -> R.drawable.generalphysician
+        "Women's Health" -> R.drawable.womenhealth
+        "Skin Specialist" -> R.drawable.skinnspecialist
+        "Child Care" -> R.drawable.childspecialist
+        "Dentist" -> R.drawable.dentists
+        "Eye Specialist" -> R.drawable.eyespecialist
+        "Ear, Nose & Throat" -> R.drawable.eatspecialist
+        "Mental Wellness" -> R.drawable.mentalwelnness
+        "Heart Specialist" -> R.drawable.hearspecialist
+        "Brain & Nerves" -> R.drawable.brainnerve
+        "Bones & Joints" -> R.drawable.bonesjoint
+        "Stomach & Digestion" -> R.drawable.stomatchdigestion
+        "Urinary Issues" -> R.drawable.urinanry
+        "Diabetes Management" -> R.drawable.diabites
+        "Cancer Specialist" -> R.drawable.cancer
+        "Lungs & Breathing" -> R.drawable.lungs
+        else -> null
+    }
+
+    Card(
+        modifier = modifier
+            .aspectRatio(0.82f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.2f))
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (imageRes != null) {
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.White, Color.White),
+                            startY = 0f
+                        )
+                    )
+                    .padding(bottom = 8.dp, top = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 11.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
