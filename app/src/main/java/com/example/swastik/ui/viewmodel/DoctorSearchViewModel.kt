@@ -21,6 +21,7 @@ import com.example.swastik.data.remote.ApiService
 import kotlinx.coroutines.flow.Flow
 import com.example.swastik.ui.components.SnackbarManager
 import javax.inject.Inject
+import com.example.swastik.utils.LocationHelper
 
 /**
  * UI State for Doctor Search
@@ -47,8 +48,6 @@ data class DoctorSearchFilters(
     val longitude: Double? = null,
     val city: String? = null
 )
-
-import com.example.swastik.utils.LocationHelper
 
 /**
  * Doctor Search ViewModel
