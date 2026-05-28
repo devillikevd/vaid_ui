@@ -1188,7 +1188,10 @@ class VideoConsultationViewModel @Inject constructor(
     private fun startVitalsStreaming() {
         vitalsStreamJob?.cancel()
         vitalsStreamJob = viewModelScope.launch {
-            val sessionId = _uiState.value.session?.sessionId ?: return@launch
+            val session = _uiState.value.session ?: return@launch
+            val sessionId = session.sessionId
+            val consultationId = session.consultationId.ifEmpty { sessionId }
+            
             // JWT from EncryptedSharedPreferences — null in dev, added as query param in prod
             val token = tokenManager.accessToken
             // In-memory payload buffer for reconnect replay (capped at 50 entries)
@@ -1200,7 +1203,7 @@ class VideoConsultationViewModel @Inject constructor(
                 val authSuffix = if (token != null)
                     "?token=${java.net.URLEncoder.encode(token, "UTF-8")}" else ""
                 val request = okhttp3.Request.Builder()
-                    .url("${ApiConfig.AI_WS_URL}/ws/vitals/$sessionId/patient$authSuffix")
+                    .url("${ApiConfig.AI_WS_URL}/ws/vitals/$consultationId/patient$authSuffix")
                     .build()
 
                 vitalsWebSocket = okHttpClient.newWebSocket(request, object : okhttp3.WebSocketListener() {
@@ -1253,7 +1256,7 @@ class VideoConsultationViewModel @Inject constructor(
                     if (!hasFreshFrame) continue
 
                     val payload = org.json.JSONObject().apply {
-                        put("session_id", sessionId)
+                        put("session_id", consultationId)
                         putIfNotNull("heart_rate", cvMetrics.heartRate)
                         putIfNotNull("respiration_rate", cvMetrics.respirationRate)
                         putIfNotNull("posture", cvMetrics.posture)
