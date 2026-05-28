@@ -291,7 +291,7 @@ fun CompactHealthIdCard(onClick: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .background(Color.White, RoundedCornerShape(10.dp)),
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Filled.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
@@ -615,7 +615,7 @@ fun SecondaryActionsGrid(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White, CircleShape),
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -668,7 +668,7 @@ fun SecondaryActionsGrid(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White, CircleShape),
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -961,7 +961,7 @@ fun DoctorCard(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!doctor.profileImageUrl.isNullOrBlank()) {
@@ -978,7 +978,7 @@ fun DoctorCard(
                 Box(
                     modifier = Modifier
                         .size(18.dp)
-                        .background(Color.White, CircleShape)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
                         .padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {

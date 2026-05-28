@@ -1488,7 +1488,7 @@ private fun DoctorCard(
     isDarkMode: Boolean
 ) {
     val textColor = if (isDarkMode) Color.White else Color.Black
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color.White
+    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else MaterialTheme.colorScheme.surface
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -3136,7 +3136,7 @@ private fun SearchBarSection(
     onFilterClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val containerColor = if (isDarkMode) Color(0xFF2A2A2A) else Color.White
+    val containerColor = if (isDarkMode) Color(0xFF2A2A2A) else MaterialTheme.colorScheme.surface
     val placeholderText = when (selectedFacilityType) {
         FacilityType.HOSPITAL -> "Search hospitals..."
         FacilityType.CLINIC -> "Search clinics..."

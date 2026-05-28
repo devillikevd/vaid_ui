@@ -131,6 +131,7 @@ type SocketListener = (...args: any[]) => void;
 let globalSocket: Socket | null = null;
 let globalSocketToken: string | null = null;
 let socketRefCount = 0;
+let disconnectTimer: NodeJS.Timeout | null = null;
 const globalEventListeners = new Map<string, Set<SocketListener>>();
 
 function attachGlobalEventListeners(socket: Socket) {
@@ -232,6 +233,10 @@ export function useSocket() {
         const socket = getOrCreateSocket(accessToken);
         socketRef.current = socket;
         socketRefCount++;
+        if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+            disconnectTimer = null;
+        }
 
         // Track connection state locally
         const onConnect = () => setIsConnected(true);
@@ -263,9 +268,13 @@ export function useSocket() {
 
             // Only disconnect when last consumer unmounts AND not in strict mode re-run
             if (socketRefCount === 0 && globalSocket === socket) {
-                socket.disconnect();
-                globalSocket = null;
-                globalSocketToken = null;
+                disconnectTimer = setTimeout(() => {
+                    if (socketRefCount === 0 && globalSocket === socket) {
+                        socket.disconnect();
+                        globalSocket = null;
+                        globalSocketToken = null;
+                    }
+                }, 500);
             }
             socketRef.current = null;
         };

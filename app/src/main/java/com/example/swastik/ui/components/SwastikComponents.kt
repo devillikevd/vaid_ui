@@ -151,7 +151,7 @@ fun OtpInputField(
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                     .onKeyEvent { event ->
                         if (event.key == Key.Backspace && value.isEmpty() && index > 0) {
                             val newOtp = otpValues.toMutableList()
