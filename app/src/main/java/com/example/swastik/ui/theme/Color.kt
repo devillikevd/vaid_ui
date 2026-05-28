@@ -18,13 +18,13 @@ val SwastikOrange = Color(0xFFE07A5F) // Warnings, pending
 val SwastikBlue = Color(0xFF3A86FF) // Info, highlights
 
 // Background & Surface
-val BackgroundLight = Color(0xFFF1F7F7) // Lightweight teal-tinted green
-val SurfaceLight = Color(0xFFF1F7F7) // Premium teal-tinted white
+val BackgroundLight = Color(0xFFE0F2F1) // Lightweight teal-tinted green
+val SurfaceLight = Color(0xFFE0F2F1) // Premium teal-tinted white
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 
 // Elevated surfaces for cards
-val SurfaceElevatedLight = Color(0xFFF1F7F7)
+val SurfaceElevatedLight = Color(0xFFE0F2F1)
 val SurfaceElevatedDark = Color(0xFF2A2A2A)
 
 // Text colors
@@ -36,5 +36,5 @@ val TextHint = Color(0xFFD3D9DE)
 val ShadowTint = Color(0x1A006D77) // 10% alpha primary shadow
 
 // Digital Health ID cards (home + health identity screen)
-val HealthIdCardBg = Color(0xFFF1F7F7) // Matches Medicine Finder premium teal
+val HealthIdCardBg = Color(0xFFE0F2F1) // Matches Medicine Finder premium teal
 val HealthIdCardBorder = Color(0xFFE0F2F1) // Soft teal border
