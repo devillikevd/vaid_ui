@@ -36,5 +36,5 @@ val TextHint = Color(0xFFD3D9DE)
 val ShadowTint = Color(0x1A006D77) // 10% alpha primary shadow
 
 // Digital Health ID cards (home + health identity screen)
-val HealthIdCardBg = Color(0xFFE8F5E9)
-val HealthIdCardBorder = Color(0xFFC8E6C9)
+val HealthIdCardBg = Color(0xFFF1F7F7) // Matches Medicine Finder premium teal
+val HealthIdCardBorder = Color(0xFFE0F2F1) // Soft teal border

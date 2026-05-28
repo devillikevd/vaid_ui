@@ -95,14 +95,14 @@ val mostSearchedSpecialities = listOf(
     SpecialityItem("Brain and\nNerves", Icons.Outlined.Psychology, Color(0xFFF3E5F5), Color(0xFF7B1FA2)),
     SpecialityItem("Lungs and\nBreathing", Icons.Outlined.Air, Color(0xFFE1F5FE), Color(0xFF03A9F4)),
     SpecialityItem("General\nSurgery", Icons.Outlined.LocalHospital, Color(0xFFE8EAF6), Color(0xFF5C6BC0)),
-    SpecialityItem("Ayurveda", Icons.Outlined.Spa, Color(0xFFE8F5E9), Color(0xFF388E3C)),
-    SpecialityItem("Homeopathy", Icons.Outlined.Spa, Color(0xFFE8F5E9), Color(0xFF4CAF50))
+    SpecialityItem("Ayurveda", Icons.Outlined.Spa, Color(0xFFF1F7F7), Color(0xFF388E3C)),
+    SpecialityItem("Homeopathy", Icons.Outlined.Spa, Color(0xFFF1F7F7), Color(0xFF4CAF50))
 )
 
 val surgeryConditions = listOf(
     SurgeryCondition("Piles/\nHemorrhoids", Icons.Outlined.LocalHospital, Color(0xFFFFCDD2)),
     SurgeryCondition("Hernia", Icons.Outlined.Healing, Color(0xFFFFE0B2)),
-    SurgeryCondition("Appendicitis", Icons.Outlined.MedicalInformation, Color(0xFFC8E6C9)),
+    SurgeryCondition("Appendicitis", Icons.Outlined.MedicalInformation, Color(0xFFE0F2F1)),
     SurgeryCondition("Anal Fissure/\nAnal Fistula", Icons.Outlined.MedicalServices, Color(0xFFB3E5FC)),
     SurgeryCondition("Varicose\nVein", Icons.Outlined.Healing, Color(0xFFE1BEE7)),
     SurgeryCondition("Kidney\nStone", Icons.Outlined.WaterDrop, Color(0xFFB2DFDB)),
@@ -114,7 +114,7 @@ val mostCommonSymptoms = listOf(
     SymptomItem("COVID", Icons.Outlined.Coronavirus, Color(0xFFFFCDD2)),
     SymptomItem("Stomach\nPain", Icons.Outlined.Sick, Color(0xFFFFE0B2)),
     SymptomItem("Headache", Icons.Outlined.Face, Color(0xFFBBDEFB)),
-    SymptomItem("Sinusitis", Icons.Outlined.AcUnit, Color(0xFFC8E6C9)),
+    SymptomItem("Sinusitis", Icons.Outlined.AcUnit, Color(0xFFE0F2F1)),
     SymptomItem("Vertigo", Icons.Outlined.Rotate90DegreesCcw, Color(0xFFE1BEE7)),
     SymptomItem("Cold &\nCough", Icons.Outlined.Thermostat, Color(0xFFB2EBF2)),
     SymptomItem("Fever", Icons.Outlined.DeviceThermostat, Color(0xFFFFCCBC)),
@@ -184,7 +184,7 @@ val categoryCards = listOf(
     CategoryCardItem("Dermatologist", "Specialist for skin, hair, and nail conditions", Icons.Outlined.Face, listOf(Color(0xFFF3E5F5), Color(0xFFE1BEE7)), R.drawable.skinnspecialist),
     CategoryCardItem("Gynecologist", "Specialist for women's reproductive health and pregnancy", Icons.Outlined.PregnantWoman, listOf(Color(0xFFFCE4EC), Color(0xFFF8BBD0)), R.drawable.womenhealth),
     CategoryCardItem("Orthopedist", "Specialist for bone, joint, and muscle issues", Icons.Outlined.Accessibility, listOf(Color(0xFFFFF3E0), Color(0xFFFFE0B2)), R.drawable.bonesjoint),
-    CategoryCardItem("Pediatrician", "Specialist for infants, children, and adolescents", Icons.Outlined.ChildCare, listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9)), R.drawable.childspecialist),
+    CategoryCardItem("Pediatrician", "Specialist for infants, children, and adolescents", Icons.Outlined.ChildCare, listOf(Color(0xFFF1F7F7), Color(0xFFE0F2F1)), R.drawable.childspecialist),
     CategoryCardItem("ENT Specialist", "Specialist for ear, nose, and throat issues", Icons.Outlined.Hearing, listOf(Color(0xFFE0F2F1), Color(0xFFB2DFDB)), R.drawable.eatspecialist),
     CategoryCardItem("Cardiologist", "Specialist for heart and blood vessel conditions", Icons.Outlined.Favorite, listOf(Color(0xFFFFEBEE), Color(0xFFFFCDD2)), R.drawable.hearspecialist),
     CategoryCardItem("Neurologist", "Specialist for brain, spine, and nervous system", Icons.Outlined.Psychology, listOf(Color(0xFFF3E5F5), Color(0xFFD1C4E9)), R.drawable.brainnerve),
@@ -198,7 +198,7 @@ val categoryCards = listOf(
     CategoryCardItem("General Surgeon", "Performs surgical procedures for various conditions", Icons.Outlined.LocalHospital, listOf(Color(0xFFE8EAF6), Color(0xFFD1C4E9)), R.drawable.genralsurgen),
     CategoryCardItem("Physiotherapist", "Specialist for physical rehabilitation and movement", Icons.Outlined.FitnessCenter, listOf(Color(0xFFE0F2F1), Color(0xFFB2DFDB)), R.drawable.physiotherapist),
     CategoryCardItem("Diet & Nutrition", "Specialist for food, nutrition, and healthy lifestyle", Icons.Outlined.RestaurantMenu, listOf(Color(0xFFFFF3E0), Color(0xFFFFE0B2)), R.drawable.dietnutrition),
-    CategoryCardItem("Ayurveda", "Holistic medicine system based on natural healing", Icons.Outlined.Spa, listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9)), R.drawable.ayurveda),
+    CategoryCardItem("Ayurveda", "Holistic medicine system based on natural healing", Icons.Outlined.Spa, listOf(Color(0xFFF1F7F7), Color(0xFFE0F2F1)), R.drawable.ayurveda),
     CategoryCardItem("Homeopathy", "Alternative medicine based on natural substances", Icons.Outlined.Spa, listOf(Color(0xFFF1F8E9), Color(0xFFDCEDC8)), R.drawable.homeopathy),
     CategoryCardItem("Cancer Specialist", "Specialist for diagnosis and treatment of cancer", Icons.Outlined.LocalHospital, listOf(Color(0xFFFCE4EC), Color(0xFFF8BBD0)), R.drawable.cancer),
     CategoryCardItem("Diabetologist", "Specialist for diabetes management and control", Icons.Outlined.MonitorHeart, listOf(Color(0xFFE0F7FA), Color(0xFFB2EBF2)), R.drawable.diabites),
@@ -208,7 +208,7 @@ val categoryCards = listOf(
     CategoryCardItem("Plastic Surgeon", "Specialist for reconstructive and cosmetic surgery", Icons.Outlined.Face, listOf(Color(0xFFF3E5F5), Color(0xFFE1BEE7)), R.drawable.plasticsurgeon),
     CategoryCardItem("Fertility / IVF Specialist", "Specialist for reproductive medicine and fertility", Icons.Outlined.PregnantWoman, listOf(Color(0xFFFCE4EC), Color(0xFFF8BBD0)), R.drawable.ivf),
     CategoryCardItem("Spine Specialist", "Specialist for back and spinal cord disorders", Icons.Outlined.Accessibility, listOf(Color(0xFFFFF3E0), Color(0xFFFFE0B2)), R.drawable.spinespecialist),
-    CategoryCardItem("Liver Specialist", "Specialist for liver, gallbladder, and biliary tree", Icons.Outlined.Sick, listOf(Color(0xFFE8F5E9), Color(0xFFC8E6C9)), R.drawable.liverspecialist),
+    CategoryCardItem("Liver Specialist", "Specialist for liver, gallbladder, and biliary tree", Icons.Outlined.Sick, listOf(Color(0xFFF1F7F7), Color(0xFFE0F2F1)), R.drawable.liverspecialist),
     CategoryCardItem("Kidney Specialist", "Focuses on kidney health and dialysis", Icons.Outlined.WaterDrop, listOf(Color(0xFFE0F2F1), Color(0xFFB2DFDB)), R.drawable.kidney_stone_icon),
     CategoryCardItem("Allergy Specialist", "Specialist for immune system reactions and allergies", Icons.Outlined.Healing, listOf(Color(0xFFE3F2FD), Color(0xFFBBDEFB)), R.drawable.allergyspecialist),
     CategoryCardItem("Hair Transplant Specialist", "Specialist for hair restoration and transplant", Icons.Outlined.Face, listOf(Color(0xFFF3E5F5), Color(0xFFE1BEE7)), R.drawable.hairtransplant),
@@ -234,7 +234,7 @@ val allSpecialities = listOf(
     SpecialityItem("Ear, Nose,\nThroat", Icons.Outlined.Hearing, Color(0xFFE8EAF6), Color(0xFF3F51B5)),
     SpecialityItem("Sexual\nHealth", Icons.Outlined.FavoriteBorder, Color(0xFFFCE4EC), Color(0xFFE91E63)),
     SpecialityItem("Child\nSpecialist", Icons.Outlined.ChildCare, Color(0xFFFFF3E0), Color(0xFFFF9800)),
-    SpecialityItem("Homeopathy", Icons.Outlined.Spa, Color(0xFFE8F5E9), Color(0xFF4CAF50)),
+    SpecialityItem("Homeopathy", Icons.Outlined.Spa, Color(0xFFF1F7F7), Color(0xFF4CAF50)),
     SpecialityItem("Digestive\nIssues", Icons.Outlined.Sick, Color(0xFFFFF8E1), Color(0xFFFFC107)),
     SpecialityItem("Eye\nSpecialist", Icons.Outlined.Visibility, Color(0xFFE3F2FD), Color(0xFF2196F3)),
     SpecialityItem("Heart", Icons.Outlined.Favorite, Color(0xFFFFEBEE), Color(0xFFF44336)),
@@ -244,11 +244,11 @@ val allSpecialities = listOf(
     SpecialityItem("Kidney\nIssues", Icons.Outlined.WaterDrop, Color(0xFFFFCDD2), Color(0xFFEF5350)),
     SpecialityItem("General\nSurgery", Icons.Outlined.LocalHospital, Color(0xFFE8EAF6), Color(0xFF5C6BC0)),
     SpecialityItem("Diabetes\nManagement", Icons.Outlined.MonitorHeart, Color(0xFFE0F7FA), Color(0xFF0097A7)),
-    SpecialityItem("Ayurveda", Icons.Outlined.Spa, Color(0xFFE8F5E9), Color(0xFF388E3C)),
+    SpecialityItem("Ayurveda", Icons.Outlined.Spa, Color(0xFFF1F7F7), Color(0xFF388E3C)),
     SpecialityItem("Cancer", Icons.Outlined.LocalHospital, Color(0xFFFCE4EC), Color(0xFFC2185B)),
     SpecialityItem("Urinary\nIssues", Icons.Outlined.WaterDrop, Color(0xFFE8EAF6), Color(0xFF5C6BC0)),
     SpecialityItem("Veterinary", Icons.Outlined.Pets, Color(0xFFFFF3E0), Color(0xFFE65100)),
-    SpecialityItem("Diet &\nNutrition", Icons.Outlined.RestaurantMenu, Color(0xFFE8F5E9), Color(0xFF43A047))
+    SpecialityItem("Diet &\nNutrition", Icons.Outlined.RestaurantMenu, Color(0xFFF1F7F7), Color(0xFF43A047))
 )
 
 // ====== MAIN SCREEN ======

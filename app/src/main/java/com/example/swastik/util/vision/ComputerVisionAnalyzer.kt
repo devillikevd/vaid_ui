@@ -159,30 +159,58 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         isProcessingFrame = true
         lastProcessedTimeMs = currentTimeMs
         
-        // Convert the texture buffer to an I420 buffer ON the WebRTC thread
-        // This is CRITICAL because toI420() requires the WebRTC EGL Context to be active!
         val i420Buffer = frame.buffer.toI420()
         if (i420Buffer == null) {
             isProcessingFrame = false
             return
         }
         
-        // Retain the I420Buffer so it survives until the background coroutine finishes
-        i420Buffer.retain()
-        
-        // We only need the rotation from the original frame
+        val width = i420Buffer.width
+        val height = i420Buffer.height
         val rotation = frame.rotation
+        val nv21 = ByteArray(width * height + (width * height / 2))
+
+        try {
+            copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
+            copyUvPlanesToNv21(
+                vBuffer = i420Buffer.dataV,
+                vStride = i420Buffer.strideV,
+                uBuffer = i420Buffer.dataU,
+                uStride = i420Buffer.strideU,
+                destination = nv21,
+                width = width,
+                height = height,
+                offset = width * height
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy I420 buffer", e)
+            i420Buffer.release()
+            isProcessingFrame = false
+            return
+        }
+        
+        // Release IMMEDIATELY! Never hold the WebRTC buffer in a background coroutine!
+        i420Buffer.release()
 
         scope.launch {
             try {
                 val bitmap = try {
-                    i420BufferToBitmap(i420Buffer, rotation)
+                    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+                    val out = ByteArrayOutputStream()
+                    yuvImage.compressToJpeg(Rect(0, 0, width, height), 75, out)
+                    val bytes = out.toByteArray()
+                    val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (decoded != null) {
+                        val matrix = Matrix().apply {
+                            postRotate(rotation.toFloat())
+                        }
+                        Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                    } else {
+                        null
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to decode frame.", e)
                     null
-                } finally {
-                    // Always release the I420Buffer once we've extracted the Bitmap
-                    i420Buffer.release()
                 }
 
                 if (bitmap == null) {
@@ -220,35 +248,6 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                 isProcessingFrame = false
             }
         }
-    }
-
-    private fun i420BufferToBitmap(buffer: org.webrtc.VideoFrame.I420Buffer, rotation: Int): Bitmap? {
-        val width = buffer.width
-        val height = buffer.height
-        val nv21 = ByteArray(width * height + (width * height / 2))
-
-        copyPlane(buffer.dataY, buffer.strideY, nv21, width, height, 0)
-        copyUvPlanesToNv21(
-            vBuffer = buffer.dataV,
-            vStride = buffer.strideV,
-            uBuffer = buffer.dataU,
-            uStride = buffer.strideU,
-            destination = nv21,
-            width = width,
-            height = height,
-            offset = width * height
-        )
-
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-        val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, width, height), 75, out)
-        val bytes = out.toByteArray()
-        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-
-        val matrix = Matrix().apply {
-            postRotate(rotation.toFloat())
-        }
-        return Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
     }
 
     private fun calculateMetrics(

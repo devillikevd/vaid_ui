@@ -58,7 +58,6 @@ object ApiConfig {
         val apiUri = Uri.parse(BASE_URL)
         val wsScheme = if (apiUri.scheme.equals("https", ignoreCase = true)) "wss" else "ws"
         val derivedPort = when (apiUri.port) {
-            5001 -> 8000
             80, 443, -1 -> null
             else -> apiUri.port
         }
