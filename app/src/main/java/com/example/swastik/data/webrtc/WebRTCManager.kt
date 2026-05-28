@@ -467,8 +467,8 @@ class WebRTCManager(
             val sender = peerConnection?.addTrack(track, listOf("stream_local"))
             if (sender != null) {
                 val params = sender.parameters
-                // Use BALANCED to allow resolution drops on harsh networks to preserve framerate (prevent lag)
-                params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.BALANCED
+                // Use MAINTAIN_FRAMERATE to allow resolution drops on harsh networks to preserve framerate (prevent lag/buffering)
+                params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
                 if (params.encodings.isNotEmpty()) {
                     params.encodings[0].maxBitrateBps = 1500000 // 1.5 Mbps
                 }

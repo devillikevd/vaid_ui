@@ -591,9 +591,6 @@ class VideoConsultationViewModel @Inject constructor(
 
         localBandwidthMode = nextMode
         publishModeConstraintIfNeeded()
-        if (nextMode.rank() > previousMode.rank()) {
-            restartIceAndRenegotiate()
-        }
 
         when {
             nextMode == ConsultationMode.CHAT -> {
