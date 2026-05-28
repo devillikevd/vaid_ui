@@ -105,11 +105,11 @@ class WebRTCManager(
             val estimatedCapacityBps = if (availableBitrateBps > 0) availableBitrateBps else modeBitrate
 
             return when {
-            // CRITICAL: >15% loss OR RTT >800ms
-            packetLossPercent > 15.0 || (roundTripTimeMs > 800 && roundTripTimeMs > 0) -> NetworkQuality.CRITICAL
+            // CRITICAL: >25% loss OR RTT >1200ms
+            packetLossPercent > 25.0 || (roundTripTimeMs > 1200 && roundTripTimeMs > 0) -> NetworkQuality.CRITICAL
             // POOR: sustained transport issues. Do not downgrade on bitrate alone:
             // static frames and codec adaptation can look "low bitrate" on a healthy link.
-            packetLossPercent > 5.0 || (roundTripTimeMs > 400 && roundTripTimeMs > 0) -> NetworkQuality.POOR
+            packetLossPercent > 12.0 || (roundTripTimeMs > 600 && roundTripTimeMs > 0) -> NetworkQuality.POOR
             // EXCELLENT: low loss/latency plus enough estimated network capacity.
             packetLossPercent < 1.0 && roundTripTimeMs in 0.0..100.0 &&
                 (
@@ -373,6 +373,8 @@ class WebRTCManager(
      */
     private fun startCaptureWithFallback(capturer: CameraVideoCapturer) {
         val profiles = listOf(
+            Triple(1280, 720, 24),
+            Triple(960, 540, 24),
             Triple(640, 480, 24),
             Triple(480, 360, 20),
             Triple(320, 240, 15),
@@ -467,13 +469,19 @@ class WebRTCManager(
             val sender = peerConnection?.addTrack(track, listOf("stream_local"))
             if (sender != null) {
                 val params = sender.parameters
-                // Use MAINTAIN_FRAMERATE to allow resolution drops on harsh networks to preserve framerate (prevent lag/buffering)
-                params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.MAINTAIN_FRAMERATE
+                // Start at HD, then let WebRTC balance framerate and resolution instead of
+                // immediately crushing detail on the patient feed.
+                params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.BALANCED
                 if (params.encodings.isNotEmpty()) {
-                    params.encodings[0].maxBitrateBps = 1500000 // 1.5 Mbps
+                    params.encodings[0].maxBitrateBps = 1200000 // 1.2 Mbps: HD-capable without flooding mobile uplinks
+                    params.encodings[0].minBitrateBps = 180000
                 }
-                sender.parameters = params
-                Log.d(TAG, "Video track encoding parameters applied: BALANCED")
+                runCatching {
+                    sender.parameters = params
+                }.onFailure {
+                    Log.w(TAG, "Failed to apply video sender parameters: ${it.message}")
+                }
+                Log.d(TAG, "Video track encoding parameters applied: BALANCED, max=1200kbps")
             }
         }
         Log.d(TAG, "PeerConnection created and local tracks added")

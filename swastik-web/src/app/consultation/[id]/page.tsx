@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, type ConsultationVideoMode } from '@/hooks/useSocket';
+import { useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, useVitalsStream, type ConsultationVideoMode, type VitalsStreamData } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
 
@@ -66,6 +66,8 @@ function normalizeIceServers(payload: any): RTCConfiguration {
 // ── Network quality classification ─────────────────────────────────
 type ConnectionMode = ConsultationVideoMode;
 interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; quality: 'excellent' | 'good' | 'poor' | 'critical'; }
+interface BrowserSignalSample { timeMs: number; value: number; }
+interface RgbStats { red: number; green: number; blue: number; luminance: number; saturation: number; }
 
 function classifyQuality(
     rtt: number,
@@ -76,8 +78,8 @@ function classifyQuality(
 ): NetworkStats['quality'] {
     const effectiveBitrate = Math.max(bitrate, transportBitrate);
 
-    if (lossRate > 15 || rtt > 800) return 'critical';
-    if (lossRate > 5 || rtt > 400) return 'poor';
+    if (lossRate > 25 || rtt > 1200) return 'critical';
+    if (lossRate > 12 || rtt > 600) return 'poor';
 
     if (mediaKind === 'audio') {
         if (rtt > 0 && rtt < 150 && lossRate < 2 && effectiveBitrate > 24) return 'excellent';
@@ -104,6 +106,77 @@ function modeRank(mode: ConnectionMode): number {
 
 function mostRestrictiveMode(...modes: ConnectionMode[]): ConnectionMode {
     return modes.reduce((current, next) => (modeRank(next) < modeRank(current) ? next : current), 'video');
+}
+
+function estimateDominantFrequency(
+    samples: BrowserSignalSample[],
+    minHz: number,
+    maxHz: number,
+    minDurationMs: number,
+    minSamples: number
+): number | null {
+    if (samples.length < minSamples) return null;
+    const durationMs = samples[samples.length - 1].timeMs - samples[0].timeMs;
+    if (durationMs < minDurationMs) return null;
+
+    const mean = samples.reduce((sum, sample) => sum + sample.value, 0) / samples.length;
+    let bestHz = 0;
+    let bestPower = 0;
+    let totalPower = 0;
+
+    for (let hz = minHz; hz <= maxHz; hz += 0.03) {
+        let real = 0;
+        let imag = 0;
+        for (const sample of samples) {
+            const t = (sample.timeMs - samples[0].timeMs) / 1000;
+            const centered = sample.value - mean;
+            const angle = 2 * Math.PI * hz * t;
+            real += centered * Math.cos(angle);
+            imag -= centered * Math.sin(angle);
+        }
+        const power = Math.sqrt(real * real + imag * imag);
+        totalPower += power;
+        if (power > bestPower) {
+            bestPower = power;
+            bestHz = hz;
+        }
+    }
+
+    const confidence = totalPower > 0 ? bestPower / totalPower : 0;
+    return confidence >= 0.05 ? bestHz : null;
+}
+
+function readPatchStats(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+): RgbStats | null {
+    const image = context.getImageData(x, y, Math.max(1, width), Math.max(1, height));
+    const { data } = image;
+    if (data.length === 0) return null;
+
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    let count = 0;
+    for (let index = 0; index < data.length; index += 16) {
+        red += data[index] || 0;
+        green += data[index + 1] || 0;
+        blue += data[index + 2] || 0;
+        count += 1;
+    }
+    if (count === 0) return null;
+
+    red /= count * 255;
+    green /= count * 255;
+    blue /= count * 255;
+    const maxChannel = Math.max(red, green, blue);
+    const minChannel = Math.min(red, green, blue);
+    const luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+    const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
+    return { red, green, blue, luminance, saturation };
 }
 
 export default function VideoConsultation() {
@@ -142,6 +215,9 @@ export default function VideoConsultation() {
     const chatEndRef = useRef<HTMLDivElement>(null); // MOD-1: auto-scroll chat
     const rtcConfigRef = useRef<RTCConfiguration>(ICE_SERVERS);
     const recoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const browserVitalsCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const browserPulseSamplesRef = useRef<BrowserSignalSample[]>([]);
+    const browserRespirationSamplesRef = useRef<BrowserSignalSample[]>([]);
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -197,6 +273,7 @@ export default function VideoConsultation() {
     } = useVideoConsultation(consultationId, localBandwidthMode, localPreferredMode, connectionMode);
 
     const { messages, sendMessage, setTyping, typingUsers } = useConsultationChat(consultationId);
+    const { sendVitals: sendPatientVitals } = useVitalsStream(user?.role === 'patient' ? consultationId : null, 'patient');
 
     useEffect(() => {
         participantsCountRef.current = participants.length;
@@ -270,6 +347,90 @@ export default function VideoConsultation() {
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages.length]);
+
+    useEffect(() => {
+        if (user?.role !== 'patient' || !isConnected || !isVideoOn || connectionMode !== 'video') return;
+
+        const trimSamples = (samples: BrowserSignalSample[], windowMs: number, now: number) => {
+            while (samples.length > 0 && now - samples[0].timeMs > windowMs) {
+                samples.shift();
+            }
+        };
+
+        const publishBrowserVitals = () => {
+            const video = localVideoRef.current;
+            if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
+                return;
+            }
+
+            const canvas = browserVitalsCanvasRef.current || document.createElement('canvas');
+            browserVitalsCanvasRef.current = canvas;
+            canvas.width = 96;
+            canvas.height = 72;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (!context) return;
+
+            try {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const now = Date.now();
+                const facePatch = readPatchStats(context, 28, 12, 40, 34);
+                const chestPatch = readPatchStats(context, 24, 42, 48, 22);
+                if (!facePatch) return;
+
+                const brightnessQuality = 1 - Math.min(1, Math.abs(facePatch.luminance - 0.55) / 0.55);
+                const saturationQuality = Math.min(1, facePatch.saturation / 0.32);
+                const signalQuality = Math.max(0, Math.min(1, (brightnessQuality * 0.65) + (saturationQuality * 0.35)));
+
+                const pulseSamples = browserPulseSamplesRef.current;
+                pulseSamples.push({
+                    timeMs: now,
+                    value: facePatch.green - ((facePatch.red + facePatch.blue) * 0.5),
+                });
+                trimSamples(pulseSamples, 15_000, now);
+
+                const respirationSamples = browserRespirationSamplesRef.current;
+                if (chestPatch) {
+                    respirationSamples.push({
+                        timeMs: now,
+                        value: chestPatch.luminance,
+                    });
+                    trimSamples(respirationSamples, 20_000, now);
+                }
+
+                const heartHz = signalQuality >= 0.3
+                    ? estimateDominantFrequency(pulseSamples, 0.8, 2.4, 8_000, 6)
+                    : null;
+                const respirationHz = estimateDominantFrequency(respirationSamples, 0.10, 0.60, 10_000, 7);
+                const redRatio = facePatch.red / Math.max(facePatch.green + facePatch.blue, 0.001);
+                const pallorScore = Math.max(0, Math.min(1, (((0.42 - facePatch.saturation) / 0.42) * 0.65) + (((0.9 - redRatio) / 0.9) * 0.35)));
+
+                const payload: Partial<VitalsStreamData> & Record<string, unknown> = {
+                    session_id: consultationId,
+                    processed_at: new Date(now).toISOString(),
+                    source: 'web-browser-cv',
+                    signal_quality: Number(signalQuality.toFixed(3)),
+                    skin_condition: 'normal',
+                    fall_detected: false,
+                    tremor_detected: false,
+                };
+
+                if (heartHz) payload.heart_rate = Number(Math.max(45, Math.min(160, heartHz * 60)).toFixed(1));
+                if (respirationHz) payload.respiration_rate = Number(Math.max(6, Math.min(32, respirationHz * 60)).toFixed(1));
+                if (Number.isFinite(pallorScore)) payload.pallor_score = Number(pallorScore.toFixed(3));
+
+                payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'active_signals', 'total_signals'].includes(key));
+                payload.total_signals = (payload.active_signals as string[]).length;
+
+                sendPatientVitals(payload);
+            } catch (error) {
+                console.warn('Browser CV vitals sample skipped:', error);
+            }
+        };
+
+        publishBrowserVitals();
+        const interval = window.setInterval(publishBrowserVitals, 1500);
+        return () => window.clearInterval(interval);
+    }, [consultationId, connectionMode, isConnected, isVideoOn, sendPatientVitals, user?.role]);
 
     // BUG-A1: Wrap cleanup in useCallback for stable reference in useConsultationEnded
     const cleanup = useCallback(() => {
@@ -559,7 +720,7 @@ export default function VideoConsultation() {
                             'video';
                 const isDegrading = modeRank(targetMode) < modeRank(currentMode);
                 const isRestoring = modeRank(targetMode) > modeRank(currentMode);
-                const threshold = isDegrading ? 3 : isRestoring ? 4 : 1;
+                const threshold = isDegrading ? 6 : isRestoring ? 8 : 1;
 
                 if (pendingQualityRef.current === quality) {
                     qualityStreakRef.current += 1;

@@ -149,8 +149,8 @@ class VideoConsultationViewModel @Inject constructor(
     @Volatile private var pendingQualityLevel: WebRTCManager.NetworkQuality? = null
     @Volatile private var iceRestartAttempts = 0
     private companion object {
-        const val DEGRADE_THRESHOLD = 3   // 3 consecutive bad samples (~9s) before downgrading
-        const val RESTORE_THRESHOLD = 4   // 4 consecutive good samples (~12s) before upgrading
+        const val DEGRADE_THRESHOLD = 5   // 5 consecutive bad samples (~15s) before downgrading
+        const val RESTORE_THRESHOLD = 6   // 6 consecutive good samples (~18s) before upgrading
         const val MAX_ICE_RESTARTS = 3    // max ICE restarts before giving up
         const val STATS_POLL_INTERVAL_MS = 3000L
     }

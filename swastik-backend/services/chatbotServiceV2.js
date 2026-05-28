@@ -29,6 +29,7 @@ const MEMORY_SIZE = config.ai?.conversationMemorySize || 6;
 const MAX_TOKENS = config.ai?.maxTokens || 800;
 const MAX_PER_SESSION = config.ai?.maxMessagesPerSession || 20;
 const MAX_PER_DAY = config.ai?.maxMessagesPerDay || 100;
+const localRateCounters = new Map();
 
 // ==================== SESSION OWNERSHIP ====================
 
@@ -52,23 +53,31 @@ function validateSessionOwnership(userId, sessionId) {
 /**
  * C12 Fix: Atomic check-and-increment rate limiting.
  * Uses INCR (atomic) instead of GET → SET (race-prone).
- * Bug 4 Fix: When Redis is down, DENY by default (fail-closed) to prevent AI budget exhaustion.
+ * If Redis is unavailable, falls back to an in-process limiter so the AI
+ * assistant remains usable while still keeping a basic abuse guard.
  * Returns { allowed: boolean, remaining: number, reason: string }
  */
 async function checkAndIncrementRateLimit(userId, sessionId) {
   const sessionKey = `chatbot:rate:session:${sessionId}`;
   const dayKey = `chatbot:rate:day:${userId}:${new Date().toISOString().slice(0, 10)}`;
 
-  // Atomically increment session counter. INCR returns new value; if 1 → key was just created
-  const sessionCount = await cacheIncr(sessionKey, 3600); // 1 hour TTL
+  const incrementLocalCounter = (key, ttlMs) => {
+    const now = Date.now();
+    const current = localRateCounters.get(key);
+    const next = current && current.expiresAt > now
+      ? { count: current.count + 1, expiresAt: current.expiresAt }
+      : { count: 1, expiresAt: now + ttlMs };
+    localRateCounters.set(key, next);
+    return next.count;
+  };
 
-  // Bug 4 Fix: If Redis is down, cacheIncr returns null — fail-closed (deny)
+  // Atomically increment session counter. INCR returns new value; if 1 → key was just created
+  let sessionCount = await cacheIncr(sessionKey, 3600); // 1 hour TTL
+
+  // If Redis is down, keep AI usable with a per-process safety limiter instead
+  // of making the chatbot look completely dead to patients.
   if (sessionCount === null) {
-    return {
-      allowed: false,
-      remaining: 0,
-      reason: 'Service temporarily unavailable. Please try again in a moment.',
-    };
+    sessionCount = incrementLocalCounter(sessionKey, 3600 * 1000);
   }
 
   if (sessionCount > MAX_PER_SESSION) {
@@ -80,15 +89,10 @@ async function checkAndIncrementRateLimit(userId, sessionId) {
   }
 
   // Atomically increment daily counter
-  const dayCount = await cacheIncr(dayKey, 86400); // 24 hour TTL
+  let dayCount = await cacheIncr(dayKey, 86400); // 24 hour TTL
 
-  // Bug 4 Fix: Same fail-closed for daily counter
   if (dayCount === null) {
-    return {
-      allowed: false,
-      remaining: 0,
-      reason: 'Service temporarily unavailable. Please try again in a moment.',
-    };
+    dayCount = incrementLocalCounter(dayKey, 86400 * 1000);
   }
 
   if (dayCount > MAX_PER_DAY) {

@@ -1156,6 +1156,7 @@ export function useVitalsStream(
         wsRef.current = ws;
 
         ws.onopen = () => {
+            console.log(`[Vitals WS] ✅ Connected: ${role}/${sessionId}`);
             reconnectAttemptsRef.current = 0; // Reset backoff counter on successful connect
         };
 
@@ -1187,20 +1188,25 @@ export function useVitalsStream(
         };
 
         ws.onclose = (event) => {
+            console.log(`[Vitals WS] Closed ${role}/${sessionId}: code=${event.code} reason=${event.reason || 'none'}`);
             wsRef.current = null;
             if (isUnmountedRef.current) return;
             // Don't reconnect on auth rejections (4001 = missing/expired token, 4003 = wrong role)
             if (event.code === 4001 || event.code === 4003) {
-                console.error(`Vitals WS auth error [${event.code}]: ${event.reason}`);
+                console.error(`[Vitals WS] ❌ Auth error [${event.code}]: ${event.reason}`);
                 return;
             }
             // Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s cap
             const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30_000);
             reconnectAttemptsRef.current += 1;
+            console.log(`[Vitals WS] Reconnecting in ${delay}ms (attempt #${reconnectAttemptsRef.current})`);
             reconnectTimerRef.current = setTimeout(() => connectRef.current?.(), delay);
         };
 
-        ws.onerror = () => ws.close();
+        ws.onerror = (event) => {
+            console.error(`[Vitals WS] ❌ Error for ${role}/${sessionId}:`, event);
+            ws.close();
+        };
     }, [applyIncomingVitals, role, sessionId]);
 
     // BUG-A8 Fix: stable dependency for signalToggles to avoid reconnection storms
@@ -1226,9 +1232,23 @@ export function useVitalsStream(
         };
     }, [bootstrapFromBackend, connect, role, signalTogglesStr]);
 
+    const pendingVitalsRef = useRef<string | null>(null);
+
     const sendVitals = useCallback((vitals: Partial<VitalsStreamData>) => {
-        if (!sessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;
-        wsRef.current.send(JSON.stringify(vitals));
+        if (!sessionId) return;
+        const payload = JSON.stringify(vitals);
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(payload);
+            // Also flush any pending payload from before WS was open
+            if (pendingVitalsRef.current) {
+                ws.send(pendingVitalsRef.current);
+                pendingVitalsRef.current = null;
+            }
+        } else {
+            // Buffer latest payload so it's sent as soon as WS opens
+            pendingVitalsRef.current = payload;
+        }
     }, [sessionId]);
 
     return { latestVitals, vitalsHistory, alerts, criticalAlert, aiInsights, sendVitals };

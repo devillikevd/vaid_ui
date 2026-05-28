@@ -76,6 +76,36 @@ const getActiveClinicDoctorIds = async (clinicIds = []) => {
   return [...new Set((data || []).map((row) => row.doctor_id).filter(Boolean))];
 };
 
+const buildTurnUrlVariants = (turnServer) => {
+  if (!turnServer) return [];
+
+  try {
+    const normalized = turnServer.includes('://')
+      ? turnServer
+      : turnServer.replace(/^turns?:/, (scheme) => `${scheme}//`);
+    const url = new URL(normalized);
+    const scheme = url.protocol.replace(':', '');
+    const host = url.hostname;
+    const port = url.port || '3478';
+    const existingTransport = url.searchParams.get('transport');
+
+    if (!host) return [turnServer];
+    if (existingTransport) {
+      return [
+        `${scheme}:${host}:${port}?transport=${existingTransport}`,
+        `${scheme}:${host}:${port}?transport=${existingTransport === 'udp' ? 'tcp' : 'udp'}`,
+      ];
+    }
+
+    return [
+      `${scheme}:${host}:${port}?transport=udp`,
+      `${scheme}:${host}:${port}?transport=tcp`,
+    ];
+  } catch {
+    return [turnServer];
+  }
+};
+
 const syncConsultationSessionState = async (consultationId, fields = {}) => {
   const updates = {};
   if (fields.roomId) updates.room_id = fields.roomId;
@@ -468,7 +498,7 @@ const getIceServers = async (userId, role, consultationId) => {
 
   if (webrtc?.turnServer) {
     iceServers.push({
-      urls: [webrtc.turnServer],
+      urls: buildTurnUrlVariants(webrtc.turnServer),
       username: webrtc.turnUsername || '',
       credential: webrtc.turnCredential || '',
     });

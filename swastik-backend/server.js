@@ -115,12 +115,15 @@ const io = new Server(server, {
 // This lets browsers connect to wss://api.vaididea.in/ws/vitals/...
 // through the ALB on port 443, without needing port 8000 publicly exposed.
 const AI_SERVICE_WS_TARGET = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+console.log(`[WS Proxy] AI Service target: ${AI_SERVICE_WS_TARGET}`);
 
 server.on('upgrade', (req, socket, head) => {
   // Only intercept /ws/vitals/* paths; let Socket.IO handle everything else
   if (!req.url || !req.url.startsWith('/ws/vitals/')) return;
 
   const targetUrl = new URL(req.url, AI_SERVICE_WS_TARGET);
+  console.log(`[WS Proxy] Upgrading ${req.url} → ${targetUrl.toString()}`);
+
   const upstream = new WebSocket(targetUrl.toString(), {
     headers: {
       // Forward origin and any other headers the client sent
@@ -131,25 +134,52 @@ server.on('upgrade', (req, socket, head) => {
   // Create a WebSocket server instance to handle the client side of the upgrade
   const wss = new WebSocket.Server({ noServer: true });
   wss.handleUpgrade(req, socket, head, (clientWs) => {
-    // Wait for upstream to open before piping
+    // Buffer messages arriving before upstream is open (fixes race condition
+    // where patient vitals sent during connection setup were silently dropped)
+    const pendingMessages = [];
+
+    // Relay: client → upstream (register immediately, not inside 'open')
+    clientWs.on('message', (data) => {
+      if (upstream.readyState === WebSocket.OPEN) {
+        upstream.send(data);
+      } else {
+        pendingMessages.push(data);
+      }
+    });
+
     upstream.on('open', () => {
-      // Relay: client → upstream
-      clientWs.on('message', (data) => {
-        if (upstream.readyState === WebSocket.OPEN) upstream.send(data);
-      });
-      // Relay: upstream → client
-      upstream.on('message', (data) => {
-        if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
-      });
+      console.log(`[WS Proxy] Upstream connected for ${req.url}`);
+      // Flush buffered messages from before upstream was ready
+      for (const msg of pendingMessages) {
+        upstream.send(msg);
+      }
+      pendingMessages.length = 0;
+    });
+
+    // Relay: upstream → client
+    upstream.on('message', (data) => {
+      if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
     });
 
     // Clean up on close
-    clientWs.on('close', () => upstream.close());
-    upstream.on('close', () => clientWs.close());
+    clientWs.on('close', (code, reason) => {
+      console.log(`[WS Proxy] Client closed ${req.url}: ${code} ${reason || ''}`);
+      upstream.close();
+    });
+    upstream.on('close', (code, reason) => {
+      console.log(`[WS Proxy] Upstream closed ${req.url}: ${code} ${reason || ''}`);
+      clientWs.close();
+    });
 
     // Error handling
-    clientWs.on('error', () => upstream.close());
-    upstream.on('error', () => clientWs.close());
+    clientWs.on('error', (err) => {
+      console.error(`[WS Proxy] Client error ${req.url}:`, err.message);
+      upstream.close();
+    });
+    upstream.on('error', (err) => {
+      console.error(`[WS Proxy] Upstream error ${req.url}:`, err.message);
+      clientWs.close();
+    });
   });
 });
 
