@@ -174,92 +174,97 @@ fun HealthCardScreen(
                             .background(MaterialTheme.colorScheme.surface)
                             .padding(16.dp)
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Text(
-                                "Digital Health Card",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "Valid through 12/25",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Column(
+                                modifier = Modifier.weight(1f).padding(end = 16.dp)
+                            ) {
+                                Text(
+                                    "Digital Health Card",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 26.sp
+                                )
+                                Text(
+                                    "Valid through 12/25",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            if (hcState.isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.padding(32.dp))
-                            } else if (hcState.hasActiveCard && hcState.url != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(Color.White, RoundedCornerShape(8.dp)) // Keep QR background white so it scans
-                                        .padding(8.dp)
-                                ) {
-                                    if (qrBitmap != null) {
-                                        Image(
-                                            bitmap = qrBitmap.asImageBitmap(),
-                                            contentDescription = "QR Code",
-                                            modifier = Modifier.size(150.dp),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    } else {
-                                        Icon(
-                                            Icons.Outlined.QrCodeScanner,
-                                            contentDescription = "QR Code unavailable",
-                                            tint = MaterialTheme.colorScheme.outlineVariant,
-                                            modifier = Modifier.size(80.dp)
-                                        )
+                                if (hcState.isLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.padding(32.dp))
+                                } else if (hcState.hasActiveCard && hcState.url != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color.White, RoundedCornerShape(8.dp))
+                                            .padding(8.dp)
+                                    ) {
+                                        if (qrBitmap != null) {
+                                            Image(
+                                                bitmap = qrBitmap.asImageBitmap(),
+                                                contentDescription = "QR Code",
+                                                modifier = Modifier.size(120.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Icon(
+                                                Icons.Outlined.QrCodeScanner,
+                                                contentDescription = "QR Code unavailable",
+                                                tint = MaterialTheme.colorScheme.outlineVariant,
+                                                modifier = Modifier.size(80.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = { dashboardViewModel.revokeHealthCard() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Text("Revoke Access")
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { dashboardViewModel.generateHealthCard() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Text("Generate QR Code")
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Button(
-                                    onClick = { dashboardViewModel.revokeHealthCard() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text("Revoke Access")
-                                }
-                            } else {
-                                Button(
-                                    onClick = { dashboardViewModel.generateHealthCard() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Text("Generate QR Code")
+                                
+                                if (hcState.error != null) {
+                                    Text(
+                                        hcState.error!!,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 16.dp)
+                                    )
                                 }
                             }
-                            
-                            if (hcState.error != null) {
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Filled.Person,
+                                    contentDescription = "Profile",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                        .padding(8.dp)
+                                )
                                 Text(
-                                    hcState.error!!,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(top = 16.dp)
+                                    "Patient",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp)
                                 )
                             }
-                        }
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Icon(
-                                Icons.Filled.Person,
-                                contentDescription = "Profile",
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                    .padding(8.dp)
-                            )
-                            Text(
-                                "Patient",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
                         }
                     }
 

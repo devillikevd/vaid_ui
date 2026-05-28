@@ -141,9 +141,9 @@ fun GlobalSearchBar(
                     Box(modifier = Modifier.weight(1f)) {
                         if (query.isEmpty()) {
                             Text(
-                                "Search Doctors, Specialities, symptoms...", 
+                                "Search doctors, specialities, symptoms...", 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                                fontSize = 12.sp
+                                fontSize = 14.sp
                             )
                         }
                         innerTextField()

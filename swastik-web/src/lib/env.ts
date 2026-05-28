@@ -25,14 +25,11 @@ function deriveSocketUrl(apiUrl: string): string {
 }
 
 function deriveAiWsUrl(apiUrl: string): string {
+    // The Node.js backend proxies /ws/vitals/* to the FastAPI AI service,
+    // so the browser connects to the same host without a separate port.
     const url = requireValidUrl(apiUrl, 'NEXT_PUBLIC_API_URL');
     const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    const derivedPort = (() => {
-        if (url.port === '5001') return '8000';
-        if (url.port === '' || url.port === '80' || url.port === '443') return '';
-        return url.port;
-    })();
-    const portPart = derivedPort ? `:${derivedPort}` : '';
+    const portPart = url.port ? `:${url.port}` : '';
     return `${protocol}//${url.hostname}${portPart}`;
 }
 

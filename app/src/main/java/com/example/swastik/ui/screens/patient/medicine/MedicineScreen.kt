@@ -385,9 +385,11 @@ private fun MedicineSearchBar(
     OutlinedTextField(
         value = searchQuery,
         onValueChange = onSearchChange,
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
         placeholder = {
             Text(
                 "Search for medicines",
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },

@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
+const WebSocket = require('ws');
 
 const config = require('./config');
 const compression = require('compression');
@@ -108,6 +109,48 @@ const io = new Server(server, {
   },
   // Allow legacy Engine.IO v3 clients (Android socket.io-client 2.x)
   allowEIO3: true,
+});
+
+// ── WebSocket Proxy: /ws/vitals/* → FastAPI AI Service (localhost:8000) ──
+// This lets browsers connect to wss://api.vaididea.in/ws/vitals/...
+// through the ALB on port 443, without needing port 8000 publicly exposed.
+const AI_SERVICE_WS_TARGET = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+
+server.on('upgrade', (req, socket, head) => {
+  // Only intercept /ws/vitals/* paths; let Socket.IO handle everything else
+  if (!req.url || !req.url.startsWith('/ws/vitals/')) return;
+
+  const targetUrl = new URL(req.url, AI_SERVICE_WS_TARGET);
+  const upstream = new WebSocket(targetUrl.toString(), {
+    headers: {
+      // Forward origin and any other headers the client sent
+      ...(req.headers.origin ? { origin: req.headers.origin } : {}),
+    },
+  });
+
+  // Create a WebSocket server instance to handle the client side of the upgrade
+  const wss = new WebSocket.Server({ noServer: true });
+  wss.handleUpgrade(req, socket, head, (clientWs) => {
+    // Wait for upstream to open before piping
+    upstream.on('open', () => {
+      // Relay: client → upstream
+      clientWs.on('message', (data) => {
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(data);
+      });
+      // Relay: upstream → client
+      upstream.on('message', (data) => {
+        if (clientWs.readyState === WebSocket.OPEN) clientWs.send(data);
+      });
+    });
+
+    // Clean up on close
+    clientWs.on('close', () => upstream.close());
+    upstream.on('close', () => clientWs.close());
+
+    // Error handling
+    clientWs.on('error', () => upstream.close());
+    upstream.on('error', () => clientWs.close());
+  });
 });
 
 // I7: Socket.IO Redis adapter for horizontal scaling

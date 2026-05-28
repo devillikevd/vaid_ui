@@ -540,7 +540,7 @@ fun WebRTCVideoView(
                     val renderer = SurfaceViewRenderer(context)
                     try {
                         renderer.init(eglContext, null)
-                        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
                         renderer.setMirror(mirror)
                         renderer.setEnableHardwareScaler(true)
                         videoTrack.addSink(renderer)

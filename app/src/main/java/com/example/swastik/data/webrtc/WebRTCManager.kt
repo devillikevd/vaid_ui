@@ -463,8 +463,19 @@ class WebRTCManager(
 
         // Add local tracks
         localAudioTrack?.let { peerConnection?.addTrack(it, listOf("stream_local")) }
-        localVideoTrack?.let { peerConnection?.addTrack(it, listOf("stream_local")) }
-
+        localVideoTrack?.let { track ->
+            val sender = peerConnection?.addTrack(track, listOf("stream_local"))
+            if (sender != null) {
+                val params = sender.parameters
+                // Use BALANCED to allow resolution drops on harsh networks to preserve framerate (prevent lag)
+                params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.BALANCED
+                if (params.encodings.isNotEmpty()) {
+                    params.encodings[0].maxBitrateBps = 1500000 // 1.5 Mbps
+                }
+                sender.parameters = params
+                Log.d(TAG, "Video track encoding parameters applied: BALANCED")
+            }
+        }
         Log.d(TAG, "PeerConnection created and local tracks added")
     }
 

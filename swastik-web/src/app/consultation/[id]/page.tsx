@@ -667,7 +667,18 @@ export default function VideoConsultation() {
         // Add local tracks
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach((track) => {
-                pc.addTrack(track, localStreamRef.current!);
+                const sender = pc.addTrack(track, localStreamRef.current!);
+                if (track.kind === 'video') {
+                    const params = sender.getParameters();
+                    if (!params.encodings) {
+                        params.encodings = [{}];
+                    }
+                    // BALANCED is best for telemedicine over harsh networks:
+                    // it allows smooth resolution drops without destroying framerate (no lag)
+                    params.degradationPreference = 'balanced';
+                    params.encodings[0].networkPriority = 'high';
+                    sender.setParameters(params).catch(e => console.warn('Failed to set WebRTC encoding params', e));
+                }
             });
         }
 
@@ -1030,7 +1041,9 @@ export default function VideoConsultation() {
                             ref={remoteVideoRef}
                             autoPlay
                             playsInline
-                            className="w-full h-full object-cover"
+                            width={1280}
+                            height={720}
+                            className="w-full h-full object-contain"
                         />
 
                         {/* Placeholder when no remote video */}
@@ -1064,7 +1077,7 @@ export default function VideoConsultation() {
                                 autoPlay
                                 playsInline
                                 muted
-                                className={`w-full h-full object-cover ${!isVideoOn && 'hidden'}`}
+                                className={`w-full h-full object-contain ${!isVideoOn && 'hidden'}`}
                             />
                             {!isVideoOn && (
                                 <div className="flex h-full w-full items-center justify-center bg-slate-900/90">
@@ -1217,7 +1230,7 @@ export default function VideoConsultation() {
                     {/* Prescription (Doctor only) */}
                     {user?.role === 'doctor' && (
                         <button
-                            onClick={() => router.push(`/doctor/prescriptions/new?consultation=${consultationId}`)}
+                            onClick={() => window.open(`/doctor/prescriptions/new?consultation=${consultationId}`, '_blank')}
                             className="rounded-full bg-white/10 p-4 transition-colors hover:bg-white/15"
                             title="Create Prescription"
                         >
@@ -1244,7 +1257,7 @@ export default function VideoConsultation() {
                         <Phone className="w-5 h-5 rotate-[135deg]" /> End Consultation
                     </button>
                     {user?.role === 'doctor' && (
-                        <button onClick={() => router.push(`/doctor/prescriptions/new?consultation=${consultationId}`)} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-full text-white font-medium">
+                        <button onClick={() => window.open(`/doctor/prescriptions/new?consultation=${consultationId}`, '_blank')} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-full text-white font-medium">
                             <FileText className="w-5 h-5" /> Write Prescription
                         </button>
                     )}

@@ -3154,9 +3154,11 @@ private fun SearchBarSection(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             placeholder = {
                 Text(
                     placeholderText,
+                    fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
