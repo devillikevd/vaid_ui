@@ -74,12 +74,12 @@ fun SwastikTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            // Set navigation bar color to match bottom navigation bar surface
-            window.navigationBarColor = colorScheme.surface.toArgb()
+            // Set navigation bar color to match top bar (primary green)
+            window.navigationBarColor = colorScheme.primary.toArgb()
             
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = false // Primary green is dark, so use light icons
-                isAppearanceLightNavigationBars = !darkTheme // Surface is light in light mode, so use dark icons
+                isAppearanceLightNavigationBars = false // Primary green is dark, so use light icons
             }
         }
     }
