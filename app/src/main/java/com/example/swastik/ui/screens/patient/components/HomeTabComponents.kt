@@ -165,12 +165,11 @@ private val HealthIdTeal = Color(0xFF00796B)
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
         modifier = modifier
-            .aspectRatio(0.88f)
-            .heightIn(min = 136.dp)
+            .height(120.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -186,36 +185,31 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .height(58.dp)
+                    .height(48.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
                                 MaterialTheme.colorScheme.surface
                             )
                         )
                     )
             )
             
-            Column(
+            Text(
+                text = "In-person\nConsultation",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Start,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    text = "In-person\nConsultation",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 17.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
-                )
-            }
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            )
         }
     }
 }
@@ -224,12 +218,11 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
         modifier = modifier
-            .aspectRatio(0.88f)
-            .heightIn(min = 136.dp)
+            .height(120.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -245,36 +238,31 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .height(58.dp)
+                    .height(48.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
                                 MaterialTheme.colorScheme.surface
                             )
                         )
                     )
             )
             
-            Column(
+            Text(
+                text = "Video\nConsultation",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Start,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    text = "Video\nConsultation",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 17.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Start
-                )
-            }
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            )
         }
     }
 }
@@ -414,38 +402,47 @@ fun HealthServicesSection(
             )
         }
 
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val useTwoColumns = maxWidth < 340.dp
-            val items = listOf(
-                QuickActionItem("Book Clinic\n(OPD)", R.drawable.inperson_consultation, onClinicClick),
-                QuickActionItem("Order\nMedicine", R.drawable.order_medicine, onPharmacyClick),
-                QuickActionItem("Book\nLab Test", R.drawable.book_test_lab, onLabTestsClick),
-                QuickActionItem("Find\nHospitals", R.drawable.find_hospital, onHospitalsClick)
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Row 1: Find Hospital | Book Clinic (OPD)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items.chunked(if (useTwoColumns) 2 else 4).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowItems.forEach { item ->
-                            ServiceSquareCard(
-                                modifier = Modifier.weight(1f),
-                                title = item.title,
-                                imageRes = item.imageRes,
-                                onClick = item.onClick
-                            )
-                        }
-                        repeat((if (useTwoColumns) 2 else 4) - rowItems.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
+                QuickActionGridCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Find\nHospitals",
+                    imageRes = R.drawable.find_hospital,
+                    onClick = onHospitalsClick
+                )
+                QuickActionGridCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Book Clinic\n(OPD)",
+                    imageRes = R.drawable.inperson_consultation,
+                    onClick = onClinicClick
+                )
+            }
+            // Row 2: Order Medicine | Book Lab Test
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                QuickActionGridCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Order\nMedicine",
+                    imageRes = R.drawable.order_medicine,
+                    onClick = onPharmacyClick
+                )
+                QuickActionGridCard(
+                    modifier = Modifier.weight(1f),
+                    title = "Book\nLab Test",
+                    imageRes = R.drawable.book_test_lab,
+                    onClick = onLabTestsClick
+                )
             }
         }
     }
@@ -458,7 +455,7 @@ private data class QuickActionItem(
 )
 
 @Composable
-private fun ServiceSquareCard(
+private fun QuickActionGridCard(
     modifier: Modifier = Modifier,
     title: String,
     imageRes: Int,
@@ -466,52 +463,51 @@ private fun ServiceSquareCard(
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(0.88f)
-            .heightIn(min = 104.dp)
+            .height(120.dp)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 6.dp, top = 8.dp, end = 6.dp, bottom = 28.dp),
-                contentScale = ContentScale.Fit
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.Center
             )
 
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.BottomStart)
                     .fillMaxWidth()
+                    .height(48.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
                                 MaterialTheme.colorScheme.surface
                             )
                         )
                     )
-                    .padding(start = 4.dp, top = 16.dp, end = 4.dp, bottom = 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    lineHeight = 10.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            )
+            
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Start,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            )
         }
     }
 }

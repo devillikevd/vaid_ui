@@ -1030,7 +1030,6 @@ export default function VideoConsultation() {
                             ref={remoteVideoRef}
                             autoPlay
                             playsInline
-                            muted
                             className="w-full h-full object-cover"
                         />
 
@@ -1080,14 +1079,15 @@ export default function VideoConsultation() {
                 )}
 
                 {remotePlaybackBlocked && remoteStreamReady && connectionMode !== 'chat' && (
-                    <div className="absolute left-1/2 top-5 z-20 -translate-x-1/2">
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
                         <button
                             type="button"
                             onClick={resumeRemotePlayback}
-                            className="flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-blue-950/40 transition-colors hover:bg-blue-700"
+                            className="flex flex-col items-center gap-3 rounded-2xl bg-blue-600/95 px-8 py-6 text-white shadow-2xl shadow-blue-950/50 transition-all hover:bg-blue-700 hover:scale-105 animate-pulse"
                         >
-                            <PhoneCall className="h-4 w-4" />
-                            Enable voice
+                            <PhoneCall className="h-10 w-10" />
+                            <span className="text-lg font-bold">Tap to Enable Audio</span>
+                            <span className="text-xs text-blue-200">Browser requires interaction to play sound</span>
                         </button>
                     </div>
                 )}

@@ -137,6 +137,7 @@ fun VideoCallScreen(
                 )
             }
             ConsultationMode.VIDEO -> {
+                var showRecordPanel by remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -166,17 +167,6 @@ fun VideoCallScreen(
                             )
                         }
                     }
-
-                    ConsultationAccessBanner(
-                        hasMedicalRecordAccess = hasMedicalRecordAccess,
-                        medicalRecordAccessExpiresAt = medicalRecordAccessExpiresAt,
-                        isMedicalRecordAccessLoading = isMedicalRecordAccessLoading,
-                        medicalRecordAccessMessage = medicalRecordAccessMessage,
-                        accentColor = accentColor,
-                        guardianAnalyticsSharingAllowed = guardianAnalyticsSharingAllowed,
-                        onGrantMedicalRecordAccess = onGrantMedicalRecordAccess,
-                        onRevokeMedicalRecordAccess = onRevokeMedicalRecordAccess
-                    )
 
                     Box(
                         modifier = Modifier
@@ -236,6 +226,51 @@ fun VideoCallScreen(
                                     .padding(end = 16.dp, bottom = 24.dp)
                                     .align(Alignment.BottomEnd)
                             )
+                        }
+
+                        // ── Floating Medical Record Bubble ──────────────
+                        IconButton(
+                            onClick = { showRecordPanel = !showRecordPanel },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 12.dp, end = 12.dp)
+                                .size(42.dp)
+                                .background(
+                                    if (hasMedicalRecordAccess) Color(0xFF2DD4BF).copy(alpha = 0.85f)
+                                    else Color.White.copy(alpha = 0.18f),
+                                    CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (hasMedicalRecordAccess) Icons.Default.LockOpen else Icons.Default.Lock,
+                                contentDescription = "Medical Records",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // ── Expandable Compact Panel ────────────────────
+                        if (showRecordPanel) {
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 58.dp, end = 12.dp)
+                                    .widthIn(max = 280.dp),
+                                color = Color(0xFF0E1A2E).copy(alpha = 0.96f),
+                                shape = RoundedCornerShape(16.dp),
+                                shadowElevation = 8.dp
+                            ) {
+                                ConsultationAccessBanner(
+                                    hasMedicalRecordAccess = hasMedicalRecordAccess,
+                                    medicalRecordAccessExpiresAt = medicalRecordAccessExpiresAt,
+                                    isMedicalRecordAccessLoading = isMedicalRecordAccessLoading,
+                                    medicalRecordAccessMessage = medicalRecordAccessMessage,
+                                    accentColor = accentColor,
+                                    guardianAnalyticsSharingAllowed = guardianAnalyticsSharingAllowed,
+                                    onGrantMedicalRecordAccess = onGrantMedicalRecordAccess,
+                                    onRevokeMedicalRecordAccess = onRevokeMedicalRecordAccess
+                                )
+                            }
                         }
                     }
 
