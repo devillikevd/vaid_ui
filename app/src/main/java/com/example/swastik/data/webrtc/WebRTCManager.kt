@@ -373,9 +373,9 @@ class WebRTCManager(
      */
     private fun startCaptureWithFallback(capturer: CameraVideoCapturer) {
         val profiles = listOf(
-            Triple(1280, 720, 30),
-            Triple(960, 540, 24),
-            Triple(640, 480, 20),
+            Triple(640, 480, 24),
+            Triple(480, 360, 20),
+            Triple(320, 240, 15),
         )
 
         var lastError: Throwable? = null
