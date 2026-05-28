@@ -476,7 +476,7 @@ private fun QuickActionGridCard(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                alignment = Alignment.Center
+                alignment = Alignment.TopCenter
             )
 
             Box(
