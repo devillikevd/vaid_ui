@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -124,29 +125,29 @@ class VideoConsultationViewModel @Inject constructor(
     private var networkMonitorJob: kotlinx.coroutines.Job? = null
     private var cvAnalyzer: ComputerVisionAnalyzer? = null
     private var isCvAnalyzerAttached = false
-    private var userPreferredMode = ConsultationMode.VIDEO
+    @Volatile private var userPreferredMode = ConsultationMode.VIDEO
     private var bannerJob: kotlinx.coroutines.Job? = null
-    private var localBandwidthMode = ConsultationMode.VIDEO
-    private var remoteRequestedMode = ConsultationMode.VIDEO
-    private var remotePreferredMode = ConsultationMode.VIDEO
-    private var userMicPreference = true
-    private var lastPublishedModeState: String? = null
-    private var pendingAppointmentId: String? = null
-    private var currentAppointmentId: String? = null
+    @Volatile private var localBandwidthMode = ConsultationMode.VIDEO
+    @Volatile private var remoteRequestedMode = ConsultationMode.VIDEO
+    @Volatile private var remotePreferredMode = ConsultationMode.VIDEO
+    @Volatile private var userMicPreference = true
+    @Volatile private var lastPublishedModeState: String? = null
+    @Volatile private var pendingAppointmentId: String? = null
+    @Volatile private var currentAppointmentId: String? = null
     private var pendingJoinRetryJob: kotlinx.coroutines.Job? = null
     private var callDurationJob: kotlinx.coroutines.Job? = null
     private var patientOfferFallbackJob: kotlinx.coroutines.Job? = null
     private var recoveryPollerJob: kotlinx.coroutines.Job? = null
-    private var hasSentLocalOffer = false
-    private var hasReceivedRemoteOffer = false
-    private var hasReceivedRemoteAnswer = false
+    @Volatile private var hasSentLocalOffer = false
+    @Volatile private var hasReceivedRemoteOffer = false
+    @Volatile private var hasReceivedRemoteAnswer = false
 
     // ── Hysteresis counters for stats-based fallback/restore ──
     // Require N consecutive samples before changing mode to prevent jitter
-    private var consecutiveDegradeCount = 0
-    private var consecutiveRestoreCount = 0
-    private var pendingQualityLevel: WebRTCManager.NetworkQuality? = null
-    private var iceRestartAttempts = 0
+    @Volatile private var consecutiveDegradeCount = 0
+    @Volatile private var consecutiveRestoreCount = 0
+    @Volatile private var pendingQualityLevel: WebRTCManager.NetworkQuality? = null
+    @Volatile private var iceRestartAttempts = 0
     private companion object {
         const val DEGRADE_THRESHOLD = 3   // 3 consecutive bad samples (~9s) before downgrading
         const val RESTORE_THRESHOLD = 4   // 4 consecutive good samples (~12s) before upgrading
@@ -185,7 +186,7 @@ class VideoConsultationViewModel @Inject constructor(
         // Listen for incoming chat messages
         viewModelScope.launch {
             appointmentRepository.chatMessages.collect { msg ->
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     chatMessages = _uiState.value.chatMessages + ChatMessageUi(
                         id = System.currentTimeMillis().toString(),
                         message = msg.message,
@@ -193,7 +194,7 @@ class VideoConsultationViewModel @Inject constructor(
                         isMe = msg.isMe,
                         timestamp = msg.timestamp
                     )
-                )
+                ) }
             }
         }
 
@@ -218,11 +219,11 @@ class VideoConsultationViewModel @Inject constructor(
 
         viewModelScope.launch {
             AppSettingsStore.settings.collect { settings ->
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     guardianAnalyticsSharingAllowed = settings.guardianEnabled &&
                         settings.guardianConsentAccepted &&
                         settings.guardianFeatures.doctorQrSharing
-                )
+                ) }
             }
         }
     }
@@ -254,7 +255,7 @@ class VideoConsultationViewModel @Inject constructor(
                 }
                 onRemoteVideoTrack = { track ->
                     _remoteVideoTrack.value = track
-                    _uiState.value = _uiState.value.copy(hasRemoteVideo = true)
+                    _uiState.update { it.copy(hasRemoteVideo = true) }
                 }
                 onIceCandidateGenerated = { candidate ->
                     // Send ICE candidate to remote peer via Socket.IO
@@ -306,12 +307,12 @@ class VideoConsultationViewModel @Inject constructor(
                             }
                             // Reset ICE restart budget on every successful connection
                             iceRestartAttempts = 0
-                            _uiState.value = _uiState.value.copy(
+                            _uiState.update { it.copy(
                                 isConnected = true,
                                 isConnecting = false,
                                 consultationCompleted = false,
                                 networkQuality = WebRTCManager.NetworkQuality.GOOD
-                            )
+                            ) }
                             startCallDurationTimer()
                             publishModeConstraintIfNeeded()
                             applyEffectiveMediaState()
@@ -322,13 +323,13 @@ class VideoConsultationViewModel @Inject constructor(
                             }
                         }
                         PeerConnection.IceConnectionState.DISCONNECTED -> {
-                            _uiState.value = _uiState.value.copy(
+                            _uiState.update { it.copy(
                                 modeBanner = "Connection interrupted — reconnecting..."
-                            )
+                            ) }
                             viewModelScope.launch {
                                 kotlinx.coroutines.delay(8000)
                                 if (_uiState.value.modeBanner?.contains("reconnecting") == true) {
-                                    _uiState.value = _uiState.value.copy(modeBanner = null)
+                                    _uiState.update { it.copy(modeBanner = null) }
                                 }
                             }
                         }
@@ -338,9 +339,9 @@ class VideoConsultationViewModel @Inject constructor(
                                 iceRestartAttempts++
                                 android.util.Log.w("VideoConsultationVM",
                                     "ICE failed — restart attempt $iceRestartAttempts/$MAX_ICE_RESTARTS")
-                                _uiState.value = _uiState.value.copy(
+                                _uiState.update { it.copy(
                                     modeBanner = "Connection lost — reconnecting (attempt $iceRestartAttempts)..."
-                                )
+                                ) }
                                 viewModelScope.launch {
                                     // Exponential backoff: 4s, 6s, 8s
                                     val backoffMs = (2000L + iceRestartAttempts * 2000L)
@@ -353,10 +354,10 @@ class VideoConsultationViewModel @Inject constructor(
                                         } else {
                                             // Exhausted restarts — fall to chat but KEEP monitor alive
                                             localBandwidthMode = ConsultationMode.CHAT
-                                            _uiState.value = _uiState.value.copy(
+                                            _uiState.update { it.copy(
                                                 isConnected = false,
                                                 hasRemoteVideo = false
-                                            )
+                                            ) }
                                             publishModeConstraintIfNeeded()
                                             applyEffectiveMediaState(
                                                 banner = "Connection lost — switched to Chat mode",
@@ -371,10 +372,10 @@ class VideoConsultationViewModel @Inject constructor(
                             } else {
                                 // Exhausted restarts — fall to chat but KEEP monitor alive for recovery
                                 localBandwidthMode = ConsultationMode.CHAT
-                                _uiState.value = _uiState.value.copy(
+                                _uiState.update { it.copy(
                                     isConnected = false,
                                     hasRemoteVideo = false
-                                )
+                                ) }
                                 publishModeConstraintIfNeeded()
                                 applyEffectiveMediaState(
                                     banner = "Connection lost — switched to Chat mode",
@@ -386,7 +387,7 @@ class VideoConsultationViewModel @Inject constructor(
                         }
                         PeerConnection.IceConnectionState.CLOSED -> {
                             // Terminal — connection is fully torn down, no recovery possible
-                            _uiState.value = _uiState.value.copy(isConnected = false, hasRemoteVideo = false)
+                            _uiState.update { it.copy(isConnected = false, hasRemoteVideo = false) }
                             networkMonitorJob?.cancel()
                             recoveryPollerJob?.cancel()
                         }
@@ -395,7 +396,7 @@ class VideoConsultationViewModel @Inject constructor(
                 }
                 onRemoteStreamRemoved = {
                     _remoteVideoTrack.value = null
-                    _uiState.value = _uiState.value.copy(hasRemoteVideo = false)
+                    _uiState.update { it.copy(hasRemoteVideo = false) }
                 }
 
                 // Initialize and start
@@ -421,7 +422,7 @@ class VideoConsultationViewModel @Inject constructor(
             releaseWebRTC()
             userPreferredMode = ConsultationMode.CHAT
             localBandwidthMode = ConsultationMode.CHAT
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isConnecting = false,
                 isConnected = false,
                 connectionMode = ConsultationMode.CHAT,
@@ -429,7 +430,7 @@ class VideoConsultationViewModel @Inject constructor(
                 isCameraEnabled = false,
                 modeBanner = "Video setup failed on this device - chat is still available",
                 error = null
-            )
+            ) }
         }
     }
 
@@ -440,9 +441,9 @@ class VideoConsultationViewModel @Inject constructor(
             while (isActive && _uiState.value.session != null && !_uiState.value.consultationCompleted) {
                 kotlinx.coroutines.delay(1000)
                 if (_uiState.value.isConnected) {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         callDuration = _uiState.value.callDuration + 1
-                    )
+                    ) }
                 }
             }
         }
@@ -549,7 +550,7 @@ class VideoConsultationViewModel @Inject constructor(
                 consecutiveDegradeCount++
                 if (consecutiveDegradeCount >= DEGRADE_THRESHOLD) {
                     consecutiveDegradeCount = 0
-                    _uiState.value = _uiState.value.copy(networkQuality = measured)
+                    _uiState.update { it.copy(networkQuality = measured) }
                     handleQualityChange(measured)
                 }
             }
@@ -558,7 +559,7 @@ class VideoConsultationViewModel @Inject constructor(
                 consecutiveRestoreCount++
                 if (consecutiveRestoreCount >= RESTORE_THRESHOLD) {
                     consecutiveRestoreCount = 0
-                    _uiState.value = _uiState.value.copy(networkQuality = measured)
+                    _uiState.update { it.copy(networkQuality = measured) }
                     handleQualityChange(measured)
                 }
             }
@@ -567,7 +568,7 @@ class VideoConsultationViewModel @Inject constructor(
                 consecutiveDegradeCount = 0
                 consecutiveRestoreCount = 0
                 if (measured != _uiState.value.networkQuality) {
-                    _uiState.value = _uiState.value.copy(networkQuality = measured)
+                    _uiState.update { it.copy(networkQuality = measured) }
                 }
             }
         }
@@ -643,7 +644,7 @@ class VideoConsultationViewModel @Inject constructor(
         bannerJob?.cancel()
         bannerJob = viewModelScope.launch {
             kotlinx.coroutines.delay(delayMs)
-            _uiState.value = _uiState.value.copy(modeBanner = null)
+            _uiState.update { it.copy(modeBanner = null) }
         }
     }
 
@@ -756,11 +757,11 @@ class VideoConsultationViewModel @Inject constructor(
                 remotePreferredMode = ConsultationMode.VIDEO
                 // Remote user left — clean up
                 _remoteVideoTrack.value = null
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     isConnected = false,
                     hasRemoteVideo = false,
                     modeBanner = "Doctor left the video room"
-                )
+                ) }
             }
         }
     }
@@ -804,13 +805,13 @@ class VideoConsultationViewModel @Inject constructor(
                 pendingAppointmentId = null
                 pendingJoinRetryJob?.cancel()
                 releaseWebRTC()
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     isConnecting = false,
                     isWaitingForDoctor = false,
                     consultationCompleted = false,
                     modeBanner = null,
                     error = "Doctor ended the consultation before you could join."
-                )
+                ) }
             }
             return
         }
@@ -835,12 +836,12 @@ class VideoConsultationViewModel @Inject constructor(
 
         pendingJoinRetryJob?.cancel()
         pendingJoinRetryJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isConnecting = true,
                 isWaitingForDoctor = false,
                 error = null,
                 modeBanner = "Doctor is ready. Opening your consultation room..."
-            )
+            ) }
 
             repeat(3) { attempt ->
                 when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
@@ -856,12 +857,12 @@ class VideoConsultationViewModel @Inject constructor(
                             return@launch
                         } else {
                             releaseWebRTC()
-                            _uiState.value = _uiState.value.copy(
+                            _uiState.update { it.copy(
                                 isConnecting = false,
                                 isWaitingForDoctor = false,
                                 error = result.message,
                                 modeBanner = null
-                            )
+                            ) }
                             return@launch
                         }
                     }
@@ -876,27 +877,27 @@ class VideoConsultationViewModel @Inject constructor(
         currentAppointmentId = appointmentId
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isMedicalRecordAccessLoading = true,
                 medicalRecordAccessMessage = null
-            )
+            ) }
 
             when (val result = appointmentRepository.getMedicalRecordAccess(appointmentId)) {
                 is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         hasMedicalRecordAccess = result.data.hasAccess,
                         medicalRecordAccessExpiresAt = result.data.expiresAt,
                         medicalRecordAccessMessage = null
-                    )
+                    ) }
                 }
                 is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         hasMedicalRecordAccess = false,
                         medicalRecordAccessExpiresAt = null,
                         medicalRecordAccessMessage = result.message
-                    )
+                    ) }
                 }
                 is Result.Loading -> Unit
             }
@@ -906,19 +907,19 @@ class VideoConsultationViewModel @Inject constructor(
     fun grantMedicalRecordAccess(includeGuardianAnalytics: Boolean = false) {
         val appointmentId = currentAppointmentId ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isMedicalRecordAccessLoading = true,
                 medicalRecordAccessMessage = null
-            )
+            ) }
 
             when (val result = appointmentRepository.grantMedicalRecordAccess(appointmentId)) {
                 is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         hasMedicalRecordAccess = result.data.hasAccess,
                         medicalRecordAccessExpiresAt = result.data.expiresAt,
                         medicalRecordAccessMessage = "Only this doctor can view your older records for the next 24 hours, unless you revoke access sooner."
-                    )
+                    ) }
                     val canShareGuardianAnalytics = includeGuardianAnalytics &&
                         _uiState.value.guardianAnalyticsSharingAllowed
                     if (canShareGuardianAnalytics) {
@@ -929,16 +930,16 @@ class VideoConsultationViewModel @Inject constructor(
                             // Ignored or logged
                         }
                     } else if (includeGuardianAnalytics) {
-                        _uiState.value = _uiState.value.copy(
+                        _uiState.update { it.copy(
                             medicalRecordAccessMessage = "Record access shared. Guardian analytics were not attached because Guardian doctor/QR sharing is disabled."
-                        )
+                        ) }
                     }
                 }
                 is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         medicalRecordAccessMessage = result.message
-                    )
+                    ) }
                 }
                 is Result.Loading -> Unit
             }
@@ -948,25 +949,25 @@ class VideoConsultationViewModel @Inject constructor(
     fun revokeMedicalRecordAccess() {
         val appointmentId = currentAppointmentId ?: return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isMedicalRecordAccessLoading = true,
                 medicalRecordAccessMessage = null
-            )
+            ) }
 
             when (val result = appointmentRepository.revokeMedicalRecordAccess(appointmentId)) {
                 is Result.Success -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         hasMedicalRecordAccess = false,
                         medicalRecordAccessExpiresAt = null,
                         medicalRecordAccessMessage = "Doctor access to older records has been revoked."
-                    )
+                    ) }
                 }
                 is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
+                    _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         medicalRecordAccessMessage = result.message
-                    )
+                    ) }
                 }
                 is Result.Loading -> Unit
             }
@@ -981,14 +982,14 @@ class VideoConsultationViewModel @Inject constructor(
             resetModeControllers()
             pendingAppointmentId = appointmentId
             currentAppointmentId = appointmentId
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isConnecting = true,
                 isWaitingForDoctor = false,
                 error = null,
                 consultationCompleted = false,
                 callDuration = 0L,
                 modeBanner = null
-            )
+            ) }
 
             when (val result = appointmentRepository.joinVideoConsultation(appointmentId)) {
                 is Result.Success -> {
@@ -999,12 +1000,12 @@ class VideoConsultationViewModel @Inject constructor(
                         beginWaitingForDoctor(appointmentId)
                     } else {
                         releaseWebRTC()
-                        _uiState.value = _uiState.value.copy(
+                        _uiState.update { it.copy(
                             isConnecting = false,
                             isWaitingForDoctor = false,
                             error = result.message,
                             modeBanner = null
-                        )
+                        ) }
                     }
                 }
                 is Result.Loading -> {}
@@ -1040,7 +1041,7 @@ class VideoConsultationViewModel @Inject constructor(
                 is Result.Loading -> initializeWebRTC()
             }
 
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 isConnecting = false,
                 isWaitingForDoctor = false,
                 session = session,
@@ -1048,7 +1049,7 @@ class VideoConsultationViewModel @Inject constructor(
                 error = null,
                 modeBanner = null,
                 callDuration = 0L
-            )
+            ) }
 
             // Join signaling/chat rooms only after the session is present in state.
             appointmentRepository.joinVideoRoom(session.sessionId)
@@ -1064,14 +1065,14 @@ class VideoConsultationViewModel @Inject constructor(
         pendingJoinRetryJob?.cancel()
         releaseWebRTC()
         socketManager.connect()
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             isConnecting = false,
             isWaitingForDoctor = true,
             error = null,
             session = null,
             modeBanner = "Waiting for the doctor to start the consultation",
             callDuration = 0L
-        )
+        ) }
     }
 
     private fun shouldWaitForDoctor(message: String?): Boolean {
@@ -1147,7 +1148,7 @@ class VideoConsultationViewModel @Inject constructor(
     fun toggleSpeaker() {
         val newState = !_uiState.value.isSpeakerOn
         applySpeakerRoute(newState)
-        _uiState.value = _uiState.value.copy(isSpeakerOn = newState)
+        _uiState.update { it.copy(isSpeakerOn = newState) }
     }
 
     /**
@@ -1361,7 +1362,7 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun effectiveMode(): ConsultationMode =
-        mostRestrictiveMode(userPreferredMode, localBandwidthMode, remoteRequestedMode, remotePreferredMode)
+        mostRestrictiveMode(userPreferredMode, localBandwidthMode, remoteRequestedMode)
 
     private fun applyEffectiveMediaState(
         banner: String? = null,
@@ -1374,12 +1375,12 @@ class VideoConsultationViewModel @Inject constructor(
         webRTCManager?.setMicEnabled(micEnabled)
         webRTCManager?.setCameraEnabled(cameraEnabled)
 
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             connectionMode = effectiveMode,
             isMicEnabled = micEnabled,
             isCameraEnabled = cameraEnabled,
             modeBanner = banner ?: _uiState.value.modeBanner
-        )
+        ) }
 
         if (banner != null && clearDelayMs != null) {
             clearBannerAfterDelay(clearDelayMs)
@@ -1450,10 +1451,10 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     fun dismissCompletion() {
-        _uiState.value = _uiState.value.copy(
+        _uiState.update { it.copy(
             consultationCompleted = false,
             modeBanner = null
-        )
+        ) }
     }
 
     private fun org.json.JSONObject.putIfNotNull(key: String, value: Any?) {
@@ -1473,7 +1474,7 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.update { it.copy(error = null) }
     }
 
     fun submitReview(rating: Int, comment: String, onComplete: () -> Unit) {

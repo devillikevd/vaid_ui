@@ -40,7 +40,12 @@ fun VideoConsultationFlow(
     val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) {
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] == true
+        val micGranted = permissions[Manifest.permission.RECORD_AUDIO] == true
+        if (!cameraGranted || !micGranted) {
+            android.widget.Toast.makeText(context, "Permissions denied. Falling back to restricted mode.", android.widget.Toast.LENGTH_LONG).show()
+        }
         // Continue with joining consultation regardless, WebRTCManager will handle missing camera/mic gracefully now
         viewModel.joinConsultation(appointmentId)
     }

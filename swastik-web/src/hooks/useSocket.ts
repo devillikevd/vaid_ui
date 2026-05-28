@@ -840,13 +840,14 @@ export function useConsultationChat(consultationId: string | null) {
     const sendMessage = useCallback(
         (message: string) => {
             const ts = new Date().toISOString();
+            const truncatedMessage = message.trim().slice(0, 2000);
             const optimisticMsg: ChatMessage = {
                 userId: user?.id || '',
-                message,
+                message: truncatedMessage,
                 timestamp: ts,
             };
             setMessages((prev) => [...prev, optimisticMsg]);
-            emit('chat:message', { consultationId, message });
+            emit('chat:message', { consultationId, message: truncatedMessage });
         },
         [consultationId, emit, user?.id]
     );

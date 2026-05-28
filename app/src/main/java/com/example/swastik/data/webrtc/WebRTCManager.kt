@@ -693,17 +693,17 @@ class WebRTCManager(
         } catch (e: RuntimeException) {
             Log.e(TAG, "Error stopping capturer", e)
         }
-        runCatching { videoCapturer?.dispose() }
-        videoCapturer = null
-
-        runCatching { surfaceTextureHelper?.dispose() }
-        surfaceTextureHelper = null
-
         runCatching { localVideoTrack?.dispose() }
         localVideoTrack = null
 
         runCatching { localAudioTrack?.dispose() }
         localAudioTrack = null
+
+        runCatching { videoCapturer?.dispose() }
+        videoCapturer = null
+
+        runCatching { surfaceTextureHelper?.dispose() }
+        surfaceTextureHelper = null
 
         // dispose() internally calls close() — calling both separately can crash
         runCatching { peerConnection?.dispose() }

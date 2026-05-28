@@ -415,9 +415,9 @@ export default function VideoConsultation() {
     }, [connectionMode, localBandwidthMode, localPreferredMode, participants.length, sendModeChange]);
 
     useEffect(() => {
-        const effectiveMode = mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode, remotePreferredMode);
+        const effectiveMode = mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode);
         applyLocalMediaState(effectiveMode);
-    }, [applyLocalMediaState, localBandwidthMode, localPreferredMode, remoteMode, remotePreferredMode]);
+    }, [applyLocalMediaState, localBandwidthMode, localPreferredMode, remoteMode]);
 
     useEffect(() => {
         const previousRemoteMode = previousRemoteModeRef.current;
@@ -464,10 +464,10 @@ export default function VideoConsultation() {
         } else if (nextMode === 'audio' && currentMode === 'chat') {
             setModeBannerSafe('📶 Connection stabilizing — switched to Audio-only mode', 5000);
         } else if (nextMode === 'video' && currentMode === 'chat') {
-            const restoredMode = mostRestrictiveMode(nextMode, localPreferredMode, remoteMode, remotePreferredMode);
+            const restoredMode = mostRestrictiveMode(nextMode, localPreferredMode, remoteMode);
             setModeBannerSafe(restoredMode === 'video' ? '✅ Network recovered — Video restored' : '✅ Network recovered', 3000);
         } else if (nextMode === 'video' && currentMode === 'audio') {
-            const restoredMode = mostRestrictiveMode(nextMode, localPreferredMode, remoteMode, remotePreferredMode);
+            const restoredMode = mostRestrictiveMode(nextMode, localPreferredMode, remoteMode);
             setModeBannerSafe(restoredMode === 'video' ? '✅ Network improved — Video restored' : '✅ Network improved', 3000);
         }
     }, [localPreferredMode, remoteMode, remotePreferredMode, setLocalBandwidthMode, setModeBannerSafe]);
@@ -633,7 +633,7 @@ export default function VideoConsultation() {
             cameraUnavailableRef.current = false;
             localStreamRef.current = stream;
             if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-            applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode, remotePreferredMode));
+            applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode));
             setupPeerConnection();
             setIsConnecting(false);
         } catch (err) {
@@ -645,7 +645,7 @@ export default function VideoConsultation() {
                 localStreamRef.current = audioStream;
                 userVideoEnabledRef.current = false;
                 setLocalPreferredMode('audio');
-                applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, 'audio', remoteMode, remotePreferredMode));
+                applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, 'audio', remoteMode));
                 setupPeerConnection();
                 setIsConnecting(false);
                 setModeBannerSafe('📷 Camera unavailable — Audio-only mode', 4000);
@@ -737,7 +737,6 @@ export default function VideoConsultation() {
 
         try {
             pc.restartIce();
-            if (pc.signalingState !== 'stable') return;
             hasInitiatedOfferRef.current = true;
             const offerDescription = await pc.createOffer({
                 offerToReceiveVideo: true,
@@ -758,10 +757,20 @@ export default function VideoConsultation() {
             if (!pc) return;
 
             if (pc.signalingState !== 'stable') {
-                await Promise.all([
-                    pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit),
-                ]);
-                hasInitiatedOfferRef.current = false;
+                if (isDoctor) {
+                    console.log('Glare detected. As the Doctor (caller), ignoring incoming offer (impolite peer).');
+                    if (pc.localDescription && pc.localDescription.type === 'offer') {
+                        // Re-transmit to break potential deadlocks if our offer was dropped!
+                        sendOffer(pc.localDescription);
+                    }
+                    return;
+                } else {
+                    console.log('Glare detected. As the Patient (callee), rolling back local description (polite peer).');
+                    await Promise.all([
+                        pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit),
+                    ]);
+                    hasInitiatedOfferRef.current = false;
+                }
             }
 
             await pc.setRemoteDescription(new RTCSessionDescription(offerData));
@@ -819,7 +828,7 @@ export default function VideoConsultation() {
 
     const toggleMute = () => {
         userMicEnabledRef.current = !userMicEnabledRef.current;
-        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode, remotePreferredMode));
+        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, localPreferredMode, remoteMode));
     };
 
     const toggleVideo = () => {
@@ -831,7 +840,7 @@ export default function VideoConsultation() {
         const nextPreferredMode: ConnectionMode = userVideoEnabledRef.current ? 'audio' : 'video';
         userVideoEnabledRef.current = !userVideoEnabledRef.current;
         setLocalPreferredMode(nextPreferredMode);
-        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, nextPreferredMode, remoteMode, remotePreferredMode));
+        applyLocalMediaState(mostRestrictiveMode(localBandwidthMode, nextPreferredMode, remoteMode));
     };
 
     const toggleFullscreen = () => {

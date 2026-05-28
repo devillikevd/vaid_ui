@@ -436,7 +436,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("video:offer") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 val offer = data.optJSONObject("offer") ?: return@on
                 Log.d(TAG, "Received Offer")
                 scope.launch {
@@ -450,7 +450,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("video:answer") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 val answer = data.optJSONObject("answer") ?: return@on
                 Log.d(TAG, "Received Answer")
                 scope.launch {
@@ -464,7 +464,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("video:ice-candidate") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 val candidate = data.optJSONObject("candidate") ?: return@on
                 Log.d(TAG, "Received ICE Candidate")
                 scope.launch {
@@ -507,7 +507,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("chat:message") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Chat Message: $data")
                 emitChatMessage(data)
             } catch (e: Exception) { Log.e(TAG, "Error parsing chat:message", e) }
@@ -515,7 +515,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("chat:message:sent") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Chat Message Ack: $data")
                 emitChatMessage(data, forceIsMe = true)
             } catch (e: Exception) { Log.e(TAG, "Error parsing chat:message:sent", e) }
@@ -525,7 +525,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("order:update") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Order Update: $data")
                 scope.launch {
                     _orderUpdates.emit(OrderUpdate(
@@ -540,7 +540,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("notification:new") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Notification: $data")
                 scope.launch {
                     _notifications.emit(AppNotification(
@@ -557,7 +557,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("catalog:refresh") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Provider catalog refresh: $data")
                 scope.launch {
                     _providerCatalogUpdates.emit(
@@ -574,7 +574,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("ambulance:status-update") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _ambulanceUpdates.emit(AmbulanceStatusUpdate(
                         requestId = data.optString("requestId", ""),
@@ -588,7 +588,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("ambulance:timeout") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _ambulanceUpdates.emit(AmbulanceStatusUpdate(
                         requestId = data.optString("requestId", ""),
@@ -605,7 +605,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("ambulance:location-update") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _ambulanceLocationUpdates.emit(AmbulanceLocationUpdate(
                         requestId = data.optString("requestId", ""),
@@ -623,7 +623,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("ambulance:assigned") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _ambulanceAssigned.emit(AmbulanceAssignedUpdate(
                         requestId = data.optString("requestId", ""),
@@ -639,7 +639,7 @@ class SocketManager @Inject constructor(
         // --- C1: Consultation Started ---
         socket?.on("consultation:started") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Consultation started: $data")
                 scope.launch {
                     _consultationStarted.emit(ConsultationStartedEvent(
@@ -657,7 +657,7 @@ class SocketManager @Inject constructor(
         // --- M5: Consultation Ended ---
         socket?.on("consultation:ended") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Consultation ended: $data")
                 scope.launch {
                     _consultationEnded.emit(ConsultationEndedEvent(
@@ -674,7 +674,7 @@ class SocketManager @Inject constructor(
         // --- C2: Prescription New ---
         socket?.on("prescription:new") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "New prescription: $data")
                 scope.launch {
                     _prescriptionNew.emit(PrescriptionNewEvent(
@@ -691,7 +691,7 @@ class SocketManager @Inject constructor(
         // --- M1: Diagnostic Updates ---
         socket?.on("diagnostic:booking-updated") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Diagnostic booking updated: $data")
                 scope.launch {
                     _diagnosticUpdates.emit(DiagnosticUpdate(
@@ -709,7 +709,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("diagnostic:result-ready") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 Log.d(TAG, "Diagnostic result ready: $data")
                 scope.launch {
                     _diagnosticUpdates.emit(DiagnosticUpdate(
@@ -727,7 +727,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("diagnostic:booking-confirmed") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _diagnosticUpdates.emit(DiagnosticUpdate(
                         id = data.optString("id", ""),
@@ -745,7 +745,7 @@ class SocketManager @Inject constructor(
         // --- M2: Chat Typing ---
         socket?.on("chat:typing") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _chatTyping.emit(ChatTypingEvent(
                         userId = data.optString("userId", ""),
@@ -758,7 +758,7 @@ class SocketManager @Inject constructor(
         // --- I11: New Order ---
         socket?.on("order:new") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _newOrders.emit(NewOrderEvent(
                         orderId = data.optString("orderId", ""),
@@ -774,7 +774,7 @@ class SocketManager @Inject constructor(
         // --- Appointment Updates ---
         socket?.on("appointment:update") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _appointmentUpdates.emit(AppointmentUpdateEvent(
                         appointmentId = data.optString("appointmentId", data.optString("id", "")),
@@ -790,7 +790,7 @@ class SocketManager @Inject constructor(
 
         socket?.on("appointment:confirmed") { args ->
             try {
-                val data = args[0] as JSONObject
+                val data = args[0] as? JSONObject ?: return@on
                 scope.launch {
                     _appointmentUpdates.emit(AppointmentUpdateEvent(
                         appointmentId = data.optString("appointmentId", data.optString("id", "")),
@@ -942,7 +942,7 @@ class SocketManager @Inject constructor(
     fun sendChatMessage(consultationId: String, message: String) {
         val payload = JSONObject()
         payload.put("consultationId", consultationId)
-        payload.put("message", message)
+        payload.put("message", message.take(2000))
         socket?.emit("chat:message", payload)
     }
 

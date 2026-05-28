@@ -570,7 +570,7 @@ const initializeSocketIO = (io) => {
       socket.leave(`chat:${consultationId}`);
     }));
 
-    socket.on('chat:message', safeHandler(socket, (data) => {
+    socket.on('chat:message', safeHandler(socket, async (data) => {
       if (!hasRole(socket, CHAT_ROLES)) return;
       if (!validateData(data, ['consultationId', 'message'])) return;
       if (typeof data.message !== 'string' || data.message.trim().length === 0) return;
@@ -583,48 +583,46 @@ const initializeSocketIO = (io) => {
       // Fix: auto-join after participant verification so the first message isn't lost
       // if the client sends immediately after entering fallback chat mode.
       const chatRoom = `chat:${data.consultationId}`;
-      (async () => {
-        if (!await ensureConsultationRoomAccess(socket, 'chat', data.consultationId)) return;
+      if (!await ensureConsultationRoomAccess(socket, 'chat', data.consultationId)) return;
 
-        // Rate limit: max 5 messages per second per user
-        const chatRateLimitKey = `${RATE_LIMIT_PREFIX}chat:${userId}`;
-        const now = Date.now();
-        try {
-          const lastStr = await cacheGet(chatRateLimitKey);
-          const last = lastStr ? parseInt(lastStr, 10) : 0;
-          if (now - last < 200) return; // 200ms = 5 msg/sec
-          await cacheSet(chatRateLimitKey, now.toString(), 10);
-        } catch { /* rate limit best-effort */ }
+      // Rate limit: max 5 messages per second per user
+      const chatRateLimitKey = `${RATE_LIMIT_PREFIX}chat:${userId}`;
+      const now = Date.now();
+      try {
+        const lastStr = await cacheGet(chatRateLimitKey);
+        const last = lastStr ? parseInt(lastStr, 10) : 0;
+        if (now - last < 200) return; // 200ms = 5 msg/sec
+        await cacheSet(chatRateLimitKey, now.toString(), 10);
+      } catch { /* rate limit best-effort */ }
 
-        const chatPayload = {
-          userId,
-          role: socket.userRole,
-          message: data.message.trim(),
-          timestamp: new Date().toISOString(),
-        };
+      const chatPayload = {
+        userId,
+        role: socket.userRole,
+        message: data.message.trim(),
+        timestamp: new Date().toISOString(),
+      };
 
-        // BUG-A7 Fix: Use socket.to() instead of io.to() so the sender doesn't
-        // receive their own message back (prevents duplicates on both Web and Android).
-        // The sender gets a separate 'chat:message:sent' ack for delivery confirmation.
-        socket.to(chatRoom).emit('chat:message', chatPayload);
-        socket.emit('chat:message:sent', chatPayload);
+      // BUG-A7 Fix: Use socket.to() instead of io.to() so the sender doesn't
+      // receive their own message back (prevents duplicates on both Web and Android).
+      // The sender gets a separate 'chat:message:sent' ack for delivery confirmation.
+      socket.to(chatRoom).emit('chat:message', chatPayload);
+      socket.emit('chat:message:sent', chatPayload);
 
-        // Persist chat message to MongoDB
-        try {
-          const { ChatMessage } = require('../database/models');
-          if (ChatMessage) {
-            await ChatMessage.create({
-              sessionId: data.consultationId,
-              userId,
-              role: socket.userRole,
-              content: data.message.trim(),
-              metadata: { consultationId: data.consultationId, source: 'socket' },
-            });
-          }
-        } catch (err) {
-          console.warn('Failed to persist chat message:', err.message);
+      // Persist chat message to MongoDB
+      try {
+        const { ChatMessage } = require('../database/models');
+        if (ChatMessage) {
+          await ChatMessage.create({
+            sessionId: data.consultationId,
+            userId,
+            role: socket.userRole,
+            content: data.message.trim(),
+            metadata: { consultationId: data.consultationId, source: 'socket' },
+          });
         }
-      })();
+      } catch (err) {
+        console.warn('Failed to persist chat message:', err.message);
+      }
     }));
 
     socket.on('chat:typing', safeHandler(socket, async (data) => {
