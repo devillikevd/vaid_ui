@@ -28,21 +28,22 @@ import {
 } from 'lucide-react';
 
 // ── ICE Servers with TURN fallback for NAT traversal ───────────────
+// Primary TURN config comes from env vars (set in Vercel dashboard):
+//   NEXT_PUBLIC_TURN_URL, NEXT_PUBLIC_TURN_USERNAME, NEXT_PUBLIC_TURN_CREDENTIAL
+// Dynamic TURN config is fetched from backend at runtime via /ice-servers API.
+// This constant is only used as a last-resort fallback if both sources fail.
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // TURN servers (env-configurable, with free fallback for dev)
+        // TURN server from Vercel env vars (required for mobile network NAT traversal)
         ...(process.env.NEXT_PUBLIC_TURN_URL
             ? [{
                 urls: process.env.NEXT_PUBLIC_TURN_URL,
                 username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
                 credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
             }]
-            : [
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-            ]),
+            : []),
     ],
     iceTransportPolicy: 'all' as RTCIceTransportPolicy,
 };
