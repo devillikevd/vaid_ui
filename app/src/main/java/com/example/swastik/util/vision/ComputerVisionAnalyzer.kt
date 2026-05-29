@@ -232,147 +232,135 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         if (currentTimeMs - lastLightweightTimeMs < LIGHTWEIGHT_INTERVAL_MS) return
 
         isProcessingFrame = true
-        lastLightweightTimeMs = currentTimeMs
 
-        // We must retain the frame on the WebRTC thread before passing it to the coroutine
-        frame.retain()
-
-        val rotation = frame.rotation
-
-        // Decide: is this a keyframe or a lightweight frame?
         val isKeyframe = (currentTimeMs - lastKeyframeTimeMs >= KEYFRAME_INTERVAL_MS)
-            || cachedRoi == null  // Force keyframe if we have no ROI yet
+            || cachedRoi == null
 
         if (isKeyframe) {
             lastKeyframeTimeMs = currentTimeMs
-            scope.launch {
-                try {
-                    // Fast downscale if the frame is too large (e.g. 720p/1080p),
-                    // because toI420() on a large texture buffer takes 20-30ms!
-                    val MAX_DIMEN = 480
-                    val originalWidth = frame.buffer.width
-                    val originalHeight = frame.buffer.height
-                    val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
-                    
-                    val processedBuffer = if (scale < 1.0f) {
-                        frame.buffer.cropAndScale(
-                            0, 0, originalWidth, originalHeight,
-                            (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
+        } else {
+            lastLightweightTimeMs = currentTimeMs
+        }
+
+        try {
+            // EGL Thread Operations (Must be done here, not in coroutine)
+            val MAX_DIMEN = 480
+            val originalWidth = frame.buffer.width
+            val originalHeight = frame.buffer.height
+            val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
+            
+            val processedBuffer = if (scale < 1.0f) {
+                frame.buffer.cropAndScale(
+                    0, 0, originalWidth, originalHeight,
+                    (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
+                )
+            } else {
+                frame.buffer
+            }
+
+            // Convert to I420 on WebRTC thread (hardware accelerated if texture)
+            val i420Buffer = processedBuffer.toI420()
+            if (scale < 1.0f) processedBuffer.release()
+
+            if (i420Buffer == null) {
+                isProcessingFrame = false
+                return
+            }
+
+            // Retain the I420 buffer because we are passing it to another thread
+            i420Buffer.retain()
+
+            val rotation = frame.rotation
+
+            if (isKeyframe) {
+                scope.launch {
+                    try {
+                        val width = i420Buffer.width
+                        val height = i420Buffer.height
+
+                        // Pre-allocate NV21 buffer
+                        val requiredSize = width * height + (width * height / 2)
+                        if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
+                            nv21Buffer = ByteArray(requiredSize)
+                        }
+                        val nv21 = nv21Buffer!!
+
+                        copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
+                        copyUvPlanesToNv21(
+                            vBuffer = i420Buffer.dataV, vStride = i420Buffer.strideV,
+                            uBuffer = i420Buffer.dataU, uStride = i420Buffer.strideU,
+                            destination = nv21, width = width, height = height, offset = width * height
                         )
-                    } else {
-                        frame.buffer
-                    }
 
-                    val i420Buffer = processedBuffer.toI420()
-                    if (scale < 1.0f) processedBuffer.release()
-
-                    if (i420Buffer == null) return@launch
-
-                    val width = i420Buffer.width
-                    val height = i420Buffer.height
-
-                    // Pre-allocate NV21 buffer
-                    val requiredSize = width * height + (width * height / 2)
-                    if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
-                        nv21Buffer = ByteArray(requiredSize)
-                    }
-                    val nv21 = nv21Buffer!!
-
-                    copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
-                    copyUvPlanesToNv21(
-                        vBuffer = i420Buffer.dataV, vStride = i420Buffer.strideV,
-                        uBuffer = i420Buffer.dataU, uStride = i420Buffer.strideU,
-                        destination = nv21, width = width, height = height, offset = width * height
-                    )
-
-                    val yuvCheekColor = cachedRoi?.let { roi ->
-                        sampleYuvPatch(
-                            i420Buffer.dataY, i420Buffer.strideY,
-                            i420Buffer.dataU, i420Buffer.strideU,
-                            i420Buffer.dataV, i420Buffer.strideV,
-                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                        )?.let { left ->
+                        val yuvCheekColor = cachedRoi?.let { roi ->
                             sampleYuvPatch(
                                 i420Buffer.dataY, i420Buffer.strideY,
                                 i420Buffer.dataU, i420Buffer.strideU,
                                 i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                            )?.let { right -> averageRgb(left, right) }
+                                width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                            )?.let { left ->
+                                sampleYuvPatch(
+                                    i420Buffer.dataY, i420Buffer.strideY,
+                                    i420Buffer.dataU, i420Buffer.strideU,
+                                    i420Buffer.dataV, i420Buffer.strideV,
+                                    width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                                )?.let { right -> averageRgb(left, right) }
+                            }
                         }
+
+                        processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
+
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Keyframe processing error", e)
+                    } finally {
+                        i420Buffer.release()
+                        isProcessingFrame = false
                     }
-
-                    i420Buffer.release()
-                    processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
-
-                } catch (e: Exception) {
-                    Log.e(TAG, "Keyframe processing error", e)
-                } finally {
-                    frame.release()
-                    isProcessingFrame = false
                 }
-            }
-        } else {
-            scope.launch {
-                try {
-                    val roi = cachedRoi
-                    if (roi == null) {
-                        return@launch
-                    }
-                    
-                    val MAX_DIMEN = 480
-                    val originalWidth = frame.buffer.width
-                    val originalHeight = frame.buffer.height
-                    val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
-                    
-                    val processedBuffer = if (scale < 1.0f) {
-                        frame.buffer.cropAndScale(
-                            0, 0, originalWidth, originalHeight,
-                            (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
+            } else {
+                scope.launch {
+                    try {
+                        val roi = cachedRoi
+                        if (roi == null) return@launch
+
+                        val width = i420Buffer.width
+                        val height = i420Buffer.height
+
+                        val leftCheek = sampleYuvPatch(
+                            i420Buffer.dataY, i420Buffer.strideY,
+                            i420Buffer.dataU, i420Buffer.strideU,
+                            i420Buffer.dataV, i420Buffer.strideV,
+                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
                         )
-                    } else {
-                        frame.buffer
+                        val rightCheek = sampleYuvPatch(
+                            i420Buffer.dataY, i420Buffer.strideY,
+                            i420Buffer.dataU, i420Buffer.strideU,
+                            i420Buffer.dataV, i420Buffer.strideV,
+                            width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                        )
+                        val cheekColor = averageRgb(leftCheek, rightCheek)
+
+                        val lipColor = sampleYuvPatch(
+                            i420Buffer.dataY, i420Buffer.strideY,
+                            i420Buffer.dataU, i420Buffer.strideU,
+                            i420Buffer.dataV, i420Buffer.strideV,
+                            width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
+                            widthFactor = 0.12, heightFactor = 0.07
+                        )
+
+                        processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
+
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Lightweight error", e)
+                    } finally {
+                        i420Buffer.release()
+                        isProcessingFrame = false
                     }
-
-                    val i420Buffer = processedBuffer.toI420()
-                    if (scale < 1.0f) processedBuffer.release()
-
-                    if (i420Buffer == null) return@launch
-
-                    val width = i420Buffer.width
-                    val height = i420Buffer.height
-
-                    val leftCheek = sampleYuvPatch(
-                        i420Buffer.dataY, i420Buffer.strideY,
-                        i420Buffer.dataU, i420Buffer.strideU,
-                        i420Buffer.dataV, i420Buffer.strideV,
-                        width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                    )
-                    val rightCheek = sampleYuvPatch(
-                        i420Buffer.dataY, i420Buffer.strideY,
-                        i420Buffer.dataU, i420Buffer.strideU,
-                        i420Buffer.dataV, i420Buffer.strideV,
-                        width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                    )
-                    val cheekColor = averageRgb(leftCheek, rightCheek)
-
-                    val lipColor = sampleYuvPatch(
-                        i420Buffer.dataY, i420Buffer.strideY,
-                        i420Buffer.dataU, i420Buffer.strideU,
-                        i420Buffer.dataV, i420Buffer.strideV,
-                        width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
-                        widthFactor = 0.12, heightFactor = 0.07
-                    )
-
-                    i420Buffer.release()
-                    processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
-
-                } catch (e: Exception) {
-                    Log.e(TAG, "Lightweight error", e)
-                } finally {
-                    frame.release()
-                    isProcessingFrame = false
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Frame preprocessing error", e)
+            isProcessingFrame = false
         }
     }
 
