@@ -129,6 +129,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private var smoothedPallor: Double? = null
     private var tremorBaselineX: Double? = null
 
+    private var nv21Buffer: ByteArray? = null
+
     init {
         try {
             val baseOptions = BaseOptions.builder()
@@ -168,7 +170,11 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         val width = i420Buffer.width
         val height = i420Buffer.height
         val rotation = frame.rotation
-        val nv21 = ByteArray(width * height + (width * height / 2))
+        // Pre-allocate the NV21 buffer if necessary to avoid massive GC pauses every frame
+        if (nv21Buffer == null || nv21Buffer!!.size != width * height + (width * height / 2)) {
+            nv21Buffer = ByteArray(width * height + (width * height / 2))
+        }
+        val nv21 = nv21Buffer!!
 
         try {
             copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)

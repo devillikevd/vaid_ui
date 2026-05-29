@@ -461,6 +461,19 @@ async def vitals_websocket(
 
     async def writer_task():
         stream_last_id = last_id if last_id else "$"
+        
+        # If starting fresh, resolve "$" to the actual current ID to prevent message loss between xread calls
+        if stream_last_id == "$":
+            try:
+                # Use xrevrange to get the absolute latest ID
+                latest = await redis_client.xrevrange(stream_key, count=1)
+                if latest:
+                    stream_last_id = latest[0][0].decode("utf-8")
+                else:
+                    stream_last_id = "0-0"
+            except Exception:
+                stream_last_id = "0-0"
+
         try:
             while True:
                 response = await redis_client.xread(
