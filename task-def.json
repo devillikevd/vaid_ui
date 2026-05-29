@@ -1,0 +1,318 @@
+{
+    "taskDefinition": {
+        "taskDefinitionArn": "arn:aws:ecs:ap-south-1:725098487373:task-definition/swastik-prod-app:23",
+        "containerDefinitions": [
+            {
+                "name": "backend",
+                "image": "725098487373.dkr.ecr.ap-south-1.amazonaws.com/swastik-prod-backend:95e40dd9a5ddbca82bb83c46574ce81ff4868262",
+                "cpu": 512,
+                "memoryReservation": 768,
+                "portMappings": [
+                    {
+                        "containerPort": 5001,
+                        "hostPort": 0,
+                        "protocol": "tcp"
+                    }
+                ],
+                "essential": true,
+                "environment": [
+                    {
+                        "name": "AI_SERVICE_URL",
+                        "value": "http://ai-service:8000"
+                    },
+                    {
+                        "name": "AWS_REGION",
+                        "value": "ap-south-1"
+                    },
+                    {
+                        "name": "STORAGE_PROVIDER",
+                        "value": "s3"
+                    },
+                    {
+                        "name": "PORT",
+                        "value": "5001"
+                    },
+                    {
+                        "name": "S3_REGION",
+                        "value": "ap-south-1"
+                    },
+                    {
+                        "name": "FRONTEND_APP_URL",
+                        "value": "exp://localhost:8081"
+                    },
+                    {
+                        "name": "WEBRTC_TURN_SERVER",
+                        "value": "turn:3.6.82.59:3478?transport=udp"
+                    },
+                    {
+                        "name": "S3_PUBLIC_URL",
+                        "value": "https://swastik-prod-725098487373-ap-south-1-uploads.s3.ap-south-1.amazonaws.com"
+                    },
+                    {
+                        "name": "FRONTEND_WEB_URL",
+                        "value": "https://vaididea.in"
+                    },
+                    {
+                        "name": "S3_BUCKET_NAME",
+                        "value": "swastik-prod-725098487373-ap-south-1-uploads"
+                    },
+                    {
+                        "name": "SUPABASE_URL",
+                        "value": "https://fzbdticlmxbxeektckst.supabase.co"
+                    },
+                    {
+                        "name": "MONGODB_DB_NAME",
+                        "value": "swastik_healthcare"
+                    },
+                    {
+                        "name": "REMINDER_CRON_ENABLED",
+                        "value": "true"
+                    },
+                    {
+                        "name": "FRONTEND_DOCTOR_WEB_URL",
+                        "value": "https://vaididea.in"
+                    },
+                    {
+                        "name": "RATE_LIMIT_MAX_REQUESTS",
+                        "value": "300"
+                    },
+                    {
+                        "name": "WEBRTC_TURN_CREDENTIAL",
+                        "value": "nBtjXDqewZKnpvTUwusC6jGdV/KQJyzebP2cY3bq010="
+                    },
+                    {
+                        "name": "OUTBREAK_CRON_ENABLED",
+                        "value": "true"
+                    },
+                    {
+                        "name": "BACKGROUND_JOBS_ENABLED",
+                        "value": "true"
+                    },
+                    {
+                        "name": "STORAGE_AUTO_CREATE_BUCKET",
+                        "value": "false"
+                    },
+                    {
+                        "name": "STORAGE_FORCE_PATH_STYLE",
+                        "value": "false"
+                    },
+                    {
+                        "name": "NODE_ENV",
+                        "value": "production"
+                    },
+                    {
+                        "name": "RATE_LIMIT_WINDOW_MS",
+                        "value": "900000"
+                    },
+                    {
+                        "name": "BUCKET_NAME",
+                        "value": "swastik-prod-725098487373-ap-south-1-uploads"
+                    },
+                    {
+                        "name": "WEBRTC_TURN_USERNAME",
+                        "value": "vaididea-turn"
+                    }
+                ],
+                "mountPoints": [],
+                "volumesFrom": [],
+                "links": ["ai-service"],
+                "secrets": [
+                    {
+                        "name": "EMAIL_FROM_ADDRESS",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/EMAIL_FROM_ADDRESS"
+                    },
+                    {
+                        "name": "FIREBASE_SERVICE_ACCOUNT_BASE64",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/FIREBASE_SERVICE_ACCOUNT_BASE64"
+                    },
+                    {
+                        "name": "GMAIL_APP_PASSWORD",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GMAIL_APP_PASSWORD"
+                    },
+                    {
+                        "name": "GMAIL_USER",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GMAIL_USER"
+                    },
+                    {
+                        "name": "GROQ_API_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GROQ_API_KEY"
+                    },
+                    {
+                        "name": "HUGGINGFACE_API_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/HUGGINGFACE_API_KEY"
+                    },
+                    {
+                        "name": "JWT_ACCESS_SECRET",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/JWT_ACCESS_SECRET"
+                    },
+                    {
+                        "name": "JWT_REFRESH_SECRET",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/JWT_REFRESH_SECRET"
+                    },
+                    {
+                        "name": "JWT_SECRET",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/JWT_SECRET"
+                    },
+                    {
+                        "name": "MONGODB_URI",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/MONGODB_URI"
+                    },
+                    {
+                        "name": "REDIS_URL",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/REDIS_URL"
+                    },
+                    {
+                        "name": "SUPABASE_ANON_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/SUPABASE_ANON_KEY"
+                    },
+                    {
+                        "name": "SUPABASE_SERVICE_ROLE_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/SUPABASE_SERVICE_ROLE_KEY"
+                    },
+                    {
+                        "name": "UPSTASH_REDIS_REST_TOKEN",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/UPSTASH_REDIS_REST_TOKEN"
+                    },
+                    {
+                        "name": "UPSTASH_REDIS_REST_URL",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/UPSTASH_REDIS_REST_URL"
+                    }
+                ],
+                "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                        "awslogs-group": "/ecs/swastik-prod",
+                        "awslogs-region": "ap-south-1",
+                        "awslogs-stream-prefix": "backend"
+                    }
+                },
+                "systemControls": []
+            },
+            {
+                "name": "ai-service",
+                "image": "725098487373.dkr.ecr.ap-south-1.amazonaws.com/swastik-prod-ai-service:95e40dd9a5ddbca82bb83c46574ce81ff4868262",
+                "cpu": 768,
+                "memoryReservation": 1024,
+                "portMappings": [
+                    {
+                        "containerPort": 8000,
+                        "hostPort": 0,
+                        "protocol": "tcp"
+                    }
+                ],
+                "essential": true,
+                "environment": [
+                    {
+                        "name": "PYTHONUNBUFFERED",
+                        "value": "1"
+                    },
+                    {
+                        "name": "AI_SERVICE_WORKERS",
+                        "value": "1"
+                    },
+                    {
+                        "name": "AI_SERVICE_PORT",
+                        "value": "8000"
+                    },
+                    {
+                        "name": "AI_SERVICE_RELOAD",
+                        "value": "false"
+                    },
+                    {
+                        "name": "BACKEND_URL",
+                        "value": "http://127.0.0.1:5001"
+                    },
+                    {
+                        "name": "MONGODB_DB_NAME",
+                        "value": "swastik_healthcare"
+                    },
+                    {
+                        "name": "PYTHONDONTWRITEBYTECODE",
+                        "value": "1"
+                    }
+                ],
+                "mountPoints": [],
+                "volumesFrom": [],
+                "secrets": [
+                    {
+                        "name": "GROQ_API_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GROQ_API_KEY"
+                    },
+                    {
+                        "name": "HUGGINGFACE_API_KEY",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/HUGGINGFACE_API_KEY"
+                    },
+                    {
+                        "name": "JWT_ACCESS_SECRET",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/JWT_ACCESS_SECRET"
+                    },
+                    {
+                        "name": "JWT_SECRET",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/JWT_SECRET"
+                    },
+                    {
+                        "name": "MONGODB_URI",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/MONGODB_URI"
+                    },
+                    {
+                        "name": "REDIS_URL",
+                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/REDIS_URL"
+                    }
+                ],
+                "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                        "awslogs-group": "/ecs/swastik-prod",
+                        "awslogs-region": "ap-south-1",
+                        "awslogs-stream-prefix": "ai-service"
+                    }
+                },
+                "systemControls": []
+            }
+        ],
+        "family": "swastik-prod-app",
+        "taskRoleArn": "arn:aws:iam::725098487373:role/swastik-prod-task-role",
+        "executionRoleArn": "arn:aws:iam::725098487373:role/swastik-prod-task-execution-role",
+        "networkMode": "bridge",
+        "revision": 23,
+        "volumes": [],
+        "status": "ACTIVE",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+            },
+            {
+                "name": "ecs.capability.execution-role-awslogs"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.21"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.task-iam-role"
+            },
+            {
+                "name": "ecs.capability.execution-role-ecr-pull"
+            },
+            {
+                "name": "ecs.capability.secrets.ssm.environment-variables"
+            }
+        ],
+        "placementConstraints": [],
+        "compatibilities": [
+            "EXTERNAL",
+            "EC2"
+        ],
+        "requiresCompatibilities": [
+            "EC2"
+        ],
+        "registeredAt": "2026-05-28T12:20:35.363000+05:30",
+        "registeredBy": "arn:aws:sts::725098487373:assumed-role/swastik-prod-github-deploy-role/GitHubActions"
+    },
+    "tags": []
+}

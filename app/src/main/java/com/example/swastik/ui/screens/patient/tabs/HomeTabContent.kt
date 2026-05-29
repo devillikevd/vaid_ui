@@ -97,17 +97,22 @@ fun HomeTabContent(
             }
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Featured Dynamic Banner
+        FeaturedBanner(onClick = onNavigateToChatbot)
+        
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Emergency SOS
         EmergencySOSBanner(onClick = onNavigateToEmergency)
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Swastik AI Assistant Banner
         SwastikAIBanner(onClick = onNavigateToChatbot)
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Primary Actions (Compact consultation cards side-by-side)
         Row(
@@ -126,11 +131,11 @@ fun HomeTabContent(
             )
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         CompactHealthIdCard(onClick = onNavigateToHealthCard)
         
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Secondary Actions (Reports, Appointments)
         SecondaryActionsGrid(
@@ -138,7 +143,7 @@ fun HomeTabContent(
             onAppointmentsClick = onNavigateToAppointments
         )
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Redesigned Health Services Row (Moved to Community Q&A spot)
         HealthServicesSection(
@@ -148,7 +153,7 @@ fun HomeTabContent(
             onHospitalsClick = onNavigateToHospitals
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Recommended Doctors (Moved up as requested)
         RecommendedDoctorsSection(
@@ -159,19 +164,19 @@ fun HomeTabContent(
             onRetry = onRefresh
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Book Doctor by Speciality
         FindDoctorsBySpecialitySection(
             onSpecialityClick = onFindDoctorSpecialityClick
         )
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         // Community Q&A Banner (Moved to the bottom)
         CommunityQABanner(onClick = onNavigateToCommunityQA)
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
     }
 
     selectedDoctorForProfile?.let { doctor ->

@@ -22,7 +22,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import com.example.swastik.ui.theme.ShadowTint
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -100,8 +102,14 @@ fun GlobalSearchBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(46.dp)
-                .background(Color(0xFFE3F2FD), RoundedCornerShape(23.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), RoundedCornerShape(23.dp)),
+                .shadow(
+                    elevation = 4.dp,
+                    shape = RoundedCornerShape(23.dp),
+                    spotColor = ShadowTint,
+                    ambientColor = Color.Transparent
+                )
+                .background(Color.White, RoundedCornerShape(23.dp))
+                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(23.dp)),
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

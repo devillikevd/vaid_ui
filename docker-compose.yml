@@ -86,9 +86,9 @@ services:
       context: ./swastik-web
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=http://localhost:5001/api
-        - NEXT_PUBLIC_SOCKET_URL=http://localhost:5001
-        - NEXT_PUBLIC_AI_WS_URL=ws://localhost:8000
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5001/api}
+        - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:5001}
+        - NEXT_PUBLIC_AI_WS_URL=${NEXT_PUBLIC_AI_WS_URL:-ws://localhost:8000}
     container_name: swastik-web
     ports:
       - "3000:3000"

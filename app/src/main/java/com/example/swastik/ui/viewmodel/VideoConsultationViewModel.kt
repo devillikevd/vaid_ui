@@ -1255,7 +1255,7 @@ class VideoConsultationViewModel @Inject constructor(
                     val hasFreshFrame = cvMetrics.isFaceDetected && cvMetrics.capturedAtMs > 0L && metricsAgeMs <= 4_000L
                     if (!hasFreshFrame) continue
 
-                    val payload = org.json.JSONObject().apply {
+                    val metricsData = org.json.JSONObject().apply {
                         put("session_id", consultationId)
                         putIfNotNull("heart_rate", cvMetrics.heartRate)
                         putIfNotNull("respiration_rate", cvMetrics.respirationRate)
@@ -1270,10 +1270,14 @@ class VideoConsultationViewModel @Inject constructor(
                         putIfNotNull("pallor_score", cvMetrics.pallorScore)
                         putIfNotNull("hemoglobin_estimate", cvMetrics.hemoglobinEstimate)
                         putIfNotNull("spo2", cvMetrics.spo2)
-                        // MOD-2: Add missing CV signals that the AI service expects
                         putIfNotNull("stress_level", cvMetrics.stressLevel)
                         putIfNotNull("skin_condition", cvMetrics.skinCondition)
                         put("processed_at", java.time.Instant.now().toString())
+                    }
+                    // Wrap in proper envelope matching AI service contract
+                    val payload = org.json.JSONObject().apply {
+                        put("type", "cv_vitals")
+                        put("data", metricsData)
                     }.toString()
 
                     val ws = vitalsWebSocket

@@ -79,30 +79,33 @@ fun PatientBottomNavigation(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .height(68.dp) // Reduced height from 72dp
+            .height(68.dp)
             .shadow(
                 elevation = 8.dp,
-                spotColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.05f),
                 ambientColor = Color.Transparent
             )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items.forEachIndexed { index, item ->
-                CompactBottomNavItem(
-                    item = item,
-                    selected = selectedTab == index,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTabSelected(index)
-                    }
-                )
+        Column(modifier = Modifier.fillMaxSize()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                items.forEachIndexed { index, item ->
+                    CompactBottomNavItem(
+                        item = item,
+                        selected = selectedTab == index,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTabSelected(index)
+                        }
+                    )
+                }
             }
         }
     }
@@ -135,7 +138,7 @@ private fun CompactBottomNavItem(
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp) // Reduced from 40dp
+                .size(if (selected) 42.dp else 36.dp)
                 .clip(CircleShape)
                 .background(if (selected) SwastikPrimary.copy(alpha = 0.12f) else Color.Transparent),
             contentAlignment = Alignment.Center
@@ -144,15 +147,15 @@ private fun CompactBottomNavItem(
                 imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                 contentDescription = item.contentDescription,
                 tint = tint,
-                modifier = Modifier.size(22.dp) // Reduced from 24dp
+                modifier = Modifier.size(if (selected) 24.dp else 22.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(2.dp)) // Reduced from 4dp
+        Spacer(modifier = Modifier.height(2.dp))
         
         Text(
             text = item.label,
-            fontSize = 10.sp, // Reduced from 11sp
+            fontSize = 9.sp, // Smaller label size
             fontWeight = fontWeight,
             color = tint,
             maxLines = 1,

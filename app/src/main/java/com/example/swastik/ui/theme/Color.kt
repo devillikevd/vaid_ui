@@ -14,17 +14,19 @@ val SwastikNeutral = Color(0xFFEDF2F4) // Light grayish blue
 // Semantic colors (muted, professional)
 val SwastikGreen = Color(0xFF2D6A4F) // Success, verified
 val SwastikRed = Color(0xFFD62828) // Emergency only
+val EmergencySoftRed = Color(0xFFFFF1F1) // Soft emergency background
+val EmergencyTextRed = Color(0xFFD32F2F) // Bold emergency text
 val SwastikOrange = Color(0xFFE07A5F) // Warnings, pending
 val SwastikBlue = Color(0xFF3A86FF) // Info, highlights
 
 // Background & Surface
-val BackgroundLight = Color(0xFFE0F2F1) // Lightweight teal-tinted green
-val SurfaceLight = Color(0xFFE0F2F1) // Premium teal-tinted white
+val BackgroundLight = Color(0xFFF4FBF9) // Cleaner mint background
+val SurfaceLight = Color(0xFFF7FCFA) // Premium mint surface
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 
 // Elevated surfaces for cards
-val SurfaceElevatedLight = Color(0xFFE0F2F1)
+val SurfaceElevatedLight = Color(0xFFFFFFFF) // Clean white for elevated cards
 val SurfaceElevatedDark = Color(0xFF2A2A2A)
 
 // Text colors

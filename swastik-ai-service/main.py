@@ -255,6 +255,8 @@ async def process_ai_ingest_message(msg_id, msg_data, backpressure: bool = False
         maxlen=5000,
         approximate=True,
     )
+    # Auto-expire session streams after 24h to prevent Redis OOM
+    await redis_client.expire(session_stream, 86400)
 
     await redis_client.xack(AI_INGEST_STREAM, AI_INGEST_GROUP, msg_id)
 
@@ -434,23 +436,23 @@ async def vitals_websocket(
                 if alerts:
                     metrics["alerts"] = alerts
 
-                if "data" in payload:
-                    payload["data"] = metrics
-                else:
-                    payload = metrics
+                # Flatten the payload for Redis storage so the Web UI and AI Chatbot parse it correctly
+                payload_to_store = metrics
 
                 # Source-of-truth session stream
                 await redis_client.xadd(
                     name=stream_key,
-                    fields={"payload": json.dumps(payload)},
+                    fields={"payload": json.dumps(payload_to_store)},
                     maxlen=5000,
                     approximate=True,
                 )
+                # Auto-expire session streams after 24h to prevent Redis OOM
+                await redis_client.expire(stream_key, 86400)
 
                 # Async AI ingest stream (consumer-group workers)
                 await redis_client.xadd(
                     name=AI_INGEST_STREAM,
-                    fields={"payload": json.dumps(payload), "session_id": str(session_id)},
+                    fields={"payload": json.dumps(payload_to_store), "session_id": str(session_id)},
                     maxlen=AI_INGEST_MAXLEN,
                     approximate=True,
                 )

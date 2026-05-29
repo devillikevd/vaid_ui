@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,50 +50,93 @@ fun EmergencySOSBanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF5F5)),
+        colors = CardDefaults.cardColors(containerColor = EmergencySoftRed),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, EmergencySoftRed)
+        border = BorderStroke(1.dp, EmergencySoftRed.copy(alpha = 0.8f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Compact icon box
             Box(
                 modifier = Modifier
-                    .size(30.dp)
-                    .background(EmergencySoftRed, RoundedCornerShape(7.dp)),
+                    .size(36.dp)
+                    .background(Color.White, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Add, null, tint = EmergencyRed, modifier = Modifier.size(17.dp))
+                Text("🚑", fontSize = 20.sp)
             }
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Emergency / SOS",
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     color = EmergencyTextRed
                 )
                 Text(
                     "Tap to call ambulance",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 11.sp,
+                    color = EmergencyTextRed.copy(alpha = 0.7f)
                 )
             }
-            // Small red phone icon on right
-            Box(
+            Icon(
+                Icons.Filled.Call, 
+                contentDescription = null, 
+                tint = EmergencyTextRed, 
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun FeaturedBanner(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(110.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF00695C)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
                 modifier = Modifier
-                    .size(26.dp)
-                    .background(EmergencySoftRed.copy(alpha = 0.65f), CircleShape),
+                    .weight(1f)
+                    .padding(start = 20.dp, top = 16.dp, bottom = 16.dp)
+            ) {
+                Text(
+                    "Free Health Checkup",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Talk to AI Assistant Instantly",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text("Try Now", color = Color(0xFF00695C), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Box(
+                modifier = Modifier.weight(0.7f).fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Filled.Call, 
-                    null, 
-                    tint = EmergencyTextRed, 
-                    modifier = Modifier.size(14.dp)
-                )
+                Text("🤖", fontSize = 54.sp)
             }
         }
     }
@@ -521,62 +565,49 @@ fun CommunityQABanner(onClick: () -> Unit) {
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, Color(0xFFD3EFE5))
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFE0F2F1))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 84.dp)
-                .padding(start = 8.dp, top = 10.dp, end = 10.dp, bottom = 10.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.Forum,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(26.dp)
-                )
+            // Avatars overlap
+            Box(modifier = Modifier.width(54.dp).height(36.dp)) {
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFE3F2FD)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterStart), contentAlignment = Alignment.Center) { Text("👨‍⚕️", fontSize = 18.sp) }
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFE8F5E9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterEnd), contentAlignment = Alignment.Center) { Text("👩‍⚕️", fontSize = 18.sp) }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                modifier = Modifier.weight(1f)
             ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Community Q&A",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    "Community Q&A",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "Ask questions, get answers from verified doctors",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 12.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    "24+ doctors active now",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
 
             Icon(
                 Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
