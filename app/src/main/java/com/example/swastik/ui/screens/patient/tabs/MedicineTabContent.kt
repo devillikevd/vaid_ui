@@ -100,7 +100,7 @@ fun MedicineTabContent(
                 .fillMaxSize()
                 .padding(top = 8.dp),
             shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-            colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = colorScheme.background),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
