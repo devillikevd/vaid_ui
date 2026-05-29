@@ -111,11 +111,18 @@
                     {
                         "name": "WEBRTC_TURN_USERNAME",
                         "value": "vaididea-turn"
+                    },
+                    {
+                        "name": "REDIS_URL",
+                        "value": "redis://redis:6379"
                     }
                 ],
                 "mountPoints": [],
                 "volumesFrom": [],
-                "links": ["ai-service"],
+                "links": [
+                    "ai-service",
+                    "redis"
+                ],
                 "secrets": [
                     {
                         "name": "EMAIL_FROM_ADDRESS",
@@ -158,24 +165,12 @@
                         "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/MONGODB_URI"
                     },
                     {
-                        "name": "REDIS_URL",
-                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/REDIS_URL"
-                    },
-                    {
                         "name": "SUPABASE_ANON_KEY",
                         "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/SUPABASE_ANON_KEY"
                     },
                     {
                         "name": "SUPABASE_SERVICE_ROLE_KEY",
                         "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/SUPABASE_SERVICE_ROLE_KEY"
-                    },
-                    {
-                        "name": "UPSTASH_REDIS_REST_TOKEN",
-                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/UPSTASH_REDIS_REST_TOKEN"
-                    },
-                    {
-                        "name": "UPSTASH_REDIS_REST_URL",
-                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/UPSTASH_REDIS_REST_URL"
                     }
                 ],
                 "logConfiguration": {
@@ -229,6 +224,10 @@
                     {
                         "name": "PYTHONDONTWRITEBYTECODE",
                         "value": "1"
+                    },
+                    {
+                        "name": "REDIS_URL",
+                        "value": "redis://redis:6379"
                     }
                 ],
                 "mountPoints": [],
@@ -253,10 +252,6 @@
                     {
                         "name": "MONGODB_URI",
                         "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/MONGODB_URI"
-                    },
-                    {
-                        "name": "REDIS_URL",
-                        "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/REDIS_URL"
                     }
                 ],
                 "logConfiguration": {
@@ -267,7 +262,43 @@
                         "awslogs-stream-prefix": "ai-service"
                     }
                 },
-                "systemControls": []
+                "systemControls": [],
+                "links": [
+                    "redis"
+                ]
+            },
+            {
+                "name": "redis",
+                "image": "redis:7-alpine",
+                "cpu": 128,
+                "memoryReservation": 128,
+                "portMappings": [
+                    {
+                        "containerPort": 6379,
+                        "hostPort": 0,
+                        "protocol": "tcp"
+                    }
+                ],
+                "essential": true,
+                "command": [
+                    "redis-server",
+                    "--maxmemory",
+                    "128mb",
+                    "--maxmemory-policy",
+                    "allkeys-lru"
+                ],
+                "environment": [],
+                "mountPoints": [],
+                "volumesFrom": [],
+                "systemControls": [],
+                "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                        "awslogs-group": "/ecs/swastik-prod",
+                        "awslogs-region": "ap-south-1",
+                        "awslogs-stream-prefix": "redis"
+                    }
+                }
             }
         ],
         "family": "swastik-prod-app",

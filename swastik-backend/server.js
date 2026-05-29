@@ -122,6 +122,8 @@ server.on('upgrade', (req, socket, head) => {
   if (!req.url || !req.url.startsWith('/ws/vitals/')) return;
 
   const targetUrl = new URL(req.url, AI_SERVICE_WS_TARGET);
+  if (targetUrl.protocol === 'http:') targetUrl.protocol = 'ws:';
+  else if (targetUrl.protocol === 'https:') targetUrl.protocol = 'wss:';
   console.log(`[WS Proxy] Upgrading ${req.url} → ${targetUrl.toString()}`);
 
   const upstream = new WebSocket(targetUrl.toString(), {

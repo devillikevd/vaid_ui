@@ -234,14 +234,9 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         isProcessingFrame = true
         lastLightweightTimeMs = currentTimeMs
 
-        val i420Buffer = frame.buffer.toI420()
-        if (i420Buffer == null) {
-            isProcessingFrame = false
-            return
-        }
+        // We must retain the frame on the WebRTC thread before passing it to the coroutine
+        frame.retain()
 
-        val width = i420Buffer.width
-        val height = i420Buffer.height
         val rotation = frame.rotation
 
         // Decide: is this a keyframe or a lightweight frame?
@@ -249,107 +244,135 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             || cachedRoi == null  // Force keyframe if we have no ROI yet
 
         if (isKeyframe) {
-            // ── TIER 1: KEYFRAME ─────────────────────────────────────
-            // Need a Bitmap for FaceLandmarker — use the NV21→JPEG→Bitmap path
-            // but ONLY at 2 Hz, so the cost is amortised.
             lastKeyframeTimeMs = currentTimeMs
-
-            // Pre-allocate NV21 buffer
-            val requiredSize = width * height + (width * height / 2)
-            if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
-                nv21Buffer = ByteArray(requiredSize)
-            }
-            val nv21 = nv21Buffer!!
-
-            try {
-                copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
-                copyUvPlanesToNv21(
-                    vBuffer = i420Buffer.dataV,
-                    vStride = i420Buffer.strideV,
-                    uBuffer = i420Buffer.dataU,
-                    uStride = i420Buffer.strideU,
-                    destination = nv21,
-                    width = width,
-                    height = height,
-                    offset = width * height
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to copy I420 buffer for keyframe", e)
-                i420Buffer.release()
-                isProcessingFrame = false
-                return
-            }
-
-            // Also sample rPPG from the YUV planes directly for this frame
-            val yuvCheekColor = cachedRoi?.let { roi ->
-                sampleYuvPatch(
-                    i420Buffer.dataY, i420Buffer.strideY,
-                    i420Buffer.dataU, i420Buffer.strideU,
-                    i420Buffer.dataV, i420Buffer.strideV,
-                    width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                )?.let { left ->
-                    sampleYuvPatch(
-                        i420Buffer.dataY, i420Buffer.strideY,
-                        i420Buffer.dataU, i420Buffer.strideU,
-                        i420Buffer.dataV, i420Buffer.strideV,
-                        width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                    )?.let { right -> averageRgb(left, right) }
-                }
-            }
-
-            // Release the WebRTC buffer IMMEDIATELY before async work
-            i420Buffer.release()
-
             scope.launch {
                 try {
+                    // Fast downscale if the frame is too large (e.g. 720p/1080p),
+                    // because toI420() on a large texture buffer takes 20-30ms!
+                    val MAX_DIMEN = 480
+                    val originalWidth = frame.buffer.width
+                    val originalHeight = frame.buffer.height
+                    val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
+                    
+                    val processedBuffer = if (scale < 1.0f) {
+                        frame.buffer.cropAndScale(
+                            0, 0, originalWidth, originalHeight,
+                            (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
+                        )
+                    } else {
+                        frame.buffer
+                    }
+
+                    val i420Buffer = processedBuffer.toI420()
+                    if (scale < 1.0f) processedBuffer.release()
+
+                    if (i420Buffer == null) return@launch
+
+                    val width = i420Buffer.width
+                    val height = i420Buffer.height
+
+                    // Pre-allocate NV21 buffer
+                    val requiredSize = width * height + (width * height / 2)
+                    if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
+                        nv21Buffer = ByteArray(requiredSize)
+                    }
+                    val nv21 = nv21Buffer!!
+
+                    copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
+                    copyUvPlanesToNv21(
+                        vBuffer = i420Buffer.dataV, vStride = i420Buffer.strideV,
+                        uBuffer = i420Buffer.dataU, uStride = i420Buffer.strideU,
+                        destination = nv21, width = width, height = height, offset = width * height
+                    )
+
+                    val yuvCheekColor = cachedRoi?.let { roi ->
+                        sampleYuvPatch(
+                            i420Buffer.dataY, i420Buffer.strideY,
+                            i420Buffer.dataU, i420Buffer.strideU,
+                            i420Buffer.dataV, i420Buffer.strideV,
+                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                        )?.let { left ->
+                            sampleYuvPatch(
+                                i420Buffer.dataY, i420Buffer.strideY,
+                                i420Buffer.dataU, i420Buffer.strideU,
+                                i420Buffer.dataV, i420Buffer.strideV,
+                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                            )?.let { right -> averageRgb(left, right) }
+                        }
+                    }
+
+                    i420Buffer.release()
                     processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
+
                 } catch (e: Exception) {
                     Log.e(TAG, "Keyframe processing error", e)
                 } finally {
+                    frame.release()
                     isProcessingFrame = false
                 }
             }
         } else {
-            // ── TIER 2: LIGHTWEIGHT FRAME ────────────────────────────
-            // No Bitmap, no FaceLandmarker. Sample colours directly from YUV.
-            val roi = cachedRoi
-            if (roi == null) {
-                // No ROI yet — skip until the first keyframe completes
-                i420Buffer.release()
-                isProcessingFrame = false
-                return
+            scope.launch {
+                try {
+                    val roi = cachedRoi
+                    if (roi == null) {
+                        return@launch
+                    }
+                    
+                    val MAX_DIMEN = 480
+                    val originalWidth = frame.buffer.width
+                    val originalHeight = frame.buffer.height
+                    val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
+                    
+                    val processedBuffer = if (scale < 1.0f) {
+                        frame.buffer.cropAndScale(
+                            0, 0, originalWidth, originalHeight,
+                            (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
+                        )
+                    } else {
+                        frame.buffer
+                    }
+
+                    val i420Buffer = processedBuffer.toI420()
+                    if (scale < 1.0f) processedBuffer.release()
+
+                    if (i420Buffer == null) return@launch
+
+                    val width = i420Buffer.width
+                    val height = i420Buffer.height
+
+                    val leftCheek = sampleYuvPatch(
+                        i420Buffer.dataY, i420Buffer.strideY,
+                        i420Buffer.dataU, i420Buffer.strideU,
+                        i420Buffer.dataV, i420Buffer.strideV,
+                        width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                    )
+                    val rightCheek = sampleYuvPatch(
+                        i420Buffer.dataY, i420Buffer.strideY,
+                        i420Buffer.dataU, i420Buffer.strideU,
+                        i420Buffer.dataV, i420Buffer.strideV,
+                        width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                    )
+                    val cheekColor = averageRgb(leftCheek, rightCheek)
+
+                    val lipColor = sampleYuvPatch(
+                        i420Buffer.dataY, i420Buffer.strideY,
+                        i420Buffer.dataU, i420Buffer.strideU,
+                        i420Buffer.dataV, i420Buffer.strideV,
+                        width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
+                        widthFactor = 0.12, heightFactor = 0.07
+                    )
+
+                    i420Buffer.release()
+                    processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
+
+                } catch (e: Exception) {
+                    Log.e(TAG, "Lightweight error", e)
+                } finally {
+                    frame.release()
+                    isProcessingFrame = false
+                }
             }
-
-            // Sample cheek colours directly from I420 planes
-            val leftCheek = sampleYuvPatch(
-                i420Buffer.dataY, i420Buffer.strideY,
-                i420Buffer.dataU, i420Buffer.strideU,
-                i420Buffer.dataV, i420Buffer.strideV,
-                width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-            )
-            val rightCheek = sampleYuvPatch(
-                i420Buffer.dataY, i420Buffer.strideY,
-                i420Buffer.dataU, i420Buffer.strideU,
-                i420Buffer.dataV, i420Buffer.strideV,
-                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-            )
-            val cheekColor = averageRgb(leftCheek, rightCheek)
-
-            // Sample lip for pallor
-            val lipColor = sampleYuvPatch(
-                i420Buffer.dataY, i420Buffer.strideY,
-                i420Buffer.dataU, i420Buffer.strideU,
-                i420Buffer.dataV, i420Buffer.strideV,
-                width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
-                widthFactor = 0.12, heightFactor = 0.07
-            )
-
-            // Release the WebRTC buffer IMMEDIATELY
-            i420Buffer.release()
-
-            // Process rPPG signals synchronously (very fast — no ML)
-            processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
-            isProcessingFrame = false
         }
     }
 
