@@ -24,6 +24,10 @@ import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.util.concurrent.Executors
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -60,8 +64,6 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         private const val TAG = "CVAnalyzer"
 
         // ── Timing ─────────────────────────────────────────────────────
-        /** Minimum interval between lightweight (Tier 2) frames — targets ~30 FPS. */
-        private const val LIGHTWEIGHT_INTERVAL_MS = 33L
         /** Minimum interval between keyframes (Tier 1) — targets ~2 Hz. */
         private const val KEYFRAME_INTERVAL_MS = 500L
 
@@ -97,6 +99,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         val skinCondition: String? = null,
         val isFaceDetected: Boolean = false,
         val signalQuality: Double? = null,
+        val confidence: Double? = null,
         val capturedAtMs: Long = 0L
     )
 
@@ -161,8 +164,11 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private var lastLightweightTimeMs = 0L
     private var lastKeyframeTimeMs = 0L
     private var missingFaceFrames = 0
+    private val lightweightIntervalMs = DeviceProfiler.getTier2IntervalMs(context)
 
-    private val scope = CoroutineScope(Dispatchers.Default + Job())
+    // Create a strictly dedicated background thread for CV to avoid WebRTC contention
+    private val cvDispatcher: ExecutorCoroutineDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    private val scope = CoroutineScope(cvDispatcher + Job())
     @Volatile private var isProcessingFrame = false
 
     // ── Signal buffers ─────────────────────────────────────────────
@@ -178,6 +184,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private var smoothedAsymmetry: Double? = null
     private var smoothedPallor: Double? = null
     private var tremorBaselineX: Double? = null
+    private var lastLuminance: Double? = null
 
     // ── Pre-allocated buffers ──────────────────────────────────────
     private var nv21Buffer: ByteArray? = null
@@ -201,6 +208,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         try {
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("face_landmarker.task")
+                .setDelegate(com.google.mediapipe.tasks.core.Delegate.GPU)
                 .build()
 
             val options = FaceLandmarker.FaceLandmarkerOptions.builder()
@@ -229,7 +237,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         if (isProcessingFrame) return
 
         // Gate: enforce minimum interval between lightweight frames
-        if (currentTimeMs - lastLightweightTimeMs < LIGHTWEIGHT_INTERVAL_MS) return
+        if (currentTimeMs - lastLightweightTimeMs < lightweightIntervalMs) return
 
         isProcessingFrame = true
 
@@ -510,6 +518,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             skinCondition = null,
             isFaceDetected = true,
             signalQuality = signalQuality.round(3),
+            confidence = (Math.min(1.0, Math.max(0.1, signalQuality * 0.8))).round(2),
             capturedAtMs = currentTimeMs
         )
     }
@@ -524,6 +533,17 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         roi: CachedRoi,
         currentTimeMs: Long
     ) {
+        // ── Motion-Aware ROI Refresh ───────────────────────────────
+        val currentLuminance = cheekColor?.luminance
+        if (currentLuminance != null && lastLuminance != null) {
+            val delta = Math.abs(currentLuminance - lastLuminance!!)
+            if (delta > 20.0) {
+                // Sudden movement detected: invalidate ROI to force keyframe
+                cachedRoi = null
+            }
+        }
+        lastLuminance = currentLuminance
+
         // ── rPPG signal ────────────────────────────────────────────
         val heartRate = cheekColor
             ?.takeIf { roi.signalQuality >= 0.45 }
@@ -556,6 +576,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             skinCondition = null,
             isFaceDetected = true,
             signalQuality = roi.signalQuality.round(3),
+            confidence = (min(1.0, max(0.1, roi.signalQuality * 0.8))).round(2),
             capturedAtMs = currentTimeMs
         )
     }
@@ -1104,7 +1125,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         faceLandmarker?.close()
         faceLandmarker = null
         try {
-            scope.coroutineContext[Job]?.cancel()
+            scope.cancel()
+            cvDispatcher.close()
         } catch (e: Exception) {}
     }
 }

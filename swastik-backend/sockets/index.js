@@ -15,6 +15,7 @@ const { calculateDistance, calculateETA } = require('../utils/geo');
 const dispatchService = require('../services/dispatchService');
 const eventEmitter = require('../services/eventEmitter');
 const hospitalManagerService = require('../services/hospitalManagerService');
+const { getDb } = require('../config/mongodb');
 
 // Redis-backed connected users tracking (Bug 3 fix)
 const CONNECTED_PREFIX = 'socket:connected:';
@@ -114,6 +115,31 @@ const ensureConsultationRoomAccess = async (socket, roomPrefix, roomId) => {
     socket.join(room);
   }
   return true;
+};
+
+const logSignalingEvent = async (roomId, userId, eventType, data = {}) => {
+  try {
+    const db = getDb();
+    if (!db) return;
+    
+    // Check for TURN relay usage
+    let isTurnUsed = false;
+    if (eventType === 'ice-candidate' && data.candidate && typeof data.candidate.candidate === 'string') {
+      if (data.candidate.candidate.includes('typ relay')) {
+        isTurnUsed = true;
+      }
+    }
+    
+    await db.collection('webrtc_signaling_logs').insertOne({
+      consultationId: roomId,
+      userId,
+      eventType,
+      isTurnUsed,
+      timestamp: new Date()
+    });
+  } catch (err) {
+    console.warn('Failed to log signaling event:', err.message);
+  }
 };
 
 const initializeSocketIO = (io) => {
@@ -495,6 +521,7 @@ const initializeSocketIO = (io) => {
         socketId: socket.id,
         role: socket.userRole,
       });
+      logSignalingEvent(roomId, userId, 'join', { role: socket.userRole });
     }));
 
     socket.on('video:leave', safeHandler(socket, (roomId) => {
@@ -503,6 +530,7 @@ const initializeSocketIO = (io) => {
       socket.to(`video:${roomId}`).emit('video:user-left', {
         userId: userId,
       });
+      logSignalingEvent(roomId, userId, 'leave');
     }));
 
     socket.on('video:offer', safeHandler(socket, async (data) => {
@@ -513,6 +541,7 @@ const initializeSocketIO = (io) => {
         offer: data.offer,
         from: userId,
       });
+      logSignalingEvent(data.roomId, userId, 'offer');
     }));
 
     socket.on('video:answer', safeHandler(socket, async (data) => {
@@ -523,6 +552,7 @@ const initializeSocketIO = (io) => {
         answer: data.answer,
         from: userId,
       });
+      logSignalingEvent(data.roomId, userId, 'answer');
     }));
 
     socket.on('video:ice-candidate', safeHandler(socket, async (data) => {
@@ -533,6 +563,7 @@ const initializeSocketIO = (io) => {
         candidate: data.candidate,
         from: userId,
       });
+      logSignalingEvent(data.roomId, userId, 'ice-candidate', { candidate: data.candidate });
     }));
 
     socket.on('video:mode', safeHandler(socket, async (data) => {

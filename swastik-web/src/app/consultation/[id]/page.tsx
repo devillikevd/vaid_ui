@@ -264,9 +264,11 @@ export default function VideoConsultation() {
         participants,
         offer,
         answer,
-        iceCandidate,
+        iceCandidates,
+        consumeIceCandidates,
         remoteMode,
         remotePreferredMode,
+        remoteEffectiveMode,
         sendOffer,
         sendAnswer,
         sendIceCandidate,
@@ -535,10 +537,13 @@ export default function VideoConsultation() {
     }, [answer]);
 
     useEffect(() => {
-        if (iceCandidate && peerConnectionRef.current) {
-            handleIncomingIceCandidate(iceCandidate);
+        if (iceCandidates && iceCandidates.length > 0 && peerConnectionRef.current) {
+            iceCandidates.forEach((candidate) => {
+                handleIncomingIceCandidate(candidate);
+            });
+            consumeIceCandidates();
         }
-    }, [iceCandidate]);
+    }, [iceCandidates, consumeIceCandidates]);
 
     // When remote user joins, initiate connection
     useEffect(() => {

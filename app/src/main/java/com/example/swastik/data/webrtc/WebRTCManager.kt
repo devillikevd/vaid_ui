@@ -261,10 +261,15 @@ class WebRTCManager(
     fun initialize() {
         Log.d(TAG, "Initializing PeerConnectionFactory")
 
-        val initOptions = PeerConnectionFactory.InitializationOptions.builder(context)
-            .setEnableInternalTracer(false)
-            .createInitializationOptions()
-        PeerConnectionFactory.initialize(initOptions)
+        runCatching {
+            val initOptions = PeerConnectionFactory.InitializationOptions.builder(context)
+                .setEnableInternalTracer(false)
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(initOptions)
+        }.onFailure {
+            Log.e(TAG, "Failed to initialize WebRTC native crash isolation: ${it.message}", it)
+            return
+        }
 
         val encoderFactory = DefaultVideoEncoderFactory(
             eglBase.eglBaseContext, true, true
@@ -290,11 +295,16 @@ class WebRTCManager(
             JavaAudioDeviceModule.builder(context).setUseHardwareAcousticEchoCanceler(false).setUseHardwareNoiseSuppressor(false).createAudioDeviceModule()
         }
 
-        peerConnectionFactory = PeerConnectionFactory.builder()
-            .setAudioDeviceModule(audioDeviceModule)
-            .setVideoEncoderFactory(encoderFactory)
-            .setVideoDecoderFactory(decoderFactory)
-            .createPeerConnectionFactory()
+        runCatching {
+            peerConnectionFactory = PeerConnectionFactory.builder()
+                .setAudioDeviceModule(audioDeviceModule)
+                .setVideoEncoderFactory(encoderFactory)
+                .setVideoDecoderFactory(decoderFactory)
+                .createPeerConnectionFactory()
+        }.onFailure {
+            Log.e(TAG, "Failed to build PeerConnectionFactory: ${it.message}", it)
+            return
+        }
 
         Log.d(TAG, "PeerConnectionFactory initialized")
     }

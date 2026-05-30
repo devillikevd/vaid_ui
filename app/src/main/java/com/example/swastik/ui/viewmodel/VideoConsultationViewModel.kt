@@ -82,7 +82,8 @@ data class VideoConsultationUiState(
     val hasMedicalRecordAccess: Boolean = false,
     val medicalRecordAccessExpiresAt: String? = null,
     val medicalRecordAccessMessage: String? = null,
-    val guardianAnalyticsSharingAllowed: Boolean = false
+    val guardianAnalyticsSharingAllowed: Boolean = false,
+    val hasConsentedToVisionAnalysis: Boolean = false
 )
 
 data class ChatMessageUi(
@@ -160,6 +161,15 @@ class VideoConsultationViewModel @Inject constructor(
         return settings.guardianEnabled &&
             settings.guardianConsentAccepted &&
             settings.guardianFeatures.doctorQrSharing
+    }
+
+    private fun logEvent(eventName: String, details: Map<String, Any> = emptyMap()) {
+        val payload = buildString {
+            append("{\"event\":\"").append(eventName).append("\",\"timestamp\":").append(System.currentTimeMillis())
+            details.forEach { (k, v) -> append(",\"").append(k).append("\":\"").append(v).append("\"") }
+            append("}")
+        }
+        android.util.Log.i("EventTracer", payload)
     }
 
     // Expose local and remote video tracks for the UI to render
@@ -254,6 +264,7 @@ class VideoConsultationViewModel @Inject constructor(
                     attachCvAnalyzerIfPossible()
                 }
                 onRemoteVideoTrack = { track ->
+                    logEvent("CONSULTATION_REMOTE_VIDEO_STARTED", mapOf("hasTrack" to (track != null)))
                     _remoteVideoTrack.value = track
                     _uiState.update { it.copy(hasRemoteVideo = true) }
                 }
@@ -975,6 +986,7 @@ class VideoConsultationViewModel @Inject constructor(
      * Join a video consultation for the given appointment.
      */
     fun joinConsultation(appointmentId: String) {
+        logEvent("CONSULTATION_JOIN_INIT", mapOf("appointmentId" to appointmentId))
         viewModelScope.launch {
             resetModeControllers()
             pendingAppointmentId = appointmentId
@@ -1011,6 +1023,7 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun onConsultationJoinSuccess(session: VideoCallSession) {
+        logEvent("CONSULTATION_JOIN_SUCCESS", mapOf("roomId" to session.consultationId))
         pendingAppointmentId = null
         pendingJoinRetryJob?.cancel()
 
@@ -1309,6 +1322,7 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun attachCvAnalyzerIfPossible() {
+        if (!_uiState.value.hasConsentedToVisionAnalysis) return
         val track = _localVideoTrack.value ?: return
         val analyzer = cvAnalyzer ?: return
         if (isCvAnalyzerAttached) return
@@ -1318,6 +1332,11 @@ class VideoConsultationViewModel @Inject constructor(
         } catch (error: Throwable) {
             android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
         }
+    }
+
+    fun acceptVisionAnalysisConsent() {
+        _uiState.update { it.copy(hasConsentedToVisionAnalysis = true) }
+        attachCvAnalyzerIfPossible()
     }
 
     private fun detachCvAnalyzer() {

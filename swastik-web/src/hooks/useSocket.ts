@@ -565,7 +565,7 @@ export function useVideoConsultation(
     const [participants, setParticipants] = useState<string[]>([]);
     const [offer, setOffer] = useState<RTCSessionDescriptionInit | null>(null);
     const [answer, setAnswer] = useState<RTCSessionDescriptionInit | null>(null);
-    const [iceCandidate, setIceCandidate] = useState<RTCIceCandidateInit | null>(null);
+    const [iceCandidates, setIceCandidates] = useState<RTCIceCandidateInit[]>([]);
     const [remoteMode, setRemoteMode] = useState<ConsultationVideoMode>('video');
     const [remotePreferredMode, setRemotePreferredMode] = useState<ConsultationVideoMode>('video');
     const [remoteEffectiveMode, setRemoteEffectiveMode] = useState<ConsultationVideoMode>('video');
@@ -630,7 +630,10 @@ export function useVideoConsultation(
 
         const handleOffer = (data: { offer: RTCSessionDescriptionInit }) => setOffer(data.offer);
         const handleAnswer = (data: { answer: RTCSessionDescriptionInit }) => setAnswer(data.answer);
-        const handleIceCandidate = (data: { candidate: RTCIceCandidateInit }) => setIceCandidate(data.candidate);
+        const handleIceCandidate = (data: { candidate: RTCIceCandidateInit }) => {
+            // FIX: Use an array to avoid dropping rapid candidates due to React state batching
+            setIceCandidates((prev) => [...prev, data.candidate]);
+        };
         const handleMode = (data: ConsultationModeUpdate) => {
             if (!data?.roomId || data.roomId !== roomId) return;
             if (data.mode === 'video' || data.mode === 'audio' || data.mode === 'chat') {
@@ -664,7 +667,7 @@ export function useVideoConsultation(
         setParticipants([]);
         setOffer(null);
         setAnswer(null);
-        setIceCandidate(null);
+        setIceCandidates([]);
         setRemoteMode('video');
         setRemotePreferredMode('video');
         setRemoteEffectiveMode('video');
@@ -708,11 +711,16 @@ export function useVideoConsultation(
         [roomId, emit]
     );
 
+    const consumeIceCandidates = useCallback(() => {
+        setIceCandidates([]);
+    }, []);
+
     return {
         participants,
         offer,
         answer,
-        iceCandidate,
+        iceCandidates,
+        consumeIceCandidates,
         remoteMode,
         remotePreferredMode,
         remoteEffectiveMode,
@@ -909,6 +917,8 @@ export interface VitalsStreamData {
     alerts?: VitalsAlert[];
     active_signals?: string[];
     total_signals?: number;
+    confidence?: number;
+    signalQuality?: number;
 }
 
 export interface VitalsAlert {

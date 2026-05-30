@@ -228,6 +228,19 @@ def build_async_ai_reasoning(payload: dict, backpressure: bool = False) -> dict:
 
 async def process_ai_ingest_message(msg_id, msg_data, backpressure: bool = False) -> None:
     """Process one ingest-stream message and ACK only after handling."""
+    
+    # ── AI Queue Timeout Protection ──
+    try:
+        msg_str = msg_id.decode("utf-8") if isinstance(msg_id, bytes) else str(msg_id)
+        msg_ts_ms = int(msg_str.split("-")[0])
+        current_ts_ms = int(time.time() * 1000)
+        if current_ts_ms - msg_ts_ms > 30000:  # Drop jobs older than 30 seconds
+            print(f"[AI Worker] Dropping stale job {msg_str} (age: {current_ts_ms - msg_ts_ms}ms)")
+            await redis_client.xack(AI_INGEST_STREAM, AI_INGEST_GROUP, msg_id)
+            return
+    except Exception:
+        pass
+
     raw_payload = msg_data.get(b"payload") or msg_data.get("payload")
     if not raw_payload:
         await redis_client.xack(AI_INGEST_STREAM, AI_INGEST_GROUP, msg_id)
@@ -537,6 +550,10 @@ async def vitals_websocket(
 # ══════════════════════════════════════════════════════════════════
 
 class VitalsData(BaseModel):
+    # Overall signal confidence metadata
+    confidence: Optional[float] = Field(None, ge=0, le=1, description="Overall CV signal confidence")
+    signalQuality: Optional[str] = Field(None, description="Good|Fair|Poor based on confidence")
+
     # Signal 1: Heart Rate (rPPG)
     #   Pipeline: Face ROI → avg RGB → detrend + bandpass (0.8-3Hz) → FFT → BPM
     heart_rate: Optional[float] = Field(None, ge=20, le=250, description="Heart rate in BPM via rPPG")
@@ -979,6 +996,10 @@ def build_vitals_context(vitals: Optional[VitalsData]) -> str:
 
     sections = []
 
+    if vitals.confidence is not None:
+        qual = vitals.signalQuality or ('Good' if vitals.confidence > 0.7 else 'Poor' if vitals.confidence < 0.4 else 'Fair')
+        sections.append(f"AI Confidence: {vitals.confidence:.0%} ({qual})")
+
     # Signal 1-3: Cardiopulmonary
     cardio = []
     if vitals.heart_rate is not None:
@@ -1201,7 +1222,8 @@ RULES:
 6. Note that SpO2, pallor, and skin screening are experimental — recommend device confirmation
 7. For tremor in 4-6Hz range, suggest Parkinson screening
 8. For facial asymmetry > 60%, suggest FAST stroke assessment
-9. Be concise and clinically precise"""
+9. Be concise and clinically precise
+10. ⚠️ AI Uncertainty Handling: If "AI Confidence" is below 50% or "Poor", explicitly add a disclaimer in your response that the vitals may be unreliable due to low signal quality and advise the doctor to manually verify."""
 
     # Load conversation memory from MongoDB
     conversation_history = []

@@ -418,11 +418,17 @@ app.use(errorHandler);
 // Initialize services and start server
 const startServer = async () => {
   try {
-    // Initialize MongoDB (optional - continues if fails)
+    // Initialize infrastructure
     await connectMongoDB();
-
-    // Initialize Redis (optional - continues if fails)
     await connectRedis();
+
+    // Start Redis Monitor
+    try {
+      const redisMonitor = require('./services/redisMonitor');
+      redisMonitor.startPolling();
+    } catch (e) {
+      console.warn('⚠️ Could not start Redis Monitor:', e.message);
+    }
 
     // Initialize async notification dispatch queue (falls back to direct send if unavailable)
     await initializeNotificationQueue();

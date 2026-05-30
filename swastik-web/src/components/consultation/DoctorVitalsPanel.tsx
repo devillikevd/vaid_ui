@@ -272,9 +272,21 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                             </div>
                         ) : (
                             <>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className={`w-2 h-2 rounded-full ${latestVitals.confidence && latestVitals.confidence > 0.4 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                                     <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-medium">Live • {new Date(latestVitals.processed_at || '').toLocaleTimeString()}</span>
+                                    {latestVitals.confidence !== undefined && (
+                                        <div className="ml-auto flex items-center gap-1.5">
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Signal:</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider ${
+                                                latestVitals.confidence > 0.7 ? 'bg-emerald-500/20 text-emerald-400' :
+                                                latestVitals.confidence > 0.4 ? 'bg-amber-500/20 text-amber-400' :
+                                                'bg-red-500/20 text-red-400'
+                                            }`}>
+                                                {latestVitals.confidence > 0.7 ? 'HIGH' : latestVitals.confidence > 0.4 ? 'MED' : 'LOW'}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2">
@@ -297,7 +309,16 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                 {/* Sparklines */}
                                 {hrHistory.length > 2 && (
                                     <div className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30">
-                                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">HR Trend (2 min)</span>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">HR Trend (2 min)</span>
+                                            {latestVitals.confidence !== undefined && (
+                                                <div className="flex items-center gap-1 w-16">
+                                                    <div className="h-1 flex-1 bg-gray-700 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full ${latestVitals.confidence > 0.7 ? 'bg-emerald-400' : latestVitals.confidence > 0.4 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${latestVitals.confidence * 100}%` }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                         <Sparkline data={hrHistory} color="#f43f5e" />
                                     </div>
                                 )}
