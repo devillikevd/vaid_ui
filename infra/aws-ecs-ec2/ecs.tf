@@ -103,6 +103,28 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
+      name              = "redis"
+      image             = "redis:7-alpine"
+      essential         = true
+      cpu               = 128
+      memoryReservation = 256
+      portMappings = [
+        {
+          containerPort = 6379
+          hostPort      = 0
+          protocol      = "tcp"
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.app.name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "redis"
+        }
+      }
+    },
+    {
       name              = "backend"
       image             = "${aws_ecr_repository.backend.repository_url}:${var.image_tag}"
       essential         = true
@@ -110,6 +132,7 @@ resource "aws_ecs_task_definition" "app" {
       memoryReservation = var.backend_memory_reservation
       environment       = local.backend_environment
       secrets           = local.backend_secrets
+      links             = ["redis"]
       portMappings = [
         {
           containerPort = 5001
@@ -134,6 +157,7 @@ resource "aws_ecs_task_definition" "app" {
       memoryReservation = var.ai_memory_reservation
       environment       = local.ai_environment
       secrets           = local.ai_secrets
+      links             = ["redis"]
       portMappings = [
         {
           containerPort = 8000

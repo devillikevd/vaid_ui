@@ -253,7 +253,7 @@ variable "turn_min_port" {
 variable "turn_max_port" {
   description = "End of UDP relay port range."
   type        = number
-  default     = 49200
+  default     = 65535
 }
 
 variable "turn_total_quota" {
