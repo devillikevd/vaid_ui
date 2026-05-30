@@ -30,6 +30,7 @@ data class CachedDoctor(
 )
 data class CachedAppointment(
     @PrimaryKey val id: String,
+    val patientId: String = "",
     val doctorId: String,
     val doctorName: String?,
     val doctorSpecialization: String?,
@@ -38,6 +39,8 @@ data class CachedAppointment(
     val type: String,
     val status: String,
     val notes: String?,
+    val cancellationReason: String? = null,
+    val cancelledBy: String? = null,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

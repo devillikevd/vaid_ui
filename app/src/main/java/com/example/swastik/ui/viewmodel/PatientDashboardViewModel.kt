@@ -102,6 +102,13 @@ class PatientDashboardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PatientDashboardUiState())
     val uiState: StateFlow<PatientDashboardUiState> = _uiState.asStateFlow()
 
+    private val _selectedTab = MutableStateFlow(0)
+    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+
+    fun setTab(index: Int) {
+        _selectedTab.value = index.coerceIn(0, 4)
+    }
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
@@ -386,18 +393,24 @@ class PatientDashboardViewModel @Inject constructor(
     private val _profileUpdateState = MutableStateFlow<ProfileUpdateState>(ProfileUpdateState.Idle)
     val profileUpdateState: StateFlow<ProfileUpdateState> = _profileUpdateState.asStateFlow()
 
-    fun updateProfile(request: UpdateProfileRequest) {
+    fun updateProfile(request: UpdateProfileRequest, silent: Boolean = false) {
         viewModelScope.launch {
-            _profileUpdateState.value = ProfileUpdateState.Loading
+            if (!silent) {
+                _profileUpdateState.value = ProfileUpdateState.Loading
+            }
             when (val result = patientRepository.updateProfile(request)) {
                 is Result.Success -> {
-                    _profileUpdateState.value = ProfileUpdateState.Success("Profile updated successfully!")
+                    if (!silent) {
+                        _profileUpdateState.value = ProfileUpdateState.Success("Profile updated successfully!")
+                    }
                     // Refresh the entire dashboard so updated profile data
                     // (name, age, blood group, etc.) reflects everywhere in the app
                     loadDashboard()
                 }
                 is Result.Error -> {
-                    _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                    if (!silent) {
+                        _profileUpdateState.value = ProfileUpdateState.Error(result.message)
+                    }
                 }
                 is Result.Loading -> {}
             }
@@ -456,7 +469,7 @@ class PatientDashboardViewModel @Inject constructor(
             updateProfile(UpdateProfileRequest(
                 location = locality,
                 city = city
-            ))
+            ), silent = true)
         }
     }
 

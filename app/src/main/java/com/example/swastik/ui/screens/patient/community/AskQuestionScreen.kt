@@ -8,11 +8,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.CommunityViewModel
+
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +29,14 @@ fun AskQuestionScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     val isLoading by viewModel.isLoading.collectAsState()
+
+    val famousCategories = listOf(
+        "General Health", "Child Care", "Women's Health", 
+        "Mental Wellness", "Skin & Hair", "Heart Health", 
+        "Digestion", "Bones & Joints", "Diabetes"
+    )
 
     Scaffold(
         topBar = {
@@ -45,12 +59,42 @@ fun AskQuestionScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
+            Text(
+                "Select a Topic",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(famousCategories) { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { selectedCategory = category },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = SwastikPrimary,
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("Question Title") },
-                placeholder = { Text("e.g., My 5-year old child is having high fever...") },
+                placeholder = { Text("Summarize your health concern...") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
@@ -68,34 +112,35 @@ fun AskQuestionScreen(
                 placeholder = { Text("Provide more details about the symptoms, duration, etc.") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .heightIn(min = 150.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = SwastikPrimary
                 )
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             
             Button(
                 onClick = {
                     if (title.isNotBlank() && content.isNotBlank()) {
-                        viewModel.askQuestion(title, content) {
+                        val finalTitle = if (selectedCategory != null) "[$selectedCategory] $title" else title
+                        viewModel.askQuestion(finalTitle, content) {
                             navController.popBackStack()
                         }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                 enabled = !isLoading && title.isNotBlank() && content.isNotBlank()
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Post Question", fontWeight = FontWeight.Bold)
+                    Text("Post Question", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }

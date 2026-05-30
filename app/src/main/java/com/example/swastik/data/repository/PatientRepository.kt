@@ -968,7 +968,7 @@ class PatientRepository @Inject constructor(
         return Appointment(
             id = id,
             appointmentNumber = null,
-            patientId = "", // Not needed for UI display typically if patient context is known
+            patientId = patientId,
             doctorId = doctorId,
             hospitalId = hospitalId,
             clinicId = clinicId,
@@ -979,7 +979,8 @@ class PatientRepository @Inject constructor(
             reason = null,
             notes = notes,
             consultationFee = null,
-            cancellationReason = null,
+            cancellationReason = cancellationReason,
+            cancelledBy = cancelledBy,
             doctor = doctor?.toDoctor(),
             patient = null,
             hospital = hospital?.toAppointmentFacility(),

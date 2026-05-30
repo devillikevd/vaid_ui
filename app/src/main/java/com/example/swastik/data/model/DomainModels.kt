@@ -247,6 +247,7 @@ data class Appointment(
     val notes: String?,
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("cancellation_reason") val cancellationReason: String?,
+    @SerializedName("cancelled_by") val cancelledBy: String? = null,
     val doctor: Doctor?,
     val patient: Patient?,
     val hospital: AppointmentFacility? = null,

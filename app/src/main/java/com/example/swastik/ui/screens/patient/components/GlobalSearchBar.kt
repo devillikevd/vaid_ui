@@ -49,6 +49,7 @@ fun GlobalSearchBar(
 ) {
     var query by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     
@@ -115,16 +116,43 @@ fun GlobalSearchBar(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    if (query.isNotEmpty()) {
-                        val serviceMatch = filteredServices.firstOrNull()
+                    val trimmedQuery = query.trim()
+                    if (trimmedQuery.isNotEmpty()) {
+                        // 1. Try to find a service match (e.g. "Hospital", "Pharmacy")
+                        val serviceMatch = homeServices.find { it.equals(trimmedQuery, ignoreCase = true) }
+                            ?: homeServices.find { it.contains(trimmedQuery, ignoreCase = true) }
+
                         if (serviceMatch != null) {
                             onServiceSelect(serviceMatch)
                         } else {
-                            val doctorMatch = filteredDocs.firstOrNull()
-                            if (doctorMatch != null) {
-                                onDoctorSelect(doctorMatch)
+                            // 2. Try to find a speciality match (e.g. "Dentist", "Skin")
+                            val specMatch = specialitiesList.find { it.equals(trimmedQuery, ignoreCase = true) }
+                                ?: specialitiesList.find { it.contains(trimmedQuery, ignoreCase = true) }
+
+                            if (specMatch != null) {
+                                onSpecialitySelect(specMatch)
                             } else {
-                                onSpecialitySelect(query)
+                                // 3. Try to find a doctor match from the loaded list
+                                val doctorMatch = doctors.find { 
+                                    it.name.contains(trimmedQuery, ignoreCase = true) || 
+                                    it.specialization.contains(trimmedQuery, ignoreCase = true) 
+                                }
+
+                                if (doctorMatch != null) {
+                                    onDoctorSelect(doctorMatch)
+                                } else {
+                                    // 4. Check if it matches a common symptom or medical term
+                                    val symptoms = listOf("fever", "headache", "cough", "pain", "stomach", "cold", "flu", "injury")
+                                    val isSymptom = symptoms.any { trimmedQuery.lowercase().contains(it) }
+
+                                    if (isSymptom || trimmedQuery.length > 3) {
+                                        onSpecialitySelect(trimmedQuery)
+                                    } else {
+                                        // If it's random text and doesn't match anything, don't navigate
+                                        // This prevents random jumps to the "Select Doctor" screen
+                                        android.widget.Toast.makeText(context, "No matches found for \"$trimmedQuery\"", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
                         }
                         focusManager.clearFocus()
@@ -151,7 +179,9 @@ fun GlobalSearchBar(
                             Text(
                                 "Search doctors, specialities, symptoms...", 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, 
-                                fontSize = 14.sp
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                         innerTextField()

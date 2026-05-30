@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.local.GuardianFeaturePreferences
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 
 @Composable
 fun SwastikGuardianCard(
@@ -61,12 +63,15 @@ fun SwastikGuardianCard(
         )
     }
 
+    val isDark = isSystemInDarkTheme()
+    val boxBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, com.example.swastik.ui.theme.HealthIdCardBorder)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header Row
@@ -86,7 +91,8 @@ fun SwastikGuardianCard(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface),
+                            .background(boxBg)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -145,7 +151,8 @@ fun SwastikGuardianCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .background(if (isDark) MaterialTheme.colorScheme.surface else Color.White, RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                     .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -189,7 +196,7 @@ fun SwastikGuardianCard(
                 onClick = { showLearnMore = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF3F4F6).copy(alpha = 0.5f),
+                color = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color(0xFFF3F4F6).copy(alpha = 0.5f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             ) {
                 Row(
@@ -237,7 +244,7 @@ private fun GuardianFeatureItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isAllowed) Color.Black else Color.Gray.copy(alpha = 0.7f),
+            tint = if (isAllowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -254,7 +261,7 @@ private fun GuardianFeatureItem(
             text = status,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            color = if (isAllowed) Color(0xFF2E7D32) else Color.Gray
+            color = if (isAllowed) (if (isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32)) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
         )
     }
 }

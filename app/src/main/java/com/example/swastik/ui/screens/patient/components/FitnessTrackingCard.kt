@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import com.example.swastik.data.fitness.FitnessStepSanitizer
 import com.example.swastik.data.model.DailyFitnessLog
 import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikOrange
+import com.example.swastik.ui.theme.SwastikRed
+import androidx.compose.foundation.isSystemInDarkTheme
 
 @Composable
 fun FitnessTrackingCard(
@@ -72,13 +76,13 @@ fun FitnessTrackingCard(
                     icon = Icons.Default.Timer,
                     value = "${displayLog.activeMinutes}m",
                     label = "Active",
-                    color = MaterialTheme.colorScheme.onSurface // Orange
+                    color = SwastikOrange
                 )
                 FitnessStatItem(
                     icon = Icons.Default.LocalFireDepartment,
                     value = "${displayLog.caloriesBurned.toInt()} kcal",
                     label = "Burned",
-                    color = MaterialTheme.colorScheme.onSurface // Red
+                    color = SwastikRed
                 )
             }
         }
@@ -92,14 +96,18 @@ private fun FitnessStatItem(
     label: String,
     color: Color
 ) {
+    val isDark = isSystemInDarkTheme()
+    val boxBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(52.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(color.copy(alpha = 0.1f)),
+                .background(boxBg)
+                .border(1.dp, color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(

@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.example.swastik.data.model.DailyFitnessLog::class,
         GuardianEventEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {

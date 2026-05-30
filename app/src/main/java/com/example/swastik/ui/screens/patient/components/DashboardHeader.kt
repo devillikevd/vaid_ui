@@ -9,9 +9,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.LocationOn
@@ -175,10 +178,16 @@ fun DashboardHeader(
             date.format(formatter).uppercase()
         }
 
+        val homeBgColor = if (isSystemInDarkTheme()) {
+            MaterialTheme.colorScheme.background
+        } else {
+            Color(0xFFF4FBF9)
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
+                .background(homeBgColor)
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -544,7 +553,10 @@ fun DashboardHeader(
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     // Auto-fetching indicator
                     if (isFetchingLocation) {
                         Row(
@@ -573,6 +585,42 @@ fun DashboardHeader(
                             }
                         }
                     )
+
+                    if (profile?.savedAddresses?.isNotEmpty() == true) {
+                        Text(
+                            "Saved Addresses",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SwastikPrimary,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+
+                        profile.savedAddresses.forEach { saved ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        locationInput = "${saved.label}: ${saved.city}"
+                                        onLocationUpdate(locationInput)
+                                        showLocationDialog = false
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Home,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(saved.label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(saved.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 

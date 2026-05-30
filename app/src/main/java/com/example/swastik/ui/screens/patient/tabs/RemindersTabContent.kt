@@ -222,7 +222,8 @@ fun RemindersTabContent(
                                             reminder = reminder,
                                             onMarkDone = { onMarkDone(reminder.id, reminder.time) },
                                             onSnooze = { id, time, mins -> onSnooze(id, time, mins) },
-                                            onSkip = { onSkip(reminder.id, reminder.time) }
+                                            onSkip = { onSkip(reminder.id, reminder.time) },
+                                            onDelete = { onDelete(reminder.id) }
                                         )
                                     }
                                 }
@@ -250,7 +251,8 @@ private fun ReminderCard(
     reminder: Reminder,
     onMarkDone: () -> Unit,
     onSnooze: (id: String, scheduledAt: String, snoozeMinutes: Int) -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -290,6 +292,15 @@ private fun ReminderCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             if (reminder.isCompleted) {
@@ -324,52 +335,55 @@ private fun ReminderCard(
                     FilledTonalButton(
                         onClick = onMarkDone,
                         modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
-                        Text("Taken")
+                        Text("Taken", fontSize = 12.sp, maxLines = 1)
                     }
                     var showSnoozeMenu by remember { mutableStateOf(false) }
                     Box(modifier = Modifier.weight(1f)) {
                         FilledTonalButton(
                             onClick = { showSnoozeMenu = true },
                             modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         ) {
-                            Text("Snooze")
+                            Text("Snooze", fontSize = 12.sp, maxLines = 1)
                         }
-                        androidx.compose.material3.DropdownMenu(
-                            expanded = showSnoozeMenu,
-                            onDismissRequest = { showSnoozeMenu = false }
-                        ) {
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("5 minutes") },
-                                onClick = { onSnooze(reminder.id, reminder.time, 5); showSnoozeMenu = false }
-                            )
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("15 minutes") },
-                                onClick = { onSnooze(reminder.id, reminder.time, 15); showSnoozeMenu = false }
-                            )
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("30 minutes") },
-                                onClick = { onSnooze(reminder.id, reminder.time, 30); showSnoozeMenu = false }
-                            )
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("1 hour") },
-                                onClick = { onSnooze(reminder.id, reminder.time, 60); showSnoozeMenu = false }
-                            )
-                        }
+                            DropdownMenu(
+                                expanded = showSnoozeMenu,
+                                onDismissRequest = { showSnoozeMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("5 minutes") },
+                                    onClick = { onSnooze(reminder.id, reminder.time, 5); showSnoozeMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("15 minutes") },
+                                    onClick = { onSnooze(reminder.id, reminder.time, 15); showSnoozeMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("30 minutes") },
+                                    onClick = { onSnooze(reminder.id, reminder.time, 30); showSnoozeMenu = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("1 hour") },
+                                    onClick = { onSnooze(reminder.id, reminder.time, 60); showSnoozeMenu = false }
+                                )
+                            }
                     }
                     OutlinedButton(
                         onClick = onSkip,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Text("Skip")
+                        Text("Skip", fontSize = 12.sp, maxLines = 1)
                     }
                 }
             }

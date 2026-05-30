@@ -152,6 +152,7 @@ fun VideoConsultationFlow(
     if (showCompletionDialog) {
         ConsultationCompletionDialog(
             userName = patientName,
+            doctorName = doctorName,
             onDismiss = {
                 showCompletionDialog = false
                 viewModel.dismissCompletion()

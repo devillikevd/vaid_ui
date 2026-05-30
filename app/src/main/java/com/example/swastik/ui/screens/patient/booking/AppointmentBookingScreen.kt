@@ -70,6 +70,7 @@ import androidx.compose.material3.MaterialTheme
 fun AppointmentBookingScreen(
     onBackClick: () -> Unit,
     onBookingComplete: () -> Unit,
+    onNavigateToHistory: () -> Unit = {},
     preselectedDoctorId: String? = null,
     preselectedHospitalId: String? = null,
     preselectedClinicId: String? = null,
@@ -118,6 +119,29 @@ fun AppointmentBookingScreen(
 
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
+
+    // Check for existing active appointments with the selected doctor
+    val existingAppointment = remember(selectedDoctor, appointmentState.appointments) {
+        selectedDoctor?.let { doctor ->
+            appointmentState.appointments.find {
+                (it.status.lowercase() == "scheduled" || it.status.lowercase() == "confirmed" || it.status.lowercase() == "pending") &&
+                        it.doctorId == doctor.id
+            }
+        }
+    }
+    var showDuplicateBookingDialog by remember { mutableStateOf(false) }
+    var hasShownDuplicateWarning by remember { mutableStateOf(false) }
+
+    LaunchedEffect(existingAppointment) {
+        if (existingAppointment != null && !hasShownDuplicateWarning) {
+            showDuplicateBookingDialog = true
+            hasShownDuplicateWarning = true
+        }
+    }
+
+    LaunchedEffect(selectedDoctor) {
+        hasShownDuplicateWarning = false
+    }
     
     // When preselected doctor loads, update selectedDoctor
     LaunchedEffect(doctorState.selectedDoctor) {
@@ -148,227 +172,205 @@ fun AppointmentBookingScreen(
     }
 
     val blurRadius by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showDoctorProfile != null) 12.dp else 0.dp,
-        label = "blur"
+        targetValue = if (showDoctorProfile != null) 10.dp else 0.dp, label = ""
     )
 
     Scaffold(
-        modifier = Modifier.blur(blurRadius),
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                        Text(
-                            "Step $currentStep of 4",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
+                title = { Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = {
-                        when (currentStep) {
-                            0 -> onBackClick()
-                            1 -> onBackClick()
-                            2 -> {
-                                // If doctor was preselected, go back to dashboard instead of step 1
-                                if (!preselectedDoctorId.isNullOrBlank()) {
-                                    onBackClick()
-                                } else {
-                                    currentStep = 1
-                                }
-                            }
-                            3 -> {
-                                currentStep = 2
-                                selectedDate = null
-                                selectedTimeSlot = null
-                                appointmentViewModel.resetSlotSelectionState()
-                            }
-                            4 -> currentStep = 3
+                        if (currentStep > 1 && preselectedDoctorId.isNullOrBlank()) {
+                            currentStep--
+                        } else {
+                            onBackClick()
                         }
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Step indicator bar
-            StepIndicator(currentStep = currentStep)
-
-            // Error banner
-            val errorToShow = appointmentState.error ?: doctorState.error
-            errorToShow?.let { error ->
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f),
-                            fontSize = 13.sp
-                        )
-                        TextButton(onClick = {
-                            if (appointmentState.error != null) appointmentViewModel.clearError()
-                            if (doctorState.error != null) doctorSearchViewModel.clearError()
-                        }) {
-                            Text(stringResource(R.string.dismiss))
-                        }
-                    }
-                }
-            }
-
-            AnimatedContent(
-                targetState = currentStep,
-                transitionSpec = {
-                    (fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) + slideInHorizontally { if (targetState > initialState) it else -it }).togetherWith(
-                        fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) + slideOutHorizontally { if (targetState > initialState) -it else it }
-                    )
                 },
-                label = "step_animation"
-            ) { step ->
-                when (step) {
-                    0 -> {
-                        // Loading state while doctor is being fetched
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (doctorState.error != null) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Outlined.ErrorOutline,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Failed to load doctor details", color = MaterialTheme.colorScheme.error)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    Button(onClick = onBackClick) {
-                                        Text("Go Back")
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)) {
+            Column(modifier = Modifier
+                .fillMaxSize()
+                .blur(blurRadius)) {
+                
+                BookingStepper(currentStep = currentStep)
+                
+                Box(modifier = Modifier.weight(1f)) {
+                    when (currentStep) {
+                        0 -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (doctorState.error != null) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Outlined.ErrorOutline,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp),
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text("Failed to load doctor details", color = MaterialTheme.colorScheme.error)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                        Button(onClick = onBackClick) {
+                                            Text("Go Back")
+                                        }
+                                    }
+                                } else {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(color = SwastikPrimary)
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text("Loading doctor details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-                            } else {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = SwastikPrimary)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text("Loading doctor details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        1 -> DoctorSelectionStep(
+                            doctorSearchViewModel = doctorSearchViewModel,
+                            uiState = doctorState,
+                            onDoctorSelected = { doctor, isDirectBooking ->
+                                if (isDirectBooking) {
+                                    selectedDoctor = doctor
+                                    currentStep = 2
+                                } else {
+                                    showDoctorProfile = doctor
                                 }
                             }
-                        }
+                        )
+                        2 -> ConsultationDetailsStep(
+                            consultationMode = consultationMode,
+                            selectedType = selectedType,
+                            notes = notes,
+                            isDoctorLoaded = selectedDoctor != null,
+                            errorMessage = doctorState.error,
+                            onTypeChanged = { selectedType = it },
+                            onNotesChanged = { notes = it },
+                            onContinue = { currentStep = 3 },
+                            onRetry = {
+                                if (!preselectedDoctorId.isNullOrBlank()) {
+                                    doctorSearchViewModel.selectDoctor(preselectedDoctorId)
+                                }
+                            }
+                        )
+                        3 -> DateTimeSelectionStep(
+                            doctor = selectedDoctor!!,
+                            availableDates = availableDates,
+                            appointmentState = appointmentState,
+                            selectedDate = selectedDate,
+                            selectedTimeSlot = selectedTimeSlot,
+                            onDateSelected = { date ->
+                                selectedDate = date
+                                selectedTimeSlot = null
+                                val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                val fallbackDates = availableDates
+                                    .filter { it.isAfter(date) }
+                                    .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
+                                    .take(2)
+                                appointmentViewModel.loadTimeSlots(
+                                    selectedDoctor!!.id,
+                                    formatted,
+                                    fallbackDates
+                                )
+                            },
+                            onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
+                            onContinue = { currentStep = 4 }
+                        )
+                        4 -> ConfirmationStep(
+                            doctor = selectedDoctor!!,
+                            date = selectedDate!!,
+                            timeSlot = selectedTimeSlot!!,
+                            selectedType = selectedType,
+                            notes = notes,
+                            isBooking = appointmentState.isBooking,
+                            onConfirm = {
+                                appointmentViewModel.bookAppointment(
+                                    doctorId = selectedDoctor!!.id,
+                                    date = selectedDate!!.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                                    timeSlot = selectedTimeSlot!!,
+                                    type = selectedType,
+                                    notes = notes,
+                                    hospitalId = preselectedHospitalId,
+                                    clinicId = preselectedClinicId
+                                )
+                            }
+                        )
                     }
-                    1 -> DoctorSelectionStep(
-                        doctorSearchViewModel = doctorSearchViewModel,
-                        uiState = doctorState,
-                        onDoctorSelected = { doctor, isDirectBooking ->
-                            if (isDirectBooking) {
-                                selectedDoctor = doctor
-                                currentStep = 2
-                            } else {
-                                showDoctorProfile = doctor
-                            }
-                        }
-                    )
-                    2 -> ConsultationDetailsStep(
-                        consultationMode = consultationMode,
-                        selectedType = selectedType,
-                        notes = notes,
-                        isDoctorLoaded = selectedDoctor != null,
-                        errorMessage = doctorState.error,
-                        onTypeChanged = { selectedType = it },
-                        onNotesChanged = { notes = it },
-                        onContinue = { currentStep = 3 },
-                        onRetry = {
-                            if (!preselectedDoctorId.isNullOrBlank()) {
-                                doctorSearchViewModel.selectDoctor(preselectedDoctorId)
-                            }
-                        }
-                    )
-                    3 -> DateTimeSelectionStep(
-                        doctor = selectedDoctor!!,
-                        availableDates = availableDates,
-                        appointmentState = appointmentState,
-                        selectedDate = selectedDate,
-                        selectedTimeSlot = selectedTimeSlot,
-                        onDateSelected = { date ->
-                            selectedDate = date
-                            selectedTimeSlot = null
-                            val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val fallbackDates = availableDates
-                                .filter { it.isAfter(date) }
-                                .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
-                                .take(2)
-                            appointmentViewModel.loadTimeSlots(
-                                selectedDoctor!!.id,
-                                formatted,
-                                fallbackDates
-                            )
-                        },
-                        onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
-                        onContinue = { currentStep = 4 }
-                    )
-                    4 -> ConfirmationStep(
-                        doctor = selectedDoctor!!,
-                        date = selectedDate!!,
-                        timeSlot = selectedTimeSlot!!,
-                        selectedType = selectedType,
-                        notes = notes,
-                        isBooking = appointmentState.isBooking,
-                        onConfirm = {
-                            val formatted =
-                                selectedDate!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            appointmentViewModel.bookAppointment(
-                                doctorId = selectedDoctor!!.id,
-                                date = formatted,
-                                timeSlot = selectedTimeSlot!!,
-                                type = selectedType,
-                                notes = notes.ifBlank { null },
-                                hospitalId = preselectedHospitalId,
-                                clinicId = preselectedClinicId
-                            )
-                        }
-                    )
                 }
             }
         }
-        
-        if (showDoctorProfile != null) {
-            DoctorProfileBottomSheet(
-                doctor = showDoctorProfile!!,
-                onDismiss = { showDoctorProfile = null },
-                onBookClick = {
-                    val doctorToBook = showDoctorProfile
-                    showDoctorProfile = null
-                    selectedDoctor = doctorToBook
-                    currentStep = 2
+    }
+
+    if (showDuplicateBookingDialog && selectedDoctor != null) {
+        AlertDialog(
+            onDismissRequest = { showDuplicateBookingDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Info, contentDescription = null, tint = SwastikPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Existing Booking Found")
                 }
-            )
-        }
+            },
+            text = {
+                Text(
+                    "You already have an active appointment booked with ${selectedDoctor?.name}. Would you like to view your existing booking or reschedule?",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDuplicateBookingDialog = false
+                        onNavigateToHistory()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                ) {
+                    Text("View Booking")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDuplicateBookingDialog = false
+                    }
+                ) {
+                    Text("Reschedule")
+                }
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    showDoctorProfile?.let { doctor ->
+        DoctorProfileBottomSheet(
+            doctor = doctor,
+            onDismiss = { showDoctorProfile = null },
+            onBookClick = {
+                selectedDoctor = doctor
+                showDoctorProfile = null
+                currentStep = 2
+            }
+        )
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// Step Indicator
-// ────────────────────────────────────────────────────────────────
 @Composable
-private fun StepIndicator(currentStep: Int) {
+private fun BookingStepper(currentStep: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -421,9 +423,6 @@ private fun StepIndicator(currentStep: Int) {
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// STEP 1 — Doctor Search & Selection
-// ────────────────────────────────────────────────────────────────
 @Composable
 private fun DoctorSelectionStep(
     doctorSearchViewModel: DoctorSearchViewModel,
@@ -431,7 +430,6 @@ private fun DoctorSelectionStep(
     onDoctorSelected: (Doctor, Boolean) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedSpecialization by remember { mutableStateOf<String?>(null) }
     
     val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
@@ -448,7 +446,6 @@ private fun DoctorSelectionStep(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = {
@@ -473,9 +470,7 @@ private fun DoctorSelectionStep(
                         }
                         try {
                             speechLauncher.launch(intent)
-                        } catch (e: Exception) {
-                            // ignore
-                        }
+                        } catch (e: Exception) {}
                     }) {
                         Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPrimary)
                     }
@@ -488,22 +483,13 @@ private fun DoctorSelectionStep(
             singleLine = true
         )
 
-
-
         when {
             uiState.error != null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(uiState.error, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                doctorSearchViewModel.searchDoctors(resetList = true)
-                            }
-                        ) {
+                        Button(onClick = { doctorSearchViewModel.searchDoctors(resetList = true) }) {
                             Text(stringResource(R.string.retry))
                         }
                     }
@@ -525,24 +511,12 @@ private fun DoctorSelectionStep(
                         }
                     }
                 } else if (pagedDoctors.itemCount == 0) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Outlined.PersonSearch,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(stringResource(R.string.no_doctors_found), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
-                            Text(
-                                "Try a different search",
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                                fontSize = 14.sp
-                            )
+                            Text("Try a different search", color = MaterialTheme.colorScheme.outlineVariant, fontSize = 14.sp)
                         }
                     }
                 } else {
@@ -559,20 +533,14 @@ private fun DoctorSelectionStep(
                             if (doctor != null) {
                                 DoctorBookingCard(
                                     doctor = doctor,
-                                    onSelect = { onDoctorSelected(doctor, true) }, // Pass true to indicate direct booking
-                                    onViewProfile = { onDoctorSelected(doctor, false) } // false for viewing profile
+                                    onSelect = { onDoctorSelected(doctor, true) },
+                                    onViewProfile = { onDoctorSelected(doctor, false) }
                                 )
                             }
                         }
-                        
                         if (pagedDoctors.loadState.append is LoadState.Loading) {
                             item {
-                                CircularProgressIndicator(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp)
-                                        .wrapContentWidth(Alignment.CenterHorizontally)
-                                )
+                                CircularProgressIndicator(modifier = Modifier.fillMaxWidth().padding(16.dp).wrapContentWidth(Alignment.CenterHorizontally))
                             }
                         }
                     }
@@ -589,9 +557,7 @@ private fun DoctorBookingCard(
     onViewProfile: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onSelect),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -599,9 +565,7 @@ private fun DoctorBookingCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(SwastikPrimaryLight, RoundedCornerShape(16.dp)),
+                    modifier = Modifier.size(64.dp).background(SwastikPrimaryLight, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!doctor.profileImageUrl.isNullOrBlank()) {
@@ -612,167 +576,67 @@ private fun DoctorBookingCard(
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                         )
                     } else {
-                        Icon(
-                            Icons.Filled.Person,
-                            contentDescription = "Doctor",
-                            modifier = Modifier.size(32.dp),
-                            tint = SwastikPrimary
-                        )
+                        Icon(Icons.Filled.Person, contentDescription = "Doctor", modifier = Modifier.size(32.dp), tint = SwastikPrimary)
                     }
                     Icon(
                         Icons.Filled.CheckCircle,
                         contentDescription = "Verified",
                         tint = SwastikPrimary,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 6.dp, y = 6.dp)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        modifier = Modifier.size(20.dp).align(Alignment.BottomEnd).offset(x = 6.dp, y = 6.dp).background(MaterialTheme.colorScheme.surface, CircleShape)
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = doctor.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(doctor.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = doctor.specialization,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = SwastikPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(doctor.specialization, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                // Rating badge
-                Surface(
-                    color = Color(0xFFFFF8E1),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(12.dp),
-                            tint = Color(0xFFFFB800)
-                        )
+                Surface(color = Color(0xFFFFF8E1), shape = RoundedCornerShape(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+                        Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFFFFB800))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = doctor.averageRating?.takeIf { it > 0f }?.let {
-                                String.format(Locale.US, "%.1f", it)
-                            } ?: "New",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFB28900)
-                        )
+                        Text(doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB28900))
                     }
                 }
             }
-            
             Spacer(modifier = Modifier.height(16.dp))
-            
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val compact = maxWidth < 340.dp
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Consultation Fee",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed",
-                        color = SwastikPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (!compact) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onViewProfile,
-                        modifier = Modifier.weight(1f).heightIn(min = 40.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
-                        border = BorderStroke(1.5.dp, SwastikPrimary),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Button(
-                        onClick = onSelect,
-                        modifier = Modifier.weight(1f).heightIn(min = 40.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                }
-                }
-                if (compact) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onViewProfile,
-                            modifier = Modifier.weight(1f).heightIn(min = 40.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary),
-                            border = BorderStroke(1.5.dp, SwastikPrimary),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Consultation Fee", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Button(
-                            onClick = onSelect,
-                            modifier = Modifier.weight(1f).heightIn(min = 40.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (!compact) {
+                            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(0.dp)) {
+                                    Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Button(onClick = onSelect, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary), contentPadding = PaddingValues(0.dp)) {
+                                    Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
                         }
                     }
-                }
+                    if (compact) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Button(onClick = onSelect, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
-// ────────────────────────────────────────────────────────────────
-// STEP 2 — Date & Time Slot Selection
-// ────────────────────────────────────────────────────────────────
+
 @Composable
 private fun DateTimeSelectionStep(
     doctor: Doctor,
@@ -789,342 +653,111 @@ private fun DateTimeSelectionStep(
     val availableSlotCount = appointmentState.timeSlots.count { it.isAvailable }
     val bookedSlotCount = appointmentState.timeSlots.count { !it.isAvailable }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Doctor summary header
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = SwastikPrimaryLight.copy(alpha = 0.3f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(SwastikPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = SwastikPrimaryLight.copy(alpha = 0.3f))) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(SwastikPrimary), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.string_2), fontSize = 22.sp)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(
-                            doctor.name,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
-                        )
-                        Text(
-                            doctor.specialization,
-                            fontSize = 13.sp,
-                            color = SwastikPrimary
-                        )
+                        Text(doctor.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(doctor.specialization, fontSize = 13.sp, color = SwastikPrimary)
                     }
                 }
             }
         }
-
-        // Date selector
         item {
-            Text(
-                "📅 Select Date",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
+            Text("📅 Select Date", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(availableDates) { date ->
                     val isSelected = date == selectedDate
                     val isToday = date == today
-                    Surface(
-                        modifier = Modifier
-                            .width(68.dp)
-                            .clickable { onDateSelected(date) },
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) SwastikPrimary
-                        else if (isToday) SwastikPrimaryLight.copy(alpha = 0.3f)
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (isToday && !isSelected)
-                            BorderStroke(1.dp, SwastikPrimary)
-                        else null
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = date.dayOfWeek.getDisplayName(
-                                    TextStyle.SHORT,
-                                    Locale.getDefault()
-                                ),
-                                fontSize = 12.sp,
-                                color = if (isSelected) Color.White else Color.Gray
-                            )
-                            Text(
-                                text = "${date.dayOfMonth}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = date.month.getDisplayName(
-                                    TextStyle.SHORT,
-                                    Locale.getDefault()
-                                ),
-                                fontSize = 11.sp,
-                                color = if (isSelected) Color.White.copy(alpha = 0.8f)
-                                else Color.Gray
-                            )
+                    Surface(modifier = Modifier.width(68.dp).clickable { onDateSelected(date) }, shape = RoundedCornerShape(14.dp), color = if (isSelected) SwastikPrimary else if (isToday) SwastikPrimaryLight.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant, border = if (isToday && !isSelected) BorderStroke(1.dp, SwastikPrimary) else null) {
+                        Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), fontSize = 12.sp, color = if (isSelected) Color.White else Color.Gray)
+                            Text(text = "${date.dayOfMonth}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface)
+                            Text(text = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()), fontSize = 11.sp, color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray)
                         }
                     }
                 }
             }
         }
-
-        // Time slot grid
         item {
             if (selectedDate != null) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "🕐 Available Time Slots",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
+                Text("🕐 Available Time Slots", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-
                 when {
                     appointmentState.isLoadingSlots -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = SwastikPrimary,
-                                modifier = Modifier.size(32.dp)
-                            )
+                        Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(32.dp))
                         }
                     }
-                    appointmentState.timeSlots.isEmpty() -> {
-                        NoSlotsAvailableCard(
-                            selectedDate = selectedDate,
-                            bookedSlotCount = bookedSlotCount,
-                            suggestion = appointmentState.nextAvailableSuggestion,
-                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
-                            onJumpToSuggestedDate = { suggested ->
-                                onDateSelected(LocalDate.parse(suggested.date))
-                            }
-                        )
-                    }
-                    !hasAvailableSlots -> {
-                        NoSlotsAvailableCard(
-                            selectedDate = selectedDate,
-                            bookedSlotCount = bookedSlotCount,
-                            suggestion = appointmentState.nextAvailableSuggestion,
-                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
-                            onJumpToSuggestedDate = { suggested ->
-                                onDateSelected(LocalDate.parse(suggested.date))
-                            }
-                        )
+                    appointmentState.timeSlots.isEmpty() || !hasAvailableSlots -> {
+                        NoSlotsAvailableCard(selectedDate = selectedDate, bookedSlotCount = bookedSlotCount, suggestion = appointmentState.nextAvailableSuggestion, isSearchingNextAvailable = appointmentState.isSearchingNextAvailable, onJumpToSuggestedDate = { suggested -> onDateSelected(LocalDate.parse(suggested.date)) })
                     }
                     else -> {
-                        SlotAvailabilitySummary(
-                            availableSlotCount = availableSlotCount,
-                            bookedSlotCount = bookedSlotCount
-                        )
+                        SlotAvailabilitySummary(availableSlotCount = availableSlotCount, bookedSlotCount = bookedSlotCount)
                         Spacer(modifier = Modifier.height(12.dp))
-                        TimeSlotGrid(
-                            slots = appointmentState.timeSlots,
-                            selectedSlot = selectedTimeSlot,
-                            onSlotSelected = onTimeSlotSelected
-                        )
+                        TimeSlotGrid(slots = appointmentState.timeSlots, selectedSlot = selectedTimeSlot, onSlotSelected = onTimeSlotSelected)
                     }
                 }
             } else {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            .copy(alpha = 0.5f)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(stringResource(R.string.string_5), fontSize = 32.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Select a date above to see available slots",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        Text("Select a date above to see available slots", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
             }
         }
-
-        // Continue button
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onContinue,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                enabled = selectedDate != null && selectedTimeSlot != null,
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-            ) {
-                Text(
-                    "Continue",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp
-                )
+            Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), enabled = selectedDate != null && selectedTimeSlot != null, colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
+                Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }
 }
 
 @Composable
-private fun SlotAvailabilitySummary(
-    availableSlotCount: Int,
-    bookedSlotCount: Int
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Surface(
-            color = Color(0xFFE8F5E9),
-            shape = RoundedCornerShape(999.dp)
-        ) {
-            Text(
-                text = "$availableSlotCount open",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-            )
+private fun SlotAvailabilitySummary(availableSlotCount: Int, bookedSlotCount: Int) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(999.dp)) {
+            Text(text = "$availableSlotCount open", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
         }
         if (bookedSlotCount > 0) {
-            Surface(
-                color = Color(0xFFFFF3E0),
-                shape = RoundedCornerShape(999.dp)
-            ) {
-                Text(
-                    text = "$bookedSlotCount booked",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                )
+            Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(999.dp)) {
+                Text(text = "$bookedSlotCount booked", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
             }
         }
     }
 }
 
 @Composable
-private fun NoSlotsAvailableCard(
-    selectedDate: LocalDate?,
-    bookedSlotCount: Int,
-    suggestion: NextAvailableSlotSuggestion?,
-    isSearchingNextAvailable: Boolean,
-    onJumpToSuggestedDate: (NextAvailableSlotSuggestion) -> Unit
-) {
+private fun NoSlotsAvailableCard(selectedDate: LocalDate?, bookedSlotCount: Int, suggestion: NextAvailableSlotSuggestion?, isSearchingNextAvailable: Boolean, onJumpToSuggestedDate: (NextAvailableSlotSuggestion) -> Unit) {
     val formattedDate = selectedDate?.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(R.string.string_6), fontSize = 32.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = if (formattedDate != null) "No open slots on $formattedDate" else "No open slots available",
-                fontWeight = FontWeight.Medium,
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center
-            )
+            Text(text = if (formattedDate != null) "No open slots on $formattedDate" else "No open slots available", fontWeight = FontWeight.Medium, fontSize = 15.sp, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = when {
-                    bookedSlotCount > 0 -> "All $bookedSlotCount published slots are already taken."
-                    else -> "This doctor has not published available times for the selected day."
-                },
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
+            Text(text = if (bookedSlotCount > 0) "All $bookedSlotCount published slots are already taken." else "This doctor has not published available times for the selected day.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             when {
                 isSearchingNextAvailable -> {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CircularProgressIndicator(
-                        color = SwastikPrimary,
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.5.dp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        "Checking the next available dates",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(modifier = Modifier.height(16.dp)); CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp); Spacer(modifier = Modifier.height(10.dp)); Text("Checking the next available dates", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 suggestion != null -> {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    FilledTonalButton(
-                        onClick = { onJumpToSuggestedDate(suggestion) },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = SwastikPrimaryLight.copy(alpha = 0.5f),
-                            contentColor = SwastikPrimary
-                        )
-                    ) {
-                        Text(
-                            "Jump to ${LocalDate.parse(suggestion.date).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}"
-                        )
-                    }
-                    suggestion.firstAvailableSlot?.let { firstSlot ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "${suggestion.availableSlotCount} open slots from $firstSlot",
-                            fontSize = 12.sp,
-                            color = SwastikPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(16.dp)); FilledTonalButton(onClick = { onJumpToSuggestedDate(suggestion) }, colors = ButtonDefaults.filledTonalButtonColors(containerColor = SwastikPrimaryLight.copy(alpha = 0.5f), contentColor = SwastikPrimary)) { Text("Jump to ${LocalDate.parse(suggestion.date).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}") }
+                    suggestion.firstAvailableSlot?.let { firstSlot -> Spacer(modifier = Modifier.height(8.dp)); Text("${suggestion.availableSlotCount} open slots from $firstSlot", fontSize = 12.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
                 }
                 else -> {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "No open slots found in the next two weeks. Try another doctor or facility.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
+                    Spacer(modifier = Modifier.height(12.dp)); Text("No open slots found in the next two weeks. Try another doctor or facility.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -1132,436 +765,112 @@ private fun NoSlotsAvailableCard(
 }
 
 @Composable
-private fun TimeSlotGrid(
-    slots: List<TimeSlot>,
-    selectedSlot: String?,
-    onSlotSelected: (String) -> Unit
-) {
+private fun TimeSlotGrid(slots: List<TimeSlot>, selectedSlot: String?, onSlotSelected: (String) -> Unit) {
     val availableSlots = slots.filter { it.isAvailable }
     val unavailableSlots = slots.filter { !it.isAvailable }
-
     Column {
-        if (availableSlots.isNotEmpty()) {
-            SlotChunkRows(
-                slots = availableSlots,
-                selectedSlot = selectedSlot,
-                enabled = true,
-                onSlotSelected = onSlotSelected
-            )
-        }
+        if (availableSlots.isNotEmpty()) SlotChunkRows(slots = availableSlots, selectedSlot = selectedSlot, enabled = true, onSlotSelected = onSlotSelected)
         if (unavailableSlots.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Booked",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            SlotChunkRows(
-                slots = unavailableSlots,
-                selectedSlot = null,
-                enabled = false,
-                onSlotSelected = {}
-            )
+            Spacer(modifier = Modifier.height(8.dp)); Text("Booked", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp)); SlotChunkRows(slots = unavailableSlots, selectedSlot = null, enabled = false, onSlotSelected = {})
         }
     }
 }
 
 @Composable
-private fun SlotChunkRows(
-    slots: List<TimeSlot>,
-    selectedSlot: String?,
-    enabled: Boolean,
-    onSlotSelected: (String) -> Unit
-) {
+private fun SlotChunkRows(slots: List<TimeSlot>, selectedSlot: String?, enabled: Boolean, onSlotSelected: (String) -> Unit) {
     val chunked = slots.chunked(4)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         chunked.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { slot ->
                     val isSelected = slot.time == selectedSlot
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .then(
-                                if (enabled) Modifier.clickable {
-                                    onSlotSelected(slot.time)
-                                } else Modifier
-                            ),
-                        shape = RoundedCornerShape(10.dp),
-                        color = when {
-                            isSelected -> SwastikPrimary
-                            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        border = if (isSelected) null
-                        else BorderStroke(
-                            1.dp,
-                            if (enabled) SwastikPrimary.copy(alpha = 0.3f)
-                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                        )
-                    ) {
-                        Text(
-                            text = slot.time,
-                            modifier = Modifier.padding(
-                                vertical = 10.dp,
-                                horizontal = 4.dp
-                            ),
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold
-                            else FontWeight.Normal,
-                            color = when {
-                                isSelected -> Color.White
-                                !enabled -> Color.Gray.copy(alpha = 0.5f)
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
-                            textAlign = TextAlign.Center,
-                            maxLines = 1
-                        )
+                    Surface(modifier = Modifier.weight(1f).then(if (enabled) Modifier.clickable { onSlotSelected(slot.time) } else Modifier), shape = RoundedCornerShape(10.dp), color = when { isSelected -> SwastikPrimary; !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f); else -> MaterialTheme.colorScheme.surfaceVariant }, border = if (isSelected) null else BorderStroke(1.dp, if (enabled) SwastikPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))) {
+                        Text(text = slot.time, modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp), fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal, color = when { isSelected -> Color.White; !enabled -> Color.Gray.copy(alpha = 0.5f); else -> MaterialTheme.colorScheme.onSurface }, textAlign = TextAlign.Center, maxLines = 1)
                     }
                 }
-                // Fill remaining weight if row < 4
-                repeat(4 - row.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
+                repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// STEP 2 — Consultation Details
-// ────────────────────────────────────────────────────────────────
 @Composable
-private fun ConsultationDetailsStep(
-    consultationMode: String?,
-    selectedType: String,
-    notes: String,
-    isDoctorLoaded: Boolean,
-    errorMessage: String?,
-    onTypeChanged: (String) -> Unit,
-    onNotesChanged: (String) -> Unit,
-    onContinue: () -> Unit,
-    onRetry: () -> Unit
-) {
-    val types = if (consultationMode == "video") {
-        listOf(Triple("video", "📹", "Video Consultation"))
-    } else {
-        listOf(
-            Triple("video", "📹", "Video Consultation"),
-            Triple("in_person", "🏥", "In-Person Visit")
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+private fun ConsultationDetailsStep(consultationMode: String?, selectedType: String, notes: String, isDoctorLoaded: Boolean, errorMessage: String?, onTypeChanged: (String) -> Unit, onNotesChanged: (String) -> Unit, onContinue: () -> Unit, onRetry: () -> Unit) {
+    val types = if (consultationMode == "video") listOf(Triple("video", "📹", "Video Consultation")) else listOf(Triple("video", "📹", "Video Consultation"), Triple("in_person", "🏥", "In-Person Visit"))
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Text(
-                stringResource(R.string.consultation_type),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
+            Text(stringResource(R.string.consultation_type), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 types.forEach { (type, emoji, label) ->
                     val isSelected = selectedType == type
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onTypeChanged(type) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) SwastikPrimary
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        border = if (!isSelected) BorderStroke(
-                            1.dp,
-                            SwastikPrimary.copy(alpha = 0.2f)
-                        ) else null
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(
-                                vertical = 14.dp,
-                                horizontal = 12.dp
-                            ),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(emoji, fontSize = 24.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = label,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold
-                                else FontWeight.Medium,
-                                color = if (isSelected) Color.White
-                                else MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1
-                            )
+                    Surface(modifier = Modifier.weight(1f).clickable { onTypeChanged(type) }, shape = RoundedCornerShape(12.dp), color = if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surfaceVariant, border = if (!isSelected) BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.2f)) else null) {
+                        Row(modifier = Modifier.padding(vertical = 14.dp, horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            Text(emoji, fontSize = 24.sp); Spacer(modifier = Modifier.width(8.dp)); Text(text = label, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface, maxLines = 1)
                         }
                     }
                 }
             }
         }
-
         item {
-            Text(
-                "Notes (optional)",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = notes,
-                onValueChange = onNotesChanged,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
-                placeholder = {
-                    Text(stringResource(R.string.describe_symptoms_visit))
-                },
-                shape = RoundedCornerShape(12.dp),
-                maxLines = 4
-            )
+            Text("Notes (optional)", fontWeight = FontWeight.SemiBold, fontSize = 16.sp); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = notes, onValueChange = onNotesChanged, modifier = Modifier.fillMaxWidth().height(100.dp), placeholder = { Text(stringResource(R.string.describe_symptoms_visit)) }, shape = RoundedCornerShape(12.dp), maxLines = 4)
         }
-        
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = if (errorMessage != null) onRetry else onContinue,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = isDoctorLoaded || errorMessage != null,
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-            ) {
+            Button(onClick = if (errorMessage != null) onRetry else onContinue, modifier = Modifier.fillMaxWidth().height(52.dp), enabled = isDoctorLoaded || errorMessage != null, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
                 if (errorMessage != null) {
-                    Icon(
-                        Icons.Outlined.Warning,
-                        contentDescription = "Error",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Retry Loading",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
+                    Icon(Icons.Outlined.Warning, contentDescription = "Error", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary); Spacer(modifier = Modifier.width(8.dp)); Text("Retry Loading", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 } else if (!isDoctorLoaded) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Loading doctor...",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text("Loading doctor...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 } else {
-                    Text(
-                        "Continue",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
+                    Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 }
             }
         }
     }
 }
 
-// ────────────────────────────────────────────────────────────────
-// STEP 4 — Confirmation
-// ────────────────────────────────────────────────────────────────
 @Composable
-private fun ConfirmationStep(
-    doctor: Doctor,
-    date: LocalDate,
-    timeSlot: String,
-    selectedType: String,
-    notes: String,
-    isBooking: Boolean,
-    onConfirm: () -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Flight Ticket style summary card
+private fun ConfirmationStep(doctor: Doctor, date: LocalDate, timeSlot: String, selectedType: String, notes: String, isBooking: Boolean, onConfirm: () -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            androidx.compose.material3.Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = com.example.swastik.ui.components.TicketShape(
-                    cornerRadius = 16.dp,
-                    cutoutRadius = 12.dp,
-                    cutoutPositionRatio = 0.65f
-                ),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                shadowElevation = 2.dp
-            ) {
+            androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(), shape = com.example.swastik.ui.components.TicketShape(cornerRadius = 16.dp, cutoutRadius = 12.dp, cutoutPositionRatio = 0.65f), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), shadowElevation = 2.dp) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // Top part of ticket
                     Column(modifier = Modifier.padding(24.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                stringResource(R.string.boarding_pass),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                color = SwastikPrimary,
-                                letterSpacing = 2.sp
-                            )
-                            Icon(
-                                Icons.Outlined.CheckCircle,
-                                contentDescription = null,
-                                tint = SwastikPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.boarding_pass), fontWeight = FontWeight.Black, fontSize = 14.sp, color = SwastikPrimary, letterSpacing = 2.sp); Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.height(20.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                            }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column { Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
                             Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                            }
+                            Column(horizontalAlignment = Alignment.End) { Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
                         }
-                        
                         Spacer(modifier = Modifier.height(24.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                Text(
-                                    date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                Text(timeSlot, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            }
-                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                                Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
-                            }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")), fontSize = 15.sp, fontWeight = FontWeight.Medium) }
+                            Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(timeSlot, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
+                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) { Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary) }
                         }
-
                         if (selectedType.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                    Text(if (selectedType == "video") "📹 Video" else "🏥 In-Person", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary)
-                                }
-                            }
+                            Spacer(modifier = Modifier.height(16.dp)); Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) { Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(if (selectedType == "video") "📹 Video" else "🏥 In-Person", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary) } }
                         }
                     }
-
                     val dividerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    // Dotted line separator
-                    androidx.compose.foundation.Canvas(
-                        modifier = Modifier.fillMaxWidth().height(1.dp)
-                    ) {
-                        drawLine(
-                            color = dividerColor,
-                            start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f),
-                            end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f),
-                            strokeWidth = 2f,
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                        )
-                    }
-
-                    // Bottom part of ticket (Barcode simulation)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "|||| ||| ||||| |||| || ||| ||||",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Light,
-                            letterSpacing = 4.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            maxLines = 1
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            stringResource(R.string.swastik_healthcare),
-                            fontSize = 10.sp,
-                            letterSpacing = 2.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(1.dp)) { drawLine(color = dividerColor, start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f), end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f), strokeWidth = 2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)) }
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("|||| ||| ||||| |||| || ||| ||||", fontSize = 32.sp, fontWeight = FontWeight.Light, letterSpacing = 4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), maxLines = 1); Spacer(modifier = Modifier.height(4.dp)); Text(stringResource(R.string.swastik_healthcare), fontSize = 10.sp, letterSpacing = 2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
-
-        // Confirm button
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onConfirm,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(14.dp),
-                enabled = !isBooking,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SwastikPrimary
-                )
-            ) {
+            Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(14.dp), enabled = !isBooking, colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
                 if (isBooking) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.booking_ellipsis),
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text(stringResource(R.string.booking_ellipsis), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 } else {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.confirm_booking),
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
+                    Icon(Icons.Outlined.CheckCircle, contentDescription = null); Spacer(modifier = Modifier.width(8.dp)); Text(stringResource(R.string.confirm_booking), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -1571,20 +880,7 @@ private fun ConfirmationStep(
 
 @Composable
 private fun SummaryRow(icon: String, label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(icon, fontSize = 18.sp)
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            label,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(80.dp)
-        )
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(icon, fontSize = 18.sp); Spacer(modifier = Modifier.width(10.dp)); Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(80.dp)); Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

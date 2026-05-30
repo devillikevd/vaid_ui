@@ -72,14 +72,21 @@ fun PatientDashboardScreen(
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {}
 ) {
-    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 4)) }
+    val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
     var showAddressesDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    // Initialize tab from initialTab only once
+    LaunchedEffect(initialTab) {
+        if (initialTab != 0) {
+            viewModel.setTab(initialTab)
+        }
+    }
+
     // Handle back button when Profile tab is selected
     androidx.activity.compose.BackHandler(enabled = selectedTab != 0) {
-        selectedTab = 0
+        viewModel.setTab(0)
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -193,7 +200,7 @@ fun PatientDashboardScreen(
             bottomBar = {
                 PatientBottomNavigation(
                     selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it }
+                    onTabSelected = { viewModel.setTab(it) }
                 )
             }
         ) { paddingValues ->
@@ -231,7 +238,7 @@ fun PatientDashboardScreen(
                                 },
                                 paddingValues = paddingValues,
                             onNotificationClick = { showNotificationPanel = true },
-                            onProfileClick = { selectedTab = 4 },
+                            onProfileClick = { viewModel.setTab(4) },
                             onStartInPersonConsultation = onStartInPersonConsultation,
                             onStartVideoConsultation = onStartVideoConsultation,
                             onNavigateToAppointments = onNavigateToAppointments,
@@ -336,7 +343,7 @@ fun PatientDashboardScreen(
                 onActionClick = { notification ->
                     viewModel.markNotificationRead(notification.id)
                     if (notification.actionRoute?.contains("reminder", ignoreCase = true) == true) {
-                        selectedTab = 1
+                        viewModel.setTab(1)
                     } else {
                         notification.actionRoute?.let(onNotificationActionRoute)
                     }

@@ -110,6 +110,7 @@ fun CategoryGridCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1.2f)
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                     .background(MaterialTheme.colorScheme.surface),
                 contentAlignment = Alignment.Center
             ) {
@@ -118,7 +119,7 @@ fun CategoryGridCard(
                         painter = painterResource(id = item.imageRes),
                         contentDescription = item.title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     Icon(

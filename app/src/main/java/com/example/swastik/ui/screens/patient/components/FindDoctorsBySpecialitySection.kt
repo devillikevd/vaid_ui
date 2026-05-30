@@ -4,10 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,11 +22,10 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
 
-import androidx.compose.material3.MaterialTheme
-
 @Composable
 fun FindDoctorsBySpecialitySection(
-    onSpecialityClick: (String) -> Unit
+    onSpecialityClick: (String) -> Unit,
+    showTitle: Boolean = true
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: General, 1: Advanced
 
@@ -44,22 +40,29 @@ fun FindDoctorsBySpecialitySection(
 
     val currentList = if (selectedTab == 0) generalCare else advancedCare
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = if (showTitle) 12.dp else 16.dp,
+                    bottom = 12.dp
+                )
         ) {
-            Text(
-                "Book Doctor by Speciality",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 17.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (showTitle) {
+                Text(
+                    "Book Doctor by Speciality",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             Row(
                 modifier = Modifier
@@ -93,7 +96,7 @@ fun FindDoctorsBySpecialitySection(
         }
 
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val columns = if (maxWidth < 340.dp) 2 else 4
+            val columns = if (this.maxWidth < 340.dp) 2 else 4
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -229,9 +232,9 @@ private fun SpecialityHomeCard(
             .heightIn(min = 82.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (imageRes != null) {
@@ -249,7 +252,7 @@ private fun SpecialityHomeCard(
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), MaterialTheme.colorScheme.surface),
+                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.9f), Color.White),
                             startY = 0f
                         )
                     )
@@ -259,7 +262,7 @@ private fun SpecialityHomeCard(
                     text = title,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = Color(0xFF1E293B),
                     textAlign = TextAlign.Center,
                     lineHeight = 10.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),

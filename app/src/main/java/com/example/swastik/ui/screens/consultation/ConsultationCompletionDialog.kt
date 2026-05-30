@@ -3,34 +3,17 @@ package com.example.swastik.ui.screens.consultation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Message
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -50,34 +33,42 @@ import androidx.compose.ui.window.DialogProperties
 @Composable
 fun ConsultationCompletionDialog(
     userName: String = "Patient",
+    doctorName: String? = null,
     onDismiss: () -> Unit,
     onSubmitReview: (Int, String) -> Unit = { _, _ -> }
 ) {
-    val surfaceColor = Color(0xFF101A30)
+    val surfaceColor = Color.White
     val accentBlue = Color(0xFF4C8DFF)
+    val onSurfaceColor = Color(0xFF1E293B)
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false // Enable full screen width
         )
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            shape = RoundedCornerShape(30.dp),
-            colors = CardDefaults.cardColors(containerColor = surfaceColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = surfaceColor
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Close button at top right
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = onSurfaceColor)
+                    }
+                }
+
                 CompletionStatusIcon()
 
                 Spacer(modifier = Modifier.height(22.dp))
@@ -86,42 +77,46 @@ fun ConsultationCompletionDialog(
                     text = "Consultation Complete",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = onSurfaceColor
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                var rating by remember { mutableStateOf(0) }
+                var rating by remember { mutableIntStateOf(0) }
                 var comment by remember { mutableStateOf("") }
                 var isSubmitting by remember { mutableStateOf(false) }
                 
                 Text(
-                    text = "How was your experience?",
+                    text = if (doctorName != null) "Rate your experience with $doctorName" else "How was your experience?",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = onSurfaceColor,
+                    textAlign = TextAlign.Center
                 )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 
                 RatingBar(
                     rating = rating,
-                    onRatingChanged = { rating = it }
+                    onRatingChanged = { 
+                        // If same star clicked again, reset to 0
+                        rating = if (rating == it) 0 else it 
+                    }
                 )
                 
                 if (rating > 0) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = comment,
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Leave a review (optional)", color = Color.White.copy(alpha = 0.5f)) },
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                        placeholder = { Text("Leave a review (optional)", color = onSurfaceColor.copy(alpha = 0.5f)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = onSurfaceColor,
+                            unfocusedTextColor = onSurfaceColor,
                             cursorColor = accentBlue,
                             focusedBorderColor = accentBlue,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            unfocusedBorderColor = Color(0xFFE2E8F0)
                         ),
                         maxLines = 3
                     )
@@ -131,10 +126,10 @@ fun ConsultationCompletionDialog(
 
                 Text(
                     text = "Thanks, $userName. Your session has been closed safely and the consultation context stays linked to your health history.",
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
                     textAlign = TextAlign.Center,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = onSurfaceColor.copy(alpha = 0.7f)
                 )
 
                 Spacer(modifier = Modifier.height(22.dp))
@@ -175,7 +170,7 @@ fun ConsultationCompletionDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = accentBlue)
                 ) {
                     if (isSubmitting) {
-                        androidx.compose.material3.CircularProgressIndicator(
+                        CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
                             color = Color.White,
                             strokeWidth = 2.dp
@@ -189,6 +184,8 @@ fun ConsultationCompletionDialog(
                         )
                     }
                 }
+                
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
@@ -200,7 +197,7 @@ private fun CompletionStatusIcon() {
         modifier = Modifier
             .size(104.dp)
             .clip(CircleShape)
-            .background(Color(0xFF2DD4BF).copy(alpha = 0.16f)),
+            .background(Color(0xFF2DD4BF).copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -235,8 +232,9 @@ private fun CompletionInfoRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.06f),
-        shape = RoundedCornerShape(18.dp)
+        color = Color(0xFFF8FAFC),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
         Row(
             modifier = Modifier
@@ -248,13 +246,13 @@ private fun CompletionInfoRow(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF4C8DFF).copy(alpha = 0.14f)),
+                    .background(Color(0xFF4C8DFF).copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = Color(0xFF9FC0FF),
+                    tint = Color(0xFF4C8DFF),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -264,16 +262,16 @@ private fun CompletionInfoRow(
             Column {
                 Text(
                     text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = Color.White.copy(alpha = 0.62f)
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    color = Color(0xFF64748B)
                 )
             }
         }
@@ -293,9 +291,9 @@ fun RatingBar(
             Icon(
                 imageVector = if (i <= rating) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = "Star $i",
-                tint = if (i <= rating) Color(0xFFFFB800) else Color.White.copy(alpha = 0.3f),
+                tint = if (i <= rating) Color(0xFFFFB800) else Color(0xFF94A3B8).copy(alpha = 0.5f),
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(44.dp)
                     .padding(4.dp)
                     .clickable { onRatingChanged(i) }
             )

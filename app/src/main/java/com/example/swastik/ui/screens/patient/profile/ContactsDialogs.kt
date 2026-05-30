@@ -127,6 +127,17 @@ fun EmergencyContactsDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { showAddForm = !showAddForm },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary.copy(alpha = 0.1f), contentColor = SwastikPrimary)
+                ) {
+                    Icon(if (showAddForm) Icons.Default.Close else Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (showAddForm) "Cancel" else "Add Manually")
+                }
+
                 if (showAddForm) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -155,9 +166,14 @@ fun EmergencyContactsDialog(
                             Button(
                                 onClick = {
                                     if (newName.isNotBlank() && newPhone.isNotBlank() && newRelation.isNotBlank()) {
-                                        onAddContact(newName, newPhone, newRelation)
-                                        newName = ""; newPhone = ""; newRelation = ""
-                                        showAddForm = false
+                                        val isDuplicate = contacts.any { it.phone.replace(" ", "") == newPhone.replace(" ", "") }
+                                        if (isDuplicate) {
+                                            Toast.makeText(context, "This number is already added!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            onAddContact(newName, newPhone, newRelation)
+                                            newName = ""; newPhone = ""; newRelation = ""
+                                            showAddForm = false
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -230,9 +246,15 @@ fun EmergencyContactsDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { 
-                                    newRelation = relation
-                                    onAddContact(newName, newPhone, newRelation)
-                                    showRelationDialog = false
+                                    val isDuplicate = contacts.any { it.phone.replace(" ", "") == newPhone.replace(" ", "") }
+                                    if (isDuplicate) {
+                                        Toast.makeText(context, "This number is already added!", Toast.LENGTH_SHORT).show()
+                                        showRelationDialog = false
+                                    } else {
+                                        newRelation = relation
+                                        onAddContact(newName, newPhone, newRelation)
+                                        showRelationDialog = false
+                                    }
                                 }
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically

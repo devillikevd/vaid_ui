@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.patient
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -61,6 +62,8 @@ import com.example.swastik.ui.theme.HealthIdCardBg
 import com.example.swastik.ui.theme.HealthIdCardBorder
 import com.example.swastik.ui.theme.SwastikPrimary
 
+private val HealthCardMainBg = Color(0xFFE3F2FD) // Light bluish background for main cards
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HealthCardScreen(
@@ -68,6 +71,8 @@ fun HealthCardScreen(
     dashboardViewModel: PatientDashboardViewModel,
     recordsViewModel: RecordsViewModel
 ) {
+    val isDark = isSystemInDarkTheme()
+    val healthCardMainBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFE3F2FD)
     val hcState by dashboardViewModel.healthCardState.collectAsState()
     val syncState by dashboardViewModel.healthConnectSyncState.collectAsState()
     val guardianEnabled by dashboardViewModel.guardianEnabled.collectAsState(initial = false)
@@ -153,7 +158,7 @@ fun HealthCardScreen(
                     com.example.swastik.ui.screens.patient.components.FitnessTrackingCard(
                         fitnessLog = fitnessLog!!,
                         modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = healthCardMainBg
                     )
                 }
             }
@@ -163,7 +168,7 @@ fun HealthCardScreen(
                 Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = healthCardMainBg),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {
@@ -277,7 +282,7 @@ fun HealthCardScreen(
             item {
                 // Swastik Guardian Section
                 com.example.swastik.ui.screens.patient.components.SwastikGuardianCard(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = healthCardMainBg,
                     isActive = guardianEnabled,
                     consentAccepted = guardianSettings.guardianConsentAccepted,
                     consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
@@ -335,7 +340,7 @@ fun HealthCardScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    colors = CardDefaults.cardColors(containerColor = healthCardMainBg),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
@@ -350,14 +355,14 @@ fun HealthCardScreen(
                             Surface(
                                 modifier = Modifier.size(56.dp),
                                 shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = Color.White,
                                 shadowElevation = 2.dp
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Outlined.Favorite,
                                         contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = Color(0xFF6A5AE0),
                                         modifier = Modifier.size(32.dp)
                                     )
                                 }
@@ -468,7 +473,8 @@ fun HealthCardScreen(
                             dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
                             title = "Heart Rate Trend",
                             subtitle = "BPM over last 7 days",
-                            containerColor = MaterialTheme.colorScheme.surface
+                            containerColor = healthCardMainBg,
+                            lineColor = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -480,7 +486,8 @@ fun HealthCardScreen(
                             dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
                             title = "Body Temperature Trend",
                             subtitle = "Celsius over last 7 days",
-                            containerColor = MaterialTheme.colorScheme.surface
+                            containerColor = healthCardMainBg,
+                            lineColor = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -494,12 +501,15 @@ fun HealthCardScreen(
 @Composable
 private fun HealthCardHowItWorks() {
     var expanded by remember { mutableStateOf(false) } // Defaulting to collapsed as requested by "Option 4" image style
-    
+    val isDark = isSystemInDarkTheme()
+    val outerBg = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.6f)
+    val innerBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .background(outerBg, RoundedCornerShape(12.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
@@ -553,7 +563,7 @@ private fun HealthCardHowItWorks() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 20.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .background(innerBg, RoundedCornerShape(12.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {

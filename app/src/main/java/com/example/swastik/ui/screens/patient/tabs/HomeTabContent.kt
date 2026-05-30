@@ -1,28 +1,34 @@
 package com.example.swastik.ui.screens.patient.tabs
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.components.*
-import com.example.swastik.data.model.PatientProfile
-import com.example.swastik.data.model.Doctor
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeTabContent(
     profile: PatientProfile?,
     unreadNotificationsCount: Int,
     doctors: List<Doctor> = emptyList(),
     searchSuggestions: List<String> = emptyList(),
-    fitnessLog: com.example.swastik.data.model.DailyFitnessLog? = null,
+    fitnessLog: DailyFitnessLog? = null,
     guardianEnabled: Boolean = false,
     onGuardianToggle: (Boolean) -> Unit = {},
     paddingValues: PaddingValues,
@@ -53,130 +59,215 @@ fun HomeTabContent(
     onNavigateToCommunityQA: () -> Unit = {}
 ) {
     var selectedDoctorForProfile by remember { mutableStateOf<Doctor?>(null) }
+    
+    val homeBgColor = if (isSystemInDarkTheme()) {
+        MaterialTheme.colorScheme.background
+    } else {
+        Color(0xFFF4FBF9)
+    }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(homeBgColor)
             .padding(paddingValues)
-            .verticalScroll(rememberScrollState())
     ) {
         // Redesigned Header for Home Tab
-        DashboardHeader(
-            profile = profile,
-            unreadNotificationsCount = unreadNotificationsCount,
-            onNotificationClick = onNotificationClick,
-            onProfileClick = onProfileClick,
-            onLocationUpdate = onLocationUpdate,
-            onAddAddressClick = onAddAddressClick,
-            isHomeTab = true
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Search Bar overlay
-        GlobalSearchBar(
-            doctors = doctors,
-            searchSuggestions = searchSuggestions,
-            onDoctorSelect = { doc -> onNavigateToBooking(doc.id) },
-            onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) },
-            onServiceSelect = { service ->
-                when (service.lowercase()) {
-                    "hospitals" -> onNavigateToHospitals()
-                    "clinics" -> onNavigateToClinics()
-                    "pharmacy" -> onNavigateToPharmacies()
-                    "diagnostics", "lab tests" -> onNavigateToDiagnostic()
-                    "appointments" -> onNavigateToAppointments()
-                    "reports" -> onNavigateToReports()
-                    "prescriptions" -> onNavigateToPrescriptions()
-                    "vitals" -> onNavigateToVitals()
-                    "health card" -> onNavigateToHealthCard()
-                    "emergency", "sos", "ambulance" -> onNavigateToEmergency()
-                    "ai assistant", "chatbot" -> onNavigateToChatbot()
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Featured Dynamic Banner
-        FeaturedBanner(onClick = onNavigateToChatbot)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Emergency SOS
-        EmergencySOSBanner(onClick = onNavigateToEmergency)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Swastik AI Assistant Banner
-        SwastikAIBanner(onClick = onNavigateToChatbot)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Primary Actions (Compact consultation cards side-by-side)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            InPersonConsultationCard(
-                modifier = Modifier.weight(1f),
-                onClick = onStartInPersonConsultation
+        item {
+            DashboardHeader(
+                profile = profile,
+                unreadNotificationsCount = unreadNotificationsCount,
+                onNotificationClick = onNotificationClick,
+                onProfileClick = onProfileClick,
+                onLocationUpdate = onLocationUpdate,
+                onAddAddressClick = onAddAddressClick,
+                isHomeTab = true
             )
-            VideoConsultationCard(
-                modifier = Modifier.weight(1f),
-                onClick = onStartVideoConsultation
-            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        CompactHealthIdCard(onClick = onNavigateToHealthCard)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Secondary Actions (Reports, Appointments)
-        SecondaryActionsGrid(
-            onReportsClick = onNavigateToReports,
-            onAppointmentsClick = onNavigateToAppointments
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Redesigned Health Services Row (Moved to Community Q&A spot)
-        HealthServicesSection(
-            onClinicClick = onNavigateToClinics,
-            onPharmacyClick = onNavigateToPharmacies,
-            onLabTestsClick = onNavigateToDiagnostic,
-            onHospitalsClick = onNavigateToHospitals
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
+        // Search Bar sticky header
+        stickyHeader {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(homeBgColor)
+                    .padding(vertical = 8.dp)
+            ) {
+                GlobalSearchBar(
+                    doctors = doctors,
+                    searchSuggestions = searchSuggestions,
+                    onDoctorSelect = { doc -> onNavigateToBooking(doc.id) },
+                    onSpecialitySelect = { spec -> onFindDoctorSpecialityClick(spec) },
+                    onServiceSelect = { service ->
+                        when (service.lowercase()) {
+                            "hospitals" -> onNavigateToHospitals()
+                            "clinics" -> onNavigateToClinics()
+                            "pharmacy" -> onNavigateToPharmacies()
+                            "diagnostics", "lab tests" -> onNavigateToDiagnostic()
+                            "appointments" -> onNavigateToAppointments()
+                            "reports" -> onNavigateToReports()
+                            "prescriptions" -> onNavigateToPrescriptions()
+                            "vitals" -> onNavigateToVitals()
+                            "health card" -> onNavigateToHealthCard()
+                            "emergency", "sos", "ambulance" -> onNavigateToEmergency()
+                            "ai assistant", "chatbot" -> onNavigateToChatbot()
+                        }
+                    }
+                )
+            }
+        }
 
-        // Recommended Doctors (Moved up as requested)
-        RecommendedDoctorsSection(
-            doctors = doctors,
-            onBookClick = { onNavigateToBooking(it.id) },
-            onViewProfile = { selectedDoctorForProfile = it },
-            onViewAllClick = { onNavigateToBooking(null) },
-            onRetry = onRefresh
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Book Doctor by Speciality
-        FindDoctorsBySpecialitySection(
-            onSpecialityClick = onFindDoctorSpecialityClick
-        )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Community Q&A Banner (Moved to the bottom)
-        CommunityQABanner(onClick = onNavigateToCommunityQA)
-        
-        Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 1. Emergency SOS & AI Assistant Group
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    EmergencySOSBanner(onClick = onNavigateToEmergency)
+                    SwastikAIBanner(onClick = onNavigateToChatbot)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // 2. Consultations, Health ID, and Actions Group
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Primary Actions (Consultation cards side-by-side)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        InPersonConsultationCard(
+                            modifier = Modifier.weight(1f),
+                            onClick = onStartInPersonConsultation
+                        )
+                        VideoConsultationCard(
+                            modifier = Modifier.weight(1f),
+                            onClick = onStartVideoConsultation
+                        )
+                    }
+                    
+                    // Digital Health ID Card
+                    CompactHealthIdCard(onClick = onNavigateToHealthCard)
+                    
+                    // Secondary Actions (Reports, Appointments)
+                    SecondaryActionsGrid(
+                        onReportsClick = onNavigateToReports,
+                        onAppointmentsClick = onNavigateToAppointments
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // 3. Quick Actions Group
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Quick Actions",
+                    fontWeight = FontWeight.ExtraBold, 
+                    fontSize = 16.sp, 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+            ) {
+                HealthServicesSection(
+                    onClinicClick = onNavigateToClinics,
+                    onPharmacyClick = onNavigateToPharmacies,
+                    onLabTestsClick = onNavigateToDiagnostic,
+                    onHospitalsClick = onNavigateToHospitals,
+                    showTitle = false
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Recommended Doctors (Moved up as requested)
+            RecommendedDoctorsSection(
+                doctors = doctors,
+                onBookClick = { onNavigateToBooking(it.id) },
+                onViewProfile = { selectedDoctorForProfile = it },
+                onViewAllClick = { onNavigateToBooking(null) },
+                onRetry = onRefresh
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // 4. Book Doctor by Speciality Group
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Book Doctor by Speciality",
+                    fontWeight = FontWeight.ExtraBold, 
+                    fontSize = 17.sp, 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+            ) {
+                FindDoctorsBySpecialitySection(
+                    onSpecialityClick = onFindDoctorSpecialityClick,
+                    showTitle = false
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Community Q&A Banner (Moved to the bottom)
+            CommunityQABanner(onClick = onNavigateToCommunityQA)
+            
+            Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
+        }
     }
 
     selectedDoctorForProfile?.let { doctor ->

@@ -33,6 +33,8 @@ import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.viewmodel.CommunityViewModel
 import androidx.compose.material3.MaterialTheme
 
+import com.example.swastik.utils.navigateSafe
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommunityQAScreen(
@@ -59,7 +61,7 @@ fun CommunityQAScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate(com.example.swastik.navigation.Screen.AskQuestion.route) },
+                onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.AskQuestion.route) },
                 containerColor = SwastikPrimary
             ) {
                 Text("+ Ask", color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 16.dp))
@@ -94,7 +96,7 @@ fun CommunityQAScreen(
                     if (question != null) {
                         QuestionCard(
                             question = question,
-                            onClick = { navController.navigate(com.example.swastik.navigation.Screen.CommunityQADetails.createRoute(question.id)) },
+                            onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.CommunityQADetails.createRoute(question.id)) },
                             onUpvote = { viewModel.upvoteQuestion(question.id) }
                         )
                     }

@@ -56,10 +56,18 @@ class AppointmentViewModel @Inject constructor(
                         val bIsUpcoming = bStatus == "scheduled" || bStatus == "confirmed"
                         
                         when {
-                            aIsUpcoming && bIsUpcoming -> a.date.compareTo(b.date)
+                            aIsUpcoming && bIsUpcoming -> {
+                                // Soonest first for upcoming
+                                val dateCompare = a.date.compareTo(b.date)
+                                if (dateCompare != 0) dateCompare else a.timeSlot.compareTo(b.timeSlot)
+                            }
                             aIsUpcoming -> -1
                             bIsUpcoming -> 1
-                            else -> b.date.compareTo(a.date)
+                            else -> {
+                                // Latest first for history (Completed/Cancelled)
+                                val dateCompare = b.date.compareTo(a.date)
+                                if (dateCompare != 0) dateCompare else b.timeSlot.compareTo(a.timeSlot)
+                            }
                         }
                     }
                     uiState = uiState.copy(
@@ -264,6 +272,24 @@ class AppointmentViewModel @Inject constructor(
      */
     fun resetCancelState() {
         uiState = uiState.copy(cancelSuccess = false)
+    }
+
+    fun submitReview(doctorId: String, appointmentId: String?, rating: Int, comment: String?, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            // Using isBooking as a proxy for a loading state to avoid adding more fields to UI state
+            uiState = uiState.copy(isBooking = true) 
+            val result = repository.submitDoctorReview(doctorId, appointmentId, rating, comment)
+            when (result) {
+                is Result.Success -> {
+                    uiState = uiState.copy(isBooking = false)
+                    onComplete()
+                }
+                is Result.Error -> {
+                    uiState = uiState.copy(isBooking = false, error = result.message)
+                }
+                else -> {}
+            }
+        }
     }
 }
 

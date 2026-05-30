@@ -525,6 +525,7 @@ class AppointmentRepository @Inject constructor(
 
     private fun Appointment.toCachedAppointment() = CachedAppointment(
         id = id,
+        patientId = patientId,
         doctorId = doctorId,
         doctorName = doctor?.name,
         doctorSpecialization = doctor?.specialization,
@@ -532,13 +533,15 @@ class AppointmentRepository @Inject constructor(
         timeSlot = timeSlot,
         type = type,
         status = status,
-        notes = notes
+        notes = notes,
+        cancellationReason = cancellationReason,
+        cancelledBy = cancelledBy
     )
 
     private fun CachedAppointment.toDomainAppointment() = Appointment(
         id = id,
         appointmentNumber = null,
-        patientId = "",
+        patientId = patientId,
         doctorId = doctorId,
         date = date,
         timeSlot = timeSlot,
@@ -547,7 +550,8 @@ class AppointmentRepository @Inject constructor(
         reason = null,
         notes = notes,
         consultationFee = null,
-        cancellationReason = null,
+        cancellationReason = cancellationReason,
+        cancelledBy = cancelledBy,
         doctor = if (doctorName != null) Doctor(
             id = doctorId,
             name = doctorName,

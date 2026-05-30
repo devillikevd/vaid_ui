@@ -3,6 +3,7 @@ package com.example.swastik.ui.screens.patient
 import androidx.compose.ui.draw.drawBehind
 
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Appointment
+import com.example.swastik.ui.screens.consultation.ConsultationCompletionDialog
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.AppointmentViewModel
 
@@ -63,6 +65,7 @@ fun AppointmentHistoryScreen(
     }
     var selectedFilter by remember { mutableStateOf(initialEnum) }
     var showCancelDialog by remember { mutableStateOf<Appointment?>(null) }
+    var showReviewDialog by remember { mutableStateOf<Appointment?>(null) }
     val uiState = viewModel.uiState
     val colorScheme = MaterialTheme.colorScheme
 
@@ -178,7 +181,8 @@ fun AppointmentHistoryScreen(
                                             onStartConsultation = { onStartConsultation(appointment) },
                                             onPrescriptionClick = onNavigateToPrescriptions,
                                             onBookAgainClick = onNavigateToBooking,
-                                            onCancelClick = { showCancelDialog = appointment }
+                                            onCancelClick = { showCancelDialog = appointment },
+                                            onRateDoctorClick = { showReviewDialog = appointment }
                                         )
                                     }
                                 }
@@ -201,6 +205,26 @@ fun AppointmentHistoryScreen(
             },
             onBookAgain = onNavigateToBooking,
             onFindAnotherSpecialist = onNavigateToBooking
+        )
+    }
+
+    // Review Doctor Dialog
+    showReviewDialog?.let { appointment ->
+        ConsultationCompletionDialog(
+            doctorName = appointment.doctor?.name,
+            onDismiss = { showReviewDialog = null },
+            onSubmitReview = { rating, comment ->
+                viewModel.submitReview(
+                    doctorId = appointment.doctorId,
+                    appointmentId = appointment.id,
+                    rating = rating,
+                    comment = comment,
+                    onComplete = {
+                        showReviewDialog = null
+                        viewModel.loadAppointments() // Refresh to maybe hide rating button if we had a way to track it
+                    }
+                )
+            }
         )
     }
 }
@@ -253,7 +277,8 @@ private fun AppointmentCard(
     onStartConsultation: () -> Unit,
     onPrescriptionClick: () -> Unit = {},
     onBookAgainClick: () -> Unit = {},
-    onCancelClick: () -> Unit = {}
+    onCancelClick: () -> Unit = {},
+    onRateDoctorClick: () -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val status = appointment.status.lowercase()
@@ -345,6 +370,50 @@ private fun AppointmentCard(
                     Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
+
+            if (isCancelled) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFFFF1F0), // Soft red background
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFFFA39E).copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Cancel, 
+                                contentDescription = null, 
+                                tint = Color(0xFFCF1322), 
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            val cancelledByText = when {
+                                appointment.cancelledBy == appointment.patientId && appointment.patientId.isNotEmpty() -> "Cancelled by you"
+                                appointment.cancelledBy != null -> "Cancelled by Doctor/Hospital"
+                                else -> "Appointment Cancelled"
+                            }
+                            Text(
+                                text = cancelledByText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFCF1322)
+                            )
+                        }
+                        if (!appointment.cancellationReason.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Reason: ${appointment.cancellationReason}",
+                                fontSize = 13.sp,
+                                color = Color(0xFF434343),
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (isVideo) {
@@ -409,23 +478,43 @@ private fun AppointmentCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    OutlinedButton(
-                        onClick = onBookAgainClick, 
+                    Button(
+                        onClick = onRateDoctorClick, 
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                         shape = RoundedCornerShape(12.dp), 
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Outlined.Replay, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            stringResource(R.string.book_again), 
-                            color = MaterialTheme.colorScheme.primary, 
+                            "Rate Doctor", 
+                            color = Color.White, 
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedButton(
+                    onClick = onBookAgainClick, 
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                    shape = RoundedCornerShape(12.dp), 
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Outlined.Replay, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        stringResource(R.string.book_again), 
+                        color = MaterialTheme.colorScheme.primary, 
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
