@@ -107,7 +107,7 @@ resource "aws_ecs_task_definition" "app" {
       image             = "redis:7-alpine"
       essential         = true
       cpu               = 128
-      memoryReservation = 256
+      memoryReservation = 128
       portMappings = [
         {
           containerPort = 6379
@@ -183,6 +183,9 @@ resource "aws_ecs_service" "app" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = var.app_desired_tasks
 
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
+
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.ec2.name
     weight            = 1
@@ -206,8 +209,6 @@ resource "aws_ecs_service" "app" {
     container_port   = 8000
   }
 
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
   health_check_grace_period_seconds  = 120
 
   depends_on = [

@@ -15,7 +15,7 @@ const { calculateDistance, calculateETA } = require('../utils/geo');
 const dispatchService = require('../services/dispatchService');
 const eventEmitter = require('../services/eventEmitter');
 const hospitalManagerService = require('../services/hospitalManagerService');
-const { getDb } = require('../config/mongodb');
+const { getMongoConnection } = require('../config/mongodb');
 
 // Redis-backed connected users tracking (Bug 3 fix)
 const CONNECTED_PREFIX = 'socket:connected:';
@@ -119,7 +119,8 @@ const ensureConsultationRoomAccess = async (socket, roomPrefix, roomId) => {
 
 const logSignalingEvent = async (roomId, userId, eventType, data = {}) => {
   try {
-    const db = getDb();
+    const connection = getMongoConnection();
+    const db = connection ? connection.db : null;
     if (!db) return;
     
     // Check for TURN relay usage

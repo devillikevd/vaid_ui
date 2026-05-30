@@ -14,10 +14,7 @@ try {
 } catch { cacheIncr = null; }
 
 // MongoDB for doctor AI conversation memory + audit trail
-let getDb;
-try {
-  ({ getDb } = require('../config/mongodb'));
-} catch { getDb = null; }
+// Removed unused getDb
 
 const getAccessibleHospitalIds = async (userId) => {
   const { data: ownedHospitals, error: ownedHospitalsError } = await supabaseAdmin

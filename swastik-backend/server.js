@@ -235,6 +235,9 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 
+// Trust proxy (AWS ALB) for rate limiting and X-Forwarded-For to work properly
+app.set('trust proxy', 1);
+
 // Security middleware (after CORS)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },

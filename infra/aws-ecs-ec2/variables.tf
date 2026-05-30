@@ -104,7 +104,7 @@ variable "backend_cpu" {
 
 variable "backend_memory_reservation" {
   type    = number
-  default = 768
+  default = 512
 }
 
 variable "ai_cpu" {
@@ -114,7 +114,7 @@ variable "ai_cpu" {
 
 variable "ai_memory_reservation" {
   type    = number
-  default = 1024
+  default = 768
 }
 
 variable "ai_service_workers" {
