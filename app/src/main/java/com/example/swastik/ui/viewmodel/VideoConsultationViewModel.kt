@@ -83,7 +83,7 @@ data class VideoConsultationUiState(
     val medicalRecordAccessExpiresAt: String? = null,
     val medicalRecordAccessMessage: String? = null,
     val guardianAnalyticsSharingAllowed: Boolean = false,
-    val hasConsentedToVisionAnalysis: Boolean = false
+    val hasConsentedToVisionAnalysis: Boolean = true
 )
 
 data class ChatMessageUi(
