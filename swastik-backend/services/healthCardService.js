@@ -26,7 +26,7 @@ class HealthCardService {
    * Generate (or regenerate) a health card token for a patient.
    * Invalidates any existing token for this user.
    */
-  async generateToken(userId) {
+  async generateToken(userId, guardianAnalytics = null) {
     // Verify user is a patient
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -53,6 +53,7 @@ class HealthCardService {
       patientId: patient.id,
       patientName: patient.name,
       generatedAt: new Date().toISOString(),
+      guardianAnalytics, // Store if provided
     }, TOKEN_EXPIRY_SECONDS);
 
     // Store: userId → token mapping (for revocation)
@@ -118,7 +119,7 @@ class HealthCardService {
       throw new ApiError(404, 'Health card not found or expired. Please ask the patient to generate a new QR code.');
     }
 
-    const { patientId, userId } = tokenData;
+    const { patientId, userId, guardianAnalytics } = tokenData;
 
     // Audit log: record who accessed this health card
     try {
@@ -319,15 +320,15 @@ class HealthCardService {
           {
             label: 'Guardian safety analytics',
             source: 'Phone sensors, GPS, Activity Recognition, and Health Connect when enabled',
-            reliability: 'Not included in this public QR payload unless the patient separately shares it from the app.',
-            included: false,
+            reliability: 'Patient-generated analytics. Supports clinical context but is not a medical diagnosis.',
+            included: !!guardianAnalytics,
           },
         ],
         notIncluded: [
           'ABHA number',
           'Insurance identifier',
           'Unauthenticated report file URLs',
-          'Guardian analytics unless separately shared by the patient',
+          ...(guardianAnalytics ? [] : ['Guardian analytics (patient has not shared it)']),
         ],
         privacyControls: [
           'Patient can revoke this QR at any time',
@@ -336,6 +337,7 @@ class HealthCardService {
           'Responses are marked no-store/no-cache',
         ],
       },
+      guardianAnalytics: guardianAnalytics || null,
       generatedAt: tokenData.generatedAt,
     };
   }

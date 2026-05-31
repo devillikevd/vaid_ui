@@ -50,6 +50,24 @@ interface ApiService {
     
     @GET("patients/dashboard")
     suspend fun getPatientDashboard(): Response<ApiResponse<PatientDashboardResponse>>
+    // Medical Records & Vitals
+    @GET("patients/records")
+    suspend fun getMedicalRecords(): Response<ApiResponse<List<MedicalDocument>>>
+    
+    @GET("patients/records/vitals")
+    suspend fun getVitalsHistory(): Response<ApiResponse<List<Vital>>>
+
+    // Reviews
+    @POST("patient/reviews")
+    suspend fun submitReview(@Body request: com.example.swastik.data.model.ReviewRequest): Response<ApiResponse<com.example.swastik.data.model.Review>>
+    
+    @GET("patient/reviews/{type}/{id}")
+    suspend fun getEntityReviews(
+        @Path("type") type: String,
+        @Path("id") id: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<PaginatedResponse<com.example.swastik.data.model.Review>>
     
     @GET("patients/profile")
     suspend fun getPatientProfile(): Response<ApiResponse<PatientDto>>
@@ -111,7 +129,8 @@ interface ApiService {
 
     @POST("patients/appointments/{id}/record-access")
     suspend fun grantMedicalRecordAccess(
-        @Path("id") id: String
+        @Path("id") id: String,
+        @Body request: Map<String, String>
     ): Response<ApiResponse<MedicalRecordAccessDto>>
 
     @HTTP(method = "DELETE", path = "patients/appointments/{id}/record-access", hasBody = false)
@@ -178,8 +197,6 @@ interface ApiService {
         @Body request: CancelRequest
     ): Response<ApiResponse<EmergencyResponse>>
     
-    @POST("patients/reviews")
-    suspend fun submitReview(@Body request: com.example.swastik.data.remote.dto.ReviewRequest): Response<ApiResponse<Review>>
 
     // ==================== DOCTORS ====================
 
@@ -197,12 +214,16 @@ interface ApiService {
         @Query("city") city: String? = null,
         @Query("latitude") latitude: Double? = null,
         @Query("longitude") longitude: Double? = null,
+        @Query("global") global: Boolean? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<Doctor>>
     
     @GET("patients/doctors/{id}")
     suspend fun getDoctorDetails(@Path("id") id: String): Response<ApiResponse<DoctorDetails>>
+
+    @GET("doctors/{id}/queue-stats")
+    suspend fun getDoctorQueueStats(@Path("id") id: String): Response<DoctorQueueStatsResponse>
     
     @GET("patients/doctors/{id}/slots")
     suspend fun getDoctorSlots(
@@ -569,7 +590,7 @@ interface ApiService {
     // ==================== HEALTH CARD ====================
 
     @POST("health-card/generate")
-    suspend fun generateHealthCard(): Response<ApiResponse<HealthCardTokenResponse>>
+    suspend fun generateHealthCard(@Body request: GenerateHealthCardRequest? = null): Response<ApiResponse<HealthCardTokenResponse>>
 
     @GET("health-card/status")
     suspend fun getHealthCardStatus(): Response<ApiResponse<HealthCardStatusResponse>>

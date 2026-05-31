@@ -333,9 +333,10 @@ class AppointmentRepository @Inject constructor(
         }
     }
 
-    suspend fun grantMedicalRecordAccess(appointmentId: String): Result<MedicalRecordAccessDto> {
+    suspend fun grantMedicalRecordAccess(appointmentId: String, guardianAnalytics: String? = null): Result<MedicalRecordAccessDto> {
         return try {
-            val response = apiService.grantMedicalRecordAccess(appointmentId)
+            val requestMap = if (guardianAnalytics != null) mapOf("guardianAnalytics" to guardianAnalytics) else emptyMap()
+            val response = apiService.grantMedicalRecordAccess(appointmentId, requestMap)
             if (response.isSuccessful && response.body()?.success == true) {
                 response.body()?.data?.let { Result.Success(it) }
                     ?: Result.Error("Failed to share medical records")
@@ -504,7 +505,7 @@ class AppointmentRepository @Inject constructor(
 
     suspend fun submitDoctorReview(doctorId: String, consultationId: String?, rating: Int, comment: String? = null): Result<Unit> {
         return try {
-            val request = ReviewRequest(
+            val request = com.example.swastik.data.remote.dto.ReviewRequest(
                 doctorId = doctorId,
                 consultationId = consultationId,
                 rating = rating,

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.data.model.Doctor
+import com.example.swastik.data.model.PatientProfile
 import com.example.swastik.ui.theme.*
 import java.util.Locale
 import androidx.compose.material3.MaterialTheme
@@ -176,75 +177,115 @@ fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-fun CompactHealthIdCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? = null, onClick: () -> Unit) {
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Filled.QrCode2,
-                contentDescription = null,
-                tint = Color(0xFF1E293B),
-                modifier = Modifier.size(20.dp)
-            )
+            // Icon Background
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color(0xFFEEF4FA), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.QrCode2,
+                    contentDescription = "QR Code",
+                    tint = SwastikPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
+            // Text Details
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "Digital Health ID",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B)
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        Icons.Default.Verified,
-                        contentDescription = "Verified",
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFE8F5E9), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "Verified",
+                                fontSize = 9.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(2.dp))
+
+                if (profile?.abhaNumber?.isNotEmpty() == true) {
+                    val abha = profile.abhaNumber
+                    val d = abha.replace(Regex("[^0-9]"), "")
+                    val formattedAbha = if (d.length == 14) {
+                        "${d.substring(0, 2)}-${d.substring(2, 6)}-${d.substring(6, 10)}-${d.substring(10, 14)}"
+                    } else abha
+                    
                     Text(
-                        text = "Verified",
-                        fontSize = 9.sp,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Bold
+                        text = formattedAbha,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                } else {
+                    Text(
+                        text = "Manage vitals & records",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
-                Text(
-                    text = "View your vitals, history & more",
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B)
-                )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            // Arrow
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(Color(0xFFF8FAFC), CircleShape)
+                    .border(1.dp, Color(0xFFF1F5F9), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "View Vitals",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B)
-                )
                 Icon(
                     Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = Color(0xFF1E293B)
+                    contentDescription = "Open",
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -804,115 +845,146 @@ fun DoctorCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onViewProfile),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Profile Image with Verified Badge
-            Box(contentAlignment = Alignment.BottomEnd) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!doctor.profileImageUrl.isNullOrBlank()) {
-                        coil.compose.AsyncImage(
-                            model = doctor.profileImageUrl,
-                            contentDescription = "Doctor Profile",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                // Profile Image with Verified Badge
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF8FAFC)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!doctor.profileImageUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = doctor.profileImageUrl,
+                                contentDescription = "Doctor Profile",
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text("👨‍⚕️", fontSize = 32.sp)
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .background(Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Verified, 
+                            null, 
+                            tint = Color(0xFF00796B), 
+                            modifier = Modifier.size(18.dp)
                         )
-                    } else {
-                        Text("👨‍⚕️", fontSize = 32.sp)
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .background(Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Verified, 
-                        null, 
-                        tint = Color(0xFF4CAF50), 
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
 
-            Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-            // Info Column
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Info Column
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            doctor.name, 
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp, 
+                            color = Color(0xFF1E293B),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(14.dp))
+                            val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
+                            Text(" $ratingText", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
+                        }
+                    }
+                    
                     Text(
-                        doctor.name, 
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp, 
-                        color = MaterialTheme.colorScheme.onSurface,
+                        doctor.specialization, 
+                        fontSize = 13.sp, 
+                        color = Color(0xFF00796B),
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
-                }
-                
-                Text(
-                    doctor.specialization, 
-                    fontSize = 12.sp, 
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Text(
-                    text = "${doctor.qualification ?: doctor.qualifications?.joinToString(", ") ?: "MBBS, MS"} • ${doctor.experienceYears ?: 5} Years Exp.",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    Icon(Icons.Filled.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(12.dp))
-                    val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
-                    Text(" $ratingText", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${doctor.experienceYears ?: 5} Yrs Exp",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF475569)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = doctor.qualification ?: doctor.qualifications?.firstOrNull() ?: "MBBS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF475569),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
-
-            // Right side: Price and Action
-            Column(
-                modifier = Modifier.widthIn(min = 88.dp, max = 110.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            
+            Spacer(modifier = Modifier.height(14.dp))
+            androidx.compose.material3.HorizontalDivider(color = Color(0xFFF1F5F9))
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Consultation Fee", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column {
+                    Text("Consultation Fee", fontSize = 11.sp, color = Color(0xFF64748B))
                     Text(
                         "₹${doctor.consultationFee ?: 500}", 
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold, 
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = Color(0xFF1E293B)
                     )
                 }
                 
                 Button(
                     onClick = onBookClick,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF004D40)),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                    modifier = Modifier.heightIn(min = 38.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Text("Book Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Book Visit", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

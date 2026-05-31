@@ -278,6 +278,8 @@ class WebRTCManager(
 
         val audioDeviceModule = try {
             JavaAudioDeviceModule.builder(context)
+                .setUseHardwareAcousticEchoCanceler(true)
+                .setUseHardwareNoiseSuppressor(true)
                 .setAudioRecordErrorCallback(object : JavaAudioDeviceModule.AudioRecordErrorCallback {
                     override fun onWebRtcAudioRecordInitError(errorMessage: String?) {
                         Log.e(TAG, "AudioRecord init error: $errorMessage")
@@ -292,7 +294,10 @@ class WebRTCManager(
                 .createAudioDeviceModule()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create JavaAudioDeviceModule: ${e.message}")
-            JavaAudioDeviceModule.builder(context).setUseHardwareAcousticEchoCanceler(false).setUseHardwareNoiseSuppressor(false).createAudioDeviceModule()
+            JavaAudioDeviceModule.builder(context)
+                .setUseHardwareAcousticEchoCanceler(true)
+                .setUseHardwareNoiseSuppressor(true)
+                .createAudioDeviceModule()
         }
 
         runCatching {

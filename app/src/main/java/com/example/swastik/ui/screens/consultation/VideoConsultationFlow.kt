@@ -131,9 +131,12 @@ fun VideoConsultationFlow(
             onBackClick = onBackClick,
             onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess(it) },
             onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
-            onStartConsultation = {
+            onStartConsultation = { allowAiVitals ->
                 val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
                 val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+                // Pass the consent value to viewModel
+                viewModel.setVisionAnalysisConsent(allowAiVitals)
 
                 if (hasCamera && hasMic) {
                     viewModel.joinConsultation(appointmentId)

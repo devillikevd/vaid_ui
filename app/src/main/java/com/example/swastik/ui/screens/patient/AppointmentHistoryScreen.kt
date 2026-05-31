@@ -53,7 +53,8 @@ fun AppointmentHistoryScreen(
     onStartConsultation: (Appointment) -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToBooking: () -> Unit = {},
-    viewModel: AppointmentViewModel = hiltViewModel()
+    viewModel: AppointmentViewModel = hiltViewModel(),
+    reviewViewModel: com.example.swastik.ui.viewmodel.ReviewViewModel = hiltViewModel()
 ) {
     val initialEnum = remember(initialFilter) {
         when (initialFilter?.uppercase()) {
@@ -208,22 +209,35 @@ fun AppointmentHistoryScreen(
         )
     }
 
-    // Review Doctor Dialog
+    // Review Dialog
     showReviewDialog?.let { appointment ->
-        ConsultationCompletionDialog(
-            doctorName = appointment.doctor?.name,
+        com.example.swastik.ui.screens.patient.appointments.MultiEntityReviewDialog(
+            doctorName = appointment.doctor?.name ?: "",
+            facilityName = appointment.clinic?.name ?: appointment.hospital?.name,
+            facilityType = when {
+                appointment.clinic != null -> "clinic"
+                appointment.hospital != null -> "hospital"
+                else -> null
+            },
             onDismiss = { showReviewDialog = null },
-            onSubmitReview = { rating, comment ->
-                viewModel.submitReview(
-                    doctorId = appointment.doctorId,
-                    appointmentId = appointment.id,
-                    rating = rating,
-                    comment = comment,
-                    onComplete = {
-                        showReviewDialog = null
-                        viewModel.loadAppointments() // Refresh to maybe hide rating button if we had a way to track it
-                    }
-                )
+            onSubmitReview = { targetType, rating, comment ->
+                val reviewableId = when(targetType) {
+                    "doctor" -> appointment.doctorId
+                    "clinic" -> appointment.clinic?.id ?: ""
+                    "hospital" -> appointment.hospital?.id ?: ""
+                    else -> ""
+                }
+                if (reviewableId.isNotEmpty()) {
+                    reviewViewModel.submitReview(
+                        reviewableType = targetType,
+                        reviewableId = reviewableId,
+                        consultationId = appointment.id,
+                        rating = rating,
+                        comment = comment
+                    )
+                }
+                showReviewDialog = null
+                viewModel.loadAppointments()
             }
         )
     }

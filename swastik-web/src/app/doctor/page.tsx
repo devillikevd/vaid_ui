@@ -287,6 +287,53 @@ export default function DoctorDashboard() {
                         </CardContent>
                     </Card>
 
+                    {/* Recent Reviews */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Reviews</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {(() => {
+                                    // Local state for reviews since fetching relies on user ID
+                                    const { user } = useAuthStore();
+                                    const { fetchReviews, reviews, loadingReviews } = useDoctorStore();
+                                    useEffect(() => {
+                                        if (user?.id) {
+                                            fetchReviews(user.id);
+                                        }
+                                    }, [user?.id, fetchReviews]);
+                                    
+                                    if (loadingReviews && reviews.length === 0) {
+                                        return <div className="text-center py-4"><span className="text-emerald-600">Loading reviews...</span></div>;
+                                    }
+                                    
+                                    if (reviews.length === 0) {
+                                        return <p className="text-sm text-gray-500 dark:text-gray-400">No reviews yet.</p>;
+                                    }
+                                    
+                                    return reviews.slice(0, 3).map((review) => (
+                                        <div key={review.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                    {review.is_anonymous ? 'Anonymous' : (review.patient?.name || 'Patient')}
+                                                </span>
+                                                <div className="flex">
+                                                    {Array.from({ length: 5 }).map((_, i) => (
+                                                        <span key={i} className={`text-xs ${i < review.rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {review.comment && (
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">"{review.comment}"</p>
+                                            )}
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Upcoming Appointments */}
                     <Card>
                         <CardHeader>

@@ -95,29 +95,25 @@ fun FindDoctorsBySpecialitySection(
             }
         }
 
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val columns = if (this.maxWidth < 340.dp) 2 else 4
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                currentList.chunked(columns).forEach { rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowItems.forEach { speciality ->
-                            SpecialityHomeCard(
-                                title = speciality,
-                                modifier = Modifier.weight(1f),
-                                onClick = { onSpecialityClick(speciality) }
-                            )
-                        }
-                        repeat(columns - rowItems.size) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
+        androidx.compose.foundation.lazy.LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(currentList.chunked(2).size) { index ->
+                val pair = currentList.chunked(2)[index]
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SpecialityHomeCard(
+                        title = pair[0],
+                        modifier = Modifier.width(110.dp),
+                        onClick = { onSpecialityClick(pair[0]) }
+                    )
+                    if (pair.size > 1) {
+                        SpecialityHomeCard(
+                            title = pair[1],
+                            modifier = Modifier.width(110.dp),
+                            onClick = { onSpecialityClick(pair[1]) }
+                        )
                     }
                 }
             }

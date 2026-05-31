@@ -354,7 +354,7 @@ class PatientService {
     return this._buildMedicalRecordAccessPayload(appointment, grant);
   }
 
-  async grantMedicalRecordAccessForAppointment(userId, appointmentId) {
+  async grantMedicalRecordAccessForAppointment(userId, appointmentId, guardianAnalytics = null) {
     const { patient, appointment } = await this._resolveRecordAccessContext(userId, appointmentId);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + MEDICAL_RECORD_ACCESS_HOURS * 60 * 60 * 1000);
@@ -370,12 +370,16 @@ class PatientService {
         granted_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
         revoked_at: null,
-        updated_at: now.toISOString(),
+        updated_at: now.toISOString()
       }, { onConflict: 'patient_id,doctor_id' })
       .select('*')
       .single();
 
     if (error) throw error;
+
+    if (guardianAnalytics) {
+      await cacheSet(`record_access_analytics:${grant.id}`, guardianAnalytics, MEDICAL_RECORD_ACCESS_HOURS * 60 * 60);
+    }
 
     return this._buildMedicalRecordAccessPayload(appointment, grant);
   }
@@ -727,9 +731,7 @@ class PatientService {
           .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
-          .in('specialization', [...targetSpecializations])
-          .order('rating', { ascending: false })
-          .limit(normalizedLimit * 3);
+          .in('specialization', [...targetSpecializations]);
 
         recommendedDoctors = (matchedDoctors || [])
           .map(doc => {
@@ -737,26 +739,30 @@ class PatientService {
             let scoreBoost = 0;
             const docCity = doc.hospital?.city?.toLowerCase()?.trim();
             if (patientCity && docCity && patientCity.includes(docCity)) {
-              scoreBoost += 5;
+              scoreBoost += 20; // High weight for same city
               reason = `${reason} (Nearby)`;
             }
             if (doc.video_consultation_fee != null) {
-              scoreBoost += 1; // Slight boost for video availability
+              scoreBoost += 5; // Boost for video availability
             }
+            
+            // Rich composite scoring
+            const rating = parseFloat(doc.rating) || 0;
+            const reviews = parseInt(doc.total_reviews) || 0;
+            const exp = parseInt(doc.experience_years) || 0;
+            const baseScore = (rating * 10) + (Math.log10(reviews + 1) * 5) + (exp * 0.5);
+            
+            const specScore = (specializationScores.get(doc.specialization) || 0) * 15; // heavily weight personalization
+            
             return {
               ...doc,
               recommendation_reason: reason,
-              _specializationScore: (specializationScores.get(doc.specialization) || 0) + scoreBoost,
+              _totalScore: baseScore + specScore + scoreBoost,
             };
           })
-          .sort((left, right) => {
-            if (right._specializationScore !== left._specializationScore) {
-              return right._specializationScore - left._specializationScore;
-            }
-            return (right.rating || 0) - (left.rating || 0);
-          })
+          .sort((a, b) => b._totalScore - a._totalScore)
           .slice(0, normalizedLimit)
-          .map(({ _specializationScore, ...doctor }) => doctor);
+          .map(({ _totalScore, ...doctor }) => doctor);
       }
 
       // --- Fallback: fill remaining slots with top-rated doctors ---
@@ -768,26 +774,32 @@ class PatientService {
           .from('doctors')
           .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital:hospitals(city)')
           .eq('is_approved', true)
-          .eq('is_available', true)
-          .order('rating', { ascending: false })
-          // Pull a slightly larger pool so we can remove duplicates in-memory safely
-          .limit(normalizedLimit * 3);
+          .eq('is_available', true);
 
         const fallbackDoctors = (fallbackPool || [])
           .filter(doc => !existingIds.includes(doc.id))
           .map(doc => {
+            let scoreBoost = 0;
             const docCity = doc.hospital?.city?.toLowerCase()?.trim();
             const isNearby = patientCity && docCity && patientCity.includes(docCity);
+            if (isNearby) scoreBoost += 20;
+            if (doc.video_consultation_fee != null) scoreBoost += 5;
+            
+            const rating = parseFloat(doc.rating) || 0;
+            const reviews = parseInt(doc.total_reviews) || 0;
+            const exp = parseInt(doc.experience_years) || 0;
+            const baseScore = (rating * 10) + (Math.log10(reviews + 1) * 5) + (exp * 0.5);
+
             return {
               ...doc,
               isNearby,
-              _score: (isNearby ? 5 : 0) + (doc.video_consultation_fee != null ? 1 : 0) + (doc.rating || 0)
+              _totalScore: baseScore + scoreBoost
             };
           })
-          .sort((a, b) => b._score - a._score)
+          .sort((a, b) => b._totalScore - a._totalScore)
           .slice(0, remaining);
 
-        const fallbackWithReason = (fallbackDoctors || []).map(({ isNearby, _score, ...doc }) => ({
+        const fallbackWithReason = (fallbackDoctors || []).map(({ isNearby, _totalScore, ...doc }) => ({
           ...doc,
           recommendation_reason: isNearby ? 'Top rated nearby doctor' : 'Top rated doctor',
         }));

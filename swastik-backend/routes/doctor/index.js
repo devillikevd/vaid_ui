@@ -7,6 +7,8 @@ const { uploadProfileImage } = require('../../middleware/upload');
 const doctorService = require('../../services/doctorService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 
+const { cacheMiddleware } = require('../../middleware/cache');
+
 const router = express.Router();
 
 // ============ PUBLIC ROUTES ============
@@ -14,6 +16,7 @@ const router = express.Router();
 // Get all doctors (with filters)
 router.get('/',
   optionalAuth,
+  cacheMiddleware(60 * 5), // Cache for 5 minutes
   asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, specialization, isAvailable, minRating, maxFee, search, city, latitude, longitude } = req.query;
     const result = await doctorService.getAllDoctors(
@@ -454,6 +457,41 @@ router.get('/:id/slots',
   asyncHandler(async (req, res) => {
     const slots = await doctorService.getAvailableSlots(req.params.id, req.query.date);
     res.json({ success: true, data: slots });
+  })
+);
+
+// Get doctor queue stats
+router.get('/:id/queue-stats',
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { id } = req.params;
+
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data: appointments, error } = await supabaseAdmin
+      .from('appointments')
+      .select('status')
+      .eq('doctor_id', id)
+      .eq('appointment_date', today);
+
+    if (error) {
+      console.error("Queue stats error:", error);
+      return res.status(500).json({ success: false, message: 'Failed to fetch queue stats' });
+    }
+
+    const currentQueue = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
+    const inProgress = appointments.filter(a => a.status === 'in_progress' || a.status === 'started').length;
+    const estimatedWaitTime = currentQueue * 15; // 15 mins per patient
+
+    res.json({
+      success: true,
+      data: {
+        currentQueue,
+        inProgress,
+        estimatedWaitTime
+      }
+    });
   })
 );
 

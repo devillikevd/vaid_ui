@@ -100,6 +100,18 @@ export interface PatientVitals {
     created_at?: string;
 }
 
+export interface DoctorReview {
+    id: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+    is_anonymous: boolean;
+    created_at: string;
+    patient?: {
+        name: string;
+    };
+}
+
 interface DoctorState {
     stats: DoctorDashboardStats | null;
     todaysAppointments: Appointment[];
@@ -110,6 +122,7 @@ interface DoctorState {
     schedule: TimeSlot[];
     prescriptions: Prescription[];
     vitals: PatientVitals[];
+    reviews: DoctorReview[];
     isLoading: boolean;
     loadingDashboard: boolean;
     loadingAppointments: boolean;
@@ -118,6 +131,7 @@ interface DoctorState {
     loadingSchedule: boolean;
     loadingPrescriptions: boolean;
     loadingVitals: boolean;
+    loadingReviews: boolean;
     error: string | null;
 
     // Pagination state
@@ -125,6 +139,7 @@ interface DoctorState {
     prescriptionsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     vitalsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
     patientsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
+    reviewsPagination: { page: number; totalPages: number; total: number; hasMore: boolean };
 
     clearError: () => void;
     reset: () => void;
@@ -135,6 +150,7 @@ interface DoctorState {
     fetchSchedule: () => Promise<void>;
     fetchPrescriptions: (page?: number) => Promise<void>;
     fetchVitals: (page?: number, patientId?: string) => Promise<void>;
+    fetchReviews: (doctorId: string, page?: number) => Promise<void>;
     loadMoreAppointments: (status?: string, date?: string) => Promise<void>;
     loadMorePrescriptions: () => Promise<void>;
     loadMoreVitals: (patientId?: string) => Promise<void>;
@@ -230,6 +246,7 @@ const doctorInitialState = {
     schedule: [] as TimeSlot[],
     prescriptions: [] as Prescription[],
     vitals: [] as PatientVitals[],
+    reviews: [] as DoctorReview[],
     isLoading: false,
     loadingDashboard: false,
     loadingAppointments: false,
@@ -238,11 +255,13 @@ const doctorInitialState = {
     loadingSchedule: false,
     loadingPrescriptions: false,
     loadingVitals: false,
+    loadingReviews: false,
     error: null as string | null,
     appointmentsPagination: { ...defaultPagination },
     prescriptionsPagination: { ...defaultPagination },
     vitalsPagination: { ...defaultPagination },
     patientsPagination: { ...defaultPagination },
+    reviewsPagination: { ...defaultPagination },
 };
 
 export const useDoctorStore = create<DoctorState>((set, get) => ({
@@ -443,6 +462,33 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching vitals:', error);
             set({ error: 'Failed to load vitals.', loadingVitals: false });
+        }
+    },
+
+    fetchReviews: async (doctorId: string, page = 1) => {
+        set({ loadingReviews: true, error: null });
+        try {
+            const response = await doctorApi.getReviews(doctorId, page);
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load reviews', loadingReviews: false });
+                return;
+            }
+            const rawData = response.data;
+            const reviews = (Array.isArray(rawData) ? rawData : (rawData as any)?.reviews || (rawData as any)?.data || []) as DoctorReview[];
+            const pagination = (response as any).pagination as Record<string, number> | undefined;
+            set({
+                reviews: page === 1 ? reviews : [...get().reviews, ...reviews],
+                reviewsPagination: pagination ? {
+                    page: pagination.page || page,
+                    totalPages: pagination.totalPages || 1,
+                    total: pagination.total || reviews.length,
+                    hasMore: (pagination.page || page) < (pagination.totalPages || 1),
+                } : { page, totalPages: 1, total: reviews.length, hasMore: false },
+                loadingReviews: false,
+            });
+        } catch (error) {
+            console.error('Error fetching reviews:', error);
+            set({ error: 'Failed to load reviews.', loadingReviews: false });
         }
     },
 

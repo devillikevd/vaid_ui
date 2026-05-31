@@ -662,7 +662,13 @@ class PatientDashboardViewModel @Inject constructor(
     fun generateHealthCard() {
         viewModelScope.launch {
             _healthCardState.value = _healthCardState.value.copy(isLoading = true, error = null)
-            when (val result = patientRepository.generateHealthCard()) {
+            
+            var analyticsJson: String? = null
+            if (com.example.swastik.data.local.AppSettingsStore.settings.value.guardianFeatures.doctorQrSharing) {
+                analyticsJson = guardianRepository.generateAnalyticsReportJson()
+            }
+            
+            when (val result = patientRepository.generateHealthCard(analyticsJson)) {
                 is Result.Success -> {
                     _healthCardState.value = HealthCardState(
                         url = result.data.url,
@@ -758,7 +764,7 @@ class PatientDashboardViewModel @Inject constructor(
                     when (val result = patientRepository.syncHealthConnectData(payload)) {
                         is Result.Success -> {
                             _healthConnectSyncState.value = ProfileUpdateState.Success("Health Connect data synced!")
-                            AppSettingsStore.updateLastHealthSync(java.time.Instant.now().toString())
+                            com.example.swastik.data.local.AppSettingsStore.updateLastHealthSync(java.time.Instant.now().toString())
                             refresh()
                         }
                         is Result.Error -> _healthConnectSyncState.value = ProfileUpdateState.Error(result.message)
@@ -909,14 +915,14 @@ class PatientDashboardViewModel @Inject constructor(
     }
 
     fun toggleGuardian(enabled: Boolean) {
-        val settings = AppSettingsStore.settings.value
+        val settings = com.example.swastik.data.local.AppSettingsStore.settings.value
         if (enabled && (!settings.guardianConsentAccepted || !settings.guardianFeatures.hasAnyMonitoringFeature())) {
             com.example.swastik.ui.components.SnackbarManager.showMessage("Read and accept Guardian details before enabling it.")
-            AppSettingsStore.updateGuardianEnabled(false)
+            com.example.swastik.data.local.AppSettingsStore.updateGuardianEnabled(false)
             return
         }
 
-        AppSettingsStore.updateGuardianEnabled(enabled)
+        com.example.swastik.data.local.AppSettingsStore.updateGuardianEnabled(enabled)
         if (enabled) {
             val intent = android.content.Intent(context, com.example.swastik.services.guardian.GuardianService::class.java)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
@@ -931,11 +937,11 @@ class PatientDashboardViewModel @Inject constructor(
     }
 
     fun acceptGuardianConsent(features: GuardianFeaturePreferences) {
-        AppSettingsStore.acceptGuardianConsent(features)
+        com.example.swastik.data.local.AppSettingsStore.acceptGuardianConsent(features)
     }
 
     fun updateGuardianFeaturePreferences(features: GuardianFeaturePreferences) {
-        AppSettingsStore.updateGuardianFeaturePreferences(features)
+        com.example.swastik.data.local.AppSettingsStore.updateGuardianFeaturePreferences(features)
     }
 
     suspend fun getGuardianAnalytics(): String {

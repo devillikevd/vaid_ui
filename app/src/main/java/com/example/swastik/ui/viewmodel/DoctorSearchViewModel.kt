@@ -46,7 +46,8 @@ data class DoctorSearchFilters(
     val clinicId: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
-    val city: String? = null
+    val city: String? = null,
+    val global: Boolean? = null
 )
 
 /**
@@ -80,7 +81,8 @@ class DoctorSearchViewModel @Inject constructor(
                 clinicId = filters.clinicId,
                 latitude = filters.latitude,
                 longitude = filters.longitude,
-                city = filters.city
+                city = filters.city,
+                global = filters.global
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -109,7 +111,8 @@ class DoctorSearchViewModel @Inject constructor(
         clinicId: String? = _filters.value.clinicId,
         latitude: Double? = _filters.value.latitude,
         longitude: Double? = _filters.value.longitude,
-        city: String? = _filters.value.city
+        city: String? = _filters.value.city,
+        global: Boolean? = _filters.value.global
     ) {
         _filters.value = DoctorSearchFilters(
             specialization = specialization,
@@ -118,7 +121,8 @@ class DoctorSearchViewModel @Inject constructor(
             clinicId = clinicId,
             latitude = latitude,
             longitude = longitude,
-            city = city
+            city = city,
+            global = global
         )
         searchDoctors(resetList = true)
     }
@@ -131,13 +135,15 @@ class DoctorSearchViewModel @Inject constructor(
     }
 
     /**
-     * Set GPS location for in-person search
+     * Set GPS location for in-person or global search
      */
-    fun setInPersonLocation() {
+    fun setInPersonLocation(isGlobal: Boolean = false) {
         viewModelScope.launch {
             val location = locationHelper.getLastLocation()
             if (location != null) {
-                updateFilters(latitude = location.latitude, longitude = location.longitude, city = null)
+                updateFilters(latitude = location.latitude, longitude = location.longitude, city = null, global = if(isGlobal) true else null)
+            } else if (isGlobal) {
+                updateFilters(global = true)
             }
         }
     }

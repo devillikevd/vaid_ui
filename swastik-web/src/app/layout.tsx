@@ -8,6 +8,8 @@ import '@/lib/env'; // Validates env vars on server startup
 export const metadata: Metadata = {
   title: "VAIDIDEA Healthcare Platform",
   description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
+  manifest: "/manifest.json",
+  themeColor: "#0ea5e9",
 };
 
 export default function RootLayout({

@@ -113,7 +113,7 @@
                 <data android:scheme="https" android:host="vaididea.in" />
             </intent-filter>
 
-            <!-- Health Connect Privacy Policy Rationale -->
+            <!-- Health Connect Privacy Policy Rationale (Android 13) -->
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
@@ -121,6 +121,18 @@
                 android:name="health_permissions"
                 android:resource="@array/health_permissions" />
         </activity>
+
+        <!-- Health Connect Privacy Policy Link (Android 14+) -->
+        <activity-alias
+            android:name=".ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".notifications.ReminderAlarmActivity"

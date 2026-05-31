@@ -585,7 +585,6 @@ export const doctorApi = {
             body: JSON.stringify(settings),
         }),
 
-    // ── Outbreak Alerts (read-only) ──
     getOutbreakAlerts: (city?: string) => {
         const params = new URLSearchParams();
         if (city) params.set('city', city);
@@ -593,6 +592,9 @@ export const doctorApi = {
     },
     getOutbreakHeatmap: () => fetchWithAuth('/admin/outbreaks/public/heatmap'),
     getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
+
+    getReviews: (doctorId: string, page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/patient/reviews/doctor/${doctorId}?page=${page}&limit=${limit}`),
 };
 
 // ==================== HOSPITAL API ====================

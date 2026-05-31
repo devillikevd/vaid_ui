@@ -55,6 +55,10 @@ const getDiagnosticBookingStatusFilters = (status) => {
   return [normalizedStatus];
 };
 
+// Mount reviews router
+const reviewsRoutes = require('./reviews');
+router.use('/reviews', reviewsRoutes);
+
 // All routes require authentication and patient role
 router.use(authenticate);
 router.use(authorize('patient'));
@@ -577,7 +581,16 @@ router.post('/appointments/:appointmentId/record-access',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const access = await patientService.grantMedicalRecordAccessForAppointment(req.user.id, req.params.appointmentId);
+    const { guardian_analytics } = req.body;
+    let parsedAnalytics = null;
+    if (guardian_analytics) {
+      try {
+        parsedAnalytics = typeof guardian_analytics === 'string' ? JSON.parse(guardian_analytics) : guardian_analytics;
+      } catch (err) {
+        console.warn('Invalid guardian_analytics JSON provided');
+      }
+    }
+    const access = await patientService.grantMedicalRecordAccessForAppointment(req.user.id, req.params.appointmentId, parsedAnalytics);
     res.json({
       success: true,
       data: access,
@@ -646,9 +659,9 @@ router.get('/doctors/recommended',
 // Search doctors
 router.get('/doctors',
   asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude } = req.query;
+    const { page = 1, limit = 20, specialization, search, hospitalId, clinicId, city, latitude, longitude, global } = req.query;
     const result = await doctorService.getAllDoctors(
-      { specialization, search, hospitalId, clinicId, city, latitude, longitude },
+      { specialization, search, hospitalId, clinicId, city, latitude, longitude, global: global === 'true' },
       parseInt(page),
       parseInt(limit)
     );
@@ -665,7 +678,11 @@ router.get('/doctors/:id',
       data: {
         doctor: doctorDetails,
         schedules: doctorDetails.slots || [],
-        reviews: doctorDetails.reviews || []
+        reviews: doctorDetails.reviews || [],
+        reviewDistribution: doctorDetails.reviewDistribution || {},
+        queueCount: doctorDetails.queueCount || 0,
+        clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
+        hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
       }
     });
   })

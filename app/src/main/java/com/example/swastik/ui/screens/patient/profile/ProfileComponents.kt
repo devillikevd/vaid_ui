@@ -439,10 +439,18 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                 Text(
-                    if (hasAbha) profile?.abhaNumber ?: "" else stringResource(R.string.not_linked),
+                    if (hasAbha) {
+                        val abha = profile?.abhaNumber ?: ""
+                        val d = abha.replace(Regex("[^0-9]"), "")
+                        if (d.length == 14) {
+                            "${d.substring(0, 2)}-${d.substring(2, 6)}-${d.substring(6, 10)}-${d.substring(10, 14)}"
+                        } else abha
+                    } else stringResource(R.string.not_linked),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = accentTextColor
+                    color = accentTextColor,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
                 Text(
                     if (hasAbha) stringResource(R.string.linked_hospitals, profile?.linkedHospitals ?: 0) else stringResource(R.string.tap_to_link_abha),

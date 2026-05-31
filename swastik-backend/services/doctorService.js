@@ -221,6 +221,13 @@ class DoctorService {
     if (updateData.profileImage !== undefined || updateData.profile_image !== undefined || updateData.profile_image_url !== undefined) {
       updatePayload.profile_image_url = updateData.profileImage ?? updateData.profile_image ?? updateData.profile_image_url;
     }
+    if (updateData.awards !== undefined) updatePayload.awards = updateData.awards;
+    if (updateData.consultationTypes !== undefined || updateData.consultation_types !== undefined) {
+      updatePayload.consultation_types = updateData.consultationTypes ?? updateData.consultation_types;
+    }
+    if (updateData.education !== undefined) updatePayload.education = updateData.education;
+    if (updateData.certifications !== undefined) updatePayload.certifications = updateData.certifications;
+    
     Object.assign(updatePayload, buildProviderResubmissionFields('doctor', doctor.approval_status));
 
     const { data: updatedDoctor, error } = await supabaseAdmin
@@ -468,20 +475,28 @@ class DoctorService {
       if (s) query = query.or(`name.ilike.%${s}%,specialization.ilike.%${s}%`);
     }
 
-    const { data: doctors, count, error } = await query
-      .order('rating', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Determine if we need to sort by distance (which requires fetching all first)
+    const patLat = parseFloat(filters.latitude);
+    const patLng = parseFloat(filters.longitude);
+    const hasLocation = !isNaN(patLat) && !isNaN(patLng) && (patLat !== 0 || patLng !== 0);
+
+    let doctors, count, error;
+
+    // We fetch all matching doctors to perform a smart in-memory ranking
+    // for both Location-based (distance) and Non-Location-based (smart score).
+    // This ensures true "Best Possible" recommendations globally.
+    const res = await query;
+    doctors = res.data;
+    count = res.count;
+    error = res.error;
 
     if (error) {
       throw new ApiError(400, 'Failed to fetch doctors');
     }
 
-    // If patient provided latitude/longitude, compute distance and sort
-    const patLat = parseFloat(filters.latitude);
-    const patLng = parseFloat(filters.longitude);
     let result = doctors || [];
 
-    if (!isNaN(patLat) && !isNaN(patLng) && (patLat !== 0 || patLng !== 0)) {
+    if (hasLocation) {
       result = result.map(doc => {
         const hospLat = doc.hospital?.latitude;
         const hospLng = doc.hospital?.longitude;
@@ -491,7 +506,9 @@ class DoctorService {
         }
         return { ...doc, distance_km: distance };
       });
+    }
 
+    if (hasLocation && !filters.global) {
       // Sort by distance (nearest first), null distances go to the end
       result.sort((a, b) => {
         if (a.distance_km === null && b.distance_km === null) return 0;
@@ -499,8 +516,23 @@ class DoctorService {
         if (b.distance_km === null) return -1;
         return a.distance_km - b.distance_km;
       });
+    } else {
+      // SMART RANKING: Top suggested based on rating and reviews
+      // Score formula: (rating * 10) + log10(total_reviews + 1) * 5
+      // This guarantees highly rated doctors with many reviews appear first!
+      result = result.map(doc => {
+        const rating = parseFloat(doc.rating) || 0;
+        const reviews = parseInt(doc.total_reviews) || 0;
+        const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+        return { ...doc, smart_score: score };
+      });
+
+      result.sort((a, b) => b.smart_score - a.smart_score);
     }
 
+    // Apply pagination in memory for both cases
+    count = result.length;
+    result = result.slice(offset, offset + limit);
     return paginatedResponse(result, count, page, limit);
   }
 
@@ -520,28 +552,40 @@ class DoctorService {
       throw new ApiError(404, 'Doctor not found');
     }
 
-    // Get available slots
-    const { data: slots } = await supabaseAdmin
-      .from('doctor_slots')
-      .select('*')
-      .eq('doctor_id', doctorId)
-      .eq('is_active', true);
+    // Fetch related data in parallel
+    const [
+      { data: slots },
+      { data: reviews },
+      { data: reviewsDist },
+      { data: queueCount },
+      { data: clinicsData },
+      { data: hospitalsData }
+    ] = await Promise.all([
+      supabaseAdmin.from('doctor_slots').select('*').eq('doctor_id', doctorId).eq('is_active', true),
+      supabaseAdmin.from('doctor_reviews').select('*, patient:patients(name)').eq('doctor_id', doctorId).order('created_at', { ascending: false }).limit(10),
+      supabaseAdmin.from('doctor_reviews').select('rating').eq('doctor_id', doctorId),
+      supabaseAdmin.rpc('get_doctor_queue_count', { p_doctor_id: doctorId }),
+      supabaseAdmin.from('clinic_doctors').select('consultation_fee, schedule, clinic:clinics(*)').eq('doctor_id', doctorId).eq('is_active', true),
+      supabaseAdmin.from('hospital_doctors').select('department, designation, schedule, hospital:hospitals(*)').eq('doctor_id', doctorId).eq('is_active', true),
+    ]);
 
-    // Get reviews
-    const { data: reviews } = await supabaseAdmin
-      .from('doctor_reviews')
-      .select(`
-        *,
-        patient:patients(name)
-      `)
-      .eq('doctor_id', doctorId)
-      .order('created_at', { ascending: false })
-      .limit(10);
+    const reviewDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    if (reviewsDist) {
+      reviewsDist.forEach(r => {
+        if (r.rating) {
+          reviewDistribution[r.rating] = (reviewDistribution[r.rating] || 0) + 1;
+        }
+      });
+    }
 
     return {
       ...doctor,
       slots: slots || [],
       reviews: reviews || [],
+      reviewDistribution,
+      queueCount: queueCount || 0,
+      affiliatedClinics: clinicsData || [],
+      affiliatedHospitals: hospitalsData || [],
     };
   }
 
@@ -1145,6 +1189,18 @@ class DoctorService {
 
     const grant = await getActivePatientRecordGrant(patientId, doctor.id);
 
+    let guardianAnalytics = null;
+    if (grant) {
+      try {
+        const cached = await cacheGet(`record_access_analytics:${grant.id}`);
+        if (cached) {
+          guardianAnalytics = typeof cached === 'string' ? JSON.parse(cached) : cached;
+        }
+      } catch (err) {
+        console.error('Failed to get guardian analytics', err);
+      }
+    }
+
     const [
       { data: patient },
       { data: consultations },
@@ -1250,6 +1306,7 @@ class DoctorService {
         grantedAt: grant?.granted_at || null,
         expiresAt: grant?.expires_at || null,
         reportVisibility: grant ? 'all' : ((visibleReports || []).length > 0 ? 'shared_only' : 'none'),
+        guardianAnalytics: guardianAnalytics,
       },
     };
   }

@@ -33,7 +33,17 @@ const healthCardLimiter = rateLimit({
 router.post('/generate', authenticate,
   requireRole(ROLES.PATIENT),
   asyncHandler(async (req, res) => {
-    const result = await healthCardService.generateToken(req.user.id);
+    const { guardian_analytics } = req.body;
+    let parsedAnalytics = null;
+    if (guardian_analytics) {
+      try {
+        parsedAnalytics = typeof guardian_analytics === 'string' ? JSON.parse(guardian_analytics) : guardian_analytics;
+      } catch (err) {
+        // invalid JSON, ignore or log
+        console.warn('Invalid guardian_analytics JSON provided');
+      }
+    }
+    const result = await healthCardService.generateToken(req.user.id, parsedAnalytics);
     res.json({ success: true, data: result });
   })
 );

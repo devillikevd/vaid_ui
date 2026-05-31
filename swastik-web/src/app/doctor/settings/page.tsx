@@ -43,6 +43,8 @@ export default function DoctorSettingsPage() {
         licenseDocumentUrl: '',
         degreeCertificateUrl: '',
         profileImage: '' as string | null,
+        awards: '',
+        consultationTypes: [] as string[],
     });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
     const [settings, setSettings] = useState({
@@ -75,6 +77,8 @@ export default function DoctorSettingsPage() {
                         licenseDocumentUrl: p.license_document_url || '',
                         degreeCertificateUrl: p.degree_certificate_url || '',
                         profileImage: p.profile_image_url || p.profile_image || p.profileImage || p.avatar_url || null,
+                        awards: Array.isArray(p.awards) ? p.awards.join(', ') : (p.awards || ''),
+                        consultationTypes: Array.isArray(p.consultation_types) ? p.consultation_types : ['In-Person', 'Video'],
                     });
                 }
                 if (notifRes.success) {
@@ -137,6 +141,8 @@ export default function DoctorSettingsPage() {
                 license_document_url: profile.licenseDocumentUrl.trim() || undefined,
                 degree_certificate_url: profile.degreeCertificateUrl.trim() || undefined,
                 profile_image: profile.profileImage || undefined,
+                awards: profile.awards.split(',').map((item) => item.trim()).filter(Boolean),
+                consultation_types: profile.consultationTypes,
             });
             if (res.success) {
                 const refreshedUser = await refreshAuthenticatedUser();
@@ -232,6 +238,40 @@ export default function DoctorSettingsPage() {
                         </div>
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Languages</label>
                             <Input value={profile.languages} onChange={e => setProfile(p => ({ ...p, languages: e.target.value }))} placeholder="Example: Hindi, English, Marathi" />
+                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Awards & Achievements</label>
+                            <Input value={profile.awards} onChange={e => setProfile(p => ({ ...p, awards: e.target.value }))} placeholder="Example: Best ENT Specialist 2022, Excellence in Patient Care 2021" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Consultation Types</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={profile.consultationTypes.includes('In-Person')}
+                                        onChange={(e) => {
+                                            const set = new Set(profile.consultationTypes);
+                                            e.target.checked ? set.add('In-Person') : set.delete('In-Person');
+                                            setProfile(p => ({ ...p, consultationTypes: Array.from(set) }));
+                                        }}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">In-Person</span>
+                                </label>
+                                <label className="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={profile.consultationTypes.includes('Video')}
+                                        onChange={(e) => {
+                                            const set = new Set(profile.consultationTypes);
+                                            e.target.checked ? set.add('Video') : set.delete('Video');
+                                            setProfile(p => ({ ...p, consultationTypes: Array.from(set) }));
+                                        }}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Video Consultation</span>
+                                </label>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profile Summary</label>

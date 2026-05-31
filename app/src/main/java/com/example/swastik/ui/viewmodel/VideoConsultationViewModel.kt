@@ -251,9 +251,11 @@ class VideoConsultationViewModel @Inject constructor(
                     this.iceServers = iceServers
                 }
                 cvAnalyzer = try {
-                    ComputerVisionAnalyzer(appContext)
+                    ComputerVisionAnalyzer(appContext).also {
+                        android.util.Log.d("VideoConsultationVM", "✅ CV analyzer created successfully, faceLandmarker=${it.isFaceLandmarkerReady}")
+                    }
                 } catch (error: Throwable) {
-                    android.util.Log.e("VideoConsultationVM", "CV analyzer disabled: ${error.message}", error)
+                    android.util.Log.e("VideoConsultationVM", "❌ CV analyzer disabled: ${error.message}", error)
                     null
                 }
                 applySpeakerRoute(_uiState.value.isSpeakerOn)
@@ -920,28 +922,28 @@ class VideoConsultationViewModel @Inject constructor(
                 medicalRecordAccessMessage = null
             ) }
 
-            when (val result = appointmentRepository.grantMedicalRecordAccess(appointmentId)) {
+            val canShareGuardianAnalytics = includeGuardianAnalytics && _uiState.value.guardianAnalyticsSharingAllowed
+            var analyticsJson: String? = null
+            if (canShareGuardianAnalytics) {
+                try {
+                    analyticsJson = guardianRepository.generateAnalyticsReportJson()
+                } catch (e: Exception) {
+                    // Ignored
+                }
+            }
+
+            when (val result = appointmentRepository.grantMedicalRecordAccess(appointmentId, analyticsJson)) {
                 is Result.Success -> {
                     _uiState.update { it.copy(
                         isMedicalRecordAccessLoading = false,
                         hasMedicalRecordAccess = result.data.hasAccess,
                         medicalRecordAccessExpiresAt = result.data.expiresAt,
-                        medicalRecordAccessMessage = "Only this doctor can view your older records for the next 24 hours, unless you revoke access sooner."
-                    ) }
-                    val canShareGuardianAnalytics = includeGuardianAnalytics &&
-                        _uiState.value.guardianAnalyticsSharingAllowed
-                    if (canShareGuardianAnalytics) {
-                        try {
-                            val analyticsJson = guardianRepository.generateAnalyticsReportJson()
-                            sendChatMessage("--- Vaididea Guardian Analytics (30 Days) ---\n\n$analyticsJson")
-                        } catch (e: Exception) {
-                            // Ignored or logged
+                        medicalRecordAccessMessage = if (includeGuardianAnalytics && !canShareGuardianAnalytics) {
+                            "Record access shared. Guardian analytics were not attached because Guardian doctor/QR sharing is disabled."
+                        } else {
+                            "Only this doctor can view your older records for the next 24 hours, unless you revoke access sooner."
                         }
-                    } else if (includeGuardianAnalytics) {
-                        _uiState.update { it.copy(
-                            medicalRecordAccessMessage = "Record access shared. Guardian analytics were not attached because Guardian doctor/QR sharing is disabled."
-                        ) }
-                    }
+                    ) }
                 }
                 is Result.Error -> {
                     _uiState.update { it.copy(
@@ -1256,17 +1258,28 @@ class VideoConsultationViewModel @Inject constructor(
                 kotlinx.coroutines.delay(600)
 
                 // ── CV tick loop at 1.5 Hz while WebSocket is alive ────────
+                var diagnosticCounter = 0
                 while (coroutineContext.isActive) {
                     kotlinx.coroutines.delay(1500) // 1.5 Hz — 666ms per frame, low-bandwidth
-                    if (!_uiState.value.isConnected) continue
+                    diagnosticCounter++
+                    if (!_uiState.value.isConnected) {
+                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: not connected")
+                        continue
+                    }
                     // Stream CV vitals only while the consultation camera is actively enabled.
                     val cameraActivelyEnabled = _uiState.value.isCameraEnabled && _localVideoTrack.value != null
-                    if (!cameraActivelyEnabled) continue
+                    if (!cameraActivelyEnabled) {
+                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: camera=${_uiState.value.isCameraEnabled} track=${_localVideoTrack.value != null}")
+                        continue
+                    }
                     
                     val cvMetrics = cvAnalyzer?.vitalsData?.value ?: ComputerVisionAnalyzer.CVMetrics()
                     val metricsAgeMs = System.currentTimeMillis() - cvMetrics.capturedAtMs
                     val hasFreshFrame = cvMetrics.isFaceDetected && cvMetrics.capturedAtMs > 0L && metricsAgeMs <= 4_000L
-                    if (!hasFreshFrame) continue
+                    if (!hasFreshFrame) {
+                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: faceDetected=${cvMetrics.isFaceDetected} capturedAt=${cvMetrics.capturedAtMs} ageMs=$metricsAgeMs cvAnalyzer=${cvAnalyzer != null} attached=$isCvAnalyzerAttached")
+                        continue
+                    }
 
                     val metricsData = org.json.JSONObject().apply {
                         put("session_id", consultationId)
@@ -1322,20 +1335,38 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun attachCvAnalyzerIfPossible() {
-        if (!_uiState.value.hasConsentedToVisionAnalysis) return
-        val track = _localVideoTrack.value ?: return
-        val analyzer = cvAnalyzer ?: return
-        if (isCvAnalyzerAttached) return
+        if (!_uiState.value.hasConsentedToVisionAnalysis) {
+            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: consent=false")
+            return
+        }
+        val track = _localVideoTrack.value
+        if (track == null) {
+            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: localVideoTrack=null")
+            return
+        }
+        val analyzer = cvAnalyzer
+        if (analyzer == null) {
+            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: cvAnalyzer=null")
+            return
+        }
+        if (isCvAnalyzerAttached) {
+            android.util.Log.d("VideoConsultationVM", "CV attach skipped: already attached")
+            return
+        }
         try {
             track.addSink(analyzer)
             isCvAnalyzerAttached = true
+            android.util.Log.d("VideoConsultationVM", "✅ CV analyzer attached to video track")
         } catch (error: Throwable) {
-            android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
+            android.util.Log.e("VideoConsultationVM", "❌ Failed to attach CV analyzer: ${error.message}", error)
         }
     }
 
-    fun acceptVisionAnalysisConsent() {
-        _uiState.update { it.copy(hasConsentedToVisionAnalysis = true) }
+    /**
+     * Accept computer vision vital analysis terms
+     */
+    fun setVisionAnalysisConsent(consented: Boolean) {
+        _uiState.update { it.copy(hasConsentedToVisionAnalysis = consented) }
         attachCvAnalyzerIfPossible()
     }
 

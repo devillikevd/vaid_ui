@@ -1,6 +1,9 @@
 package com.example.swastik.ui.screens.patient.booking
 
+import android.content.Intent
+import android.provider.CalendarContract
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +29,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +38,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,7 +57,6 @@ import com.example.swastik.ui.viewmodel.DoctorSearchViewModel
 import com.example.swastik.ui.viewmodel.DoctorSearchUiState
 import com.example.swastik.ui.viewmodel.NextAvailableSlotSuggestion
 import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
-import com.example.swastik.ui.components.DoctorProfileBottomSheet
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -58,12 +64,25 @@ import java.util.*
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
+import com.example.swastik.data.model.Appointment
+
+private val StepperGreen = Color(0xFF00796B)
+private val StepperGray = Color(0xFFE0E0E0)
+private val StepperTextGray = Color(0xFF9E9E9E)
+private val CardBorderSelected = Color(0xFF00796B)
+private val CardBorderUnselected = Color(0xFFE0E0E0)
+private val PriceColor = Color(0xFF00796B)
+private val SummaryCardBg = Color(0xFFF5F9F5)
+private val ConfirmedGreen = Color(0xFF4CAF50)
 
 /**
  * Multi-step Appointment Booking Screen:
  * Step 1 → Search & select a doctor
- * Step 2 → Pick date & time slot
- * Step 3 → Choose type, add notes, confirm & book
+ * Step 2 → Consultation Details (type + notes)
+ * Step 3 → Pick date & time slot
+ * Step 4 → Review Booking
+ * Step 5 → Confirm Booking (ticket card + booking ID)
+ * Step 6 → Booking Confirmed (success)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,23 +100,24 @@ fun AppointmentBookingScreen(
     appointmentViewModel: AppointmentViewModel = hiltViewModel(),
     patientDashboardViewModel: PatientDashboardViewModel = hiltViewModel()
 ) {
-    // booking wizard state — skip Step 1 when doctor is preselected, go directly to Step 2
     var currentStep by remember { mutableIntStateOf(if (!preselectedDoctorId.isNullOrBlank()) 2 else 1) }
     var selectedDoctor by remember { mutableStateOf<Doctor?>(null) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var selectedTimeSlot by remember { mutableStateOf<String?>(null) }
     var selectedType by remember { mutableStateOf(consultationMode ?: "video") }
     var notes by remember { mutableStateOf("") }
-    var showDoctorProfile by remember { mutableStateOf<Doctor?>(null) }
+    var showDuplicateBookingDialog by remember { mutableStateOf(false) }
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, preselectedSearch, patientProfile?.location) {
         if (consultationMode == "in_person") {
-            doctorSearchViewModel.setInPersonLocation()
+            doctorSearchViewModel.setInPersonLocation(isGlobal = false)
+        } else if (consultationMode == "video" || consultationMode == "speciality" || !preselectedSpecialization.isNullOrBlank()) {
+            doctorSearchViewModel.setInPersonLocation(isGlobal = true)
         }
-
+        
         if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank()) {
             doctorSearchViewModel.updateFilters(
                 hospitalId = preselectedHospitalId,
@@ -106,7 +126,6 @@ fun AppointmentBookingScreen(
                 search = preselectedSearch
             )
         } else if (preselectedDoctorId.isNullOrBlank()) {
-            // Only search all doctors if we DON'T have a preselected doctor
             doctorSearchViewModel.searchDoctors(resetList = true)
         }
     }
@@ -120,7 +139,6 @@ fun AppointmentBookingScreen(
     val doctorState by doctorSearchViewModel.uiState.collectAsState()
     val appointmentState = appointmentViewModel.uiState
 
-    // Check for existing active appointments with the selected doctor
     val existingAppointment = remember(selectedDoctor, appointmentState.appointments) {
         selectedDoctor?.let { doctor ->
             appointmentState.appointments.find {
@@ -129,7 +147,6 @@ fun AppointmentBookingScreen(
             }
         }
     }
-    var showDuplicateBookingDialog by remember { mutableStateOf(false) }
     var hasShownDuplicateWarning by remember { mutableStateOf(false) }
 
     LaunchedEffect(existingAppointment) {
@@ -142,8 +159,7 @@ fun AppointmentBookingScreen(
     LaunchedEffect(selectedDoctor) {
         hasShownDuplicateWarning = false
     }
-    
-    // When preselected doctor loads, update selectedDoctor
+
     LaunchedEffect(doctorState.selectedDoctor) {
         val doctor = doctorState.selectedDoctor?.doctor ?: return@LaunchedEffect
         if (selectedDoctor?.id != doctor.id) {
@@ -154,11 +170,10 @@ fun AppointmentBookingScreen(
         }
     }
 
-    // Handle successful booking
+    // Handle successful booking → go to Step 6 instead of navigating away
     LaunchedEffect(appointmentState.bookingSuccess) {
         if (appointmentState.bookingSuccess) {
-            appointmentViewModel.resetBookingState()
-            onBookingComplete()
+            currentStep = 6
         }
     }
 
@@ -167,35 +182,69 @@ fun AppointmentBookingScreen(
         1 -> "Select Doctor"
         2 -> "Consultation Details"
         3 -> "Pick Date & Time"
-        4 -> stringResource(R.string.confirm_booking)
+        4 -> "Review Booking"
+        5 -> stringResource(R.string.confirm_booking)
+        6 -> "Appointment Confirmed"
         else -> "Book Appointment"
     }
 
-    val blurRadius by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (showDoctorProfile != null) 10.dp else 0.dp, label = ""
+    val cornerRadius by animateDpAsState(
+        targetValue = 0.dp, label = ""
     )
+
+    // Determine which visual stepper step we're on (map 6-step to 4-visual-step)
+    val visualStep = when (currentStep) {
+        0, 1 -> 1
+        2 -> 1
+        3 -> 2
+        4 -> 3
+        5, 6 -> 4
+        else -> 1
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (currentStep > 1 && preselectedDoctorId.isNullOrBlank()) {
-                            currentStep--
-                        } else {
-                            onBackClick()
+            if (currentStep != 6) {
+                TopAppBar(
+                    title = { Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            when {
+                                currentStep == 5 -> currentStep = 4
+                                currentStep == 4 -> currentStep = 3
+                                currentStep == 3 -> currentStep = 2
+                                currentStep > 1 && preselectedDoctorId.isNullOrBlank() -> currentStep--
+                                currentStep == 2 && !preselectedDoctorId.isNullOrBlank() -> onBackClick()
+                                else -> onBackClick()
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 )
-            )
+            } else {
+                // Step 6: minimal close button
+                TopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            appointmentViewModel.resetBookingState()
+                            onBookingComplete()
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -203,11 +252,12 @@ fun AppointmentBookingScreen(
             .fillMaxSize()
             .padding(paddingValues)) {
             Column(modifier = Modifier
-                .fillMaxSize()
-                .blur(blurRadius)) {
-                
-                BookingStepper(currentStep = currentStep)
-                
+                .fillMaxSize()) {
+
+                if (currentStep in 1..5) {
+                    BookingStepperRedesigned(currentVisualStep = visualStep)
+                }
+
                 Box(modifier = Modifier.weight(1f)) {
                     when (currentStep) {
                         0 -> {
@@ -244,23 +294,22 @@ fun AppointmentBookingScreen(
                         1 -> DoctorSelectionStep(
                             doctorSearchViewModel = doctorSearchViewModel,
                             uiState = doctorState,
-                            onDoctorSelected = { doctor, isDirectBooking ->
-                                if (isDirectBooking) {
-                                    selectedDoctor = doctor
-                                    currentStep = 2
-                                } else {
-                                    showDoctorProfile = doctor
-                                }
+                            onDoctorSelected = { doctor, _ ->
+                                selectedDoctor = doctor
+                                currentStep = 2
                             }
                         )
                         2 -> ConsultationDetailsStep(
+                            doctor = selectedDoctor,
                             consultationMode = consultationMode,
+                            preselectedHospitalId = preselectedHospitalId,
+                            preselectedClinicId = preselectedClinicId,
                             selectedType = selectedType,
                             notes = notes,
                             isDoctorLoaded = selectedDoctor != null,
                             errorMessage = doctorState.error,
                             onTypeChanged = { selectedType = it },
-                            onNotesChanged = { notes = it },
+                            onNotesChanged = { if (it.length <= 500) notes = it },
                             onContinue = { currentStep = 3 },
                             onRetry = {
                                 if (!preselectedDoctorId.isNullOrBlank()) {
@@ -291,13 +340,21 @@ fun AppointmentBookingScreen(
                             onTimeSlotSelected = { slot -> selectedTimeSlot = slot },
                             onContinue = { currentStep = 4 }
                         )
-                        4 -> ConfirmationStep(
+                        4 -> ReviewBookingStep(
                             doctor = selectedDoctor!!,
                             date = selectedDate!!,
                             timeSlot = selectedTimeSlot!!,
                             selectedType = selectedType,
                             notes = notes,
+                            onContinue = { currentStep = 5 }
+                        )
+                        5 -> ConfirmBookingStep(
+                            doctor = selectedDoctor!!,
+                            date = selectedDate!!,
+                            timeSlot = selectedTimeSlot!!,
+                            selectedType = selectedType,
                             isBooking = appointmentState.isBooking,
+                            bookingError = appointmentState.error,
                             onConfirm = {
                                 appointmentViewModel.bookAppointment(
                                     doctorId = selectedDoctor!!.id,
@@ -308,6 +365,17 @@ fun AppointmentBookingScreen(
                                     hospitalId = preselectedHospitalId,
                                     clinicId = preselectedClinicId
                                 )
+                            }
+                        )
+                        6 -> BookingConfirmedStep(
+                            appointment = appointmentState.newAppointment,
+                            doctor = selectedDoctor!!,
+                            date = selectedDate!!,
+                            timeSlot = selectedTimeSlot!!,
+                            selectedType = selectedType,
+                            onViewAppointments = {
+                                appointmentViewModel.resetBookingState()
+                                onBookingComplete()
                             }
                         )
                     }
@@ -344,84 +412,95 @@ fun AppointmentBookingScreen(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDuplicateBookingDialog = false
-                    }
-                ) {
+                TextButton(onClick = { showDuplicateBookingDialog = false }) {
                     Text("Reschedule")
                 }
             },
             shape = RoundedCornerShape(20.dp)
         )
     }
-
-    showDoctorProfile?.let { doctor ->
-        DoctorProfileBottomSheet(
-            doctor = doctor,
-            onDismiss = { showDoctorProfile = null },
-            onBookClick = {
-                selectedDoctor = doctor
-                showDoctorProfile = null
-                currentStep = 2
-            }
-        )
-    }
 }
 
+// ==================== STEPPER (Redesigned) ====================
+
 @Composable
-private fun BookingStepper(currentStep: Int) {
+private fun BookingStepperRedesigned(currentVisualStep: Int) {
+    val stepLabels = listOf("Details", "Schedule", "Review", "Confirm")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        for (step in 1..4) {
-            val isActive = step <= currentStep
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isActive) SwastikPrimary
-                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    ),
-                contentAlignment = Alignment.Center
+        stepLabels.forEachIndexed { index, label ->
+            val stepNumber = index + 1
+            val isCompleted = stepNumber < currentVisualStep
+            val isActive = stepNumber == currentVisualStep
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
             ) {
-                if (step < currentStep) {
-                    Icon(
-                        Icons.Outlined.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                } else {
-                    Text(
-                        "$step",
-                        color = if (isActive) Color.White else Color.Gray,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-            if (step < 4) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (!isCompleted && !isActive) {
+                                Modifier.border(1.dp, StepperTextGray, CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface)
+                            } else {
+                                Modifier.background(StepperGreen)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isCompleted) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(
+                            "$stepNumber",
+                            color = if (isActive) Color.White else StepperTextGray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = if (isActive || isCompleted) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isActive || isCompleted) StepperGreen else StepperTextGray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (index < stepLabels.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .weight(0.6f)
                         .height(3.dp)
-                        .padding(horizontal = 4.dp)
+                        .offset(y = (-8).dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
-                            if (step < currentStep) SwastikPrimary
-                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            if (stepNumber < currentVisualStep) StepperGreen
+                            else StepperGray
                         )
                 )
             }
         }
     }
 }
+
+// ==================== STEP 1: Doctor Selection (unchanged logic) ====================
 
 @Composable
 private fun DoctorSelectionStep(
@@ -430,7 +509,7 @@ private fun DoctorSelectionStep(
     onDoctorSelected: (Doctor, Boolean) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    
+
     val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -456,7 +535,7 @@ private fun DoctorSelectionStep(
             leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { 
+                    IconButton(onClick = {
                         searchQuery = ""
                         doctorSearchViewModel.updateFilters(search = null)
                     }) {
@@ -468,9 +547,7 @@ private fun DoctorSelectionStep(
                             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
                         }
-                        try {
-                            speechLauncher.launch(intent)
-                        } catch (e: Exception) {}
+                        try { speechLauncher.launch(intent) } catch (_: Exception) {}
                     }) {
                         Icon(Icons.Default.Mic, contentDescription = "Voice Search", tint = SwastikPrimary)
                     }
@@ -500,10 +577,7 @@ private fun DoctorSelectionStep(
                 val isLoadingPaging = pagedDoctors.loadState.refresh is LoadState.Loading
 
                 if (isLoadingPaging) {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         item {
                             Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = SwastikPrimary)
@@ -520,10 +594,7 @@ private fun DoctorSelectionStep(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(
                             count = pagedDoctors.itemCount,
                             key = pagedDoctors.itemKey { it.id },
@@ -551,11 +622,7 @@ private fun DoctorSelectionStep(
 }
 
 @Composable
-private fun DoctorBookingCard(
-    doctor: Doctor,
-    onSelect: () -> Unit,
-    onViewProfile: () -> Unit
-) {
+private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfile: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onSelect),
         shape = RoundedCornerShape(20.dp),
@@ -637,6 +704,199 @@ private fun DoctorBookingCard(
     }
 }
 
+// ==================== STEP 2: Consultation Details (Redesigned) ====================
+
+@Composable
+private fun ConsultationDetailsStep(
+    doctor: Doctor?,
+    consultationMode: String?,
+    preselectedHospitalId: String?,
+    preselectedClinicId: String?,
+    selectedType: String,
+    notes: String,
+    isDoctorLoaded: Boolean,
+    errorMessage: String?,
+    onTypeChanged: (String) -> Unit,
+    onNotesChanged: (String) -> Unit,
+    onContinue: () -> Unit,
+    onRetry: () -> Unit
+) {
+    val videoFee = doctor?.videoConsultationFee ?: doctor?.consultationFee
+    val clinicFee = doctor?.consultationFee
+
+    val isNear = (doctor?.distanceKm != null && doctor.distanceKm <= 120f) || 
+                 !preselectedHospitalId.isNullOrBlank() || 
+                 !preselectedClinicId.isNullOrBlank()
+    // Show both types if they searched specifically for in_person, OR if they are just browsing (null mode) and the doctor is near
+    val showBothTypes = consultationMode == "in_person" || (consultationMode != "video" && isNear)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // Choose Consultation Type heading
+        Text(
+            "Choose Consultation Type",
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        // Type cards
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Video Consultation card
+            ConsultationTypeCard(
+                modifier = Modifier.weight(1f),
+                icon = "📹",
+                title = "Video Consultation",
+                subtitle = "Consult with doctor online",
+                price = videoFee?.let { "₹$it" } ?: "Free",
+                isSelected = selectedType == "video",
+                onClick = { onTypeChanged("video") }
+            )
+
+            // In-Person card
+            if (showBothTypes) {
+                ConsultationTypeCard(
+                    modifier = Modifier.weight(1f),
+                    icon = "🏥",
+                    title = "In-Person Visit",
+                    subtitle = "Visit doctor at clinic",
+                    price = clinicFee?.let { "₹$it" } ?: "Free",
+                    isSelected = selectedType == "in_person",
+                    onClick = { onTypeChanged("in_person") }
+                )
+            }
+        }
+
+        // Add Notes section
+        Text(
+            "Add Notes (Optional)",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        OutlinedTextField(
+            value = notes,
+            onValueChange = onNotesChanged,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            placeholder = { Text("Tell the doctor about your health concern") },
+            shape = RoundedCornerShape(12.dp),
+            maxLines = 5,
+            supportingText = {
+                Text(
+                    text = "${notes.length}/500",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End,
+                    fontSize = 12.sp,
+                    color = if (notes.length >= 500) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Continue button
+        Button(
+            onClick = if (errorMessage != null) onRetry else onContinue,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            enabled = isDoctorLoaded || errorMessage != null,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+        ) {
+            if (errorMessage != null) {
+                Icon(Icons.Outlined.Warning, contentDescription = "Error", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Retry Loading", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            } else if (!isDoctorLoaded) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Loading doctor...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            } else {
+                Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsultationTypeCard(
+    modifier: Modifier = Modifier,
+    icon: String,
+    title: String,
+    subtitle: String,
+    price: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) SwastikPrimary.copy(alpha = 0.06f)
+            else MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) CardBorderSelected else CardBorderUnselected
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(icon, fontSize = 28.sp)
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Selected",
+                        tint = SwastikPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Text(
+                title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                subtitle,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                price,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp,
+                color = PriceColor
+            )
+        }
+    }
+}
+
+// ==================== STEP 3: Date & Time Selection (Redesigned) ====================
+
 @Composable
 private fun DateTimeSelectionStep(
     doctor: Doctor,
@@ -653,42 +913,131 @@ private fun DateTimeSelectionStep(
     val availableSlotCount = appointmentState.timeSlots.count { it.isAvailable }
     val bookedSlotCount = appointmentState.timeSlots.count { !it.isAvailable }
 
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Doctor info card
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = SwastikPrimaryLight.copy(alpha = 0.3f))) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(SwastikPrimary), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.string_2), fontSize = 22.sp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = SummaryCardBg)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(SwastikPrimaryLight),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!doctor.profileImageUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = doctor.profileImageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+                        }
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(doctor.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         Text(doctor.specialization, fontSize = 13.sp, color = SwastikPrimary)
                     }
-                }
-            }
-        }
-        item {
-            Text("📅 Select Date", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(availableDates) { date ->
-                    val isSelected = date == selectedDate
-                    val isToday = date == today
-                    Surface(modifier = Modifier.width(68.dp).clickable { onDateSelected(date) }, shape = RoundedCornerShape(14.dp), color = if (isSelected) SwastikPrimary else if (isToday) SwastikPrimaryLight.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant, border = if (isToday && !isSelected) BorderStroke(1.dp, SwastikPrimary) else null) {
-                        Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), fontSize = 12.sp, color = if (isSelected) Color.White else Color.Gray)
-                            Text(text = "${date.dayOfMonth}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface)
-                            Text(text = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()), fontSize = 11.sp, color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray)
+                    doctor.averageRating?.takeIf { it > 0f }?.let { rating ->
+                        Surface(color = Color(0xFFFFF8E1), shape = RoundedCornerShape(8.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Filled.Star, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFFFFB800))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    String.format(Locale.US, "%.1f", rating) +
+                                            (doctor.totalReviews?.let { " ($it)" } ?: ""),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFB28900)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+
+        // Select Date
+        item {
+            Text("Select Date", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(availableDates) { date ->
+                    val isSelected = date == selectedDate
+                    val isToday = date == today
+                    Surface(
+                        modifier = Modifier.width(68.dp).clickable { onDateSelected(date) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSelected) SwastikPrimary
+                        else if (isToday) SwastikPrimaryLight.copy(alpha = 0.3f)
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        border = if (isToday && !isSelected) BorderStroke(1.dp, SwastikPrimary) else null
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                fontSize = 12.sp,
+                                color = if (isSelected) Color.White else Color.Gray
+                            )
+                            Text(
+                                text = "${date.dayOfMonth}",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                                fontSize = 11.sp,
+                                color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Available Time Slots
         item {
             if (selectedDate != null) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("🕐 Available Time Slots", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Available Time Slots", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    if (availableSlotCount > 0) {
+                        Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(999.dp)) {
+                            Text(
+                                text = "$availableSlotCount slots available",
+                                color = StepperGreen,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 when {
                     appointmentState.isLoadingSlots -> {
@@ -697,27 +1046,80 @@ private fun DateTimeSelectionStep(
                         }
                     }
                     appointmentState.timeSlots.isEmpty() || !hasAvailableSlots -> {
-                        NoSlotsAvailableCard(selectedDate = selectedDate, bookedSlotCount = bookedSlotCount, suggestion = appointmentState.nextAvailableSuggestion, isSearchingNextAvailable = appointmentState.isSearchingNextAvailable, onJumpToSuggestedDate = { suggested -> onDateSelected(LocalDate.parse(suggested.date)) })
+                        NoSlotsAvailableCard(
+                            selectedDate = selectedDate,
+                            bookedSlotCount = bookedSlotCount,
+                            suggestion = appointmentState.nextAvailableSuggestion,
+                            isSearchingNextAvailable = appointmentState.isSearchingNextAvailable,
+                            onJumpToSuggestedDate = { suggested -> onDateSelected(LocalDate.parse(suggested.date)) }
+                        )
                     }
                     else -> {
-                        SlotAvailabilitySummary(availableSlotCount = availableSlotCount, bookedSlotCount = bookedSlotCount)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        TimeSlotGrid(slots = appointmentState.timeSlots, selectedSlot = selectedTimeSlot, onSlotSelected = onTimeSlotSelected)
+                        TimeSlotGrid(
+                            slots = appointmentState.timeSlots,
+                            selectedSlot = selectedTimeSlot,
+                            onSlotSelected = onTimeSlotSelected
+                        )
                     }
                 }
             } else {
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(stringResource(R.string.string_5), fontSize = 32.sp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("📅", fontSize = 32.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Select a date above to see available slots", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
             }
         }
+
+        // Selected summary + Continue
         item {
+            if (selectedDate != null && selectedTimeSlot != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = SummaryCardBg),
+                    border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("📌", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Selected Date & Time",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            "${selectedDate.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))} • $selectedTimeSlot",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SwastikPrimary
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), enabled = selectedDate != null && selectedTimeSlot != null, colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                enabled = selectedDate != null && selectedTimeSlot != null,
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+            ) {
                 Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
@@ -725,39 +1127,41 @@ private fun DateTimeSelectionStep(
 }
 
 @Composable
-private fun SlotAvailabilitySummary(availableSlotCount: Int, bookedSlotCount: Int) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(999.dp)) {
-            Text(text = "$availableSlotCount open", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
-        }
-        if (bookedSlotCount > 0) {
-            Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(999.dp)) {
-                Text(text = "$bookedSlotCount booked", color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoSlotsAvailableCard(selectedDate: LocalDate?, bookedSlotCount: Int, suggestion: NextAvailableSlotSuggestion?, isSearchingNextAvailable: Boolean, onJumpToSuggestedDate: (NextAvailableSlotSuggestion) -> Unit) {
+private fun NoSlotsAvailableCard(
+    selectedDate: LocalDate?,
+    bookedSlotCount: Int,
+    suggestion: NextAvailableSlotSuggestion?,
+    isSearchingNextAvailable: Boolean,
+    onJumpToSuggestedDate: (NextAvailableSlotSuggestion) -> Unit
+) {
     val formattedDate = selectedDate?.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(R.string.string_6), fontSize = 32.sp)
+            Text("😔", fontSize = 32.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = if (formattedDate != null) "No open slots on $formattedDate" else "No open slots available", fontWeight = FontWeight.Medium, fontSize = 15.sp, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(6.dp))
             Text(text = if (bookedSlotCount > 0) "All $bookedSlotCount published slots are already taken." else "This doctor has not published available times for the selected day.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             when {
                 isSearchingNextAvailable -> {
-                    Spacer(modifier = Modifier.height(16.dp)); CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp); Spacer(modifier = Modifier.height(10.dp)); Text("Checking the next available dates", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Checking the next available dates", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 suggestion != null -> {
-                    Spacer(modifier = Modifier.height(16.dp)); FilledTonalButton(onClick = { onJumpToSuggestedDate(suggestion) }, colors = ButtonDefaults.filledTonalButtonColors(containerColor = SwastikPrimaryLight.copy(alpha = 0.5f), contentColor = SwastikPrimary)) { Text("Jump to ${LocalDate.parse(suggestion.date).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}") }
-                    suggestion.firstAvailableSlot?.let { firstSlot -> Spacer(modifier = Modifier.height(8.dp)); Text("${suggestion.availableSlotCount} open slots from $firstSlot", fontSize = 12.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center) }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FilledTonalButton(onClick = { onJumpToSuggestedDate(suggestion) }, colors = ButtonDefaults.filledTonalButtonColors(containerColor = SwastikPrimaryLight.copy(alpha = 0.5f), contentColor = SwastikPrimary)) {
+                        Text("Jump to ${LocalDate.parse(suggestion.date).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}")
+                    }
+                    suggestion.firstAvailableSlot?.let { firstSlot ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("${suggestion.availableSlotCount} open slots from $firstSlot", fontSize = 12.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                    }
                 }
                 else -> {
-                    Spacer(modifier = Modifier.height(12.dp)); Text("No open slots found in the next two weeks. Try another doctor or facility.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("No open slots found in the next two weeks. Try another doctor or facility.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -771,7 +1175,9 @@ private fun TimeSlotGrid(slots: List<TimeSlot>, selectedSlot: String?, onSlotSel
     Column {
         if (availableSlots.isNotEmpty()) SlotChunkRows(slots = availableSlots, selectedSlot = selectedSlot, enabled = true, onSlotSelected = onSlotSelected)
         if (unavailableSlots.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp)); Text("Booked", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp)); SlotChunkRows(slots = unavailableSlots, selectedSlot = null, enabled = false, onSlotSelected = {})
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Booked", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            SlotChunkRows(slots = unavailableSlots, selectedSlot = null, enabled = false, onSlotSelected = {})
         }
     }
 }
@@ -784,8 +1190,29 @@ private fun SlotChunkRows(slots: List<TimeSlot>, selectedSlot: String?, enabled:
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { slot ->
                     val isSelected = slot.time == selectedSlot
-                    Surface(modifier = Modifier.weight(1f).then(if (enabled) Modifier.clickable { onSlotSelected(slot.time) } else Modifier), shape = RoundedCornerShape(10.dp), color = when { isSelected -> SwastikPrimary; !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f); else -> MaterialTheme.colorScheme.surfaceVariant }, border = if (isSelected) null else BorderStroke(1.dp, if (enabled) SwastikPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))) {
-                        Text(text = slot.time, modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp), fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal, color = when { isSelected -> Color.White; !enabled -> Color.Gray.copy(alpha = 0.5f); else -> MaterialTheme.colorScheme.onSurface }, textAlign = TextAlign.Center, maxLines = 1)
+                    Surface(
+                        modifier = Modifier.weight(1f).then(if (enabled) Modifier.clickable { onSlotSelected(slot.time) } else Modifier),
+                        shape = RoundedCornerShape(10.dp),
+                        color = when {
+                            isSelected -> SwastikPrimary
+                            !enabled -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        border = if (isSelected) null else BorderStroke(1.dp, if (enabled) SwastikPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    ) {
+                        Text(
+                            text = slot.time,
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = when {
+                                isSelected -> Color.White
+                                !enabled -> Color.Gray.copy(alpha = 0.5f)
+                                else -> MaterialTheme.colorScheme.onSurface
+                            },
+                            textAlign = TextAlign.Center,
+                            maxLines = 1
+                        )
                     }
                 }
                 repeat(4 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
@@ -794,86 +1221,505 @@ private fun SlotChunkRows(slots: List<TimeSlot>, selectedSlot: String?, enabled:
     }
 }
 
+// ==================== STEP 4: Review Booking (NEW) ====================
+
 @Composable
-private fun ConsultationDetailsStep(consultationMode: String?, selectedType: String, notes: String, isDoctorLoaded: Boolean, errorMessage: String?, onTypeChanged: (String) -> Unit, onNotesChanged: (String) -> Unit, onContinue: () -> Unit, onRetry: () -> Unit) {
-    val types = if (consultationMode == "video") listOf(Triple("video", "📹", "Video Consultation")) else listOf(Triple("video", "📹", "Video Consultation"), Triple("in_person", "🏥", "In-Person Visit"))
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item {
-            Text(stringResource(R.string.consultation_type), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                types.forEach { (type, emoji, label) ->
-                    val isSelected = selectedType == type
-                    Surface(modifier = Modifier.weight(1f).clickable { onTypeChanged(type) }, shape = RoundedCornerShape(12.dp), color = if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surfaceVariant, border = if (!isSelected) BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.2f)) else null) {
-                        Row(modifier = Modifier.padding(vertical = 14.dp, horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                            Text(emoji, fontSize = 24.sp); Spacer(modifier = Modifier.width(8.dp)); Text(text = label, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface, maxLines = 1)
-                        }
-                    }
+private fun ReviewBookingStep(
+    doctor: Doctor,
+    date: LocalDate,
+    timeSlot: String,
+    selectedType: String,
+    notes: String,
+    onContinue: () -> Unit
+) {
+    val fee = doctor.consultationFee
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Please Review Your Booking", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(22.dp))
+        }
+
+        // Review card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ReviewRow(icon = "👨‍⚕️", label = "Doctor", value = doctor.name, subtitle = doctor.specialization)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                ReviewRow(icon = if (selectedType == "video") "📹" else "🏥", label = "Consultation Type", value = if (selectedType == "video") "Video Consultation" else "In-Person Visit")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                ReviewRow(icon = "📅", label = "Date", value = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                ReviewRow(icon = "🕐", label = "Time", value = timeSlot)
+                if (notes.isNotBlank()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    ReviewRow(icon = "📝", label = "Notes", value = notes)
                 }
             }
         }
-        item {
-            Text("Notes (optional)", fontWeight = FontWeight.SemiBold, fontSize = 16.sp); Spacer(modifier = Modifier.height(8.dp)); OutlinedTextField(value = notes, onValueChange = onNotesChanged, modifier = Modifier.fillMaxWidth().height(100.dp), placeholder = { Text(stringResource(R.string.describe_symptoms_visit)) }, shape = RoundedCornerShape(12.dp), maxLines = 4)
-        }
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = if (errorMessage != null) onRetry else onContinue, modifier = Modifier.fillMaxWidth().height(52.dp), enabled = isDoctorLoaded || errorMessage != null, shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
-                if (errorMessage != null) {
-                    Icon(Icons.Outlined.Warning, contentDescription = "Error", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary); Spacer(modifier = Modifier.width(8.dp)); Text("Retry Loading", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                } else if (!isDoctorLoaded) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text("Loading doctor...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                } else {
-                    Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                }
+
+        // Consultation Fee
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = SummaryCardBg)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Consultation Fee", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(
+                    fee?.let { "₹$it" } ?: "Free",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp,
+                    color = PriceColor
+                )
             }
+        }
+
+        // T&C
+        Text(
+            "By confirming, you agree to our\nTerms & Conditions and Privacy Policy.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Continue to Confirm button
+        Button(
+            onClick = onContinue,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+        ) {
+            Text("Continue to Confirm", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
     }
 }
 
 @Composable
-private fun ConfirmationStep(doctor: Doctor, date: LocalDate, timeSlot: String, selectedType: String, notes: String, isBooking: Boolean, onConfirm: () -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item {
-            androidx.compose.material3.Surface(modifier = Modifier.fillMaxWidth(), shape = com.example.swastik.ui.components.TicketShape(cornerRadius = 16.dp, cutoutRadius = 12.dp, cutoutPositionRatio = 0.65f), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), shadowElevation = 2.dp) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(24.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.boarding_pass), fontWeight = FontWeight.Black, fontSize = 14.sp, color = SwastikPrimary, letterSpacing = 2.sp); Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+private fun ReviewRow(icon: String, label: String, value: String, subtitle: String? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(icon, fontSize = 20.sp)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+            Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            if (subtitle != null) {
+                Text(subtitle, fontSize = 13.sp, color = SwastikPrimary)
+            }
+        }
+    }
+}
+
+// ==================== STEP 5: Confirm Booking (Ticket Card) ====================
+
+@Composable
+private fun ConfirmBookingStep(
+    doctor: Doctor,
+    date: LocalDate,
+    timeSlot: String,
+    selectedType: String,
+    isBooking: Boolean,
+    bookingError: String?,
+    onConfirm: () -> Unit
+) {
+    val fee = doctor.consultationFee
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Ticket card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = com.example.swastik.ui.components.TicketShape(
+                cornerRadius = 16.dp,
+                cutoutRadius = 12.dp,
+                cutoutPositionRatio = 0.65f
+            ),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            shadowElevation = 2.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "APPOINTMENT SUMMARY",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
+                            color = SwastikPrimary,
+                            letterSpacing = 2.sp
+                        )
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Patient -> Doctor
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("PATIENT", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text("You", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         }
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column { Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
-                            Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
-                            Column(horizontalAlignment = Alignment.End) { Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")), fontSize = 15.sp, fontWeight = FontWeight.Medium) }
-                            Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(timeSlot, fontSize = 15.sp, fontWeight = FontWeight.Medium) }
-                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) { Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary) }
-                        }
-                        if (selectedType.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(16.dp)); Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) { Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.consultation_type).uppercase(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold); Text(if (selectedType == "video") "📹 Video" else "🏥 In-Person", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary) } }
+                        Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("DOCTOR", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    val dividerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(1.dp)) { drawLine(color = dividerColor, start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f), end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f), strokeWidth = 2f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)) }
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("|||| ||| ||||| |||| || ||| ||||", fontSize = 32.sp, fontWeight = FontWeight.Light, letterSpacing = 4.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), maxLines = 1); Spacer(modifier = Modifier.height(4.dp)); Text(stringResource(R.string.swastik_healthcare), fontSize = 10.sp, letterSpacing = 2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Date, Time
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("DATE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                            Text("TIME", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(timeSlot, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Type + Fee
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("CONSULTATION TYPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (selectedType == "video") "📹" else "🏥", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    if (selectedType == "video") "Video Consultation" else "In-Person Visit",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = SwastikPrimary
+                                )
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("FEE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(fee?.let { "₹$it" } ?: "Free", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = PriceColor)
+                        }
+                    }
+                }
+
+                // Dashed divider
+                val dividerColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(1.dp)) {
+                    drawLine(
+                        color = dividerColor,
+                        start = androidx.compose.ui.geometry.Offset(x = 12.dp.toPx(), y = 0f),
+                        end = androidx.compose.ui.geometry.Offset(x = size.width - 12.dp.toPx(), y = 0f),
+                        strokeWidth = 2f,
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                    )
+                }
+
+                // Barcode area
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "|||| ||| ||||| |||| || ||| ||||",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 4.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "SWASTIK HEALTHCARE",
+                        fontSize = 10.sp,
+                        letterSpacing = 2.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(14.dp), enabled = !isBooking, colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)) {
-                if (isBooking) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text(stringResource(R.string.booking_ellipsis), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                } else {
-                    Icon(Icons.Outlined.CheckCircle, contentDescription = null); Spacer(modifier = Modifier.width(8.dp)); Text(stringResource(R.string.confirm_booking), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+
+        // Info text
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                "Your appointment is secure and confirmed\nafter you tap the button below.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        // Error
+        if (bookingError != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(bookingError, fontSize = 13.sp, color = MaterialTheme.colorScheme.onErrorContainer)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Confirm button
+        Button(
+            onClick = onConfirm,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(14.dp),
+            enabled = !isBooking,
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+        ) {
+            if (isBooking) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Booking...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            } else {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.confirm_booking), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// ==================== STEP 6: Booking Confirmed (NEW) ====================
+
+@Composable
+private fun BookingConfirmedStep(
+    appointment: Appointment?,
+    doctor: Doctor,
+    date: LocalDate,
+    timeSlot: String,
+    selectedType: String,
+    onViewAppointments: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val bookingId = appointment?.appointmentNumber ?: "—"
+    val fee = appointment?.consultationFee ?: doctor.consultationFee
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Large green checkmark
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(ConfirmedGreen),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = "Confirmed",
+                tint = Color.White,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+        Text(
+            "Appointment Confirmed!",
+            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            "Your appointment has been\nsuccessfully booked.",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Details card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Booking ID with copy
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Booking ID", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(bookingId, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { clipboardManager.setText(AnnotatedString(bookingId)) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+
+                ConfirmedDetailRow(label = "Doctor", value = doctor.name, subtitle = doctor.specialization)
+                ConfirmedDetailRow(label = "Date", value = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")))
+                ConfirmedDetailRow(label = "Time", value = timeSlot)
+                ConfirmedDetailRow(label = "Type", value = if (selectedType == "video") "Video Consultation" else "In-Person Visit")
+                ConfirmedDetailRow(label = "Fee Paid", value = fee?.let { "₹$it" } ?: "Free", valueColor = PriceColor)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // View My Appointments (primary action)
+        Button(
+            onClick = onViewAppointments,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+        ) {
+            Text("View My Appointments", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        }
+
+        // Add to Calendar
+        OutlinedButton(
+            onClick = {
+                try {
+                    val startMillis = date.atTime(
+                        timeSlot.split(":").getOrNull(0)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 10,
+                        timeSlot.split(":").getOrNull(1)?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 0
+                    ).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+                    val calIntent = Intent(Intent.ACTION_INSERT).apply {
+                        data = CalendarContract.Events.CONTENT_URI
+                        putExtra(CalendarContract.Events.TITLE, "Appointment with ${doctor.name}")
+                        putExtra(CalendarContract.Events.DESCRIPTION, "Consultation Type: ${if (selectedType == "video") "Video" else "In-Person"}")
+                        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+                        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startMillis + 30 * 60 * 1000)
+                    }
+                    context.startActivity(calIntent)
+                } catch (_: Exception) {}
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.3f))
+        ) {
+            Text("📅  Add to Calendar", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        }
+
+        // Share Appointment
+        OutlinedButton(
+            onClick = {
+                try {
+                    val shareText = """
+                        🏥 Appointment Confirmed!
+                        
+                        Booking ID: $bookingId
+                        Doctor: ${doctor.name} (${doctor.specialization})
+                        Date: ${date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))}
+                        Time: $timeSlot
+                        Type: ${if (selectedType == "video") "Video Consultation" else "In-Person Visit"}
+                        
+                        — Swastik Healthcare
+                    """.trimIndent()
+                    val shareIntent = Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                    }, "Share Appointment")
+                    context.startActivity(shareIntent)
+                } catch (_: Exception) {}
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+        ) {
+            Text("↗  Share Appointment", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ConfirmedDetailRow(
+    label: String,
+    value: String,
+    subtitle: String? = null,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(80.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = valueColor, textAlign = TextAlign.End)
+            if (subtitle != null) {
+                Text(subtitle, fontSize = 12.sp, color = SwastikPrimary, textAlign = TextAlign.End)
+            }
         }
     }
 }

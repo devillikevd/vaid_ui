@@ -60,8 +60,10 @@ fun ConsultationPrepareScreen(
     onBackClick: () -> Unit,
     onGrantMedicalRecordAccess: (Boolean) -> Unit = {},
     onRevokeMedicalRecordAccess: () -> Unit = {},
-    onStartConsultation: () -> Unit
+    onStartConsultation: (Boolean) -> Unit
 ) {
+    var allowAiVitals by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+
     val backgroundBrush = Brush.verticalGradient(
         listOf(
             Color(0xFF07101F),
@@ -398,6 +400,49 @@ fun ConsultationPrepareScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(18.dp))
+                    
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.Switch(
+                                checked = allowAiVitals,
+                                onCheckedChange = { allowAiVitals = it },
+                                colors = androidx.compose.material3.SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = accentBlue,
+                                    uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                                    uncheckedTrackColor = Color.White.copy(alpha = 0.2f),
+                                    uncheckedBorderColor = Color.Transparent
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Enable Real-time AI Vitals",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Allow your camera to securely analyze micro-movements for heart rate and breathing without recording.",
+                                    color = Color.White.copy(alpha = 0.68f),
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+
                     if (statusMessage.isNotBlank()) {
                         Spacer(modifier = Modifier.height(18.dp))
                         Box(
@@ -427,7 +472,7 @@ fun ConsultationPrepareScreen(
             }
 
             Button(
-                onClick = onStartConsultation,
+                onClick = { onStartConsultation(allowAiVitals) },
                 enabled = !isConnecting,
                 modifier = Modifier
                     .fillMaxWidth()

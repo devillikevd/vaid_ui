@@ -65,7 +65,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
 
         // ── Timing ─────────────────────────────────────────────────────
         /** Minimum interval between keyframes (Tier 1) — targets ~2 Hz. */
-        private const val KEYFRAME_INTERVAL_MS = 500L
+        /** Minimum interval between keyframes (Tier 1) — default targets ~2 Hz. */
+        private const val DEFAULT_KEYFRAME_INTERVAL_MS = 500L
 
         // ── Signal windows ─────────────────────────────────────────────
         private const val PPG_WINDOW_MS = 12_000L
@@ -161,6 +162,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     val vitalsData: StateFlow<CVMetrics> get() = _vitalsData
 
     private var faceLandmarker: FaceLandmarker? = null
+    /** Diagnostic: true if FaceLandmarker model loaded on GPU or CPU */
+    val isFaceLandmarkerReady: Boolean get() = faceLandmarker != null
     private var lastLightweightTimeMs = 0L
     private var lastKeyframeTimeMs = 0L
     private var missingFaceFrames = 0
@@ -205,24 +208,42 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     // ══════════════════════════════════════════════════════════════════
 
     init {
-        try {
-            val baseOptions = BaseOptions.builder()
+        faceLandmarker = try {
+            // Try GPU delegate first for best performance
+            val gpuOptions = BaseOptions.builder()
                 .setModelAssetPath("face_landmarker.task")
                 .setDelegate(com.google.mediapipe.tasks.core.Delegate.GPU)
                 .build()
-
-            val options = FaceLandmarker.FaceLandmarkerOptions.builder()
-                .setBaseOptions(baseOptions)
+            val gpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
+                .setBaseOptions(gpuOptions)
                 .setRunningMode(RunningMode.IMAGE)
                 .setNumFaces(1)
                 .setOutputFaceBlendshapes(true)
                 .build()
-
-            faceLandmarker = FaceLandmarker.createFromOptions(context, options)
-            Log.d(TAG, "MediaPipe FaceLandmarker initialized.")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize FaceLandmarker.", e)
-            faceLandmarker = null
+            FaceLandmarker.createFromOptions(context, gpuLandmarkerOptions).also {
+                Log.d(TAG, "MediaPipe FaceLandmarker initialized (GPU).")
+            }
+        } catch (gpuError: Exception) {
+            Log.w(TAG, "GPU delegate unavailable, falling back to CPU: ${gpuError.message}")
+            try {
+                // CPU fallback — works on all devices
+                val cpuOptions = BaseOptions.builder()
+                    .setModelAssetPath("face_landmarker.task")
+                    .setDelegate(com.google.mediapipe.tasks.core.Delegate.CPU)
+                    .build()
+                val cpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
+                    .setBaseOptions(cpuOptions)
+                    .setRunningMode(RunningMode.IMAGE)
+                    .setNumFaces(1)
+                    .setOutputFaceBlendshapes(true)
+                    .build()
+                FaceLandmarker.createFromOptions(context, cpuLandmarkerOptions).also {
+                    Log.d(TAG, "MediaPipe FaceLandmarker initialized (CPU fallback).")
+                }
+            } catch (cpuError: Exception) {
+                Log.e(TAG, "Failed to initialize FaceLandmarker on both GPU and CPU.", cpuError)
+                null
+            }
         }
     }
 
@@ -241,7 +262,10 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
 
         isProcessingFrame = true
 
-        val isKeyframe = (currentTimeMs - lastKeyframeTimeMs >= KEYFRAME_INTERVAL_MS)
+        val isLowEndDevice = DeviceProfiler.getTier2IntervalMs(context) >= 100L
+        val currentKeyframeInterval = if (isLowEndDevice) 1500L else DEFAULT_KEYFRAME_INTERVAL_MS
+
+        val isKeyframe = (currentTimeMs - lastKeyframeTimeMs >= currentKeyframeInterval)
             || cachedRoi == null
 
         if (isKeyframe) {
@@ -252,7 +276,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
 
         try {
             // EGL Thread Operations (Must be done here, not in coroutine)
-            val MAX_DIMEN = 480
+            val MAX_DIMEN = if (isLowEndDevice) 160 else 480
             val originalWidth = frame.buffer.width
             val originalHeight = frame.buffer.height
             val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
@@ -266,27 +290,31 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                 frame.buffer
             }
 
-            // Convert to I420 on WebRTC thread (hardware accelerated if texture)
             val i420Buffer = processedBuffer.toI420()
-            if (scale < 1.0f) processedBuffer.release()
-
+            
             if (i420Buffer == null) {
+                if (scale < 1.0f) processedBuffer.release()
                 isProcessingFrame = false
                 return
             }
 
-            // Retain the I420 buffer because we are passing it to another thread
-            i420Buffer.retain()
-
             val rotation = frame.rotation
+            val isNewI420 = (i420Buffer !== processedBuffer) && (i420Buffer !== frame.buffer)
 
-            if (isKeyframe) {
-                scope.launch {
-                    try {
-                        val width = i420Buffer.width
-                        val height = i420Buffer.height
+            // If we did not create a new I420Buffer, it is owned by WebRTC (or is our scaled buffer).
+            // We MUST retain it to safely pass it to the asynchronous background thread!
+            if (!isNewI420) {
+                i420Buffer.retain()
+            }
 
-                        // Pre-allocate NV21 buffer
+            // Move the slow JNI operations (copyPlane, sampleYuvPatch) to the background thread
+            // to prevent blocking the WebRTC frame encoder/decoder thread.
+            scope.launch {
+                try {
+                    val width = i420Buffer.width
+                    val height = i420Buffer.height
+
+                    if (isKeyframe) {
                         val requiredSize = width * height + (width * height / 2)
                         if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
                             nv21Buffer = ByteArray(requiredSize)
@@ -301,69 +329,57 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                         )
 
                         val yuvCheekColor = cachedRoi?.let { roi ->
-                            sampleYuvPatch(
+                            val left = sampleYuvPatch(
                                 i420Buffer.dataY, i420Buffer.strideY,
                                 i420Buffer.dataU, i420Buffer.strideU,
                                 i420Buffer.dataV, i420Buffer.strideV,
                                 width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                            )?.let { left ->
-                                sampleYuvPatch(
-                                    i420Buffer.dataY, i420Buffer.strideY,
-                                    i420Buffer.dataU, i420Buffer.strideU,
-                                    i420Buffer.dataV, i420Buffer.strideV,
-                                    width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                                )?.let { right -> averageRgb(left, right) }
-                            }
+                            )
+                            val right = sampleYuvPatch(
+                                i420Buffer.dataY, i420Buffer.strideY,
+                                i420Buffer.dataU, i420Buffer.strideU,
+                                i420Buffer.dataV, i420Buffer.strideV,
+                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                            )
+                            if (left != null && right != null) averageRgb(left, right) else null
                         }
 
                         processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
 
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Keyframe processing error", e)
-                    } finally {
-                        i420Buffer.release()
-                        isProcessingFrame = false
-                    }
-                }
-            } else {
-                scope.launch {
-                    try {
+                    } else {
                         val roi = cachedRoi
-                        if (roi == null) return@launch
+                        if (roi != null) {
+                            val leftCheek = sampleYuvPatch(
+                                i420Buffer.dataY, i420Buffer.strideY,
+                                i420Buffer.dataU, i420Buffer.strideU,
+                                i420Buffer.dataV, i420Buffer.strideV,
+                                width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                            )
+                            val rightCheek = sampleYuvPatch(
+                                i420Buffer.dataY, i420Buffer.strideY,
+                                i420Buffer.dataU, i420Buffer.strideU,
+                                i420Buffer.dataV, i420Buffer.strideV,
+                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                            )
+                            val cheekColor = if (leftCheek != null && rightCheek != null) averageRgb(leftCheek, rightCheek) else null
 
-                        val width = i420Buffer.width
-                        val height = i420Buffer.height
+                            val lipColor = sampleYuvPatch(
+                                i420Buffer.dataY, i420Buffer.strideY,
+                                i420Buffer.dataU, i420Buffer.strideU,
+                                i420Buffer.dataV, i420Buffer.strideV,
+                                width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
+                                widthFactor = 0.12, heightFactor = 0.07
+                            )
 
-                        val leftCheek = sampleYuvPatch(
-                            i420Buffer.dataY, i420Buffer.strideY,
-                            i420Buffer.dataU, i420Buffer.strideU,
-                            i420Buffer.dataV, i420Buffer.strideV,
-                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                        )
-                        val rightCheek = sampleYuvPatch(
-                            i420Buffer.dataY, i420Buffer.strideY,
-                            i420Buffer.dataU, i420Buffer.strideU,
-                            i420Buffer.dataV, i420Buffer.strideV,
-                            width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                        )
-                        val cheekColor = averageRgb(leftCheek, rightCheek)
-
-                        val lipColor = sampleYuvPatch(
-                            i420Buffer.dataY, i420Buffer.strideY,
-                            i420Buffer.dataU, i420Buffer.strideU,
-                            i420Buffer.dataV, i420Buffer.strideV,
-                            width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
-                            widthFactor = 0.12, heightFactor = 0.07
-                        )
-
-                        processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
-
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Lightweight error", e)
-                    } finally {
-                        i420Buffer.release()
-                        isProcessingFrame = false
+                            processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Frame processing error", e)
+                } finally {
+                    i420Buffer.release()
+                    if (scale < 1.0f) processedBuffer.release()
+                    isProcessingFrame = false
                 }
             }
         } catch (e: Exception) {
@@ -384,17 +400,36 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         currentTimeMs: Long,
         yuvCheekColor: RgbStats?
     ) {
-        // Convert NV21 → Bitmap for FaceLandmarker
+        // Convert NV21 → Bitmap for FaceLandmarker directly (bypassing JPEG compression for extreme speed)
         val bitmap = try {
-            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-            jpegOutputStream.reset()
-            yuvImage.compressToJpeg(Rect(0, 0, width, height), 75, jpegOutputStream)
-            val bytes = jpegOutputStream.toByteArray()
-            val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            if (decoded != null) {
-                val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-                Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-            } else null
+            val argb = IntArray(width * height)
+            val frameSize = width * height
+            var yp = 0
+            for (j in 0 until height) {
+                var uvp = frameSize + (j shr 1) * width
+                var u = 0
+                var v = 0
+                for (i in 0 until width) {
+                    var y = (nv21[yp].toInt() and 0xff) - 16
+                    if (y < 0) y = 0
+                    if ((i and 1) == 0) {
+                        v = (nv21[uvp++].toInt() and 0xff) - 128
+                        u = (nv21[uvp++].toInt() and 0xff) - 128
+                    }
+                    val y1192 = 1192 * y
+                    var r = (y1192 + 1634 * v)
+                    var g = (y1192 - 833 * v - 400 * u)
+                    var b = (y1192 + 2066 * u)
+                    if (r < 0) r = 0 else if (r > 262143) r = 262143
+                    if (g < 0) g = 0 else if (g > 262143) g = 262143
+                    if (b < 0) b = 0 else if (b > 262143) b = 262143
+                    argb[yp] = -0x1000000 or ((r shl 6) and 0xff0000) or ((g shr 2) and 0xff00) or ((b shr 10) and 0xff)
+                    yp++
+                }
+            }
+            val decoded = Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888)
+            val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+            Bitmap.createBitmap(decoded, 0, 0, width, height, matrix, true)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode keyframe.", e)
             null

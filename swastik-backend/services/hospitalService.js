@@ -69,24 +69,37 @@ const getHospitals = async (filters = {}, page = 1, limit = 20) => {
     if (s) query = query.or(`name.ilike.%${s}%,city.ilike.%${s}%`);
   }
 
-  const { data, error, count } = await query
-    .order('name')
-    .range(offset, offset + limit - 1);
+  const { data, error } = await query;
 
   if (error) throw error;
 
+  let results = data || [];
+  
+  // SMART RANKING: Top suggested based on rating and reviews
+  results = results.map(hosp => {
+    const rating = parseFloat(hosp.rating) || 0;
+    const reviews = parseInt(hosp.total_reviews) || 0;
+    const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+    return { ...hosp, smart_score: score };
+  });
+
+  results.sort((a, b) => b.smart_score - a.smart_score);
+
+  const total = results.length;
+  results = results.slice(offset, offset + limit);
+
   return {
-    data: data || [],
+    data: results,
     pagination: {
       page, limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
+      total,
+      totalPages: Math.ceil(total / limit),
     },
   };
 };
 
 // Get nearby hospitals (using lat/lng distance calculation)
-const getNearbyHospitals = async (latitude, longitude, radius = 10, filters = {}) => {
+const getNearbyHospitals = async (latitude, longitude, radius = 25, filters = {}) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   let query = supabaseAdmin
@@ -111,10 +124,13 @@ const getNearbyHospitals = async (latitude, longitude, radius = 10, filters = {}
   const nearby = recordsWithPhone
     .map((h) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: h.latitude, longitude: h.longitude });
-      return { ...h, distance: dist, distanceText: formatDistance(dist) };
+      const rating = parseFloat(h.rating) || 0;
+      const reviews = parseInt(h.total_reviews) || 0;
+      const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+      return { ...h, distance: dist, distanceText: formatDistance(dist), smart_score: score };
     })
     .filter((h) => h.distance <= radius)
-    .sort((a, b) => a.distance - b.distance);
+    .sort((a, b) => b.smart_score - a.smart_score);
 
   return nearby;
 };
@@ -175,7 +191,7 @@ const getPharmacies = async (latitude, longitude, radius = 5) => {
 };
 
 // Get clinics near location
-const getClinics = async (latitude, longitude, radius = 5) => {
+const getClinics = async (latitude, longitude, radius = 25) => {
   const bounds = getBoundingBox({ latitude, longitude }, radius);
 
   const { data, error } = await supabaseAdmin
@@ -195,10 +211,13 @@ const getClinics = async (latitude, longitude, radius = 5) => {
   return recordsWithPhone
     .map((c) => {
       const dist = calculateDistance({ latitude, longitude }, { latitude: c.latitude, longitude: c.longitude });
-      return { ...c, distance: dist, distanceText: formatDistance(dist) };
+      const rating = parseFloat(c.rating) || 0;
+      const reviews = parseInt(c.total_reviews) || 0;
+      const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+      return { ...c, distance: dist, distanceText: formatDistance(dist), smart_score: score };
     })
     .filter((c) => c.distance <= radius)
-    .sort((a, b) => a.distance - b.distance);
+    .sort((a, b) => b.smart_score - a.smart_score);
 };
 
 // Get diagnostic centers near location
@@ -261,8 +280,14 @@ const getHospitalById = async (id) => {
       .map((entry) => {
         if (!entry?.doctor) return entry;
         const { is_approved: _ignored, ...doctor } = entry.doctor;
-        return { ...entry, doctor };
+        const rating = parseFloat(doctor.rating) || 0;
+        const reviews = parseInt(doctor.total_reviews) || 0;
+        const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+        return { ...entry, doctor: { ...doctor, smart_score: score } };
       });
+
+    // Sort the hospital's doctors by their smart score
+    data.doctors.sort((a, b) => (b.doctor?.smart_score || 0) - (a.doctor?.smart_score || 0));
   }
 
   if (Array.isArray(data.departments)) {

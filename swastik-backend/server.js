@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const WebSocket = require('ws');
 
 const config = require('./config');
+const logger = require('./utils/logger');
 const compression = require('compression');
 const { initializeBucket, storageProvider } = require('./config/minio');
 const { connectMongoDB } = require('./config/mongodb');
@@ -115,7 +116,7 @@ const io = new Server(server, {
 // This lets browsers connect to wss://api.vaididea.in/ws/vitals/...
 // through the ALB on port 443, without needing port 8000 publicly exposed.
 const AI_SERVICE_WS_TARGET = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-console.log(`[WS Proxy] AI Service target: ${AI_SERVICE_WS_TARGET}`);
+logger.info(`[WS Proxy] AI Service target: ${AI_SERVICE_WS_TARGET}`);
 
 server.on('upgrade', (req, socket, head) => {
   // Only intercept /ws/vitals/* paths; let Socket.IO handle everything else
@@ -124,7 +125,7 @@ server.on('upgrade', (req, socket, head) => {
   const targetUrl = new URL(req.url, AI_SERVICE_WS_TARGET);
   if (targetUrl.protocol === 'http:') targetUrl.protocol = 'ws:';
   else if (targetUrl.protocol === 'https:') targetUrl.protocol = 'wss:';
-  console.log(`[WS Proxy] Upgrading ${req.url} → ${targetUrl.toString()}`);
+  logger.info(`[WS Proxy] Upgrading ${req.url} → ${targetUrl.toString()}`);
 
   const upstream = new WebSocket(targetUrl.toString(), {
     headers: {
@@ -150,7 +151,7 @@ server.on('upgrade', (req, socket, head) => {
     });
 
     upstream.on('open', () => {
-      console.log(`[WS Proxy] Upstream connected for ${req.url}`);
+      logger.info(`[WS Proxy] Upstream connected for ${req.url}`);
       // Flush buffered messages from before upstream was ready
       for (const msg of pendingMessages) {
         upstream.send(msg);
@@ -165,21 +166,21 @@ server.on('upgrade', (req, socket, head) => {
 
     // Clean up on close
     clientWs.on('close', (code, reason) => {
-      console.log(`[WS Proxy] Client closed ${req.url}: ${code} ${reason || ''}`);
+      logger.info(`[WS Proxy] Client closed ${req.url}: ${code} ${reason || ''}`);
       upstream.close();
     });
     upstream.on('close', (code, reason) => {
-      console.log(`[WS Proxy] Upstream closed ${req.url}: ${code} ${reason || ''}`);
+      logger.info(`[WS Proxy] Upstream closed ${req.url}: ${code} ${reason || ''}`);
       clientWs.close();
     });
 
     // Error handling
     clientWs.on('error', (err) => {
-      console.error(`[WS Proxy] Client error ${req.url}:`, err.message);
+      logger.error(`[WS Proxy] Client error ${req.url}:`, err.message);
       upstream.close();
     });
     upstream.on('error', (err) => {
-      console.error(`[WS Proxy] Upstream error ${req.url}:`, err.message);
+      logger.error(`[WS Proxy] Upstream error ${req.url}:`, err.message);
       clientWs.close();
     });
   });
@@ -200,16 +201,16 @@ if (config.redis.ioredisUrl) {
     Promise.all([pubClient.connect(), subClient.connect()])
       .then(() => {
         io.adapter(createAdapter(pubClient, subClient));
-        console.log('✅ Socket.IO Redis adapter connected');
+        logger.info('✅ Socket.IO Redis adapter connected');
       })
       .catch((err) => {
-        console.warn('⚠️  Socket.IO Redis adapter failed (falling back to in-memory):', err.message);
+        logger.warn('⚠️  Socket.IO Redis adapter failed (falling back to in-memory):', err.message);
       });
   } catch (err) {
-    console.warn('⚠️  @socket.io/redis-adapter not available:', err.message);
+    logger.warn('⚠️  @socket.io/redis-adapter not available:', err.message);
   }
 } else {
-  console.warn('⚠️  REDIS_URL/UPSTASH_REDIS_URL not set for ioredis adapter. Socket.IO scaling is disabled (single-instance mode).');
+  logger.warn('⚠️  REDIS_URL/UPSTASH_REDIS_URL not set for ioredis adapter. Socket.IO scaling is disabled (single-instance mode).');
 }
 
 // Initialize Socket.IO
@@ -268,7 +269,7 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     if (duration > 2000 || res.statusCode >= 500) {
-      console.warn(`[SLOW/ERR] ${req.method} ${req.path} ${res.statusCode} ${duration}ms [${req.id}]`);
+      logger.warn(`[SLOW/ERR] ${req.method} ${req.path} ${res.statusCode} ${duration}ms [${req.id}]`);
     }
   });
   next();
@@ -430,7 +431,7 @@ const startServer = async () => {
       const redisMonitor = require('./services/redisMonitor');
       redisMonitor.startPolling();
     } catch (e) {
-      console.warn('⚠️ Could not start Redis Monitor:', e.message);
+      logger.warn('⚠️ Could not start Redis Monitor:', e.message);
     }
 
     // Initialize async notification dispatch queue (falls back to direct send if unavailable)
@@ -444,7 +445,7 @@ const startServer = async () => {
       const dispatchService = require('./services/dispatchService');
       await dispatchService.recoverBroadcasts();
     } catch (err) {
-      console.warn('⚠️  Broadcast recovery failed (non-fatal):', err.message);
+      logger.warn('⚠️  Broadcast recovery failed (non-fatal):', err.message);
     }
 
     // Start server
@@ -459,12 +460,12 @@ const startServer = async () => {
         if (isEnvEnabled('OUTBREAK_CRON_ENABLED', true)) {
           startOutbreakCron(6);
         } else {
-          console.log('[Cron] Outbreak scheduler is disabled by OUTBREAK_CRON_ENABLED=false');
+          logger.info('[Cron] Outbreak scheduler is disabled by OUTBREAK_CRON_ENABLED=false');
         }
       } else {
-        console.log('[Cron] Background job schedulers are disabled by BACKGROUND_JOBS_ENABLED=false');
+        logger.info('[Cron] Background job schedulers are disabled by BACKGROUND_JOBS_ENABLED=false');
       }
-      console.log(`
+      logger.info(`
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
 ║   🏥 VAIDIDEA Healthcare API Server                              ║
@@ -497,7 +498,7 @@ const startServer = async () => {
       `);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 };
@@ -507,7 +508,7 @@ let consultationTimeoutInterval;
 let reminderNotificationInterval;
 const startConsultationTimeoutCron = () => {
   if (isEnvEnabled('CONSULTATION_TIMEOUT_CRON_ENABLED', true) === false) {
-    console.log('[Cron] Consultation timeout scheduler is disabled by CONSULTATION_TIMEOUT_CRON_ENABLED=false');
+    logger.info('[Cron] Consultation timeout scheduler is disabled by CONSULTATION_TIMEOUT_CRON_ENABLED=false');
     return;
   }
 
@@ -522,7 +523,7 @@ const startConsultationTimeoutCron = () => {
         const lockAcquired = await cacheSetIfNotExists('cron:consultation-timeout:lock', process.pid, lockTtlSec);
         if (!lockAcquired) return;
       } catch (lockErr) {
-        console.warn('[Cron] Consultation timeout lock unavailable; running without lock:', lockErr.message);
+        logger.warn('[Cron] Consultation timeout lock unavailable; running without lock:', lockErr.message);
       }
 
       const { supabaseAdmin } = require('./config/supabase');
@@ -535,17 +536,17 @@ const startConsultationTimeoutCron = () => {
         .select('id');
 
       if (!error && data?.length > 0) {
-        console.log(`[Cron] Timed out ${data.length} stale consultations`);
+        logger.info(`[Cron] Timed out ${data.length} stale consultations`);
       }
     } catch (err) {
-      console.error('[Cron] Consultation timeout error:', err.message);
+      logger.error('[Cron] Consultation timeout error:', err.message);
     }
   }, intervalMs);
 };
 
 const startReminderNotificationCron = () => {
   if (String(process.env.REMINDER_CRON_ENABLED || 'true').toLowerCase() === 'false') {
-    console.log('[Cron] Reminder notification scheduler is disabled by REMINDER_CRON_ENABLED=false');
+    logger.info('[Cron] Reminder notification scheduler is disabled by REMINDER_CRON_ENABLED=false');
     return;
   }
 
@@ -562,14 +563,14 @@ const startReminderNotificationCron = () => {
       const reminderNotificationService = require('./services/reminderNotificationService');
       await reminderNotificationService.runReminderNotificationTick();
     } catch (err) {
-      console.error('[Cron] Reminder notification error:', err.message);
+      logger.error('[Cron] Reminder notification error:', err.message);
     }
   }, intervalMs);
 };
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
+  logger.error('Unhandled Rejection:', err);
   // Clear cron interval to prevent stale timers
   if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
   if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
@@ -578,20 +579,20 @@ process.on('unhandledRejection', (err) => {
   });
   // Force kill after 15 seconds if server.close() hangs
   setTimeout(() => {
-    console.error('Forced shutdown after unhandled rejection timeout');
+    logger.error('Forced shutdown after unhandled rejection timeout');
     process.exit(1);
   }, 15000);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  logger.error('Uncaught Exception:', err);
   process.exit(1);
 });
 
 // I18: Graceful shutdown — close all connections cleanly
 const gracefulShutdown = async (signal) => {
-  console.log(`${signal} received. Shutting down gracefully...`);
+  logger.info(`${signal} received. Shutting down gracefully...`);
 
   // Stop accepting new connections
   server.close(async () => {
@@ -603,7 +604,7 @@ const gracefulShutdown = async (signal) => {
       // Close Socket.IO
       if (io) {
         io.close();
-        console.log('✅ Socket.IO closed');
+        logger.info('✅ Socket.IO closed');
       }
 
       // Close notification queue worker/producer
@@ -617,21 +618,21 @@ const gracefulShutdown = async (signal) => {
         const mongoose = require('mongoose');
         if (mongoose.connection.readyState === 1) {
           await mongoose.connection.close();
-          console.log('✅ MongoDB closed');
+          logger.info('✅ MongoDB closed');
         }
       } catch { /* ignore */ }
 
-      console.log('Process terminated.');
+      logger.info('Process terminated.');
       process.exit(0);
     } catch (err) {
-      console.error('Error during shutdown:', err);
+      logger.error('Error during shutdown:', err);
       process.exit(1);
     }
   });
 
   // Force kill after 15 seconds
   setTimeout(() => {
-    console.error('Forced shutdown after timeout');
+    logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 15000);
 };

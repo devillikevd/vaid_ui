@@ -56,10 +56,9 @@ fun HomeTabContent(
     onAddAddressClick: () -> Unit = {},
     onRefresh: () -> Unit = {},
     onFindDoctorSpecialityClick: (String) -> Unit = {},
-    onNavigateToCommunityQA: () -> Unit = {}
+    onNavigateToCommunityQA: () -> Unit = {},
+    onDoctorClick: (String) -> Unit = {}
 ) {
-    var selectedDoctorForProfile by remember { mutableStateOf<Doctor?>(null) }
-    
     val homeBgColor = if (isSystemInDarkTheme()) {
         MaterialTheme.colorScheme.background
     } else {
@@ -220,11 +219,11 @@ fun HomeTabContent(
             
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Recommended Doctors (Moved up as requested)
+            // Recommended Doctors
             RecommendedDoctorsSection(
                 doctors = doctors,
                 onBookClick = { onNavigateToBooking(it.id) },
-                onViewProfile = { selectedDoctorForProfile = it },
+                onViewProfile = { onDoctorClick(it.id) },
                 onViewAllClick = { onNavigateToBooking(null) },
                 onRetry = onRefresh
             )
@@ -268,16 +267,5 @@ fun HomeTabContent(
             
             Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
         }
-    }
-
-    selectedDoctorForProfile?.let { doctor ->
-        com.example.swastik.ui.components.DoctorProfileBottomSheet(
-            doctor = doctor,
-            onDismiss = { selectedDoctorForProfile = null },
-            onBookClick = {
-                selectedDoctorForProfile = null
-                onNavigateToBooking(doctor.id)
-            }
-        )
     }
 }

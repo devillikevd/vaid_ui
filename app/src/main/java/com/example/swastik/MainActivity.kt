@@ -39,6 +39,7 @@ import com.example.swastik.ui.screens.patient.HospitalDetailScreen
 import com.example.swastik.ui.screens.patient.PatientDashboardScreen
 import com.example.swastik.ui.screens.patient.booking.AppointmentBookingScreen
 import com.example.swastik.ui.screens.patient.booking.FindDoctorsCategoriesScreen
+import com.example.swastik.ui.screens.patient.DoctorProfileScreen
 import com.example.swastik.ui.screens.patient.booking.AllSpecialitiesScreen
 import com.example.swastik.ui.screens.patient.dashboard.ChatbotScreen
 import com.example.swastik.ui.screens.patient.dashboard.PrescriptionsScreen
@@ -314,7 +315,10 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         search = mappedSearch
                     ))
                 },
-                onNavigateToCommunityQA = { navController.navigateSafe(Screen.CommunityQA.route) }
+                onNavigateToCommunityQA = { navController.navigateSafe(Screen.CommunityQA.route) },
+                onDoctorClick = { doctorId -> 
+                    navController.navigateSafe(Screen.DoctorProfile.createRoute(doctorId))
+                }
             )
             }
         }
@@ -394,6 +398,22 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     }
                 )
             }
+        }
+
+        composable(
+            route = Screen.DoctorProfile.route,
+            arguments = listOf(navArgument("doctorId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            DoctorProfileScreen(
+                doctorId = doctorId,
+                onBackClick = { navController.popBackStack() },
+                onBookClick = {
+                    navController.navigateSafe(
+                        Screen.AppointmentBooking.createRoute(doctorId = it)
+                    )
+                }
+            )
         }
 
         composable(

@@ -17,12 +17,15 @@ interface DoctorRepository {
         search: String?,
         hospitalId: String?,
         clinicId: String?,
-        page: Int,
         latitude: Double? = null,
         longitude: Double? = null,
-        city: String? = null
+        city: String? = null,
+        global: Boolean? = null,
+        page: Int = 1,
+        limit: Int = 20
     ): Result<PaginatedResponse<Doctor>>
     suspend fun getDoctorDetails(id: String): Result<DoctorDetails>
+    suspend fun getDoctorQueueStats(id: String): Result<com.example.swastik.data.remote.dto.DoctorQueueStatsDto>
     suspend fun getDoctorSlots(doctorId: String, date: String): Result<SlotsResponse>
 }
 
@@ -47,10 +50,12 @@ class DoctorRepositoryImpl @Inject constructor(
         search: String?,
         hospitalId: String?,
         clinicId: String?,
-        page: Int,
         latitude: Double?,
         longitude: Double?,
-        city: String?
+        city: String?,
+        global: Boolean?,
+        page: Int,
+        limit: Int
     ): Result<PaginatedResponse<Doctor>> {
         // Try network first
         try {
@@ -62,7 +67,9 @@ class DoctorRepositoryImpl @Inject constructor(
                 city = city,
                 latitude = latitude,
                 longitude = longitude,
-                page = page
+                global = global,
+                page = page,
+                limit = limit
             )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
@@ -150,6 +157,19 @@ class DoctorRepositoryImpl @Inject constructor(
                 } ?: Result.Error("No data received")
             } else {
                 Result.Error(response.message() ?: "Failed to fetch slots")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Failed to get doctor details")
+        }
+    }
+
+    override suspend fun getDoctorQueueStats(id: String): Result<com.example.swastik.data.remote.dto.DoctorQueueStatsDto> {
+        return try {
+            val response = apiService.getDoctorQueueStats(id)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()!!.data)
+            } else {
+                Result.Error("Failed to fetch queue stats")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

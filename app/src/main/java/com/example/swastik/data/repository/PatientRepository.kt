@@ -398,11 +398,15 @@ class PatientRepository @Inject constructor(
      * Submit review for doctor/hospital
      * POST /api/patients/reviews
      */
-    suspend fun submitReview(appointmentId: String, doctorId: String? = null, hospitalId: String? = null, rating: Int, comment: String?): Result<Review> {
+    suspend fun submitReview(appointmentId: String, doctorId: String? = null, hospitalId: String? = null, rating: Int, comment: String?): Result<com.example.swastik.data.model.Review> {
         return try {
-            val request = com.example.swastik.data.remote.dto.ReviewRequest(
-                doctorId = doctorId,
-                hospitalId = hospitalId,
+            val reviewableType = if (doctorId != null) "doctor" else "hospital"
+            val reviewableId = doctorId ?: hospitalId ?: return Result.Error("Must provide doctorId or hospitalId")
+            
+            val request = com.example.swastik.data.model.ReviewRequest(
+                reviewableType = reviewableType,
+                reviewableId = reviewableId,
+                consultationId = appointmentId,
                 rating = rating,
                 comment = comment
             )
@@ -685,9 +689,12 @@ class PatientRepository @Inject constructor(
      * Generate a new health card QR token (24h expiry)
      * POST /api/health-card/generate
      */
-    suspend fun generateHealthCard(): Result<com.example.swastik.data.remote.dto.HealthCardTokenResponse> {
+    suspend fun generateHealthCard(analyticsJson: String? = null): Result<com.example.swastik.data.remote.dto.HealthCardTokenResponse> {
         return try {
-            val response = apiService.generateHealthCard()
+            val request = com.example.swastik.data.remote.dto.GenerateHealthCardRequest(
+                guardianAnalyticsJson = analyticsJson
+            )
+            val response = apiService.generateHealthCard(request)
             if (response.isSuccessful && response.body()?.success == true) {
                 val data = response.body()?.data
                 if (data != null) Result.Success(data)
@@ -1107,4 +1114,34 @@ class PatientRepository @Inject constructor(
         ) else null,
         medicines = null
     )
+
+    // ============================================
+    // REVIEWS
+    // ============================================
+    
+    suspend fun submitReview(request: com.example.swastik.data.model.ReviewRequest): Result<Unit> {
+        return try {
+            val response = apiService.submitReview(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to submit review")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error occurred")
+        }
+    }
+    
+    suspend fun getEntityReviews(type: String, id: String, page: Int = 1, limit: Int = 20): Result<PaginatedResponse<Review>> {
+        return try {
+            val response = apiService.getEntityReviews(type, id, page, limit)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to fetch reviews")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error occurred")
+        }
+    }
 }

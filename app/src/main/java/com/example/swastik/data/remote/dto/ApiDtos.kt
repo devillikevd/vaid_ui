@@ -415,6 +415,17 @@ data class DoctorDto(
     val isAvailable: Boolean = true
 )
 
+data class DoctorQueueStatsDto(
+    val currentQueue: Int,
+    val inProgress: Int,
+    val estimatedWaitTime: Int
+)
+
+data class DoctorQueueStatsResponse(
+    val success: Boolean,
+    val data: DoctorQueueStatsDto
+)
+
 data class TimeSlotDto(
     val time: String,
     val isAvailable: Boolean

@@ -136,7 +136,10 @@ data class Doctor(
     // Hospital info (returned when searching via patients/doctors)
     val hospital: DoctorHospitalInfo? = null,
     val languages: List<String>? = null,
-    val bio: String? = null
+    val bio: String? = null,
+    val awards: List<String>? = null,
+    @SerializedName("consultation_types") val consultationTypes: List<String>? = null,
+    @SerializedName("total_consultations") val totalConsultations: Int? = null
 )
 
 /** Lightweight hospital info embedded in doctor search results */
@@ -154,7 +157,9 @@ data class DoctorDetails(
     val schedules: List<DoctorSchedule> = emptyList(),
     val hospitals: List<Hospital>? = null,
     val clinics: List<Clinic>? = null,
-    val reviews: List<Review>? = null
+    val reviews: List<Review>? = null,
+    @SerializedName("reviewDistribution") val reviewDistribution: Map<String, Int>? = null,
+    @SerializedName("queueCount") val queueCount: Int? = null
 )
 
 data class DoctorSchedule(
@@ -219,9 +224,20 @@ data class Clinic(
 data class Review(
     val id: String,
     val rating: Int,
+    val title: String? = null,
     val comment: String?,
     @SerializedName("created_at") val createdAt: String,
     val patient: Patient?
+)
+
+data class ReviewRequest(
+    val reviewableType: String,
+    val reviewableId: String,
+    val consultationId: String?,
+    val rating: Int,
+    val title: String? = null,
+    val comment: String?,
+    val isAnonymous: Boolean = false
 )
 
 data class AppointmentFacility(

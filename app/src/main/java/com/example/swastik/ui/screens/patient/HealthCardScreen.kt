@@ -55,9 +55,13 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Lock
 import com.example.swastik.ui.theme.HealthIdCardBg
 import com.example.swastik.ui.theme.HealthIdCardBorder
 import com.example.swastik.ui.theme.SwastikPrimary
@@ -83,12 +87,21 @@ fun HealthCardScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    
+    var hasPermissions by remember { mutableStateOf(false) }
+    var healthConnectStatus by remember { mutableIntStateOf(dashboardViewModel.healthConnectManager.checkAvailability()) }
+    
+    LaunchedEffect(healthConnectStatus) {
+        if (healthConnectStatus == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+            hasPermissions = dashboardViewModel.healthConnectManager.hasAllPermissions()
+        }
+    }
+
     val permissionsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.health.connect.client.PermissionController.createRequestPermissionResultContract()
     ) { granted ->
         if (granted.containsAll(dashboardViewModel.healthConnectManager.permissions)) {
-            dashboardViewModel.syncHealthConnectData()
-        } else {
+            hasPermissions = true
             dashboardViewModel.syncHealthConnectData()
         }
     }
@@ -312,11 +325,6 @@ fun HealthCardScreen(
 
             item {
                 // Health Connect Sync Section
-                val isConnected by remember { 
-                    derivedStateOf { 
-                        dashboardViewModel.healthConnectManager.checkAvailability() == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE 
-                    } 
-                }
                 val lastSyncTime = guardianSettings.lastHealthSync
                 
                 // Helper to format last sync
@@ -378,7 +386,7 @@ fun HealthCardScreen(
                                     fontSize = 17.sp
                                 )
                                 
-                                if (isConnected && lastSyncTime != null) {
+                                if (healthConnectStatus == androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE && lastSyncTime != null) {
                                     Text(
                                         text = "Last sync: $lastSyncText",
                                         fontSize = 12.sp,
@@ -397,10 +405,27 @@ fun HealthCardScreen(
                         
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        Button(
-                            onClick = { 
-                                val status = dashboardViewModel.healthConnectManager.checkAvailability()
-                                if (status != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+                        if (healthConnectStatus != androidx.health.connect.client.HealthConnectClient.SDK_AVAILABLE) {
+                            // State 1: App Missing or Needs Update
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        if (healthConnectStatus == androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) 
+                                            "Health Connect needs an update to work properly." 
+                                        else 
+                                            "Health Connect app is missing from your phone.",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = {
                                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
                                     intent.setPackage("com.android.vending")
                                     intent.data = android.net.Uri.parse("market://details?id=com.google.android.apps.healthdata")
@@ -411,34 +436,58 @@ fun HealthCardScreen(
                                     } catch (e: Exception) {
                                         context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata")))
                                     }
-                                    return@Button
-                                }
-
-                                coroutineScope.launch {
-                                    if (dashboardViewModel.healthConnectManager.hasAllPermissions()) {
-                                        dashboardViewModel.syncHealthConnectData()
-                                    } else {
-                                        permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions)
-                                    }
-                                }
-                            },
-                            enabled = syncState !is ProfileUpdateState.Loading,
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A5AE0)),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            if (syncState is ProfileUpdateState.Loading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    if (healthConnectStatus == androidx.health.connect.client.HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) "Update Health Connect" else "Get Health Connect", 
+                                    color = MaterialTheme.colorScheme.onError, fontSize = 16.sp, fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Syncing...", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            } else {
-                                Icon(Icons.Default.Sync, null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else if (!hasPermissions) {
+                            // State 2: App Installed, Permissions Missing
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Please grant permissions to sync your vitals.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                            }
+                            Button(
+                                onClick = { permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions) },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Grant Permissions", color = MaterialTheme.colorScheme.onSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            // State 3: Connected and ready to sync
+                            Button(
+                                onClick = { dashboardViewModel.syncHealthConnectData() },
+                                enabled = syncState !is ProfileUpdateState.Loading,
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A5AE0)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                if (syncState is ProfileUpdateState.Loading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Syncing...", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(Icons.Default.Sync, null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                         
@@ -662,22 +711,29 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
             ) {
                 StepItem(
                     number = "1",
-                    title = "Enable Health Connect",
-                    description = "Ensure your wearable or phone has Google Health Connect enabled in settings.",
+                    title = "Get Health Connect",
+                    description = "Make sure the 'Health Connect' app by Google is installed on your phone from the Play Store.",
                     isLast = false,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )
                 StepItem(
                     number = "2",
-                    title = "Grant Data Permissions",
-                    description = "Open your device's Health app (e.g. Samsung Health, Fitbit) and allow it to share data with Health Connect.",
+                    title = "Link your Smartwatch App",
+                    description = "Open your fitness app (like Samsung Health, Google Fit, or your watch's app) and connect it to Health Connect in its settings.",
                     isLast = false,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )
                 StepItem(
                     number = "3",
-                    title = "Import Health Data",
-                    description = "Tap 'Sync Now' above to link and import your vitals into VAIDIDEA automatically.",
+                    title = "Allow Access to VAIDIDEA",
+                    description = "Tap the 'Sync Now' button above. A screen will pop up asking for permissions. Please tap 'Allow All' so we can read your health data.",
+                    isLast = false,
+                    accentColor = MaterialTheme.colorScheme.secondary
+                )
+                StepItem(
+                    number = "4",
+                    title = "See Your Daily Health",
+                    description = "That's it! Your daily steps, heart rate, and body temperature will now automatically show up here every day.",
                     isLast = true,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )

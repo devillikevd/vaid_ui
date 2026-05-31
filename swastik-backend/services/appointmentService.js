@@ -223,6 +223,20 @@ const bookAppointment = async (patientId, appointmentData) => {
     }
   }
 
+  // Generate appointment number: VD-YYYY-MMDD-NNNN
+  const bookingDate = new Date(date);
+  const yyyy = bookingDate.getFullYear();
+  const mm = String(bookingDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(bookingDate.getDate()).padStart(2, '0');
+
+  // Count existing appointments on this date to generate sequence
+  const { count: existingCount } = await supabaseAdmin
+    .from('appointments')
+    .select('id', { count: 'exact', head: true })
+    .eq('appointment_date', date);
+  const seq = String((existingCount || 0) + 1).padStart(4, '0');
+  const appointmentNumber = `VD-${yyyy}-${mm}${dd}-${seq}`;
+
   const insertPayload = {
     patient_id: patient.id,
     doctor_id: doctorId,
@@ -235,6 +249,7 @@ const bookAppointment = async (patientId, appointmentData) => {
     fee: doctor.consultation_fee,
     consultation_fee: doctor.consultation_fee,
     status: 'scheduled',
+    appointment_number: appointmentNumber,
   };
 
   const { data: insertedAppointment, error: insertError } = await supabaseAdmin
