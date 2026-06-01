@@ -13,8 +13,8 @@ object DeviceProfiler {
         val totalRamGb = memInfo.totalMem / (1024.0 * 1024.0 * 1024.0)
         val cores = Runtime.getRuntime().availableProcessors()
         
-        // Very low-end devices: limit to 10 FPS (100ms) to prevent thermal throttling and WebRTC drops
-        if (totalRamGb < 3.0 || cores < 4) {
+        // Low-end devices (e.g. Redmi 12C with 4GB RAM): limit to 10 FPS (100ms) to prevent thermal throttling and WebRTC drops
+        if (totalRamGb <= 4.1 || cores < 6) {
             return 100L
         }
         

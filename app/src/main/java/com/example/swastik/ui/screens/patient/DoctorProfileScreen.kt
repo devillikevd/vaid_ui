@@ -299,43 +299,65 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Row(
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(16.dp).fillMaxWidth()
             ) {
-                Box(modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.People, contentDescription = null, tint = SwastikPrimary)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    val rawSlot = details.schedules.firstOrNull()?.startTime
-                    val formattedSlot = if (rawSlot != null) {
-                        try {
-                            val parts = rawSlot.split(":")
-                            val h = parts[0].toInt()
-                            val m = parts.getOrNull(1) ?: "00"
-                            val ampm = if (h >= 12) "PM" else "AM"
-                            val h12 = if (h % 12 == 0) 12 else h % 12
-                            "$h12:$m $ampm"
-                        } catch (e: Exception) { rawSlot }
-                    } else "N/A"
-                    
-                    Text("Next Slot: $formattedSlot", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column {
-                            Text("Queue Status", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.People, contentDescription = null, tint = SwastikPrimary)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        val rawSlot = details.schedules.firstOrNull()?.startTime
+                        val formattedSlot = if (rawSlot != null) {
+                            try {
+                                val parts = rawSlot.split(":")
+                                val h = parts[0].toInt()
+                                val m = parts.getOrNull(1) ?: "00"
+                                val ampm = if (h >= 12) "PM" else "AM"
+                                val h12 = if (h % 12 == 0) 12 else h % 12
+                                "$h12:$m $ampm"
+                            } catch (e: Exception) { rawSlot }
+                        } else "N/A"
+                        
+                        Text(
+                            text = "Next Slot: $formattedSlot", 
+                            fontSize = 15.sp, 
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
+                            Spacer(modifier = Modifier.width(6.dp))
                             val aheadCount = queueStats?.currentQueue ?: details.queueCount ?: (1..5).random()
                             val waitTime = queueStats?.estimatedWaitTime ?: (aheadCount * 15)
-                            Text("$aheadCount persons ahead • ~$waitTime mins wait", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "Queue: $aheadCount ahead • ~$waitTime mins", 
+                                fontSize = 13.sp, 
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { /* Handle View Queue */ }) {
-                    Text("View Queue", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { /* Handle View Queue */ },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("View Full Queue Status", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 }
             }

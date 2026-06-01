@@ -728,7 +728,7 @@ class PatientService {
       if (targetSpecializations.size > 0) {
         const { data: matchedDoctors } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id, clinic:clinics(city)), hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .in('specialization', [...targetSpecializations]);
@@ -737,7 +737,7 @@ class PatientService {
           .map(doc => {
             let reason = recommendationReasons[doc.specialization] || 'Recommended for you';
             let scoreBoost = 0;
-            const docCity = doc.hospital?.city?.toLowerCase()?.trim();
+            const docCity = doc.hospital?.city?.toLowerCase()?.trim() || doc.clinic_doctors?.[0]?.clinic?.city?.toLowerCase()?.trim();
             if (patientCity && docCity && patientCity.includes(docCity)) {
               scoreBoost += 20; // High weight for same city
               reason = `${reason} (Nearby)`;
@@ -773,7 +773,7 @@ class PatientService {
 
         const { data: fallbackPool } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id, clinic:clinics(city)), hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true);
 
@@ -781,7 +781,7 @@ class PatientService {
           .filter(doc => !existingIds.includes(doc.id))
           .map(doc => {
             let scoreBoost = 0;
-            const docCity = doc.hospital?.city?.toLowerCase()?.trim();
+            const docCity = doc.hospital?.city?.toLowerCase()?.trim() || doc.clinic_doctors?.[0]?.clinic?.city?.toLowerCase()?.trim();
             const isNearby = patientCity && docCity && patientCity.includes(docCity);
             if (isNearby) scoreBoost += 20;
             if (doc.video_consultation_fee != null) scoreBoost += 5;
@@ -815,7 +815,7 @@ class PatientService {
       // Graceful fallback: return top-rated doctors
       const { data: fallback } = await supabaseAdmin
         .from('doctors')
-        .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
+        .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id, clinic:clinics(city)), hospital:hospitals(city)')
         .eq('is_approved', true)
         .eq('is_available', true)
         .order('rating', { ascending: false })

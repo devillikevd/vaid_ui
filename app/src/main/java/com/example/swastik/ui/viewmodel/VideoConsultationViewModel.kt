@@ -251,7 +251,7 @@ class VideoConsultationViewModel @Inject constructor(
                     this.iceServers = iceServers
                 }
                 cvAnalyzer = try {
-                    ComputerVisionAnalyzer(appContext).also {
+                    ComputerVisionAnalyzer(appContext, viewModelScope).also {
                         android.util.Log.d("VideoConsultationVM", "✅ CV analyzer created successfully, faceLandmarker=${it.isFaceLandmarkerReady}")
                     }
                 } catch (error: Throwable) {
@@ -1354,7 +1354,9 @@ class VideoConsultationViewModel @Inject constructor(
             return
         }
         try {
-            track.addSink(analyzer)
+            webRTCManager?.onCameraXFrame = { proxy ->
+                analyzer.processImageProxy(proxy)
+            }
             isCvAnalyzerAttached = true
             android.util.Log.d("VideoConsultationVM", "✅ CV analyzer attached to video track")
         } catch (error: Throwable) {
@@ -1372,7 +1374,7 @@ class VideoConsultationViewModel @Inject constructor(
 
     private fun detachCvAnalyzer() {
         val analyzer = cvAnalyzer ?: return
-        _localVideoTrack.value?.removeSink(analyzer)
+        webRTCManager?.onCameraXFrame = null
         isCvAnalyzerAttached = false
     }
 

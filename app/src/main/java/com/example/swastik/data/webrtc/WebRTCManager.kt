@@ -59,7 +59,7 @@ class WebRTCManager(
     private var peerConnection: PeerConnection? = null
     private var localVideoTrack: VideoTrack? = null
     private var localAudioTrack: AudioTrack? = null
-    private var videoCapturer: CameraVideoCapturer? = null
+    private var videoCapturer: VideoCapturer? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var isReleased = false
 
@@ -79,6 +79,7 @@ class WebRTCManager(
     var onAnswerCreated: ((SessionDescription) -> Unit)? = null
     var onConnectionStateChanged: ((PeerConnection.IceConnectionState) -> Unit)? = null
     var onRemoteStreamRemoved: (() -> Unit)? = null
+    var onCameraXFrame: ((androidx.camera.core.ImageProxy) -> Unit)? = null
     var onNetworkQualityChanged: ((NetworkQuality) -> Unit)? = null
 
     /** Network quality classification */
@@ -271,20 +272,27 @@ class WebRTCManager(
             return
         }
 
-        val encoderFactory = DefaultVideoEncoderFactory(
-            eglBase.eglBaseContext, true, true
-        )
+        // Plan C: Fallback to Software Video Encoding for low-end devices
+        // MediaTek hardware encoders are notorious for freezing EGL contexts during WebRTC video calls.
+        val isLowEndDevice = com.example.swastik.util.vision.DeviceProfiler.getTier2IntervalMs(context) >= 100L
+        val encoderFactory: VideoEncoderFactory = if (isLowEndDevice) {
+            Log.d(TAG, "Plan C active: Using SoftwareVideoEncoderFactory for low-end device")
+            SoftwareVideoEncoderFactory()
+        } else {
+            DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, true)
+        }
         val eglContext = eglBase.eglBaseContext
         val hardwareDecoderFactory = HardwareVideoDecoderFactory(eglContext)
         val softwareDecoderFactory = SoftwareVideoDecoderFactory()
         val decoderFactory = object : VideoDecoderFactory {
             override fun createDecoder(info: VideoCodecInfo): VideoDecoder? {
                 // MediaTek/Budget devices often have texture sharing bugs in WebRTC when hardware decoding H264
-                // Force software decoding for remote video tracks to ensure distinct textures from the camera capturer.
-                return softwareDecoderFactory.createDecoder(info) ?: hardwareDecoderFactory.createDecoder(info)
+                // However, forcing software decoding causes 100% CPU usage and massive lag on budget devices (e.g. Redmi 12C).
+                // Try hardware decoder first, and only fall back to software decoder if hardware isn't available.
+                return hardwareDecoderFactory.createDecoder(info) ?: softwareDecoderFactory.createDecoder(info)
             }
             override fun getSupportedCodecs(): Array<VideoCodecInfo> {
-                return softwareDecoderFactory.supportedCodecs + hardwareDecoderFactory.supportedCodecs
+                return hardwareDecoderFactory.supportedCodecs + softwareDecoderFactory.supportedCodecs
             }
         }
 
@@ -398,13 +406,13 @@ class WebRTCManager(
      * Try higher capture quality first, then gracefully fallback.
      * WebRTC then adapts bitrate dynamically based on network conditions.
      */
-    private fun startCaptureWithFallback(capturer: CameraVideoCapturer) {
+    private fun startCaptureWithFallback(capturer: VideoCapturer) {
         val profiles = listOf(
-            Triple(1280, 720, 24),
-            Triple(960, 540, 24),
-            Triple(640, 480, 24),
             Triple(480, 360, 20),
+            Triple(640, 480, 24),
             Triple(320, 240, 15),
+            Triple(960, 540, 24),
+            Triple(1280, 720, 24)
         )
 
         var lastError: Throwable? = null
@@ -500,8 +508,8 @@ class WebRTCManager(
                 // immediately crushing detail on the patient feed.
                 params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.BALANCED
                 if (params.encodings.isNotEmpty()) {
-                    params.encodings[0].maxBitrateBps = 1200000 // 1.2 Mbps: HD-capable without flooding mobile uplinks
-                    params.encodings[0].minBitrateBps = 180000
+                    params.encodings[0].maxBitrateBps = 400000 // 400 kbps: smooth enough for 480p and prevents uplink flooding
+                    params.encodings[0].minBitrateBps = 150000
                 }
                 runCatching {
                     sender.parameters = params
@@ -722,7 +730,9 @@ class WebRTCManager(
      * Switch between front and back camera.
      */
     fun switchCamera() {
-        videoCapturer?.switchCamera(null)
+        if (videoCapturer is CameraXCapturer) {
+            (videoCapturer as CameraXCapturer).switchCamera()
+        }
     }
 
     /**
@@ -766,25 +776,10 @@ class WebRTCManager(
     /**
      * Find a camera capturer (prefer front camera).
      */
-    private fun createCameraCapturer(): CameraVideoCapturer? {
-        val enumerator = Camera2Enumerator(context)
-        val deviceNames = enumerator.deviceNames
-
-        // Prefer front camera
-        for (name in deviceNames) {
-            if (enumerator.isFrontFacing(name)) {
-                val capturer = enumerator.createCapturer(name, null)
-                if (capturer != null) return capturer
-            }
+    private fun createCameraCapturer(): VideoCapturer? {
+        return CameraXCapturer { proxy ->
+            onCameraXFrame?.invoke(proxy)
         }
-
-        // Fall back to any camera
-        for (name in deviceNames) {
-            val capturer = enumerator.createCapturer(name, null)
-            if (capturer != null) return capturer
-        }
-
-        return null
     }
 
     /**

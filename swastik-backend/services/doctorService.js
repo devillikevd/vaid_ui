@@ -391,7 +391,7 @@ class DoctorService {
         id, name, specialization, experience_years, rating, total_reviews,
         qualifications, consultation_fee, video_consultation_fee, bio,
         profile_image_url, languages, is_available,
-        hospital_id, clinic_doctors(clinic_id),
+        hospital_id, clinic_doctors(clinic_id, clinic:clinics(latitude, longitude)),
         hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })
       .eq('is_approved', true);
@@ -500,10 +500,28 @@ class DoctorService {
       result = result.map(doc => {
         const hospLat = doc.hospital?.latitude;
         const hospLng = doc.hospital?.longitude;
-        let distance = null;
+        const clinicLat = doc.clinic_doctors?.[0]?.clinic?.latitude;
+        const clinicLng = doc.clinic_doctors?.[0]?.clinic?.longitude;
+        
+        let hospDist = null;
+        let clinicDist = null;
+        
         if (hospLat && hospLng) {
-          distance = haversineDistance(patLat, patLng, hospLat, hospLng);
+          hospDist = haversineDistance(patLat, patLng, hospLat, hospLng);
         }
+        if (clinicLat && clinicLng) {
+          clinicDist = haversineDistance(patLat, patLng, clinicLat, clinicLng);
+        }
+        
+        let distance = null;
+        if (hospDist !== null && clinicDist !== null) {
+          distance = Math.min(hospDist, clinicDist);
+        } else if (hospDist !== null) {
+          distance = hospDist;
+        } else if (clinicDist !== null) {
+          distance = clinicDist;
+        }
+        
         return { ...doc, distance_km: distance };
       });
     }
@@ -511,10 +529,10 @@ class DoctorService {
     if (hasLocation) {
       if (filters.hospitalId || filters.clinicId) {
         // Limit to 25km for hospital/clinic specific searches
-        result = result.filter(doc => doc.distance_km === null || doc.distance_km <= 25.0);
+        result = result.filter(doc => doc.distance_km !== null && doc.distance_km <= 25.0);
       } else if (!filters.global) {
         // Limit to 120km for In-Person searches
-        result = result.filter(doc => doc.distance_km === null || doc.distance_km <= 120.0);
+        result = result.filter(doc => doc.distance_km !== null && doc.distance_km <= 120.0);
       }
       // If filters.global is true, do not filter by distance
     }

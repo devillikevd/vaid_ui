@@ -58,13 +58,15 @@ import kotlin.math.sqrt
  *   • Pre-allocated NV21 buffer and JPEG stream reused across frames
  *   • rPPG signal sampled at 30 FPS instead of 12 FPS → 2.5× more data points
  */
-class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
+class ComputerVisionAnalyzer(
+    private val context: Context,
+    private val scope: CoroutineScope
+) {
 
     companion object {
         private const val TAG = "CVAnalyzer"
 
         // ── Timing ─────────────────────────────────────────────────────
-        /** Minimum interval between keyframes (Tier 1) — targets ~2 Hz. */
         /** Minimum interval between keyframes (Tier 1) — default targets ~2 Hz. */
         private const val DEFAULT_KEYFRAME_INTERVAL_MS = 500L
 
@@ -169,9 +171,6 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private var missingFaceFrames = 0
     private val lightweightIntervalMs = DeviceProfiler.getTier2IntervalMs(context)
 
-    // Create a strictly dedicated background thread for CV to avoid WebRTC contention
-    private val cvDispatcher: ExecutorCoroutineDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-    private val scope = CoroutineScope(cvDispatcher + Job())
     @Volatile private var isProcessingFrame = false
 
     // ── Signal buffers ─────────────────────────────────────────────
@@ -216,7 +215,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                 .build()
             val gpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
                 .setBaseOptions(gpuOptions)
-                .setRunningMode(RunningMode.IMAGE)
+                .setRunningMode(RunningMode.VIDEO)
                 .setNumFaces(1)
                 .setOutputFaceBlendshapes(true)
                 .build()
@@ -233,7 +232,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                     .build()
                 val cpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
                     .setBaseOptions(cpuOptions)
-                    .setRunningMode(RunningMode.IMAGE)
+                    .setRunningMode(RunningMode.VIDEO)
                     .setNumFaces(1)
                     .setOutputFaceBlendshapes(true)
                     .build()
@@ -248,17 +247,21 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     }
 
     // ══════════════════════════════════════════════════════════════════
-    //  FRAME ENTRY POINT (WebRTC VideoSink)
+    //  FRAME ENTRY POINT (CameraX Decoupled CPU Stream)
     // ══════════════════════════════════════════════════════════════════
 
-    override fun onFrame(frame: VideoFrame) {
+    fun processImageProxy(imageProxy: androidx.camera.core.ImageProxy) {
         val currentTimeMs = System.currentTimeMillis()
 
-        // Gate: skip if we're still processing a previous frame
-        if (isProcessingFrame) return
+        if (isProcessingFrame) {
+            imageProxy.close()
+            return
+        }
 
-        // Gate: enforce minimum interval between lightweight frames
-        if (currentTimeMs - lastLightweightTimeMs < lightweightIntervalMs) return
+        if (currentTimeMs - lastLightweightTimeMs < lightweightIntervalMs) {
+            imageProxy.close()
+            return
+        }
 
         isProcessingFrame = true
 
@@ -274,120 +277,98 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             lastLightweightTimeMs = currentTimeMs
         }
 
-        // CRITICAL FIX: Retain frame immediately
-        frame.retain()
-
-        // EGL Thread Operations (Must be done here, not in coroutine)
-        try {
-            val MAX_DIMEN = if (isLowEndDevice) 160 else 480
-            val originalWidth = frame.buffer.width
-            val originalHeight = frame.buffer.height
-            val scale = MAX_DIMEN.toFloat() / maxOf(originalWidth, originalHeight)
-            
-            val processedBuffer = if (scale < 1.0f) {
-                frame.buffer.cropAndScale(
-                    0, 0, originalWidth, originalHeight,
-                    (originalWidth * scale).toInt(), (originalHeight * scale).toInt()
-                )
-            } else {
-                frame.buffer
-            }
-
-            val i420Buffer = processedBuffer.toI420()
-            
-            if (i420Buffer == null) {
-                if (scale < 1.0f) processedBuffer.release()
-                frame.release()
-                isProcessingFrame = false
-                return
-            }
-
-            val rotation = frame.rotation
-            val isNewI420 = (i420Buffer !== processedBuffer) && (i420Buffer !== frame.buffer)
-
-            if (!isNewI420) {
-                i420Buffer.retain()
-            }
-
-            scope.launch {
-                try {
-                    val width = i420Buffer.width
-                    val height = i420Buffer.height
-
-                    if (isKeyframe) {
-                        val requiredSize = width * height + (width * height / 2)
-                        if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
-                            nv21Buffer = ByteArray(requiredSize)
-                        }
-                        val nv21 = nv21Buffer!!
-
-                        copyPlane(i420Buffer.dataY, i420Buffer.strideY, nv21, width, height, 0)
-                        copyUvPlanesToNv21(
-                            vBuffer = i420Buffer.dataV, vStride = i420Buffer.strideV,
-                            uBuffer = i420Buffer.dataU, uStride = i420Buffer.strideU,
-                            destination = nv21, width = width, height = height, offset = width * height
-                        )
-
-                        val yuvCheekColor = cachedRoi?.let { roi ->
-                            val left = sampleYuvPatch(
-                                i420Buffer.dataY, i420Buffer.strideY,
-                                i420Buffer.dataU, i420Buffer.strideU,
-                                i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                            )
-                            val right = sampleYuvPatch(
-                                i420Buffer.dataY, i420Buffer.strideY,
-                                i420Buffer.dataU, i420Buffer.strideU,
-                                i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                            )
-                            if (left != null && right != null) averageRgb(left, right) else null
-                        }
-
-                        processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
-
-                    } else {
-                        val roi = cachedRoi
-                        if (roi != null) {
-                            val leftCheek = sampleYuvPatch(
-                                i420Buffer.dataY, i420Buffer.strideY,
-                                i420Buffer.dataU, i420Buffer.strideU,
-                                i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
-                            )
-                            val rightCheek = sampleYuvPatch(
-                                i420Buffer.dataY, i420Buffer.strideY,
-                                i420Buffer.dataU, i420Buffer.strideU,
-                                i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
-                            )
-                            val cheekColor = if (leftCheek != null && rightCheek != null) averageRgb(leftCheek, rightCheek) else null
-
-                            val lipColor = sampleYuvPatch(
-                                i420Buffer.dataY, i420Buffer.strideY,
-                                i420Buffer.dataU, i420Buffer.strideU,
-                                i420Buffer.dataV, i420Buffer.strideV,
-                                width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
-                                widthFactor = 0.12, heightFactor = 0.07
-                            )
-
-                            processLightweightFrame(cheekColor, lipColor, roi, currentTimeMs)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Frame processing error", e)
-                } finally {
-                    i420Buffer.release()
-                    if (scale < 1.0f) processedBuffer.release()
-                    frame.release()
-                    isProcessingFrame = false
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Frame preprocessing error", e)
-            frame.release()
+        if (imageProxy.format != android.graphics.ImageFormat.YUV_420_888) {
+            imageProxy.close()
             isProcessingFrame = false
-            handleFaceLoss()
+            return
+        }
+
+        val width = imageProxy.width
+        val height = imageProxy.height
+        val rotation = imageProxy.imageInfo.rotationDegrees
+
+        val yPlane = imageProxy.planes[0]
+        val uPlane = imageProxy.planes[1]
+        val vPlane = imageProxy.planes[2]
+        
+        val yBuffer = yPlane.buffer
+        val uBuffer = uPlane.buffer
+        val vBuffer = vPlane.buffer
+        
+        val yStride = yPlane.rowStride
+        val uStride = uPlane.rowStride
+        val vStride = vPlane.rowStride
+
+        scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            try {
+                if (isKeyframe) {
+                    val requiredSize = width * height + (width * height / 2)
+                    if (nv21Buffer == null || nv21Buffer!!.size != requiredSize) {
+                        nv21Buffer = ByteArray(requiredSize)
+                    }
+                    val nv21 = nv21Buffer!!
+
+                    copyPlane(yBuffer, yStride, nv21, width, height, 0)
+                    copyUvPlanesToNv21(
+                        vBuffer = vBuffer, vStride = vStride, vPixelStride = vPlane.pixelStride,
+                        uBuffer = uBuffer, uStride = uStride, uPixelStride = uPlane.pixelStride,
+                        destination = nv21, width = width, height = height, offset = width * height
+                    )
+
+                    val yuvCheekColor = cachedRoi?.let { roi ->
+                        val left = sampleYuvPatch(
+                            yBuffer, yStride,
+                            uBuffer, uStride, uPlane.pixelStride,
+                            vBuffer, vStride, vPlane.pixelStride,
+                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                        )
+                        val right = sampleYuvPatch(
+                            yBuffer, yStride,
+                            uBuffer, uStride, uPlane.pixelStride,
+                            vBuffer, vStride, vPlane.pixelStride,
+                            width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                        )
+                        if (left != null && right != null) averageRgb(left, right) else null
+                    }
+
+                    processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
+
+                } else {
+                    val roi = cachedRoi
+                    if (roi != null) {
+                        val leftCheek = sampleYuvPatch(
+                            yBuffer, yStride,
+                            uBuffer, uStride, uPlane.pixelStride,
+                            vBuffer, vStride, vPlane.pixelStride,
+                            width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
+                        )
+                        val rightCheek = sampleYuvPatch(
+                            yBuffer, yStride,
+                            uBuffer, uStride, uPlane.pixelStride,
+                            vBuffer, vStride, vPlane.pixelStride,
+                            width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
+                        )
+                        val avgColor = if (leftCheek != null && rightCheek != null) averageRgb(leftCheek, rightCheek) else null
+                        
+                        val lipColor = sampleYuvPatch(
+                            yBuffer, yStride,
+                            uBuffer, uStride, uPlane.pixelStride,
+                            vBuffer, vStride, vPlane.pixelStride,
+                            width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
+                            widthFactor = 0.12, heightFactor = 0.07
+                        )
+                        
+                        processLightweightFrame(avgColor, lipColor, roi, currentTimeMs)
+                    } else {
+                        handleFaceLoss()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Frame processing error", e)
+            } finally {
+                imageProxy.close()
+                isProcessingFrame = false
+            }
         }
     }
 
@@ -450,7 +431,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         }
 
         val result = try {
-            landmarker.detect(BitmapImageBuilder(bitmap).build())
+            landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), currentTimeMs)
         } catch (e: Exception) {
             Log.e(TAG, "FaceLandmarker detection failed.", e)
             null
@@ -639,23 +620,23 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
      *   B = Y + 1.772 × (U − 128)
      */
     private fun sampleYuvPatch(
-        yPlane: ByteBuffer, yStride: Int,
-        uPlane: ByteBuffer, uStride: Int,
-        vPlane: ByteBuffer, vStride: Int,
-        frameWidth: Int, frameHeight: Int,
+        yBuffer: ByteBuffer, yStride: Int,
+        uBuffer: ByteBuffer, uStride: Int, uPixelStride: Int,
+        vBuffer: ByteBuffer, vStride: Int, vPixelStride: Int,
+        width: Int, height: Int,
         faceBox: FaceBox,
         xFactor: Double, yFactor: Double,
-        widthFactor: Double = 0.14, heightFactor: Double = 0.10
+        widthFactor: Double = 0.08, heightFactor: Double = 0.08
     ): RgbStats? {
         val centerX = faceBox.left + (faceBox.width * xFactor)
         val centerY = faceBox.top + (faceBox.height * yFactor)
         val patchW = faceBox.width * widthFactor
         val patchH = faceBox.height * heightFactor
 
-        val left = ((centerX - patchW / 2.0) * frameWidth).toInt().coerceIn(0, frameWidth - 1)
-        val right = ((centerX + patchW / 2.0) * frameWidth).toInt().coerceIn(0, frameWidth - 1)
-        val top = ((centerY - patchH / 2.0) * frameHeight).toInt().coerceIn(0, frameHeight - 1)
-        val bottom = ((centerY + patchH / 2.0) * frameHeight).toInt().coerceIn(0, frameHeight - 1)
+        val left = ((centerX - patchW / 2.0) * width).toInt().coerceIn(0, width - 1)
+        val right = ((centerX + patchW / 2.0) * width).toInt().coerceIn(0, width - 1)
+        val top = ((centerY - patchH / 2.0) * height).toInt().coerceIn(0, height - 1)
+        val bottom = ((centerY + patchH / 2.0) * height).toInt().coerceIn(0, height - 1)
 
         if (right <= left || bottom <= top) return null
 
@@ -668,9 +649,9 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         var bSum = 0.0
         var count = 0
 
-        val yDup = yPlane.duplicate()
-        val uDup = uPlane.duplicate()
-        val vDup = vPlane.duplicate()
+        val yDup = yBuffer.duplicate()
+        val uDup = uBuffer.duplicate()
+        val vDup = vBuffer.duplicate()
 
         var py = top
         while (py <= bottom) {
@@ -684,8 +665,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                 // Read U and V values (chroma is half-resolution)
                 val chromaRow = py / 2
                 val chromaCol = px / 2
-                val uIndex = chromaRow * uStride + chromaCol
-                val vIndex = chromaRow * vStride + chromaCol
+                val uIndex = chromaRow * uStride + chromaCol * uPixelStride
+                val vIndex = chromaRow * vStride + chromaCol * vPixelStride
 
                 if (uIndex < 0 || uIndex >= uDup.capacity() ||
                     vIndex < 0 || vIndex >= vDup.capacity()) {
@@ -1133,8 +1114,10 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
     private fun copyUvPlanesToNv21(
         vBuffer: ByteBuffer,
         vStride: Int,
+        vPixelStride: Int,
         uBuffer: ByteBuffer,
         uStride: Int,
+        uPixelStride: Int,
         destination: ByteArray,
         width: Int,
         height: Int,
@@ -1147,8 +1130,8 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         for (row in 0 until chromaHeight) {
             for (col in 0 until chromaWidth) {
                 val destIndex = offset + (row * width) + (col * 2)
-                destination[destIndex] = v.get(row * vStride + col)
-                destination[destIndex + 1] = u.get(row * uStride + col)
+                destination[destIndex] = v.get(row * vStride + col * vPixelStride)
+                destination[destIndex + 1] = u.get(row * uStride + col * uPixelStride)
             }
         }
     }
@@ -1164,7 +1147,6 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
         faceLandmarker = null
         try {
             scope.cancel()
-            cvDispatcher.close()
         } catch (e: Exception) {}
     }
 }
