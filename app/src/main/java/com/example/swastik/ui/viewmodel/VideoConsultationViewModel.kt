@@ -1275,9 +1275,9 @@ class VideoConsultationViewModel @Inject constructor(
                     
                     val cvMetrics = cvAnalyzer?.vitalsData?.value ?: ComputerVisionAnalyzer.CVMetrics()
                     val metricsAgeMs = System.currentTimeMillis() - cvMetrics.capturedAtMs
-                    val hasFreshFrame = cvMetrics.isFaceDetected && cvMetrics.capturedAtMs > 0L && metricsAgeMs <= 4_000L
+                    val hasFreshFrame = cvMetrics.capturedAtMs > 0L && metricsAgeMs <= 4_000L
                     if (!hasFreshFrame) {
-                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: faceDetected=${cvMetrics.isFaceDetected} capturedAt=${cvMetrics.capturedAtMs} ageMs=$metricsAgeMs cvAnalyzer=${cvAnalyzer != null} attached=$isCvAnalyzerAttached")
+                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: capturedAt=${cvMetrics.capturedAtMs} ageMs=$metricsAgeMs cvAnalyzer=${cvAnalyzer != null} attached=$isCvAnalyzerAttached")
                         continue
                     }
 

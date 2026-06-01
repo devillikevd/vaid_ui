@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X } from 'lucide-react';
+import { Clock, Plus, Loader2, RefreshCw, Trash2, AlertCircle, X, Info } from 'lucide-react';
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useDoctorStore } from '@/stores/doctorStore';
@@ -71,6 +72,27 @@ export default function DoctorSchedulePage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6">
+                    <div className="flex items-start">
+                        <div className="flex-shrink-0 mt-0.5">
+                            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="ml-3">
+                            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                                In-Person Consultation Requirements
+                            </h3>
+                            <p className="mt-1 text-sm text-blue-700 dark:text-blue-400">
+                                To accept In-Person consultations, you must be affiliated with a registered Clinic or Hospital. Please ask your Clinic or Hospital Administrator to send you an invitation to join their network on Swastik.
+                            </p>
+                            <div className="mt-3 flex gap-3">
+                                <Link href="/doctor/invites" className="text-sm font-semibold text-blue-800 dark:text-blue-300 hover:underline">
+                                    View your Invitations →
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div><h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule</h1><p className="text-gray-600 dark:text-gray-400 mt-1">Manage your availability slots</p></div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={fetchSchedule} leftIcon={<RefreshCw className="h-4 w-4" />} disabled={saving || loadingSchedule}>Refresh</Button>

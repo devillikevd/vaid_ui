@@ -70,6 +70,17 @@ fun AppointmentHistoryScreen(
     val uiState = viewModel.uiState
     val colorScheme = MaterialTheme.colorScheme
 
+    // Fetch latest on resume
+    LaunchedEffect(Unit) {
+        val initialQuery = when (selectedFilter) {
+            AppointmentFilter.ALL -> null
+            AppointmentFilter.UPCOMING -> "upcoming"
+            AppointmentFilter.COMPLETED -> "completed"
+            AppointmentFilter.CANCELLED -> "cancelled"
+        }
+        viewModel.loadAppointments(initialQuery)
+    }
+
     LaunchedEffect(selectedFilter) {
         val statusQuery = when (selectedFilter) {
             AppointmentFilter.ALL -> null
@@ -176,6 +187,36 @@ fun AppointmentHistoryScreen(
                                     Spacer(modifier = Modifier.width(16.dp))
                                     
                                     Box(modifier = Modifier.weight(1f)) {
+                                        var selectedBookingStatusAppointment by remember { mutableStateOf<com.example.swastik.data.model.Appointment?>(null) }
+                                        
+                                        if (selectedBookingStatusAppointment != null) {
+                                            AlertDialog(
+                                                onDismissRequest = { selectedBookingStatusAppointment = null },
+                                                title = { Text("Booking Status", fontWeight = FontWeight.Bold) },
+                                                text = {
+                                                    Column {
+                                                        Text("Appointment ID: ${selectedBookingStatusAppointment?.appointmentNumber ?: selectedBookingStatusAppointment?.id}")
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        Text("Status: ${selectedBookingStatusAppointment?.status?.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold)
+                                                        Spacer(modifier = Modifier.height(8.dp))
+                                                        Text("Date: ${selectedBookingStatusAppointment?.date}")
+                                                        Text("Time: ${selectedBookingStatusAppointment?.timeSlot}")
+                                                        if (selectedBookingStatusAppointment?.doctor != null) {
+                                                            Spacer(modifier = Modifier.height(8.dp))
+                                                            Text("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
+                                                        }
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Text("Please keep this information for your records. The appointment card is saved here.")
+                                                    }
+                                                },
+                                                confirmButton = {
+                                                    Button(onClick = { selectedBookingStatusAppointment = null }) {
+                                                        Text("Close")
+                                                    }
+                                                }
+                                            )
+                                        }
+
                                         AppointmentCard(
                                             appointment = appointment,
                                             onClick = { onAppointmentClick(appointment) },
@@ -183,7 +224,8 @@ fun AppointmentHistoryScreen(
                                             onPrescriptionClick = onNavigateToPrescriptions,
                                             onBookAgainClick = onNavigateToBooking,
                                             onCancelClick = { showCancelDialog = appointment },
-                                            onRateDoctorClick = { showReviewDialog = appointment }
+                                            onRateDoctorClick = { showReviewDialog = appointment },
+                                            onViewCardClick = { selectedBookingStatusAppointment = appointment }
                                         )
                                     }
                                 }
@@ -292,7 +334,8 @@ private fun AppointmentCard(
     onPrescriptionClick: () -> Unit = {},
     onBookAgainClick: () -> Unit = {},
     onCancelClick: () -> Unit = {},
-    onRateDoctorClick: () -> Unit = {}
+    onRateDoctorClick: () -> Unit = {},
+    onViewCardClick: () -> Unit = {}
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val status = appointment.status.lowercase()
@@ -529,6 +572,38 @@ private fun AppointmentCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedButton(
+                    onClick = onViewCardClick, 
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                    shape = RoundedCornerShape(12.dp), 
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Icon(Icons.Outlined.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "View Booking Status", 
+                        color = MaterialTheme.colorScheme.primary, 
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else if (isUpcoming) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onViewCardClick, 
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
+                    shape = RoundedCornerShape(12.dp), 
+                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary))
+                ) {
+                    Icon(Icons.Outlined.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("View Booking Status", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                 }
             }
         }

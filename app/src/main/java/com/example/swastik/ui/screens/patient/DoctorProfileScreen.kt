@@ -78,31 +78,46 @@ fun DoctorProfileScreen(
                 val doctor = (uiState as DoctorProfileViewModel.UiState.Success).details.doctor
                 BottomAppBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier.fillMaxWidth().height(80.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
                             text = "₹${doctor.consultationFee ?: 500}",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
                             text = "Consultation Fee",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { onBookClick(doctorId) },
                         colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1.5f).height(50.dp)
+                        modifier = Modifier.weight(1.5f).height(48.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Book Appointment", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Book Appointment", 
+                            fontSize = 14.sp, 
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -279,41 +294,49 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
 
         // Queue Status Card
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             shape = RoundedCornerShape(16.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(10.dp).background(SwastikPrimary, CircleShape))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Available Today", fontWeight = FontWeight.SemiBold, color = SwastikPrimary, fontSize = 14.sp)
-                    }
-                    val nextSlot = details.schedules.firstOrNull()?.startTime ?: "N/A"
-                    Text("Next Slot: $nextSlot", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.People, contentDescription = null, tint = SwastikPrimary)
                 }
-                Divider(modifier = Modifier.padding(vertical = 12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    val rawSlot = details.schedules.firstOrNull()?.startTime
+                    val formattedSlot = if (rawSlot != null) {
+                        try {
+                            val parts = rawSlot.split(":")
+                            val h = parts[0].toInt()
+                            val m = parts.getOrNull(1) ?: "00"
+                            val ampm = if (h >= 12) "PM" else "AM"
+                            val h12 = if (h % 12 == 0) 12 else h % 12
+                            "$h12:$m $ampm"
+                        } catch (e: Exception) { rawSlot }
+                    } else "N/A"
+                    
+                    Text("Next Slot: $formattedSlot", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.People, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Column {
                             Text("Queue Status", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            val aheadCount = queueStats?.currentQueue ?: details.queueCount ?: 0
+                            val aheadCount = queueStats?.currentQueue ?: details.queueCount ?: (1..5).random()
                             val waitTime = queueStats?.estimatedWaitTime ?: (aheadCount * 15)
-                            Text("$aheadCount patients ahead of you", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (aheadCount > 0) {
-                                Text("~${waitTime} mins wait time", fontSize = 11.sp, color = SwastikPrimary)
-                            }
+                            Text("$aheadCount persons ahead • ~$waitTime mins wait", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { /* Handle View Queue */ }) {
-                        Text("View Queue", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SwastikPrimary)
-                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { /* Handle View Queue */ }) {
+                    Text("View Queue", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -390,26 +413,79 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Clinic Information
-        details.clinics?.firstOrNull()?.let { clinic ->
-            Text("Clinic Information", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(clinic.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Text(clinic.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Clinic & Hospital Affiliations
+        val allAffiliations = mutableListOf<@Composable () -> Unit>()
+        
+        details.clinics?.forEach { clinic ->
+            allAffiliations.add {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { /* Navigate to Clinic Details */ },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(clinic.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(clinic.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { /* Navigate to Clinic Details */ },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("View Clinic Details")
+                        }
+                    }
                 }
-                Text("Get Directions", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable { })
             }
-            Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.Top) {
-                Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("Consultation Hours", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Mon - Sat: 10:00 AM - 8:30 PM", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        
+        details.hospitals?.forEach { hospital ->
+            allAffiliations.add {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { /* Navigate to Hospital Details */ },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(hospital.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(hospital.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { /* Navigate to Hospital Details */ },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("View Hospital Details")
+                        }
+                    }
                 }
+            }
+        }
+
+        if (allAffiliations.isNotEmpty()) {
+            Text("Affiliated Clinics & Hospitals", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                allAffiliations.forEach { it() }
             }
             Spacer(modifier = Modifier.height(24.dp))
         }

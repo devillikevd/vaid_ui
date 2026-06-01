@@ -727,8 +727,21 @@ private fun ConsultationDetailsStep(
     val isNear = (doctor?.distanceKm != null && doctor.distanceKm <= 120f) || 
                  !preselectedHospitalId.isNullOrBlank() || 
                  !preselectedClinicId.isNullOrBlank()
-    // Show both types if they searched specifically for in_person, OR if they are just browsing (null mode) and the doctor is near
-    val showBothTypes = consultationMode == "in_person" || (consultationMode != "video" && isNear)
+    // Doctor distance constraint: if > 120km, they cannot book an in-person visit.
+    val distance = doctor?.distanceKm ?: 0f
+    val isFarAway = distance > 120f
+    
+    // Check if the doctor is affiliated with a clinic or hospital
+    val hasAffiliation = !doctor?.hospitalId.isNullOrBlank() || !doctor?.clinicId.isNullOrBlank()
+    
+    val showBothTypes = !isFarAway && hasAffiliation
+    
+    // Auto-select video if in-person is disabled
+    LaunchedEffect(showBothTypes) {
+        if (!showBothTypes && selectedType == "in_person") {
+            onTypeChanged("video")
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -738,22 +751,20 @@ private fun ConsultationDetailsStep(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // Choose Consultation Type heading
-        Text(
-            "Choose Consultation Type",
-            fontWeight = FontWeight.Bold,
-            fontSize = 17.sp,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Text("Consultation Type", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Type cards
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Video Consultation card
             ConsultationTypeCard(
                 modifier = Modifier.weight(1f),
                 icon = "📹",
                 title = "Video Consultation",
                 subtitle = "Consult with doctor online",
-                price = videoFee?.let { "₹$it" } ?: "Free",
+                price = "",
                 isSelected = selectedType == "video",
                 onClick = { onTypeChanged("video") }
             )
@@ -765,7 +776,7 @@ private fun ConsultationDetailsStep(
                     icon = "🏥",
                     title = "In-Person Visit",
                     subtitle = "Visit doctor at clinic",
-                    price = clinicFee?.let { "₹$it" } ?: "Free",
+                    price = "", // Hide price during selection as requested
                     isSelected = selectedType == "in_person",
                     onClick = { onTypeChanged("in_person") }
                 )

@@ -354,7 +354,9 @@ data class RecommendedDoctorDto(
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("video_consultation_fee") val videoConsultationFee: Int? = null,
     @SerializedName("is_available") val isAvailable: Boolean?,
-    @SerializedName("recommendation_reason") val recommendationReason: String?
+    @SerializedName("recommendation_reason") val recommendationReason: String?,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null
 ) {
     fun toDoctor() = com.example.swastik.data.model.Doctor(
         id = id,
@@ -372,7 +374,9 @@ data class RecommendedDoctorDto(
         hospitalValues = emptyList(),
         recommendationReason = recommendationReason,
         languages = languages,
-        bio = bio
+        bio = bio,
+        hospitalId = hospitalId,
+        clinicId = clinicId
     )
 }
 
@@ -411,6 +415,8 @@ data class DoctorDto(
     @SerializedName("profile_image_url")
     val profileImageUrl: String?,
     val hospital: HospitalDto?,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null,
     @SerializedName("is_available")
     val isAvailable: Boolean = true
 )

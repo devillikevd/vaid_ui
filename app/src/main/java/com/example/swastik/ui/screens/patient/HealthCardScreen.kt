@@ -55,7 +55,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SyncAlt
@@ -489,6 +489,20 @@ fun HealthCardScreen(
                                     Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = { 
+                                    dashboardViewModel.revokeHealthConnectAccess()
+                                    hasPermissions = false
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Revoke Access")
+                            }
                         }
                         
                         if (syncState is ProfileUpdateState.Success) {
@@ -516,30 +530,22 @@ fun HealthCardScreen(
 
             item {
                 // Dynamic Charts Section
-                if (vitalsData != null) {
-                    if (vitalsData.recentHeartRates.isNotEmpty()) {
-                        BezierCurveChart(
-                            dataPoints = vitalsData.recentHeartRates.map { it.value.toFloat() },
-                            title = "Heart Rate Trend",
-                            subtitle = "BPM over last 7 days",
-                            containerColor = healthCardMainBg,
-                            lineColor = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                BezierCurveChart(
+                    dataPoints = vitalsData?.recentHeartRates?.map { it.value.toFloat() } ?: emptyList(),
+                    title = "Heart Rate Trend",
+                    subtitle = "BPM over last 7 days",
+                    containerColor = healthCardMainBg,
+                    lineColor = MaterialTheme.colorScheme.primary
+                )
             }
             item {
-                if (vitalsData != null) {
-                    if (vitalsData.recentTemperatures.isNotEmpty()) {
-                        BezierCurveChart(
-                            dataPoints = vitalsData.recentTemperatures.map { it.value.toFloat() },
-                            title = "Body Temperature Trend",
-                            subtitle = "Celsius over last 7 days",
-                            containerColor = healthCardMainBg,
-                            lineColor = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                BezierCurveChart(
+                    dataPoints = vitalsData?.recentTemperatures?.map { it.value.toFloat() } ?: emptyList(),
+                    title = "Body Temperature Trend",
+                    subtitle = "Celsius over last 7 days",
+                    containerColor = healthCardMainBg,
+                    lineColor = MaterialTheme.colorScheme.primary
+                )
             }
 
             // Fitness Tracking Fallback Section (Removing duplicates)

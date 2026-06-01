@@ -34,6 +34,14 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
+    suspend fun revokeAllPermissions() {
+        try {
+            healthConnectClient.permissionController.revokeAllPermissions()
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
     suspend fun fetchVitalsData(days: Long = 1): VitalsData {
         val endTime = Instant.now()
         val startTime = endTime.minus(days, ChronoUnit.DAYS)

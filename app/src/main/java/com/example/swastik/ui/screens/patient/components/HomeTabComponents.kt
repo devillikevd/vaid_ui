@@ -219,7 +219,8 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B),
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
@@ -239,7 +240,9 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                                 text = "Verified",
                                 fontSize = 9.sp,
                                 color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }

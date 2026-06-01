@@ -201,6 +201,7 @@ fun VideoCallScreen(
                                     videoTrack = localVideoTrack,
                                     eglContext = eglBaseContext,
                                     mirror = true,
+                                    isOverlay = true,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 Box(
@@ -529,7 +530,8 @@ fun WebRTCVideoView(
     videoTrack: VideoTrack,
     eglContext: EglBase.Context,
     modifier: Modifier = Modifier,
-    mirror: Boolean = false
+    mirror: Boolean = false,
+    isOverlay: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -543,6 +545,7 @@ fun WebRTCVideoView(
                         renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
                         renderer.setMirror(mirror)
                         renderer.setEnableHardwareScaler(true)
+                        renderer.setZOrderMediaOverlay(isOverlay)
                         videoTrack.addSink(renderer)
                         addView(
                             renderer,

@@ -274,8 +274,11 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             lastLightweightTimeMs = currentTimeMs
         }
 
+        // CRITICAL FIX: Retain frame immediately
+        frame.retain()
+
+        // EGL Thread Operations (Must be done here, not in coroutine)
         try {
-            // EGL Thread Operations (Must be done here, not in coroutine)
             val MAX_DIMEN = if (isLowEndDevice) 160 else 480
             val originalWidth = frame.buffer.width
             val originalHeight = frame.buffer.height
@@ -294,6 +297,7 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             
             if (i420Buffer == null) {
                 if (scale < 1.0f) processedBuffer.release()
+                frame.release()
                 isProcessingFrame = false
                 return
             }
@@ -301,14 +305,10 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
             val rotation = frame.rotation
             val isNewI420 = (i420Buffer !== processedBuffer) && (i420Buffer !== frame.buffer)
 
-            // If we did not create a new I420Buffer, it is owned by WebRTC (or is our scaled buffer).
-            // We MUST retain it to safely pass it to the asynchronous background thread!
             if (!isNewI420) {
                 i420Buffer.retain()
             }
 
-            // Move the slow JNI operations (copyPlane, sampleYuvPatch) to the background thread
-            // to prevent blocking the WebRTC frame encoder/decoder thread.
             scope.launch {
                 try {
                     val width = i420Buffer.width
@@ -379,12 +379,15 @@ class ComputerVisionAnalyzer(private val context: Context) : VideoSink {
                 } finally {
                     i420Buffer.release()
                     if (scale < 1.0f) processedBuffer.release()
+                    frame.release()
                     isProcessingFrame = false
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Frame preprocessing error", e)
+            frame.release()
             isProcessingFrame = false
+            handleFaceLoss()
         }
     }
 

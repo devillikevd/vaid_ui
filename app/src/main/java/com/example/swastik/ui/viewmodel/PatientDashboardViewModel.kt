@@ -783,6 +783,19 @@ class PatientDashboardViewModel @Inject constructor(
         _healthConnectSyncState.value = ProfileUpdateState.Idle
     }
 
+    fun revokeHealthConnectAccess() {
+        viewModelScope.launch {
+            _healthConnectSyncState.value = ProfileUpdateState.Loading
+            try {
+                healthConnectManager.revokeAllPermissions()
+                // Clear the sync state after revoke
+                _healthConnectSyncState.value = ProfileUpdateState.Idle
+            } catch (e: Exception) {
+                _healthConnectSyncState.value = ProfileUpdateState.Error("Failed to revoke permissions.")
+            }
+        }
+    }
+
     fun startFitnessTrackingService() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             val hasActivityRecognition = androidx.core.content.ContextCompat.checkSelfPermission(

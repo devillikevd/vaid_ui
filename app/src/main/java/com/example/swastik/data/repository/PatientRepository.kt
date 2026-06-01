@@ -1017,7 +1017,9 @@ class PatientRepository @Inject constructor(
             videoConsultationFee = null,
             averageRating = rating,
             totalReviews = null,
-            isAvailable = isAvailable
+            isAvailable = isAvailable,
+            hospitalId = hospitalId,
+            clinicId = clinicId
         )
     }
 

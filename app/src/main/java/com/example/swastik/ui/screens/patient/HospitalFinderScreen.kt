@@ -272,12 +272,14 @@ fun HospitalFinderScreen(
                     },
                     actions = {
                         // Emergency Mode Toggle
-                        IconButton(onClick = { isEmergencyMode = true }) {
-                            Icon(
-                                Icons.Default.LocalHospital,
-                                contentDescription = "Emergency",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        if (selectedFacilityType != FacilityType.MEDICAL_STORE && selectedFacilityType != FacilityType.DIAGNOSTIC_CENTER) {
+                            IconButton(onClick = { isEmergencyMode = true }) {
+                                Icon(
+                                    Icons.Default.LocalHospital,
+                                    contentDescription = "Emergency",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                         IconButton(onClick = { isMapView = !isMapView }) {
                             Icon(
@@ -310,6 +312,7 @@ fun HospitalFinderScreen(
                     facilities.filter { it.isEmergencyAvailable }
                 },
                 isLoading = hospitalState.isEmergencyLoading,
+                selectedFacilityType = selectedFacilityType,
                 onFacilityClick = {
                     selectedFacility = it
                     showBottomSheet = true
@@ -2513,12 +2516,14 @@ private fun DiagnosticCenterDetailSheet(
 private fun EmergencyModeContent(
     facilities: List<MedicalFacility>,
     isLoading: Boolean,
+    selectedFacilityType: FacilityType?,
     onFacilityClick: (MedicalFacility) -> Unit,
     modifier: Modifier = Modifier
 ) {
     EmergencyFacilitiesList(
         facilities = facilities,
         onFacilityClick = onFacilityClick,
+        selectedFacilityType = selectedFacilityType,
         modifier = modifier,
         isLoading = isLoading
     )
@@ -2567,6 +2572,7 @@ private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
 private fun EmergencyFacilitiesList(
     facilities: List<MedicalFacility>,
     onFacilityClick: (MedicalFacility) -> Unit,
+    selectedFacilityType: FacilityType?,
     modifier: Modifier = Modifier,
     isLoading: Boolean = false
 ) {
@@ -2601,8 +2607,9 @@ private fun EmergencyFacilitiesList(
                     fontSize = 22.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                val facilityLabel = if (selectedFacilityType == FacilityType.CLINIC) "clinics" else "hospitals"
                 Text(
-                    "We're showing nearest emergency hospitals",
+                    "We're showing nearest emergency $facilityLabel",
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center
@@ -2634,9 +2641,10 @@ private fun EmergencyFacilitiesList(
             }
         }
 
-        // Emergency Hospitals List
+        // Emergency Facilities List
+        val titleLabel = if (selectedFacilityType == FacilityType.CLINIC) "Nearest Emergency Clinics" else "Nearest Emergency Hospitals"
         Text(
-            "Nearest Emergency Hospitals",
+            titleLabel,
             color = MaterialTheme.colorScheme.onPrimary,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,

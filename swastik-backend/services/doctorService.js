@@ -391,7 +391,7 @@ class DoctorService {
         id, name, specialization, experience_years, rating, total_reviews,
         qualifications, consultation_fee, video_consultation_fee, bio,
         profile_image_url, languages, is_available,
-        hospital_id,
+        hospital_id, clinic_id,
         hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })
       .eq('is_approved', true);
@@ -508,27 +508,28 @@ class DoctorService {
       });
     }
 
-    if (hasLocation && !filters.global) {
-      // Sort by distance (nearest first), null distances go to the end
-      result.sort((a, b) => {
-        if (a.distance_km === null && b.distance_km === null) return 0;
-        if (a.distance_km === null) return 1;
-        if (b.distance_km === null) return -1;
-        return a.distance_km - b.distance_km;
-      });
-    } else {
-      // SMART RANKING: Top suggested based on rating and reviews
-      // Score formula: (rating * 10) + log10(total_reviews + 1) * 5
-      // This guarantees highly rated doctors with many reviews appear first!
-      result = result.map(doc => {
-        const rating = parseFloat(doc.rating) || 0;
-        const reviews = parseInt(doc.total_reviews) || 0;
-        const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
-        return { ...doc, smart_score: score };
-      });
-
-      result.sort((a, b) => b.smart_score - a.smart_score);
+    if (hasLocation) {
+      if (filters.hospitalId || filters.clinicId) {
+        // Limit to 25km for hospital/clinic specific searches
+        result = result.filter(doc => doc.distance_km === null || doc.distance_km <= 25.0);
+      } else if (!filters.global) {
+        // Limit to 120km for In-Person searches
+        result = result.filter(doc => doc.distance_km === null || doc.distance_km <= 120.0);
+      }
+      // If filters.global is true, do not filter by distance
     }
+
+    // ALWAYS sort by SMART RANKING (top rated) as requested by the user
+    // Score formula: (rating * 10) + log10(total_reviews + 1) * 5
+    // This guarantees highly rated doctors with many reviews appear first!
+    result = result.map(doc => {
+      const rating = parseFloat(doc.rating) || 0;
+      const reviews = parseInt(doc.total_reviews) || 0;
+      const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
+      return { ...doc, smart_score: score };
+    });
+
+    result.sort((a, b) => b.smart_score - a.smart_score);
 
     // Apply pagination in memory for both cases
     count = result.length;

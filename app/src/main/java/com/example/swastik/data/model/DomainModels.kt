@@ -133,6 +133,8 @@ data class Doctor(
     @SerializedName("recommendation_reason") val recommendationReason: String? = null,
     // Nearby doctor search: distance in km from patient location
     @SerializedName("distance_km") val distanceKm: Float? = null,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null,
     // Hospital info (returned when searching via patients/doctors)
     val hospital: DoctorHospitalInfo? = null,
     val languages: List<String>? = null,

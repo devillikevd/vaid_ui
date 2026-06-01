@@ -274,7 +274,19 @@ class WebRTCManager(
         val encoderFactory = DefaultVideoEncoderFactory(
             eglBase.eglBaseContext, true, true
         )
-        val decoderFactory = DefaultVideoDecoderFactory(eglBase.eglBaseContext)
+        val eglContext = eglBase.eglBaseContext
+        val hardwareDecoderFactory = HardwareVideoDecoderFactory(eglContext)
+        val softwareDecoderFactory = SoftwareVideoDecoderFactory()
+        val decoderFactory = object : VideoDecoderFactory {
+            override fun createDecoder(info: VideoCodecInfo): VideoDecoder? {
+                // MediaTek/Budget devices often have texture sharing bugs in WebRTC when hardware decoding H264
+                // Force software decoding for remote video tracks to ensure distinct textures from the camera capturer.
+                return softwareDecoderFactory.createDecoder(info) ?: hardwareDecoderFactory.createDecoder(info)
+            }
+            override fun getSupportedCodecs(): Array<VideoCodecInfo> {
+                return softwareDecoderFactory.supportedCodecs + hardwareDecoderFactory.supportedCodecs
+            }
+        }
 
         val audioDeviceModule = try {
             JavaAudioDeviceModule.builder(context)
