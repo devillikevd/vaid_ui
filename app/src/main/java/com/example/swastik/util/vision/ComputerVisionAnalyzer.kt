@@ -172,6 +172,7 @@ class ComputerVisionAnalyzer(
     private val lightweightIntervalMs = DeviceProfiler.getTier2IntervalMs(context)
 
     @Volatile private var isProcessingFrame = false
+    private var lastVideoTimestampMs = -1L
 
     // ── Signal buffers ─────────────────────────────────────────────
     private val pulseSamples = ArrayDeque<SignalSample>()
@@ -211,7 +212,7 @@ class ComputerVisionAnalyzer(
             // Try GPU delegate first for best performance
             val gpuOptions = BaseOptions.builder()
                 .setModelAssetPath("face_landmarker.task")
-                .setDelegate(com.google.mediapipe.tasks.core.Delegate.GPU)
+                .setDelegate(com.google.mediapipe.tasks.core.Delegate.CPU)
                 .build()
             val gpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
                 .setBaseOptions(gpuOptions)
@@ -248,9 +249,9 @@ class ComputerVisionAnalyzer(
 
     // ══════════════════════════════════════════════════════════════════
     //  FRAME ENTRY POINT (CameraX Decoupled CPU Stream)
-    // ══════════════════════════════════════════════════════════════════
-
+    // ── Main Frame Entry ──────────────────────────────────────────
     fun processImageProxy(imageProxy: androidx.camera.core.ImageProxy) {
+        android.util.Log.d(TAG, "processImageProxy started")
         val currentTimeMs = System.currentTimeMillis()
 
         if (isProcessingFrame) {
@@ -287,6 +288,7 @@ class ComputerVisionAnalyzer(
         val height = imageProxy.height
         val rotation = imageProxy.imageInfo.rotationDegrees
 
+        android.util.Log.d(TAG, "processImageProxy getting planes")
         val yPlane = imageProxy.planes[0]
         val uPlane = imageProxy.planes[1]
         val vPlane = imageProxy.planes[2]
@@ -299,7 +301,9 @@ class ComputerVisionAnalyzer(
         val uStride = uPlane.rowStride
         val vStride = vPlane.rowStride
 
+        android.util.Log.d(TAG, "processImageProxy launching coroutine")
         scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            Log.d(TAG, "Coroutine started for frame")
             try {
                 if (isKeyframe) {
                     val requiredSize = width * height + (width * height / 2)
@@ -363,9 +367,10 @@ class ComputerVisionAnalyzer(
                         handleFaceLoss()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Frame processing error", e)
             } finally {
+                Log.d(TAG, "Closing image proxy")
                 imageProxy.close()
                 isProcessingFrame = false
             }
@@ -431,7 +436,15 @@ class ComputerVisionAnalyzer(
         }
 
         val result = try {
-            landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), currentTimeMs)
+            var mpTimestamp = currentTimeMs
+            if (mpTimestamp <= lastVideoTimestampMs) {
+                mpTimestamp = lastVideoTimestampMs + 1
+            }
+            lastVideoTimestampMs = mpTimestamp
+            Log.d(TAG, "Calling detectForVideo")
+            val detRes = landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), mpTimestamp)
+            Log.d(TAG, "detectForVideo finished")
+            detRes
         } catch (e: Exception) {
             Log.e(TAG, "FaceLandmarker detection failed.", e)
             null

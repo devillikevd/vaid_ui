@@ -21,7 +21,7 @@ import org.webrtc.VideoFrame
 import java.util.concurrent.Executors
 
 class CameraXCapturer(
-    private val onImageProxy: ((ImageProxy) -> Unit)? = null
+    private val onImageProxy: ((ImageProxy) -> Boolean)? = null
 ) : VideoCapturer, LifecycleOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -35,6 +35,8 @@ class CameraXCapturer(
     private var isFrontCamera = true
     private val mainHandler = Handler(Looper.getMainLooper())
     private val analysisExecutor = Executors.newSingleThreadExecutor()
+    private var frameCountWebrtc = 0
+    private var frameCountAI = 0
 
     companion object {
         private const val TAG = "CameraXCapturer"
@@ -73,15 +75,21 @@ class CameraXCapturer(
                 preview.setSurfaceProvider { request ->
                     val surfaceTexture = helper.surfaceTexture
                     surfaceTexture.setDefaultBufferSize(request.resolution.width, request.resolution.height)
+                    helper.setTextureSize(request.resolution.width, request.resolution.height)
                     val surface = Surface(surfaceTexture)
                     
                     request.provideSurface(surface, ContextCompat.getMainExecutor(ctx)) {
+                        Log.d(TAG, "Surface released.")
                         surface.release()
                     }
+                    Log.d(TAG, "Surface provided to CameraX.")
                 }
 
                 // Push SurfaceTexture frames to WebRTC
                 helper.startListening { videoFrame ->
+                    if (frameCountWebrtc++ % 60 == 0) {
+                        Log.d(TAG, "WebRTC frame captured. Count: $frameCountWebrtc")
+                    }
                     observer.onFrameCaptured(videoFrame)
                 }
 
@@ -95,7 +103,20 @@ class CameraXCapturer(
                     .build()
                     
                 imageAnalyzer.setAnalyzer(analysisExecutor) { imageProxy ->
-                    onImageProxy?.invoke(imageProxy) ?: imageProxy.close()
+                    if (frameCountAI++ % 60 == 0) {
+                        Log.d(TAG, "ImageProxy frame received. Count: $frameCountAI")
+                    }
+                    try {
+                        val handled = onImageProxy?.invoke(imageProxy)
+                        if (frameCountAI % 60 == 0) Log.d(TAG, "handled = $handled, onImageProxy = $onImageProxy")
+                        if (handled != true) {
+                            if (frameCountAI % 60 == 0) Log.d(TAG, "Closing unhandled proxy")
+                            imageProxy.close()
+                        }
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Exception in ImageAnalyzer", e)
+                        imageProxy.close()
+                    }
                 }
 
                 val cameraSelector = if (isFrontCamera) {
@@ -104,10 +125,13 @@ class CameraXCapturer(
                     CameraSelector.DEFAULT_BACK_CAMERA
                 }
                 
-                // Transition to Started state so CameraX can bind
-                mainHandler.post {
-                    lifecycleRegistry.currentState = Lifecycle.State.STARTED
+                // Transition to Started state so CameraX can bind.
+                // It's safe to directly assign if we are on the main thread (which addListener guarantees via getMainExecutor).
+                if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.CREATED
                 }
+                lifecycleRegistry.currentState = Lifecycle.State.STARTED
+                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
 
                 provider.bindToLifecycle(
                     this,
@@ -116,9 +140,7 @@ class CameraXCapturer(
                     imageAnalyzer
                 )
                 
-                mainHandler.post {
-                    lifecycleRegistry.currentState = Lifecycle.State.RESUMED
-                }
+
                 
                 observer.onCapturerStarted(true)
                 Log.d(TAG, "CameraX started successfully at decoupled stream architecture.")
@@ -132,7 +154,9 @@ class CameraXCapturer(
 
     override fun stopCapture() {
         mainHandler.post {
-            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+            // Demote to CREATED. CameraX unbinds use cases when lifecycle drops below STARTED.
+            // Using CREATED instead of DESTROYED allows WebRTC to safely stop/start tracks.
+            lifecycleRegistry.currentState = Lifecycle.State.CREATED
             try {
                 cameraProvider?.unbindAll()
                 surfaceTextureHelper?.stopListening()

@@ -246,7 +246,8 @@ class VideoConsultationViewModel @Inject constructor(
         isWebRTCInitialized = true
 
         try {
-            webRTCManager = WebRTCManager(appContext).apply {
+            webRTCManager = WebRTCManager(appContext)
+            webRTCManager?.apply {
                 if (iceServers != null) {
                     this.iceServers = iceServers
                 }
@@ -1356,6 +1357,7 @@ class VideoConsultationViewModel @Inject constructor(
         try {
             webRTCManager?.onCameraXFrame = { proxy ->
                 analyzer.processImageProxy(proxy)
+                true
             }
             isCvAnalyzerAttached = true
             android.util.Log.d("VideoConsultationVM", "✅ CV analyzer attached to video track")

@@ -59,6 +59,9 @@ class WebRTCManager(
     private var peerConnection: PeerConnection? = null
     private var localVideoTrack: VideoTrack? = null
     private var localAudioTrack: AudioTrack? = null
+    private var videoWidth = 480
+    private var videoHeight = 360
+    private var videoFps = 20
     private var videoCapturer: VideoCapturer? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var isReleased = false
@@ -79,7 +82,8 @@ class WebRTCManager(
     var onAnswerCreated: ((SessionDescription) -> Unit)? = null
     var onConnectionStateChanged: ((PeerConnection.IceConnectionState) -> Unit)? = null
     var onRemoteStreamRemoved: (() -> Unit)? = null
-    var onCameraXFrame: ((androidx.camera.core.ImageProxy) -> Unit)? = null
+    @Volatile
+    var onCameraXFrame: ((androidx.camera.core.ImageProxy) -> Boolean)? = null
     var onNetworkQualityChanged: ((NetworkQuality) -> Unit)? = null
 
     /** Network quality classification */
@@ -272,27 +276,32 @@ class WebRTCManager(
             return
         }
 
-        // Plan C: Fallback to Software Video Encoding for low-end devices
-        // MediaTek hardware encoders are notorious for freezing EGL contexts during WebRTC video calls.
-        val isLowEndDevice = com.example.swastik.util.vision.DeviceProfiler.getTier2IntervalMs(context) >= 100L
-        val encoderFactory: VideoEncoderFactory = if (isLowEndDevice) {
-            Log.d(TAG, "Plan C active: Using SoftwareVideoEncoderFactory for low-end device")
-            SoftwareVideoEncoderFactory()
-        } else {
-            DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, true)
+        val defaultEncoderFactory = DefaultVideoEncoderFactory(eglBase.eglBaseContext, true, false)
+        val encoderFactory = object : VideoEncoderFactory {
+            override fun createEncoder(info: VideoCodecInfo): VideoEncoder? {
+                return defaultEncoderFactory.createEncoder(info)
+            }
+            override fun getSupportedCodecs(): Array<VideoCodecInfo> {
+                return defaultEncoderFactory.supportedCodecs.filter { it.name.equals("VP8", ignoreCase = true) }.toTypedArray()
+            }
+            override fun getEncoderSelector(): VideoEncoderFactory.VideoEncoderSelector? {
+                return defaultEncoderFactory.encoderSelector
+            }
         }
+
         val eglContext = eglBase.eglBaseContext
         val hardwareDecoderFactory = HardwareVideoDecoderFactory(eglContext)
         val softwareDecoderFactory = SoftwareVideoDecoderFactory()
         val decoderFactory = object : VideoDecoderFactory {
             override fun createDecoder(info: VideoCodecInfo): VideoDecoder? {
                 // MediaTek/Budget devices often have texture sharing bugs in WebRTC when hardware decoding H264
-                // However, forcing software decoding causes 100% CPU usage and massive lag on budget devices (e.g. Redmi 12C).
-                // Try hardware decoder first, and only fall back to software decoder if hardware isn't available.
+                // Force VP8 codec to ensure reliable hardware encoding/decoding and prevent 5kbps bandwidth collapse.
                 return hardwareDecoderFactory.createDecoder(info) ?: softwareDecoderFactory.createDecoder(info)
             }
             override fun getSupportedCodecs(): Array<VideoCodecInfo> {
-                return hardwareDecoderFactory.supportedCodecs + softwareDecoderFactory.supportedCodecs
+                return (hardwareDecoderFactory.supportedCodecs + softwareDecoderFactory.supportedCodecs)
+                    .filter { it.name.equals("VP8", ignoreCase = true) }
+                    .toTypedArray()
             }
         }
 
@@ -778,7 +787,7 @@ class WebRTCManager(
      */
     private fun createCameraCapturer(): VideoCapturer? {
         return CameraXCapturer { proxy ->
-            onCameraXFrame?.invoke(proxy)
+            onCameraXFrame?.invoke(proxy) ?: false
         }
     }
 
