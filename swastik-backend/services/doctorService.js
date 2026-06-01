@@ -391,7 +391,7 @@ class DoctorService {
         id, name, specialization, experience_years, rating, total_reviews,
         qualifications, consultation_fee, video_consultation_fee, bio,
         profile_image_url, languages, is_available,
-        hospital_id, clinic_id,
+        hospital_id, clinic_doctors(clinic_id),
         hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })
       .eq('is_approved', true);
@@ -526,7 +526,11 @@ class DoctorService {
       const rating = parseFloat(doc.rating) || 0;
       const reviews = parseInt(doc.total_reviews) || 0;
       const score = (rating * 10) + (Math.log10(reviews + 1) * 5);
-      return { ...doc, smart_score: score };
+      return { 
+        ...doc, 
+        clinic_id: doc.clinic_doctors?.[0]?.clinic_id,
+        smart_score: score 
+      };
     });
 
     result.sort((a, b) => b.smart_score - a.smart_score);

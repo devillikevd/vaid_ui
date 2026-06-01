@@ -728,7 +728,7 @@ class PatientService {
       if (targetSpecializations.size > 0) {
         const { data: matchedDoctors } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_id, hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true)
           .in('specialization', [...targetSpecializations]);
@@ -756,6 +756,7 @@ class PatientService {
             
             return {
               ...doc,
+              clinic_id: doc.clinic_doctors?.[0]?.clinic_id,
               recommendation_reason: reason,
               _totalScore: baseScore + specScore + scoreBoost,
             };
@@ -772,7 +773,7 @@ class PatientService {
 
         const { data: fallbackPool } = await supabaseAdmin
           .from('doctors')
-          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_id, hospital:hospitals(city)')
+          .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
           .eq('is_approved', true)
           .eq('is_available', true);
 
@@ -792,6 +793,7 @@ class PatientService {
 
             return {
               ...doc,
+              clinic_id: doc.clinic_doctors?.[0]?.clinic_id,
               isNearby,
               _totalScore: baseScore + scoreBoost
             };
@@ -813,7 +815,7 @@ class PatientService {
       // Graceful fallback: return top-rated doctors
       const { data: fallback } = await supabaseAdmin
         .from('doctors')
-        .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_id, hospital:hospitals(city)')
+        .select('id, name, specialization, qualifications, languages, bio, rating, total_reviews, experience_years, profile_image_url, consultation_fee, video_consultation_fee, is_available, hospital_id, clinic_doctors(clinic_id), hospital:hospitals(city)')
         .eq('is_approved', true)
         .eq('is_available', true)
         .order('rating', { ascending: false })
@@ -821,6 +823,7 @@ class PatientService {
 
       return (fallback || []).map(doc => ({
         ...doc,
+        clinic_id: doc.clinic_doctors?.[0]?.clinic_id,
         recommendation_reason: 'Top rated doctor',
       }));
     }
