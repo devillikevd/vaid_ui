@@ -136,7 +136,7 @@ resource "aws_ecs_task_definition" "app" {
       memoryReservation = var.backend_memory_reservation
       environment       = local.backend_environment
       secrets           = local.backend_secrets
-      links             = ["redis"]
+      links             = ["redis", "ai-service"]
       portMappings = [
         {
           containerPort = 5001

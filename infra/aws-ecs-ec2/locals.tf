@@ -55,7 +55,7 @@ locals {
   backend_environment = concat([
     { name = "NODE_ENV", value = "production" },
     { name = "PORT", value = "5001" },
-    { name = "AI_SERVICE_URL", value = "http://127.0.0.1:8000" },
+    { name = "AI_SERVICE_URL", value = "http://ai-service:8000" },
     { name = "SUPABASE_URL", value = var.supabase_url },
     { name = "MONGODB_DB_NAME", value = var.mongodb_db_name },
     { name = "AWS_REGION", value = var.aws_region },
