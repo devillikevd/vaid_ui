@@ -20,6 +20,7 @@ if [ ! -s /opt/coturn/certs/fullchain.pem ] || [ ! -s /opt/coturn/certs/privkey.
     -out /opt/coturn/certs/fullchain.pem \
     -subj "/CN=$SELF_SIGNED_CN"
 fi
+chmod 644 /opt/coturn/certs/fullchain.pem /opt/coturn/certs/privkey.pem
 
 cat > /opt/coturn/render-config.sh <<'SCRIPT'
 #!/bin/bash
@@ -51,11 +52,18 @@ simple-log
 CONF
 
 if [ -n "$TURN_DOMAIN" ]; then
-  CERT_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/fullchain.pem"
-  KEY_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/privkey.pem"
-  if [ ! -s "$CERT_PATH" ] || [ ! -s "$KEY_PATH" ]; then
+  LE_CERT_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/fullchain.pem"
+  LE_KEY_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/privkey.pem"
+  CERT_PATH="/opt/coturn/certs/turn-fullchain.pem"
+  KEY_PATH="/opt/coturn/certs/turn-privkey.pem"
+  if [ -s "$LE_CERT_PATH" ] && [ -s "$LE_KEY_PATH" ]; then
+    cp -f "$LE_CERT_PATH" "$CERT_PATH"
+    cp -f "$LE_KEY_PATH" "$KEY_PATH"
+    chmod 644 "$CERT_PATH" "$KEY_PATH"
+  else
     CERT_PATH="/opt/coturn/certs/fullchain.pem"
     KEY_PATH="/opt/coturn/certs/privkey.pem"
+    chmod 644 "$CERT_PATH" "$KEY_PATH"
   fi
   {
     echo "tls-listening-port=5349"
@@ -128,7 +136,7 @@ chmod +x /opt/coturn/get-cert.sh
 mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 cat > /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh <<'SCRIPT'
 #!/bin/bash
-docker restart coturn || true
+/opt/coturn/reload-if-config-changed.sh || docker restart coturn || true
 SCRIPT
 chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh
 
