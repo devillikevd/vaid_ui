@@ -54,7 +54,7 @@ fun FindDoctorsBySpecialitySection(
             if (showTitle) {
                 Text(
                     "Book Doctor by Speciality",
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -105,13 +105,13 @@ fun FindDoctorsBySpecialitySection(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SpecialityHomeCard(
                         title = pair[0],
-                        modifier = Modifier.width(110.dp),
+                        modifier = Modifier.width(115.dp),
                         onClick = { onSpecialityClick(pair[0]) }
                     )
                     if (pair.size > 1) {
                         SpecialityHomeCard(
                             title = pair[1],
-                            modifier = Modifier.width(110.dp),
+                            modifier = Modifier.width(115.dp),
                             onClick = { onSpecialityClick(pair[1]) }
                         )
                     }
@@ -229,8 +229,7 @@ private fun SpecialityHomeCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (imageRes != null) {

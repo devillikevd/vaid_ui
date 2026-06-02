@@ -71,24 +71,24 @@ fun AppointmentHistoryScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     // Fetch latest on resume
-    LaunchedEffect(Unit) {
-        val initialQuery = when (selectedFilter) {
-            AppointmentFilter.ALL -> null
-            AppointmentFilter.UPCOMING -> "upcoming"
-            AppointmentFilter.COMPLETED -> "completed"
-            AppointmentFilter.CANCELLED -> "cancelled"
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, selectedFilter) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val statusQuery = when (selectedFilter) {
+                    AppointmentFilter.ALL -> null
+                    AppointmentFilter.UPCOMING -> "scheduled"
+                    AppointmentFilter.COMPLETED -> "completed"
+                    AppointmentFilter.CANCELLED -> "cancelled"
+                }
+                viewModel.loadAppointments(statusQuery)
+            }
         }
-        viewModel.loadAppointments(initialQuery)
-    }
-
-    LaunchedEffect(selectedFilter) {
-        val statusQuery = when (selectedFilter) {
-            AppointmentFilter.ALL -> null
-            AppointmentFilter.UPCOMING -> "scheduled"
-            AppointmentFilter.COMPLETED -> "completed"
-            AppointmentFilter.CANCELLED -> "cancelled"
+        lifecycleOwner.lifecycle.addObserver(observer)
+        
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
-        viewModel.loadAppointments(statusQuery)
     }
 
     Scaffold(
@@ -238,18 +238,17 @@ fun AppointmentHistoryScreen(
         }
     }
 
-    // Cancel Appointment Flow
-    showCancelDialog?.let { appointment ->
-        AppointmentCancellationFlow(
-            appointment = appointment,
-            onDismiss = { showCancelDialog = null },
-            onConfirmCancellation = { reason ->
-                viewModel.cancelAppointment(appointment.id, reason)
-            },
-            onBookAgain = onNavigateToBooking,
-            onFindAnotherSpecialist = onNavigateToBooking
-        )
-    }
+            if (showCancelDialog != null) {
+                AppointmentCancellationFlow(
+                    appointment = showCancelDialog!!,
+                    onDismiss = { showCancelDialog = null },
+                    onConfirmCancellation = { reason ->
+                        viewModel.cancelAppointment(showCancelDialog!!.id, reason)
+                    },
+                    onBookAgain = onNavigateToBooking,
+                    onFindAnotherSpecialist = onNavigateToBooking
+                )
+            }
 
     // Review Dialog
     showReviewDialog?.let { appointment ->

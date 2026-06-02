@@ -55,9 +55,8 @@ fun EmergencySOSBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = EmergencySoftRed),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, EmergencySoftRed.copy(alpha = 0.8f))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE53935)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -76,18 +75,18 @@ fun EmergencySOSBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     "Emergency / SOS",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp,
-                    color = EmergencyTextRed
+                    color = Color.White
                 )
                 Text(
                     "Tap to call ambulance",
                     fontSize = 11.sp,
-                    color = EmergencyTextRed.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.8f)
                 )
             }
             Icon(
                 Icons.Filled.Call, 
                 contentDescription = null, 
-                tint = EmergencyTextRed, 
+                tint = Color.White, 
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -102,7 +101,7 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = AssistantDarkGreen),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(vertical = 10.dp)
@@ -111,13 +110,13 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 12.dp)
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(17.dp))
+                Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(17.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     "Vaididea AI Assistant",
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = Color.White
                 )
             }
             
@@ -157,8 +156,61 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
 private val HealthIdTeal = Color(0xFF00796B)
 
 @Composable
+fun ConsultationTypeCard(
+    title: String,
+    imageRes: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(0.92f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Glassy gradient overlay at the bottom
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.6f)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.7f),
+                                Color.White.copy(alpha = 0.95f)
+                            )
+                        )
+                    )
+            )
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+                lineHeight = 22.sp
+            )
+        }
+    }
+}
+
+@Composable
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    QuickActionGridCard(
+    ConsultationTypeCard(
         modifier = modifier,
         title = "In-person\nConsultation",
         imageRes = R.drawable.inperson_consultation,
@@ -168,7 +220,7 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 
 @Composable
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    QuickActionGridCard(
+    ConsultationTypeCard(
         modifier = modifier,
         title = "Video\nConsultation",
         imageRes = R.drawable.video_consultation,
@@ -183,8 +235,7 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -196,7 +247,7 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
             // Icon Background
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .background(Color(0xFFEEF4FA), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -204,11 +255,11 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                     Icons.Filled.QrCode2,
                     contentDescription = "QR Code",
                     tint = SwastikPrimary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             // Text Details
             Column(modifier = Modifier.weight(1f)) {
@@ -217,35 +268,8 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                         text = "Digital Health ID",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B),
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
+                        color = Color(0xFF1E293B)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFFE8F5E9), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Verified,
-                                contentDescription = "Verified",
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(10.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "Verified",
-                                fontSize = 9.sp,
-                                color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    }
                 }
                 
                 Spacer(modifier = Modifier.height(2.dp))
@@ -267,7 +291,7 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                     )
                 } else {
                     Text(
-                        text = "Manage vitals & records",
+                        text = "View your vitals, history & more",
                         fontSize = 12.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -276,19 +300,19 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                 }
             }
 
-            // Arrow
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(Color(0xFFF8FAFC), CircleShape)
-                    .border(1.dp, Color(0xFFF1F5F9), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+            // View Vitals
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "View Vitals",
+                    color = Color(0xFF00796B),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = "Open",
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(20.dp)
+                    tint = Color(0xFF00796B),
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -350,7 +374,7 @@ fun HealthServicesSection(
                 QuickActionGridCard(
                     modifier = Modifier.weight(1f),
                     title = "Book Clinic\n(OPD)",
-                    imageRes = R.drawable.inperson_consultation,
+                    imageRes = R.drawable.clinic_visit,
                     onClick = onClinicClick
                 )
             }
@@ -448,9 +472,8 @@ fun CommunityQABanner(onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -516,9 +539,8 @@ fun SecondaryActionsGrid(
                 .heightIn(min = 62.dp)
                 .clickable(onClick = onReportsClick),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -529,14 +551,14 @@ fun SecondaryActionsGrid(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(52.dp)
                         .background(Color(0xFFF1F5F9), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.report_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(32.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -569,9 +591,8 @@ fun SecondaryActionsGrid(
                 .heightIn(min = 62.dp)
                 .clickable(onClick = onAppointmentsClick),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -582,14 +603,14 @@ fun SecondaryActionsGrid(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(52.dp)
                         .background(Color(0xFFF1F5F9), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.appoinment_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(32.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -617,7 +638,7 @@ fun SecondaryActionsGrid(
     }
 }
 
-private val HealthcareServiceCardHeight = 128.dp
+private val HealthcareServiceCardHeight = 150.dp
 
 @Composable
 private fun HealthcareServiceCard(
@@ -685,7 +706,7 @@ private fun HealthcareServiceCard(
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(if (imageWidthFraction < 1f) 0.55f else 0.62f)
+                    .fillMaxWidth(if (imageWidthFraction < 1f) 0.65f else 0.75f)
                     .align(Alignment.TopStart)
                     .padding(12.dp)
             ) {
@@ -694,17 +715,17 @@ private fun HealthcareServiceCard(
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 17.sp
+                    lineHeight = 15.sp
                 )
                 if (!subtitle.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = subtitle,
                         fontSize = 11.sp,
+                        lineHeight = 13.sp,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -726,7 +747,7 @@ fun HealthcareServicesSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Healthcare Services", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text("Healthcare Services", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         Column(
@@ -743,18 +764,19 @@ fun HealthcareServicesSection(
                     imageRes = R.drawable.find_hospital,
                     title = "Find Hospitals",
                     subtitle = "Discover hospitals near you & book visits",
-                    onClick = onHospitalsClick
+                    onClick = onHospitalsClick,
+                    imageContentScale = ContentScale.Fit
                 )
                 HealthcareServiceCard(
                     modifier = Modifier.weight(1f),
                     backgroundColor = Color(0xFFE8F5F3),
-                    imageRes = R.drawable.inperson_consultation,
-                    title = "Book Clinic",
-                    subtitle = "Book OPD slots with clinic doctors",
-                    onClick = onClinicsClick
+                    imageRes = R.drawable.clinic_visit,
+                    title = "Book Clinics",
+                    subtitle = "Schedule appointments with doctors",
+                    onClick = onClinicsClick,
+                    imageContentScale = ContentScale.Fit
                 )
             }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -763,10 +785,9 @@ fun HealthcareServicesSection(
                     modifier = Modifier.weight(1f),
                     backgroundColor = Color(0xFFFFF3E8),
                     imageRes = R.drawable.order_medicine,
-                    title = "Order Medicine",
-                    subtitle = "Upload prescription & get meds delivered",
+                    title = "Order Medicines",
+                    subtitle = "Get medicines delivered home",
                     onClick = onPharmacyClick,
-                    imageWidthFraction = 0.56f,
                     imageContentScale = ContentScale.Fit
                 )
                 HealthcareServiceCard(
@@ -775,7 +796,8 @@ fun HealthcareServicesSection(
                     imageRes = R.drawable.book_test_lab,
                     title = "Book Lab Tests",
                     subtitle = "Schedule blood tests & health checkups",
-                    onClick = onDiagnosticsClick
+                    onClick = onDiagnosticsClick,
+                    imageContentScale = ContentScale.Fit
                 )
             }
         }
@@ -800,7 +822,7 @@ fun RecommendedDoctorsSection(
         ) {
             Text(
                 "Recommended Doctor", 
-                fontWeight = FontWeight.ExtraBold, 
+                fontWeight = FontWeight.Bold, 
                 fontSize = 17.sp, 
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -849,9 +871,8 @@ fun DoctorCard(
             .fillMaxWidth()
             .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.Top) {

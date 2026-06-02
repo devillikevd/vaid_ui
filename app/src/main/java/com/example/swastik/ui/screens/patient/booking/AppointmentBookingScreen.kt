@@ -90,6 +90,7 @@ fun AppointmentBookingScreen(
     onBackClick: () -> Unit,
     onBookingComplete: () -> Unit,
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToDoctorProfile: (String) -> Unit = {},
     preselectedDoctorId: String? = null,
     preselectedHospitalId: String? = null,
     preselectedClinicId: String? = null,
@@ -294,9 +295,13 @@ fun AppointmentBookingScreen(
                         1 -> DoctorSelectionStep(
                             doctorSearchViewModel = doctorSearchViewModel,
                             uiState = doctorState,
-                            onDoctorSelected = { doctor, _ ->
-                                selectedDoctor = doctor
-                                currentStep = 2
+                            onDoctorSelected = { doctor, isBooking ->
+                                if (isBooking) {
+                                    selectedDoctor = doctor
+                                    currentStep = 2
+                                } else {
+                                    onNavigateToDoctorProfile(doctor.id)
+                                }
                             }
                         )
                         2 -> ConsultationDetailsStep(
@@ -679,22 +684,22 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                         }
                         if (!compact) {
                             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(0.dp)) {
-                                    Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1.4f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(0.dp)) {
+                                    Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Button(onClick = onSelect, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary), contentPadding = PaddingValues(0.dp)) {
-                                    Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
                     }
                     if (compact) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                                Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            OutlinedButton(onClick = onViewProfile, modifier = Modifier.weight(1.4f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary), border = BorderStroke(1.5.dp, SwastikPrimary), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                Text(stringResource(R.string.view_profile), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             Button(onClick = onSelect, modifier = Modifier.weight(1f).heightIn(min = 40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary, contentColor = MaterialTheme.colorScheme.onPrimary), contentPadding = PaddingValues(horizontal = 4.dp)) {
-                                Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(R.string.book), fontWeight = FontWeight.SemiBold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }

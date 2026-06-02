@@ -493,6 +493,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToHistory = {
                         navController.navigateSafe(Screen.AppointmentHistory.createRoute("upcoming"))
                     },
+                    onNavigateToDoctorProfile = { doctorId ->
+                        navController.navigateSafe(Screen.DoctorProfile.createRoute(doctorId))
+                    },
                     preselectedDoctorId = doctorId,
                     preselectedHospitalId = hospitalId,
                     preselectedClinicId = clinicId,

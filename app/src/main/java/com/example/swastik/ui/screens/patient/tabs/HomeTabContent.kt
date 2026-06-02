@@ -122,100 +122,59 @@ fun HomeTabContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 1. Emergency SOS & AI Assistant Group
-            Card(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    EmergencySOSBanner(onClick = onNavigateToEmergency)
-                    SwastikAIBanner(onClick = onNavigateToChatbot)
-                }
+                EmergencySOSBanner(onClick = onNavigateToEmergency)
+                SwastikAIBanner(onClick = onNavigateToChatbot)
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             
             // 2. Consultations, Health ID, and Actions Group
-            Card(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                // Primary Actions (Consultation cards side-by-side)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Primary Actions (Consultation cards side-by-side)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        InPersonConsultationCard(
-                            modifier = Modifier.weight(1f),
-                            onClick = onStartInPersonConsultation
-                        )
-                        VideoConsultationCard(
-                            modifier = Modifier.weight(1f),
-                            onClick = onStartVideoConsultation
-                        )
-                    }
-                    
-                    // Digital Health ID Card
-                    CompactHealthIdCard(onClick = onNavigateToHealthCard)
-                    
-                    // Secondary Actions (Reports, Appointments)
-                    SecondaryActionsGrid(
-                        onReportsClick = onNavigateToReports,
-                        onAppointmentsClick = onNavigateToAppointments
+                    InPersonConsultationCard(
+                        modifier = Modifier.weight(1f),
+                        onClick = onStartInPersonConsultation
+                    )
+                    VideoConsultationCard(
+                        modifier = Modifier.weight(1f),
+                        onClick = onStartVideoConsultation
                     )
                 }
+                
+                // Digital Health ID Card
+                CompactHealthIdCard(onClick = onNavigateToHealthCard)
+                
+                // Secondary Actions (Reports, Appointments)
+                SecondaryActionsGrid(
+                    onReportsClick = onNavigateToReports,
+                    onAppointmentsClick = onNavigateToAppointments
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
             
             // 3. Quick Actions Group
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Quick Actions",
-                    fontWeight = FontWeight.ExtraBold, 
-                    fontSize = 16.sp, 
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
-            ) {
-                HealthServicesSection(
-                    onClinicClick = onNavigateToClinics,
-                    onPharmacyClick = onNavigateToPharmacies,
-                    onLabTestsClick = onNavigateToDiagnostic,
-                    onHospitalsClick = onNavigateToHospitals,
-                    showTitle = false
-                )
-            }
+            HealthcareServicesSection(
+                onClinicsClick = onNavigateToClinics,
+                onPharmacyClick = onNavigateToPharmacies,
+                onDiagnosticsClick = onNavigateToDiagnostic,
+                onHospitalsClick = onNavigateToHospitals
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -240,25 +199,15 @@ fun HomeTabContent(
             ) {
                 Text(
                     "Book Doctor by Speciality",
-                    fontWeight = FontWeight.ExtraBold, 
+                    fontWeight = FontWeight.Bold, 
                     fontSize = 17.sp, 
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEEF4FA)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2EAF4))
-            ) {
-                FindDoctorsBySpecialitySection(
-                    onSpecialityClick = onFindDoctorSpecialityClick,
-                    showTitle = false
-                )
-            }
+            FindDoctorsBySpecialitySection(
+                onSpecialityClick = onFindDoctorSpecialityClick,
+                showTitle = false
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             

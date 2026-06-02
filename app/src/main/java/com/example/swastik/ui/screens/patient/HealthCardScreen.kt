@@ -76,7 +76,7 @@ fun HealthCardScreen(
     recordsViewModel: RecordsViewModel
 ) {
     val isDark = isSystemInDarkTheme()
-    val healthCardMainBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFE3F2FD)
+    val healthCardMainBg = MaterialTheme.colorScheme.primaryContainer
     val hcState by dashboardViewModel.healthCardState.collectAsState()
     val syncState by dashboardViewModel.healthConnectSyncState.collectAsState()
     val guardianEnabled by dashboardViewModel.guardianEnabled.collectAsState(initial = false)
@@ -181,7 +181,7 @@ fun HealthCardScreen(
                 Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = healthCardMainBg),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {

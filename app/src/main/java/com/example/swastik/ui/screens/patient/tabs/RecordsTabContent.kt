@@ -438,7 +438,7 @@ private fun ConsultationCard(consultation: ConsultationRecord) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -492,7 +492,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -661,7 +661,7 @@ private fun DocumentItem(document: MedicalDocument) {
                 }
             },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceVariant.copy(alpha = 0.6f))
+        colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer)
     ) {
         Row(
             modifier = Modifier
