@@ -469,7 +469,7 @@ export default function VideoConsultation() {
                     if (respirationHz) payload.respiration_rate = Number(Math.max(6, Math.min(32, respirationHz * 60)).toFixed(1));
                     if (Number.isFinite(pallorScore)) payload.pallor_score = Number(pallorScore.toFixed(3));
 
-                    payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'active_signals', 'total_signals'].includes(key));
+                    payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'signal_quality', 'confidence', 'is_face_detected', 'active_signals', 'total_signals'].includes(key));
                     payload.total_signals = (payload.active_signals as string[]).length;
 
                     sendPatientVitals(payload);

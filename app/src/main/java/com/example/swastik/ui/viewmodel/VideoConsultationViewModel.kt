@@ -1206,7 +1206,10 @@ class VideoConsultationViewModel @Inject constructor(
             android.util.Log.d("VitalsStream", "Start skipped: consent=false")
             return
         }
-        vitalsStreamJob?.cancel()
+        if (vitalsStreamJob?.isActive == true) {
+            android.util.Log.d("VitalsStream", "Start skipped: already active")
+            return
+        }
         vitalsStreamJob = viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
             val sessionId = session.sessionId
@@ -1290,23 +1293,30 @@ class VideoConsultationViewModel @Inject constructor(
                         continue
                     }
 
+                    val activeSignals = mutableListOf<String>()
                     val metricsData = org.json.JSONObject().apply {
                         put("session_id", consultationId)
-                        putIfNotNull("heart_rate", cvMetrics.heartRate)
-                        putIfNotNull("respiration_rate", cvMetrics.respirationRate)
-                        putIfNotNull("posture", cvMetrics.posture)
-                        putIfNotNull("spine_angle", cvMetrics.spineAngle)
-                        putIfNotNull("drowsiness_score", cvMetrics.drowsinessScore)
-                        putIfNotNull("pain_score", cvMetrics.painScore)
-                        putIfNotNull("facial_asymmetry_score", cvMetrics.facialAsymmetryScore)
-                        putIfNotNull("tremor_detected", cvMetrics.tremorDetected)
-                        putIfNotNull("tremor_severity", cvMetrics.tremorSeverity)
-                        putIfNotNull("tremor_frequency", cvMetrics.tremorFrequency)
-                        putIfNotNull("pallor_score", cvMetrics.pallorScore)
-                        putIfNotNull("hemoglobin_estimate", cvMetrics.hemoglobinEstimate)
-                        putIfNotNull("spo2", cvMetrics.spo2)
-                        putIfNotNull("stress_level", cvMetrics.stressLevel)
-                        putIfNotNull("skin_condition", cvMetrics.skinCondition)
+                        putSignalIfNotNull(activeSignals, "heart_rate", cvMetrics.heartRate)
+                        putSignalIfNotNull(activeSignals, "respiration_rate", cvMetrics.respirationRate)
+                        putSignalIfNotNull(activeSignals, "posture", cvMetrics.posture)
+                        putSignalIfNotNull(activeSignals, "spine_angle", cvMetrics.spineAngle)
+                        putSignalIfNotNull(activeSignals, "drowsiness_score", cvMetrics.drowsinessScore)
+                        putSignalIfNotNull(activeSignals, "pain_score", cvMetrics.painScore)
+                        putSignalIfNotNull(activeSignals, "facial_asymmetry_score", cvMetrics.facialAsymmetryScore)
+                        putSignalIfNotNull(activeSignals, "tremor_detected", cvMetrics.tremorDetected)
+                        putSignalIfNotNull(activeSignals, "tremor_severity", cvMetrics.tremorSeverity)
+                        putSignalIfNotNull(activeSignals, "tremor_frequency", cvMetrics.tremorFrequency)
+                        putSignalIfNotNull(activeSignals, "pallor_score", cvMetrics.pallorScore)
+                        putSignalIfNotNull(activeSignals, "hemoglobin_estimate", cvMetrics.hemoglobinEstimate)
+                        putSignalIfNotNull(activeSignals, "spo2", cvMetrics.spo2)
+                        putSignalIfNotNull(activeSignals, "stress_level", cvMetrics.stressLevel)
+                        putSignalIfNotNull(activeSignals, "skin_condition", cvMetrics.skinCondition)
+                        put("active_signals", org.json.JSONArray(activeSignals))
+                        put("total_signals", activeSignals.size)
+                        put("source", "android-native-cv")
+                        put("is_face_detected", cvMetrics.isFaceDetected)
+                        putIfNotNull("signal_quality", cvMetrics.signalQuality)
+                        putIfNotNull("confidence", cvMetrics.confidence)
                         put("processed_at", java.time.Instant.now().toString())
                     }
                     // Wrap in proper envelope matching AI service contract
@@ -1399,6 +1409,13 @@ class VideoConsultationViewModel @Inject constructor(
      * Accept computer vision vital analysis terms
      */
     fun setVisionAnalysisConsent(consented: Boolean) {
+        if (_uiState.value.hasConsentedToVisionAnalysis == consented) {
+            if (consented) {
+                ensureVisionAnalysisRunning()
+            }
+            return
+        }
+
         _uiState.update { it.copy(hasConsentedToVisionAnalysis = consented) }
 
         if (!consented) {
@@ -1410,6 +1427,10 @@ class VideoConsultationViewModel @Inject constructor(
             return
         }
 
+        ensureVisionAnalysisRunning()
+    }
+
+    private fun ensureVisionAnalysisRunning() {
         if (!ensureCvAnalyzer()) return
 
         attachCvAnalyzerIfPossible()
@@ -1565,6 +1586,17 @@ class VideoConsultationViewModel @Inject constructor(
     private fun org.json.JSONObject.putIfNotNull(key: String, value: Any?) {
         if (value != null) {
             put(key, value)
+        }
+    }
+
+    private fun org.json.JSONObject.putSignalIfNotNull(
+        activeSignals: MutableList<String>,
+        key: String,
+        value: Any?
+    ) {
+        if (value != null) {
+            put(key, value)
+            activeSignals.add(key)
         }
     }
 

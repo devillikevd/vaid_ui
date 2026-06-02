@@ -918,7 +918,9 @@ export interface VitalsStreamData {
     active_signals?: string[];
     total_signals?: number;
     confidence?: number;
-    signalQuality?: number;
+    signal_quality?: number;
+    is_face_detected?: boolean;
+    source?: string;
 }
 
 export interface VitalsAlert {
@@ -1017,6 +1019,10 @@ function filterVitalsPayload<T extends VitalsStreamData & Record<string, unknown
     if ('_stream_id' in vitals) filtered._stream_id = vitals._stream_id;
     if (Array.isArray(vitals.active_signals)) filtered.active_signals = vitals.active_signals;
     if (typeof vitals.total_signals === 'number') filtered.total_signals = vitals.total_signals;
+    if (typeof vitals.confidence === 'number') filtered.confidence = vitals.confidence;
+    if (typeof vitals.signal_quality === 'number') filtered.signal_quality = vitals.signal_quality;
+    if (typeof vitals.is_face_detected === 'boolean') filtered.is_face_detected = vitals.is_face_detected;
+    if (typeof vitals.source === 'string') filtered.source = vitals.source;
 
     if (isToggleEnabled(toggles, 'heart_rate_rppg') && vitals.heart_rate !== undefined) filtered.heart_rate = vitals.heart_rate;
     if (isToggleEnabled(toggles, 'respiration_monitoring') && vitals.respiration_rate !== undefined) filtered.respiration_rate = vitals.respiration_rate;
@@ -1079,7 +1085,6 @@ export function useVitalsStream(
     const [latestVitals, setLatestVitals] = useState<VitalsStreamData | null>(null);
     const [vitalsHistory, setVitalsHistory] = useState<VitalsStreamData[]>([]);
     const [alerts, setAlerts] = useState<VitalsAlert[]>([]);
-    const [criticalAlert, setCriticalAlert] = useState<{ sessionId: string; alerts: VitalsAlert[] } | null>(null);
     const [aiInsights, setAiInsights] = useState<Record<string, unknown> | string | null>(null);
 
     const wsRef = useRef<WebSocket | null>(null);
@@ -1138,13 +1143,8 @@ export function useVitalsStream(
         const incomingAlerts = filtered.alerts ?? [];
         if (incomingAlerts.length > 0) {
             setAlerts((prev) => mergeAlerts(prev, incomingAlerts));
-            const criticals = incomingAlerts.filter((alert) => alert.severity === 'critical');
-            if (criticals.length > 0 && sessionId) {
-                setCriticalAlert({ sessionId, alerts: criticals });
-                setTimeout(() => setCriticalAlert(null), 10000);
-            }
         }
-    }, [sessionId, signalToggles]);
+    }, [signalToggles]);
 
     const connect = useCallback(() => {
         if (!sessionId || isUnmountedRef.current) return;
@@ -1261,5 +1261,5 @@ export function useVitalsStream(
         }
     }, [sessionId]);
 
-    return { latestVitals, vitalsHistory, alerts, criticalAlert, aiInsights, sendVitals };
+    return { latestVitals, vitalsHistory, alerts, aiInsights, sendVitals };
 }

@@ -132,6 +132,45 @@ function ToggleSwitch({ label, value, onChange }: { label: string; value: boolea
     );
 }
 
+function MeasuredSignals({ vitals }: { vitals: VitalsStreamData }) {
+    const formatPercent = (value: number) => `${Math.round(value * 100)}%`;
+    const items: { key: string; label: string; value: string; tone: string }[] = [];
+
+    const add = (key: string, label: string, value: string | null | undefined, tone = 'text-gray-300') => {
+        if (value === null || value === undefined || value === '') return;
+        items.push({ key, label, value, tone });
+    };
+
+    add('posture', 'Posture', vitals.posture && vitals.spine_angle ? `${vitals.posture} • ${vitals.spine_angle.toFixed(1)}°` : vitals.posture);
+    add('drowsiness', 'Drowsy', vitals.drowsiness_score !== undefined ? formatPercent(vitals.drowsiness_score) : undefined, vitals.drowsiness_score && vitals.drowsiness_score > 0.5 ? 'text-amber-300' : 'text-gray-300');
+    add('pain', 'Pain', vitals.pain_score !== undefined ? `${vitals.pain_score}/10` : undefined, vitals.pain_score && vitals.pain_score >= 3 ? 'text-rose-300' : 'text-gray-300');
+    add('tremor', 'Tremor', vitals.tremor_detected !== undefined ? (vitals.tremor_detected ? `Yes${vitals.tremor_severity ? ` • ${vitals.tremor_severity}/10` : ''}` : 'No') : undefined, vitals.tremor_detected ? 'text-amber-300' : 'text-gray-300');
+    add('pallor', 'Pallor', vitals.pallor_score !== undefined ? `${formatPercent(vitals.pallor_score)}${vitals.hemoglobin_estimate ? ` • Hb ${vitals.hemoglobin_estimate.toFixed(1)}` : ''}` : undefined, vitals.pallor_score && vitals.pallor_score > 0.4 ? 'text-purple-300' : 'text-gray-300');
+    add('asymmetry', 'Asymmetry', vitals.facial_asymmetry_score !== undefined ? formatPercent(vitals.facial_asymmetry_score) : undefined, vitals.facial_asymmetry_score && vitals.facial_asymmetry_score > 0.2 ? 'text-red-300' : 'text-gray-300');
+    add('stress', 'Stress', vitals.stress_level, vitals.stress_level && vitals.stress_level !== 'low' ? 'text-orange-300' : 'text-gray-300');
+    add('skin', 'Skin', vitals.skin_condition, vitals.skin_condition && vitals.skin_condition !== 'normal' ? 'text-cyan-300' : 'text-gray-300');
+    add('fall', 'Fall', vitals.fall_detected !== undefined ? (vitals.fall_detected ? 'Detected' : 'No') : undefined, vitals.fall_detected ? 'text-red-300' : 'text-gray-300');
+
+    if (items.length === 0) return null;
+
+    return (
+        <div className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30">
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Measured Signals</span>
+                <span className="text-[9px] text-gray-500 font-mono">{items.length}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+                {items.map(item => (
+                    <div key={item.key} className="min-h-10 rounded-lg bg-gray-900/45 border border-gray-700/30 px-2 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-gray-500 truncate">{item.label}</p>
+                        <p className={`text-xs font-semibold truncate ${item.tone}`}>{item.value}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 /* ════════════════════════════════════════════════════════════════════
    MAIN: Doctor Vitals + AI Panel
    ════════════════════════════════════════════════════════════════════ */
@@ -141,7 +180,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     const [toggles, setToggles] = useState<FeatureToggles | null>(null);
     const [showSettings, setShowSettings] = useState(false);
 
-    const { latestVitals, vitalsHistory, alerts, criticalAlert } = useVitalsStream(consultationId, 'doctor', toggles);
+    const { latestVitals, vitalsHistory, alerts } = useVitalsStream(consultationId, 'doctor', toggles);
 
     // AI Assistant
     const [aiQuery, setAiQuery] = useState('');
@@ -197,6 +236,8 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     if (!isDoctor) return null;
 
     const activeAlerts = alerts.slice(0, 10);
+    const measuredSignalCount = latestVitals?.active_signals?.length ?? latestVitals?.total_signals ?? 0;
+    const signalConfidence = latestVitals?.confidence ?? latestVitals?.signal_quality;
     const hasClinicalDetails = (response: AIConsultResponse) =>
         Boolean(
             response.suggested_medications?.length ||
@@ -208,21 +249,6 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
 
     return (
         <>
-            {/* Critical Alert Overlay */}
-            {criticalAlert && (
-                <div className="fixed top-4 right-4 z-50 max-w-sm animate-in slide-in-from-top-2 fade-in">
-                    <div className="bg-red-900/95 border-2 border-red-500 rounded-2xl p-4 shadow-2xl shadow-red-500/30 backdrop-blur-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
-                            <span className="text-xs font-bold text-red-300 uppercase tracking-wider">Critical Alert</span>
-                        </div>
-                        {criticalAlert.alerts.map((a, i) => (
-                            <p key={i} className="text-sm text-white font-medium">{a.message}</p>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* Panel */}
             <div className="w-80 flex flex-col bg-gray-900/95 border-l border-gray-800 backdrop-blur-xl h-full overflow-hidden">
                 {/* Tab Bar */}
@@ -273,17 +299,22 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                         ) : (
                             <>
                                 <div className="flex items-center gap-2 mb-3">
-                                    <div className={`w-2 h-2 rounded-full ${latestVitals.confidence && latestVitals.confidence > 0.4 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                                    <div className={`w-2 h-2 rounded-full ${signalConfidence && signalConfidence > 0.4 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                                     <span className="text-[10px] text-emerald-400 uppercase tracking-wider font-medium">Live • {new Date(latestVitals.processed_at || '').toLocaleTimeString()}</span>
-                                    {latestVitals.confidence !== undefined && (
+                                    {measuredSignalCount > 0 && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-gray-800 text-gray-300 font-bold uppercase tracking-wider">
+                                            {measuredSignalCount} signals
+                                        </span>
+                                    )}
+                                    {signalConfidence !== undefined && (
                                         <div className="ml-auto flex items-center gap-1.5">
                                             <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Signal:</span>
                                             <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider ${
-                                                latestVitals.confidence > 0.7 ? 'bg-emerald-500/20 text-emerald-400' :
-                                                latestVitals.confidence > 0.4 ? 'bg-amber-500/20 text-amber-400' :
+                                                signalConfidence > 0.7 ? 'bg-emerald-500/20 text-emerald-400' :
+                                                signalConfidence > 0.4 ? 'bg-amber-500/20 text-amber-400' :
                                                 'bg-red-500/20 text-red-400'
                                             }`}>
-                                                {latestVitals.confidence > 0.7 ? 'HIGH' : latestVitals.confidence > 0.4 ? 'MED' : 'LOW'}
+                                                {signalConfidence > 0.7 ? 'HIGH' : signalConfidence > 0.4 ? 'MED' : 'LOW'}
                                             </span>
                                         </div>
                                     )}
@@ -306,15 +337,17 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     )}
                                 </div>
 
+                                <MeasuredSignals vitals={latestVitals} />
+
                                 {/* Sparklines */}
                                 {hrHistory.length > 2 && (
                                     <div className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30">
                                         <div className="flex justify-between items-center mb-1">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">HR Trend (2 min)</span>
-                                            {latestVitals.confidence !== undefined && (
+                                            {signalConfidence !== undefined && (
                                                 <div className="flex items-center gap-1 w-16">
                                                     <div className="h-1 flex-1 bg-gray-700 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full ${latestVitals.confidence > 0.7 ? 'bg-emerald-400' : latestVitals.confidence > 0.4 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${latestVitals.confidence * 100}%` }} />
+                                                        <div className={`h-full rounded-full ${signalConfidence > 0.7 ? 'bg-emerald-400' : signalConfidence > 0.4 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${signalConfidence * 100}%` }} />
                                                     </div>
                                                 </div>
                                             )}
