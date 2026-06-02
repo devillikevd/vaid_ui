@@ -39,6 +39,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Header, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.websockets import WebSocketState
 import asyncio
 import redis.asyncio as aioredis
 from redis.exceptions import ResponseError
@@ -422,6 +423,18 @@ async def vitals_websocket(
 
     stream_key = f"telemedicine:vitals:{session_id}"
 
+    async def send_text_safe(text: str) -> bool:
+        if (
+            websocket.application_state != WebSocketState.CONNECTED or
+            websocket.client_state != WebSocketState.CONNECTED
+        ):
+            return False
+        try:
+            await websocket.send_text(text)
+            return True
+        except (RuntimeError, WebSocketDisconnect):
+            return False
+
     async def reader_task():
         try:
             while True:
@@ -432,7 +445,8 @@ async def vitals_websocket(
                     continue
 
                 if payload.get("type") == "ping":
-                    await websocket.send_text(json.dumps({"type": "pong", "ts": time.time()}))
+                    if not await send_text_safe(json.dumps({"type": "pong", "ts": time.time()})):
+                        return
                     continue
                 if payload.get("type") == "pong":
                     # Clients echo keepalive pongs back to us; they are transport
@@ -508,9 +522,11 @@ async def vitals_websocket(
                         try:
                             obj = json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
                             obj["_stream_id"] = stream_last_id
-                            await websocket.send_text(json.dumps(obj))
+                            if not await send_text_safe(json.dumps(obj)):
+                                return
                         except Exception:
-                            await websocket.send_text(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw))
+                            if not await send_text_safe(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)):
+                                return
         except asyncio.CancelledError:
             pass
         except WebSocketDisconnect:
@@ -522,7 +538,8 @@ async def vitals_websocket(
         try:
             while True:
                 await asyncio.sleep(30)
-                await websocket.send_text(json.dumps({"type": "ping", "ts": time.time()}))
+                if not await send_text_safe(json.dumps({"type": "ping", "ts": time.time()})):
+                    return
         except asyncio.CancelledError:
             pass
         except Exception:
@@ -536,7 +553,13 @@ async def vitals_websocket(
         tasks.append(asyncio.create_task(writer_task()))
 
     try:
-        await asyncio.gather(*tasks)
+        done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            if task.cancelled():
+                continue
+            error = task.exception()
+            if error is not None and not isinstance(error, (asyncio.CancelledError, WebSocketDisconnect)):
+                print(f"[WS] task error: {error}")
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -544,6 +567,7 @@ async def vitals_websocket(
     finally:
         for t in tasks:
             t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 # ══════════════════════════════════════════════════════════════════
 #  PYDANTIC MODELS — All 12 CV Signals

@@ -62,7 +62,7 @@ fun ConsultationPrepareScreen(
     onRevokeMedicalRecordAccess: () -> Unit = {},
     onStartConsultation: (Boolean) -> Unit
 ) {
-    var allowAiVitals by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    var allowAiVitals by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     val backgroundBrush = Brush.verticalGradient(
         listOf(

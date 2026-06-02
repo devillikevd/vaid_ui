@@ -101,6 +101,7 @@ fun VideoConsultationFlow(
             isMedicalRecordAccessLoading = uiState.isMedicalRecordAccessLoading,
             medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
             guardianAnalyticsSharingAllowed = uiState.guardianAnalyticsSharingAllowed,
+            isAiVitalsEnabled = uiState.hasConsentedToVisionAnalysis,
             onBackClick = {
                 viewModel.endCall()
                 onBackClick()
@@ -110,6 +111,7 @@ fun VideoConsultationFlow(
             },
             onGrantMedicalRecordAccess = { viewModel.grantMedicalRecordAccess(it) },
             onRevokeMedicalRecordAccess = { viewModel.revokeMedicalRecordAccess() },
+            onAiVitalsToggle = { viewModel.setVisionAnalysisConsent(it) },
             onMicToggle = { viewModel.toggleMic() },
             onCameraToggle = { viewModel.toggleCamera() },
             onCameraFlip = { viewModel.switchCamera() },

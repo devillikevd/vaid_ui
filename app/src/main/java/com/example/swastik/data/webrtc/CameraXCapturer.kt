@@ -9,6 +9,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCase
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -21,7 +22,8 @@ import org.webrtc.VideoFrame
 import java.util.concurrent.Executors
 
 class CameraXCapturer(
-    private val onImageProxy: ((ImageProxy) -> Boolean)? = null
+    private val onImageProxy: ((ImageProxy) -> Boolean)? = null,
+    private val isImageAnalysisEnabled: () -> Boolean = { onImageProxy != null }
 ) : VideoCapturer, LifecycleOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -35,11 +37,10 @@ class CameraXCapturer(
     private var isFrontCamera = true
     private val mainHandler = Handler(Looper.getMainLooper())
     private val analysisExecutor = Executors.newSingleThreadExecutor()
-    private var frameCountWebrtc = 0
-    private var frameCountAI = 0
     private var captureWidth = 480
     private var captureHeight = 360
     private var captureFps = 20
+    private var imageAnalysisUseCase: ImageAnalysis? = null
 
     companion object {
         private const val TAG = "CameraXCapturer"
@@ -73,6 +74,7 @@ class CameraXCapturer(
                 val requestedSize = android.util.Size(captureWidth, captureHeight)
                 
                 provider.unbindAll()
+                imageAnalysisUseCase = null
 
                 // WebRTC Preview
                 val preview = Preview.Builder()
@@ -94,37 +96,18 @@ class CameraXCapturer(
 
                 // Push SurfaceTexture frames to WebRTC
                 helper.startListening { videoFrame ->
-                    if (frameCountWebrtc++ % 60 == 0) {
-                        Log.d(TAG, "WebRTC frame captured. Count: $frameCountWebrtc")
-                    }
                     observer.onFrameCaptured(videoFrame)
                 }
 
-                // AI ImageAnalysis (Decoupled CPU stream)
-                val isLowEndDevice = com.example.swastik.util.vision.DeviceProfiler.getTier2IntervalMs(ctx) >= 100L
-                val targetResolution = if (isLowEndDevice) android.util.Size(320, 240) else android.util.Size(640, 480)
-                
-                val imageAnalyzer = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-                    .setTargetResolution(targetResolution)
-                    .build()
-                    
-                imageAnalyzer.setAnalyzer(analysisExecutor) { imageProxy ->
-                    if (frameCountAI++ % 60 == 0) {
-                        Log.d(TAG, "ImageProxy frame received. Count: $frameCountAI")
-                    }
-                    try {
-                        val handled = onImageProxy?.invoke(imageProxy)
-                        if (frameCountAI % 60 == 0) Log.d(TAG, "handled = $handled, onImageProxy = $onImageProxy")
-                        if (handled != true) {
-                            if (frameCountAI % 60 == 0) Log.d(TAG, "Closing unhandled proxy")
-                            imageProxy.close()
-                        }
-                    } catch (e: Throwable) {
-                        Log.e(TAG, "Exception in ImageAnalyzer", e)
-                        imageProxy.close()
-                    }
+                val useCases = mutableListOf<UseCase>(preview)
+                var analysisDescription = "off"
+                var pendingImageAnalysis: ImageAnalysis? = null
+
+                if (isImageAnalysisEnabled()) {
+                    val (imageAnalyzer, description) = createImageAnalysisUseCase(ctx)
+                    pendingImageAnalysis = imageAnalyzer
+                    analysisDescription = description
+                    useCases.add(imageAnalyzer)
                 }
 
                 val cameraSelector = if (isFrontCamera) {
@@ -144,14 +127,14 @@ class CameraXCapturer(
                 provider.bindToLifecycle(
                     this,
                     cameraSelector,
-                    preview,
-                    imageAnalyzer
+                    *useCases.toTypedArray()
                 )
+                imageAnalysisUseCase = pendingImageAnalysis
                 
 
                 
                 observer.onCapturerStarted(true)
-                Log.d(TAG, "CameraX started at ${captureWidth}x${captureHeight}@${captureFps}fps, AI=${targetResolution.width}x${targetResolution.height}.")
+                Log.d(TAG, "CameraX started at ${captureWidth}x${captureHeight}@${captureFps}fps, AI=$analysisDescription.")
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start CameraX: ${e.message}", e)
@@ -167,6 +150,7 @@ class CameraXCapturer(
             lifecycleRegistry.currentState = Lifecycle.State.CREATED
             try {
                 cameraProvider?.unbindAll()
+                imageAnalysisUseCase = null
                 surfaceTextureHelper?.stopListening()
                 capturerObserver?.onCapturerStopped()
                 Log.d(TAG, "CameraX stopped.")
@@ -194,11 +178,79 @@ class CameraXCapturer(
         mainHandler.post {
             try {
                 cameraProvider?.unbindAll()
+                imageAnalysisUseCase = null
                 // Re-start capture with new camera selector
                 startCapture(captureWidth, captureHeight, captureFps)
             } catch (e: Exception) {
                 Log.e(TAG, "Error switching camera", e)
             }
         }
+    }
+
+    fun updateImageAnalysisBinding() {
+        mainHandler.post {
+            val provider = cameraProvider ?: return@post
+            val ctx = context ?: return@post
+
+            if (!isImageAnalysisEnabled()) {
+                imageAnalysisUseCase?.let { useCase ->
+                    runCatching { provider.unbind(useCase) }
+                    imageAnalysisUseCase = null
+                    Log.d(TAG, "CameraX AI analysis disabled.")
+                }
+                return@post
+            }
+
+            if (imageAnalysisUseCase != null) return@post
+
+            try {
+                if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.CREATED
+                }
+                lifecycleRegistry.currentState = Lifecycle.State.STARTED
+                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+
+                val (imageAnalyzer, description) = createImageAnalysisUseCase(ctx)
+                val cameraSelector = if (isFrontCamera) {
+                    CameraSelector.DEFAULT_FRONT_CAMERA
+                } else {
+                    CameraSelector.DEFAULT_BACK_CAMERA
+                }
+
+                provider.bindToLifecycle(this, cameraSelector, imageAnalyzer)
+                imageAnalysisUseCase = imageAnalyzer
+                Log.d(TAG, "CameraX AI analysis enabled at $description.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update CameraX AI analysis: ${e.message}", e)
+            }
+        }
+    }
+
+    private fun createImageAnalysisUseCase(ctx: Context): Pair<ImageAnalysis, String> {
+        // AI ImageAnalysis (decoupled CPU stream). Bind this only when a
+        // real consumer exists, otherwise CameraX burns CPU closing frames.
+        val isLowEndDevice = com.example.swastik.util.vision.DeviceProfiler.getTier2IntervalMs(ctx) >= 100L
+        val targetResolution = if (isLowEndDevice) android.util.Size(320, 240) else android.util.Size(640, 480)
+        val description = "${targetResolution.width}x${targetResolution.height}"
+
+        val imageAnalyzer = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+            .setTargetResolution(targetResolution)
+            .build()
+
+        imageAnalyzer.setAnalyzer(analysisExecutor) { imageProxy ->
+            try {
+                val handled = onImageProxy?.invoke(imageProxy)
+                if (handled != true) {
+                    imageProxy.close()
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Exception in ImageAnalyzer", e)
+                imageProxy.close()
+            }
+        }
+
+        return imageAnalyzer to description
     }
 }

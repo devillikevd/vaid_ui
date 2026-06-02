@@ -27,8 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import android.view.ViewGroup
-import android.widget.FrameLayout
+import android.util.Log
 import com.example.swastik.ui.viewmodel.ConsultationMode
 import com.example.swastik.ui.viewmodel.ChatMessageUi
 import org.webrtc.EglBase
@@ -56,10 +55,12 @@ fun VideoCallScreen(
     isMedicalRecordAccessLoading: Boolean = false,
     medicalRecordAccessMessage: String? = null,
     guardianAnalyticsSharingAllowed: Boolean = false,
+    isAiVitalsEnabled: Boolean = false,
     onBackClick: () -> Unit,
     onEndCall: () -> Unit,
     onGrantMedicalRecordAccess: (Boolean) -> Unit = {},
     onRevokeMedicalRecordAccess: () -> Unit = {},
+    onAiVitalsToggle: (Boolean) -> Unit = {},
     onMicToggle: () -> Unit = {},
     onCameraToggle: () -> Unit = {},
     onCameraFlip: () -> Unit = {},
@@ -279,9 +280,11 @@ fun VideoCallScreen(
                         isMicMuted = isMicMuted,
                         isCameraOff = isCameraOff,
                         isSpeakerOn = isSpeakerOn,
+                        isAiVitalsEnabled = isAiVitalsEnabled,
                         currentMode = connectionMode,
                         accentColor = accentColor,
                         surfaceColor = surfaceColor,
+                        onAiVitalsToggle = onAiVitalsToggle,
                         onMicToggle = onMicToggle,
                         onCameraToggle = onCameraToggle,
                         onEndCall = onEndCall,
@@ -533,68 +536,35 @@ fun WebRTCVideoView(
     mirror: Boolean = false,
     isOverlay: Boolean = false
 ) {
-    val context = LocalContext.current
-
-    key(videoTrack, eglContext) {
+    key(videoTrack, isOverlay) {
         AndroidView(
-            factory = {
-                FrameLayout(context).apply {
-                    val renderer = SurfaceViewRenderer(context)
+            factory = { context ->
+                SurfaceViewRenderer(context).apply {
                     try {
-                        renderer.init(eglContext, null)
-                        renderer.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
-                        renderer.setMirror(mirror)
-                        renderer.setEnableHardwareScaler(true)
-                        renderer.setZOrderMediaOverlay(isOverlay)
-                        videoTrack.addSink(renderer)
-                        addView(
-                            renderer,
-                            FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                        )
+                        setZOrderMediaOverlay(isOverlay)
+                        init(eglContext, null)
+                        setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                        setMirror(mirror)
+                        setEnableHardwareScaler(true)
+                        videoTrack.addSink(this)
                     } catch (error: Throwable) {
-                        android.util.Log.e("VideoCallScreen", "Unable to attach WebRTC renderer: ${error.message}", error)
-                        try {
-                            videoTrack.removeSink(renderer)
-                        } catch (_: Throwable) { }
-                        try {
-                            renderer.release()
-                        } catch (_: Throwable) { }
+                        Log.e("VideoCallScreen", "Unable to attach WebRTC renderer: ${error.message}", error)
+                        runCatching { videoTrack.removeSink(this) }
+                        runCatching { release() }
                     }
                 }
             },
-            update = { container ->
-                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
-                    try {
-                        renderer.setMirror(mirror)
-                    } catch (error: Throwable) {
-                        android.util.Log.w("VideoCallScreen", "Unable to update renderer mirror: ${error.message}")
-                    }
-                }
+            onReset = null,
+            onRelease = { renderer ->
+                runCatching { videoTrack.removeSink(renderer) }
+                runCatching { renderer.release() }
             },
-            onReset = { container ->
-                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
-                    try {
-                        videoTrack.removeSink(renderer)
-                    } catch (_: Throwable) { }
-                    try {
-                        renderer.release()
-                    } catch (_: Throwable) { }
+            update = { renderer ->
+                try {
+                    renderer.setMirror(mirror)
+                } catch (error: Throwable) {
+                    Log.w("VideoCallScreen", "Unable to update renderer mirror: ${error.message}")
                 }
-                container.removeAllViews()
-            },
-            onRelease = { container ->
-                (container.getChildAt(0) as? SurfaceViewRenderer)?.let { renderer ->
-                    try {
-                        videoTrack.removeSink(renderer)
-                    } catch (_: Throwable) { }
-                    try {
-                        renderer.release()
-                    } catch (_: Throwable) { }
-                }
-                container.removeAllViews()
             },
             modifier = modifier
         )
@@ -932,9 +902,11 @@ private fun VideoCallControls(
     isMicMuted: Boolean,
     isCameraOff: Boolean,
     isSpeakerOn: Boolean,
+    isAiVitalsEnabled: Boolean,
     currentMode: ConsultationMode,
     accentColor: Color,
     surfaceColor: Color,
+    onAiVitalsToggle: (Boolean) -> Unit,
     onMicToggle: () -> Unit,
     onCameraToggle: () -> Unit,
     onEndCall: () -> Unit,
@@ -942,13 +914,49 @@ private fun VideoCallControls(
     onSpeakerToggle: () -> Unit,
     onSwitchMode: (ConsultationMode) -> Unit,
     modifier: Modifier = Modifier
-) {
+    ) {
     Column(
         modifier = modifier
             .background(Color(0xFF09111F).copy(alpha = 0.94f))
             .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color.White.copy(alpha = 0.06f))
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Favorite,
+                contentDescription = null,
+                tint = if (isAiVitalsEnabled) Color(0xFF2DD4BF) else Color.White.copy(alpha = 0.64f),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = "AI Vitals",
+                color = Color.White.copy(alpha = 0.86f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Switch(
+                checked = isAiVitalsEnabled,
+                onCheckedChange = onAiVitalsToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF2DD4BF),
+                    uncheckedThumbColor = Color.White.copy(alpha = 0.82f),
+                    uncheckedTrackColor = Color.White.copy(alpha = 0.18f)
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()

@@ -84,7 +84,7 @@ data class VideoConsultationUiState(
     val medicalRecordAccessExpiresAt: String? = null,
     val medicalRecordAccessMessage: String? = null,
     val guardianAnalyticsSharingAllowed: Boolean = false,
-    val hasConsentedToVisionAnalysis: Boolean = true
+    val hasConsentedToVisionAnalysis: Boolean = false
 )
 
 data class ChatMessageUi(
@@ -252,14 +252,12 @@ class VideoConsultationViewModel @Inject constructor(
                 if (iceServers != null) {
                     this.iceServers = iceServers
                 }
-                cvAnalyzer = try {
-                    ComputerVisionAnalyzer(appContext).also {
-                        android.util.Log.d("VideoConsultationVM", "✅ CV analyzer created successfully, faceLandmarker=${it.isFaceLandmarkerReady}")
-                    }
-                } catch (error: Throwable) {
-                    android.util.Log.e("VideoConsultationVM", "❌ CV analyzer disabled: ${error.message}", error)
-                    null
+                if (_uiState.value.hasConsentedToVisionAnalysis) {
+                    ensureCvAnalyzer()
+                } else {
+                    android.util.Log.d("VideoConsultationVM", "CV analyzer not created: consent=false")
                 }
+                attachCvAnalyzerIfPossible()
                 applySpeakerRoute(_uiState.value.isSpeakerOn)
 
                 // Set up callbacks
@@ -333,7 +331,7 @@ class VideoConsultationViewModel @Inject constructor(
                             applyEffectiveMediaState()
                             startNetworkQualityMonitor()
                             attachCvAnalyzerIfPossible()
-                            if (vitalsStreamJob?.isActive != true) {
+                            if (_uiState.value.hasConsentedToVisionAnalysis && vitalsStreamJob?.isActive != true) {
                                 startVitalsStreaming()
                             }
                         }
@@ -1204,6 +1202,10 @@ class VideoConsultationViewModel @Inject constructor(
     private val okHttpClient = okhttp3.OkHttpClient()
 
     private fun startVitalsStreaming() {
+        if (!_uiState.value.hasConsentedToVisionAnalysis) {
+            android.util.Log.d("VitalsStream", "Start skipped: consent=false")
+            return
+        }
         vitalsStreamJob?.cancel()
         vitalsStreamJob = viewModelScope.launch {
             val session = _uiState.value.session ?: return@launch
@@ -1264,6 +1266,10 @@ class VideoConsultationViewModel @Inject constructor(
                 var diagnosticCounter = 0
                 while (coroutineContext.isActive) {
                     kotlinx.coroutines.delay(1500) // 1.5 Hz — 666ms per frame, low-bandwidth
+                    if (!_uiState.value.hasConsentedToVisionAnalysis) {
+                        android.util.Log.d("VitalsStream", "Stopping: consent=false")
+                        break
+                    }
                     diagnosticCounter++
                     if (!_uiState.value.isConnected) {
                         if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: not connected")
@@ -1337,19 +1343,40 @@ class VideoConsultationViewModel @Inject constructor(
         vitalsWebSocket = null
     }
 
+    private fun ensureCvAnalyzer(): Boolean {
+        if (!_uiState.value.hasConsentedToVisionAnalysis) return false
+        cvAnalyzer?.let { return true }
+
+        cvAnalyzer = try {
+            ComputerVisionAnalyzer(appContext).also {
+                android.util.Log.d(
+                    "VideoConsultationVM",
+                    "CV analyzer created successfully, faceLandmarker=${it.isFaceLandmarkerReady}"
+                )
+            }
+        } catch (error: Throwable) {
+            android.util.Log.e("VideoConsultationVM", "CV analyzer disabled: ${error.message}", error)
+            _uiState.update { it.copy(hasConsentedToVisionAnalysis = false) }
+            null
+        }
+
+        return cvAnalyzer != null
+    }
+
     private fun attachCvAnalyzerIfPossible() {
         if (!_uiState.value.hasConsentedToVisionAnalysis) {
-            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: consent=false")
+            detachCvAnalyzer()
+            android.util.Log.d("VideoConsultationVM", "CV attach skipped: consent=false")
             return
         }
-        val track = _localVideoTrack.value
-        if (track == null) {
-            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: localVideoTrack=null")
-            return
-        }
-        val analyzer = cvAnalyzer
+        val analyzer = cvAnalyzer ?: if (ensureCvAnalyzer()) cvAnalyzer else null
         if (analyzer == null) {
-            android.util.Log.w("VideoConsultationVM", "⚠️ CV attach skipped: cvAnalyzer=null")
+            android.util.Log.w("VideoConsultationVM", "CV attach skipped: cvAnalyzer=null")
+            return
+        }
+        val manager = webRTCManager
+        if (manager == null) {
+            android.util.Log.w("VideoConsultationVM", "CV attach skipped: webRTCManager=null")
             return
         }
         if (isCvAnalyzerAttached) {
@@ -1357,14 +1384,14 @@ class VideoConsultationViewModel @Inject constructor(
             return
         }
         try {
-            webRTCManager?.onCameraXFrame = { proxy ->
+            manager.onCameraXFrame = { proxy ->
                 analyzer.processImageProxy(proxy)
                 true
             }
             isCvAnalyzerAttached = true
-            android.util.Log.d("VideoConsultationVM", "✅ CV analyzer attached to video track")
+            android.util.Log.d("VideoConsultationVM", "CV analyzer attached to camera frames")
         } catch (error: Throwable) {
-            android.util.Log.e("VideoConsultationVM", "❌ Failed to attach CV analyzer: ${error.message}", error)
+            android.util.Log.e("VideoConsultationVM", "Failed to attach CV analyzer: ${error.message}", error)
         }
     }
 
@@ -1373,12 +1400,29 @@ class VideoConsultationViewModel @Inject constructor(
      */
     fun setVisionAnalysisConsent(consented: Boolean) {
         _uiState.update { it.copy(hasConsentedToVisionAnalysis = consented) }
+
+        if (!consented) {
+            stopVitalsStreaming()
+            detachCvAnalyzer()
+            cvAnalyzer?.release()
+            cvAnalyzer = null
+            android.util.Log.d("VideoConsultationVM", "CV analyzer released: consent=false")
+            return
+        }
+
+        if (!ensureCvAnalyzer()) return
+
         attachCvAnalyzerIfPossible()
+        webRTCManager?.refreshCameraAnalysis()
+
+        if (_uiState.value.isConnected && vitalsStreamJob?.isActive != true) {
+            startVitalsStreaming()
+        }
     }
 
     private fun detachCvAnalyzer() {
-        if (cvAnalyzer == null) return
         webRTCManager?.onCameraXFrame = null
+        webRTCManager?.refreshCameraAnalysis()
         isCvAnalyzerAttached = false
     }
 

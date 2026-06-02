@@ -131,6 +131,10 @@ class WebRTCManager(
     var onRemoteStreamRemoved: (() -> Unit)? = null
     @Volatile
     var onCameraXFrame: ((androidx.camera.core.ImageProxy) -> Boolean)? = null
+        set(value) {
+            field = value
+            refreshCameraAnalysis()
+        }
     var onNetworkQualityChanged: ((NetworkQuality) -> Unit)? = null
 
     /** Network quality classification */
@@ -792,6 +796,10 @@ class WebRTCManager(
         }
     }
 
+    fun refreshCameraAnalysis() {
+        (videoCapturer as? CameraXCapturer)?.updateImageAnalysisBinding()
+    }
+
     /**
      * Release all resources. Must be called when the call ends.
      */
@@ -834,9 +842,12 @@ class WebRTCManager(
      * Find a camera capturer (prefer front camera).
      */
     private fun createCameraCapturer(): VideoCapturer? {
-        return CameraXCapturer { proxy ->
-            onCameraXFrame?.invoke(proxy) ?: false
-        }
+        return CameraXCapturer(
+            onImageProxy = { proxy ->
+                onCameraXFrame?.invoke(proxy) ?: false
+            },
+            isImageAnalysisEnabled = { onCameraXFrame != null }
+        )
     }
 
     /**

@@ -22,6 +22,7 @@ locals {
   turn_url       = var.turn_enabled ? "turn:${local.turn_public_ip}:3478?transport=udp" : ""
   turn_tcp_url   = var.turn_enabled ? "turn:${local.turn_public_ip}:3478?transport=tcp" : ""
   turns_url      = var.turn_enabled && var.turn_domain_name != "" ? "turns:${var.turn_domain_name}:5349?transport=tcp" : ""
+  redis_url      = "redis://redis:6379"
 
   tags = {
     Project     = var.project_name
@@ -35,7 +36,6 @@ locals {
     "JWT_SECRET",
     "JWT_ACCESS_SECRET",
     "JWT_REFRESH_SECRET",
-    "REDIS_URL",
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
     "MONGODB_URI",
@@ -66,6 +66,7 @@ locals {
     { name = "S3_BUCKET_NAME", value = local.s3_bucket_name },
     { name = "BUCKET_NAME", value = local.s3_bucket_name },
     { name = "S3_PUBLIC_URL", value = "https://${local.s3_bucket_name}.s3.${var.aws_region}.amazonaws.com" },
+    { name = "REDIS_URL", value = local.redis_url },
     { name = "FRONTEND_WEB_URL", value = var.frontend_web_url },
     { name = "FRONTEND_DOCTOR_WEB_URL", value = var.frontend_doctor_web_url },
     { name = "FRONTEND_APP_URL", value = var.frontend_app_url },
@@ -89,6 +90,7 @@ locals {
     { name = "AI_SERVICE_WORKERS", value = tostring(var.ai_service_workers) },
     { name = "AI_SERVICE_RELOAD", value = "false" },
     { name = "BACKEND_URL", value = "http://127.0.0.1:5001" },
+    { name = "REDIS_URL", value = local.redis_url },
     { name = "MONGODB_DB_NAME", value = var.mongodb_db_name },
     { name = "PYTHONUNBUFFERED", value = "1" },
     { name = "PYTHONDONTWRITEBYTECODE", value = "1" }
@@ -102,7 +104,6 @@ locals {
   ai_secret_names = toset([
     "JWT_SECRET",
     "JWT_ACCESS_SECRET",
-    "REDIS_URL",
     "MONGODB_URI",
     "GROQ_API_KEY",
     "HUGGINGFACE_API_KEY"
