@@ -134,12 +134,18 @@ server.on('upgrade', (req, socket, head) => {
     },
   });
 
-  // Create a WebSocket server instance to handle the client side of the upgrade
+    // Create a WebSocket server instance to handle the client side of the upgrade
   const wss = new WebSocket.Server({ noServer: true });
   wss.handleUpgrade(req, socket, head, (clientWs) => {
     // Buffer messages arriving before upstream is open (fixes race condition
     // where patient vitals sent during connection setup were silently dropped)
     const pendingMessages = [];
+
+    // Keepalive ping/pong to prevent ALB 60s idle timeout
+    const pingInterval = setInterval(() => {
+      if (clientWs.readyState === WebSocket.OPEN) clientWs.ping();
+      if (upstream.readyState === WebSocket.OPEN) upstream.ping();
+    }, 30000);
 
     // Relay: client → upstream (register immediately, not inside 'open')
     clientWs.on('message', (data) => {
@@ -166,20 +172,24 @@ server.on('upgrade', (req, socket, head) => {
 
     // Clean up on close
     clientWs.on('close', (code, reason) => {
+      clearInterval(pingInterval);
       logger.info(`[WS Proxy] Client closed ${req.url}: ${code} ${reason || ''}`);
       upstream.close();
     });
     upstream.on('close', (code, reason) => {
+      clearInterval(pingInterval);
       logger.info(`[WS Proxy] Upstream closed ${req.url}: ${code} ${reason || ''}`);
       clientWs.close();
     });
 
     // Error handling
     clientWs.on('error', (err) => {
+      clearInterval(pingInterval);
       logger.error(`[WS Proxy] Client error ${req.url}:`, err.message);
       upstream.close();
     });
     upstream.on('error', (err) => {
+      clearInterval(pingInterval);
       logger.error(`[WS Proxy] Upstream error ${req.url}:`, err.message);
       clientWs.close();
     });

@@ -83,21 +83,32 @@ const buildTurnUrlVariants = (turnServer) => {
     const url = new URL(normalized);
     const scheme = url.protocol.replace(':', '');
     const host = url.hostname;
-    const port = url.port || '3478';
-    const existingTransport = url.searchParams.get('transport');
+    const port = url.port || (scheme === 'turns' ? '5349' : '3478');
+    const existingTransport = url.searchParams.get('transport')?.toLowerCase();
 
     if (!host) return [turnServer];
-    if (existingTransport) {
-      return [
-        `${scheme}:${host}:${port}?transport=${existingTransport}`,
-        `${scheme}:${host}:${port}?transport=${existingTransport === 'udp' ? 'tcp' : 'udp'}`,
-      ];
+
+    const hostPart = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+    const variants = [];
+    const add = (candidate) => {
+      if (!variants.includes(candidate)) variants.push(candidate);
+    };
+
+    // TURN over UDP should be tried before relay-over-TCP because TCP relay can
+    // amplify latency/jitter for live video. If someone accidentally configures
+    // only turns:...tcp, still offer the standard 3478 UDP/TCP candidates first
+    // for our coturn deployment, then keep TLS as a last fallback.
+    if (scheme === 'turns') {
+      add(`turn:${hostPart}:3478?transport=udp`);
+      add(`turn:${hostPart}:3478?transport=tcp`);
+      add(`turns:${hostPart}:${port}?transport=${existingTransport || 'tcp'}`);
+      return variants;
     }
 
-    return [
-      `${scheme}:${host}:${port}?transport=udp`,
-      `${scheme}:${host}:${port}?transport=tcp`,
-    ];
+    add(`${scheme}:${hostPart}:${port}?transport=udp`);
+    add(`${scheme}:${hostPart}:${port}?transport=tcp`);
+
+    return variants;
   } catch {
     return [turnServer];
   }
@@ -489,15 +500,26 @@ const getIceServers = async (userId, role, consultationId) => {
   const { webrtc } = config;
   const iceServers = [];
 
-  if (webrtc?.stunServer) {
-    iceServers.push({ urls: [webrtc.stunServer] });
+  const stunServers = Array.isArray(webrtc?.stunServers)
+    ? webrtc.stunServers
+    : [webrtc?.stunServer].filter(Boolean);
+
+  for (const stunServer of stunServers) {
+    iceServers.push({ urls: [stunServer] });
   }
 
-  if (webrtc?.turnServer) {
+  const turnUrls = [
+    ...new Set((Array.isArray(webrtc?.turnServers) ? webrtc.turnServers : [webrtc?.turnServer])
+      .flatMap(buildTurnUrlVariants)
+      .filter(Boolean)),
+  ];
+
+  if (turnUrls.length > 0 && webrtc?.turnUsername && webrtc?.turnCredential) {
     iceServers.push({
-      urls: buildTurnUrlVariants(webrtc.turnServer),
-      username: webrtc.turnUsername || '',
-      credential: webrtc.turnCredential || '',
+      urls: turnUrls,
+      username: webrtc.turnUsername,
+      credential: webrtc.turnCredential,
+      credentialType: 'password',
     });
   }
 
@@ -1094,4 +1116,7 @@ module.exports = {
   leaveConsultation,
   addPrescription,
   aiAssistDoctor,
+  _internals: {
+    buildTurnUrlVariants,
+  },
 };

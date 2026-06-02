@@ -2,12 +2,8 @@ package com.example.swastik.util.vision
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.ImageFormat
 import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.util.Log
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -15,18 +11,13 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import org.webrtc.VideoFrame
-import org.webrtc.VideoSink
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlin.math.PI
 import kotlin.math.abs
@@ -59,16 +50,11 @@ import kotlin.math.sqrt
  *   • rPPG signal sampled at 30 FPS instead of 12 FPS → 2.5× more data points
  */
 class ComputerVisionAnalyzer(
-    private val context: Context,
-    private val scope: CoroutineScope
+    private val context: Context
 ) {
 
     companion object {
         private const val TAG = "CVAnalyzer"
-
-        // ── Timing ─────────────────────────────────────────────────────
-        /** Minimum interval between keyframes (Tier 1) — default targets ~2 Hz. */
-        private const val DEFAULT_KEYFRAME_INTERVAL_MS = 500L
 
         // ── Signal windows ─────────────────────────────────────────────
         private const val PPG_WINDOW_MS = 12_000L
@@ -170,6 +156,15 @@ class ComputerVisionAnalyzer(
     private var lastKeyframeTimeMs = 0L
     private var missingFaceFrames = 0
     private val lightweightIntervalMs = DeviceProfiler.getTier2IntervalMs(context)
+    private val keyframeIntervalMs = DeviceProfiler.getKeyframeIntervalMs(context)
+    private val analysisJob = SupervisorJob()
+    private val analysisDispatcher: ExecutorCoroutineDispatcher =
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "CVAnalyzer").apply {
+                priority = Thread.MIN_PRIORITY
+            }
+        }.asCoroutineDispatcher()
+    private val analysisScope = CoroutineScope(analysisJob + analysisDispatcher)
 
     @Volatile private var isProcessingFrame = false
     private var lastVideoTimestampMs = -1L
@@ -191,7 +186,6 @@ class ComputerVisionAnalyzer(
 
     // ── Pre-allocated buffers ──────────────────────────────────────
     private var nv21Buffer: ByteArray? = null
-    private val jpegOutputStream = ByteArrayOutputStream(1024 * 1024)
 
     // ── Cached keyframe ROI for Tier 2 ─────────────────────────────
     @Volatile private var cachedRoi: CachedRoi? = null
@@ -212,7 +206,7 @@ class ComputerVisionAnalyzer(
             // Try GPU delegate first for best performance
             val gpuOptions = BaseOptions.builder()
                 .setModelAssetPath("face_landmarker.task")
-                .setDelegate(com.google.mediapipe.tasks.core.Delegate.CPU)
+                .setDelegate(com.google.mediapipe.tasks.core.Delegate.GPU)
                 .build()
             val gpuLandmarkerOptions = FaceLandmarker.FaceLandmarkerOptions.builder()
                 .setBaseOptions(gpuOptions)
@@ -251,7 +245,6 @@ class ComputerVisionAnalyzer(
     //  FRAME ENTRY POINT (CameraX Decoupled CPU Stream)
     // ── Main Frame Entry ──────────────────────────────────────────
     fun processImageProxy(imageProxy: androidx.camera.core.ImageProxy) {
-        android.util.Log.d(TAG, "processImageProxy started")
         val currentTimeMs = System.currentTimeMillis()
 
         if (isProcessingFrame) {
@@ -265,11 +258,13 @@ class ComputerVisionAnalyzer(
         }
 
         isProcessingFrame = true
+        if (!analysisJob.isActive) {
+            imageProxy.close()
+            isProcessingFrame = false
+            return
+        }
 
-        val isLowEndDevice = DeviceProfiler.getTier2IntervalMs(context) >= 100L
-        val currentKeyframeInterval = if (isLowEndDevice) 1500L else DEFAULT_KEYFRAME_INTERVAL_MS
-
-        val isKeyframe = (currentTimeMs - lastKeyframeTimeMs >= currentKeyframeInterval)
+        val isKeyframe = (currentTimeMs - lastKeyframeTimeMs >= keyframeIntervalMs)
             || cachedRoi == null
 
         if (isKeyframe) {
@@ -288,7 +283,6 @@ class ComputerVisionAnalyzer(
         val height = imageProxy.height
         val rotation = imageProxy.imageInfo.rotationDegrees
 
-        android.util.Log.d(TAG, "processImageProxy getting planes")
         val yPlane = imageProxy.planes[0]
         val uPlane = imageProxy.planes[1]
         val vPlane = imageProxy.planes[2]
@@ -301,9 +295,8 @@ class ComputerVisionAnalyzer(
         val uStride = uPlane.rowStride
         val vStride = vPlane.rowStride
 
-        android.util.Log.d(TAG, "processImageProxy launching coroutine")
-        scope.launch(kotlinx.coroutines.Dispatchers.Default) {
-            Log.d(TAG, "Coroutine started for frame")
+        try {
+            analysisScope.launch {
             try {
                 if (isKeyframe) {
                     val requiredSize = width * height + (width * height / 2)
@@ -370,10 +363,14 @@ class ComputerVisionAnalyzer(
             } catch (e: Throwable) {
                 Log.e(TAG, "Frame processing error", e)
             } finally {
-                Log.d(TAG, "Closing image proxy")
                 imageProxy.close()
                 isProcessingFrame = false
             }
+            }
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Frame analysis executor unavailable: ${error.message}")
+            imageProxy.close()
+            isProcessingFrame = false
         }
     }
 
@@ -441,10 +438,7 @@ class ComputerVisionAnalyzer(
                 mpTimestamp = lastVideoTimestampMs + 1
             }
             lastVideoTimestampMs = mpTimestamp
-            Log.d(TAG, "Calling detectForVideo")
-            val detRes = landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), mpTimestamp)
-            Log.d(TAG, "detectForVideo finished")
-            detRes
+            landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), mpTimestamp)
         } catch (e: Exception) {
             Log.e(TAG, "FaceLandmarker detection failed.", e)
             null
@@ -1158,8 +1152,7 @@ class ComputerVisionAnalyzer(
         cachedRoi = null
         faceLandmarker?.close()
         faceLandmarker = null
-        try {
-            scope.cancel()
-        } catch (e: Exception) {}
+        analysisJob.cancel()
+        analysisDispatcher.close()
     }
 }

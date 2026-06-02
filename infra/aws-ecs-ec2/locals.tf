@@ -20,6 +20,8 @@ locals {
   s3_bucket_name = var.s3_bucket_name != "" ? var.s3_bucket_name : "${var.project_name}-${var.environment}-${local.account_id}-${var.aws_region}-uploads"
   turn_public_ip = var.turn_enabled ? (var.turn_allocate_eip ? aws_eip.turn[0].public_ip : aws_instance.turn[0].public_ip) : ""
   turn_url       = var.turn_enabled ? "turn:${local.turn_public_ip}:3478?transport=udp" : ""
+  turn_tcp_url   = var.turn_enabled ? "turn:${local.turn_public_ip}:3478?transport=tcp" : ""
+  turns_url      = var.turn_enabled && var.turn_domain_name != "" ? "turns:${var.turn_domain_name}:5349?transport=tcp" : ""
 
   tags = {
     Project     = var.project_name
@@ -75,6 +77,8 @@ locals {
     ],
     var.turn_enabled ? [
       { name = "WEBRTC_TURN_SERVER", value = local.turn_url },
+      { name = "WEBRTC_TURN_TCP_SERVER", value = local.turn_tcp_url },
+      { name = "WEBRTC_TURNS_SERVER", value = local.turns_url },
       { name = "WEBRTC_TURN_USERNAME", value = var.turn_username },
       { name = "WEBRTC_TURN_CREDENTIAL", value = var.turn_password }
     ] : []

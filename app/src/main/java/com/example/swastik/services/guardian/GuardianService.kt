@@ -47,6 +47,7 @@ import com.example.swastik.data.remote.dto.EmergencyContactAlertRequest
 import com.example.swastik.data.repository.EmergencyRepository
 import com.example.swastik.data.repository.GuardianRepository
 import com.example.swastik.data.repository.Result
+import com.example.swastik.util.ConsultationPerformanceState
 
 @AndroidEntryPoint
 class GuardianService : Service(), SensorEventListener {
@@ -93,6 +94,7 @@ class GuardianService : Service(), SensorEventListener {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_ACTIVITY_UPDATE) {
                 currentActivityType = intent.getIntExtra(EXTRA_ACTIVITY_TYPE, DetectedActivity.UNKNOWN)
+                if (ConsultationPerformanceState.isVideoConsultationActive) return
                 Log.d(TAG, "Current Activity Updated: $currentActivityType")
             }
         }
@@ -205,6 +207,9 @@ class GuardianService : Service(), SensorEventListener {
                 if (!settings.guardianEnabled || !settings.guardianConsentAccepted) {
                     stopSelf()
                     return@launch
+                }
+                if (ConsultationPerformanceState.isVideoConsultationActive) {
+                    continue
                 }
                 if (settings.guardianFeatures.mobilityAnalysis) {
                     analyzeGaitAndMobility()
@@ -324,6 +329,7 @@ class GuardianService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null || isVerificationPhase) return
+        if (ConsultationPerformanceState.isVideoConsultationActive) return
 
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             val x = event.values[0]

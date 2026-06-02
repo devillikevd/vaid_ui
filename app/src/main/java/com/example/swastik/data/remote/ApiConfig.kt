@@ -14,7 +14,7 @@ import com.example.swastik.BuildConfig
  * To test on a physical device from a locally built APK, override in local.properties:
  *   API_BASE_URL=http://192.168.x.x:5001/api/
  *   AI_WS_BASE_URL=ws://192.168.x.x:8000   // optional; derived automatically if omitted
- *   TURN_URL=turn:x.x.x.x:3478?transport=udp
+ *   TURN_URL=turn:x.x.x.x:3478?transport=udp   // WebRTC expands to UDP first, TCP fallback
  *   TURN_USERNAME=your_turn_username
  *   TURN_CREDENTIAL=your_turn_password
  */

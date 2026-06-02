@@ -124,7 +124,7 @@ android {
             // use API_BASE_URL from local.properties for local device testing.
             val releaseApiUrl = localOrEnvProperty("RELEASE_API_BASE_URL") ?: "https://api.vaididea.in/api/"
             val releaseAiWsUrl = localOrEnvProperty("AI_WS_BASE_URL") ?: ""
-            val releaseTurnUrl = localOrEnvProperty("TURN_URL") ?: ""
+            val releaseTurnUrl = localOrEnvProperty("TURN_URL") ?: "turn:turn.vaididea.in:3478?transport=udp"
             val releaseTurnUsername = localOrEnvProperty("TURN_USERNAME") ?: ""
             val releaseTurnCredential = localOrEnvProperty("TURN_CREDENTIAL") ?: ""
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiUrl\"")

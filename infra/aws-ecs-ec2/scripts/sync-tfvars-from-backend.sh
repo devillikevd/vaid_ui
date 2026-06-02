@@ -81,6 +81,7 @@ supabase_url            = "$(tf_string "${SUPABASE_URL_VALUE}")"
 turn_enabled       = true
 turn_instance_type = "t4g.nano"
 turn_realm         = "vaididea.in"
+turn_domain_name   = "turn.vaididea.in"
 turn_username      = "vaididea-turn"
 turn_password      = "$(tf_string "${TURN_PASSWORD_VALUE}")"
 turn_total_quota   = 500

@@ -32,6 +32,44 @@ import {
 //   NEXT_PUBLIC_TURN_URL, NEXT_PUBLIC_TURN_USERNAME, NEXT_PUBLIC_TURN_CREDENTIAL
 // Dynamic TURN config is fetched from backend at runtime via /ice-servers API.
 // This constant is only used as a last-resort fallback if both sources fail.
+function uniqueStrings(values: string[]): string[] {
+    return Array.from(new Set(values.filter(Boolean)));
+}
+
+function expandTurnUrls(rawUrl?: string): string[] {
+    const trimmed = rawUrl?.trim();
+    if (!trimmed) return [];
+
+    try {
+        const normalized = trimmed.includes('://')
+            ? trimmed
+            : trimmed.replace(/^turns?:/, (scheme) => `${scheme}//`);
+        const url = new URL(normalized);
+        const scheme = url.protocol.replace(':', '');
+        const host = url.hostname;
+        if (!host || (scheme !== 'turn' && scheme !== 'turns')) return [trimmed];
+
+        const hostPart = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+        const port = url.port || (scheme === 'turns' ? '5349' : '3478');
+        const transport = url.searchParams.get('transport')?.toLowerCase();
+
+        if (scheme === 'turns') {
+            return uniqueStrings([
+                `turn:${hostPart}:3478?transport=udp`,
+                `turn:${hostPart}:3478?transport=tcp`,
+                `turns:${hostPart}:${port}?transport=${transport || 'tcp'}`,
+            ]);
+        }
+
+        return uniqueStrings([
+            `turn:${hostPart}:${port}?transport=udp`,
+            `turn:${hostPart}:${port}?transport=tcp`,
+        ]);
+    } catch {
+        return [trimmed];
+    }
+}
+
 const ICE_SERVERS: RTCConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -39,13 +77,15 @@ const ICE_SERVERS: RTCConfiguration = {
         // TURN server from Vercel env vars (required for mobile network NAT traversal)
         ...(process.env.NEXT_PUBLIC_TURN_URL
             ? [{
-                urls: process.env.NEXT_PUBLIC_TURN_URL,
+                urls: expandTurnUrls(process.env.NEXT_PUBLIC_TURN_URL),
                 username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
                 credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
             }]
             : []),
     ],
     iceTransportPolicy: 'all' as RTCIceTransportPolicy,
+    bundlePolicy: 'max-bundle',
+    iceCandidatePoolSize: 2,
 };
 
 function normalizeIceServers(payload: any): RTCConfiguration {
@@ -55,12 +95,15 @@ function normalizeIceServers(payload: any): RTCConfiguration {
     return {
         iceServers: servers
             .map((server: any) => ({
-                urls: Array.isArray(server.urls) ? server.urls : [server.urls].filter(Boolean),
+                urls: uniqueStrings((Array.isArray(server.urls) ? server.urls : [server.urls].filter(Boolean))
+                    .flatMap((url: unknown) => expandTurnUrls(typeof url === 'string' ? url : undefined))),
                 username: server.username || undefined,
                 credential: server.credential || undefined,
             }))
             .filter((server: RTCIceServer) => Array.isArray(server.urls) ? server.urls.length > 0 : Boolean(server.urls)),
         iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        iceCandidatePoolSize: 2,
     };
 }
 
@@ -79,8 +122,8 @@ function classifyQuality(
 ): NetworkStats['quality'] {
     const effectiveBitrate = Math.max(bitrate, transportBitrate);
 
-    if (lossRate > 25 || rtt > 1200) return 'critical';
-    if (lossRate > 12 || rtt > 600) return 'poor';
+    if (lossRate > 25 || rtt > 2000) return 'critical';
+    if (lossRate > 12 || rtt > 1000) return 'poor';
 
     if (mediaKind === 'audio') {
         if (rtt > 0 && rtt < 150 && lossRate < 2 && effectiveBitrate > 24) return 'excellent';
@@ -202,6 +245,7 @@ export default function VideoConsultation() {
     const pendingQualityRef = useRef<NetworkStats['quality'] | null>(null);
     const qualityStreakRef = useRef<number>(0);
     const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+    const iceCandidateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const hasRemoteDescriptionRef = useRef<boolean>(false);
     const hasInitiatedOfferRef = useRef(false);
     const userMicEnabledRef = useRef(true);
@@ -361,77 +405,89 @@ export default function VideoConsultation() {
         };
 
         const publishBrowserVitals = () => {
+            // Skip processing during network degradation
+            if (pendingQualityRef.current === 'poor' || pendingQualityRef.current === 'critical') return;
+
             const video = localVideoRef.current;
             if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
                 return;
             }
 
-            const canvas = browserVitalsCanvasRef.current || document.createElement('canvas');
-            browserVitalsCanvasRef.current = canvas;
-            canvas.width = 96;
-            canvas.height = 72;
-            const context = canvas.getContext('2d', { willReadFrequently: true });
-            if (!context) return;
+            const processVitals = () => {
+                const canvas = browserVitalsCanvasRef.current || document.createElement('canvas');
+                browserVitalsCanvasRef.current = canvas;
+                canvas.width = 96; // Reduced from original if it was higher, or keep it same
+                canvas.height = 72;
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                if (!context) return;
 
-            try {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const now = Date.now();
-                const facePatch = readPatchStats(context, 28, 12, 40, 34);
-                const chestPatch = readPatchStats(context, 24, 42, 48, 22);
-                if (!facePatch) return;
+                try {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const now = Date.now();
+                    const facePatch = readPatchStats(context, 28, 12, 40, 34);
+                    const chestPatch = readPatchStats(context, 24, 42, 48, 22);
+                    if (!facePatch) return;
 
-                const brightnessQuality = 1 - Math.min(1, Math.abs(facePatch.luminance - 0.55) / 0.55);
-                const saturationQuality = Math.min(1, facePatch.saturation / 0.32);
-                const signalQuality = Math.max(0, Math.min(1, (brightnessQuality * 0.65) + (saturationQuality * 0.35)));
+                    const brightnessQuality = 1 - Math.min(1, Math.abs(facePatch.luminance - 0.55) / 0.55);
+                    const saturationQuality = Math.min(1, facePatch.saturation / 0.32);
+                    const signalQuality = Math.max(0, Math.min(1, (brightnessQuality * 0.65) + (saturationQuality * 0.35)));
 
-                const pulseSamples = browserPulseSamplesRef.current;
-                pulseSamples.push({
-                    timeMs: now,
-                    value: facePatch.green - ((facePatch.red + facePatch.blue) * 0.5),
-                });
-                trimSamples(pulseSamples, 15_000, now);
-
-                const respirationSamples = browserRespirationSamplesRef.current;
-                if (chestPatch) {
-                    respirationSamples.push({
+                    const pulseSamples = browserPulseSamplesRef.current;
+                    pulseSamples.push({
                         timeMs: now,
-                        value: chestPatch.luminance,
+                        value: facePatch.green - ((facePatch.red + facePatch.blue) * 0.5),
                     });
-                    trimSamples(respirationSamples, 20_000, now);
+                    trimSamples(pulseSamples, 15_000, now);
+
+                    const respirationSamples = browserRespirationSamplesRef.current;
+                    if (chestPatch) {
+                        respirationSamples.push({
+                            timeMs: now,
+                            value: chestPatch.luminance,
+                        });
+                        trimSamples(respirationSamples, 20_000, now);
+                    }
+
+                    const heartHz = signalQuality >= 0.3
+                        ? estimateDominantFrequency(pulseSamples, 0.8, 2.4, 8_000, 6)
+                        : null;
+                    const respirationHz = estimateDominantFrequency(respirationSamples, 0.10, 0.60, 10_000, 7);
+                    const redRatio = facePatch.red / Math.max(facePatch.green + facePatch.blue, 0.001);
+                    const pallorScore = Math.max(0, Math.min(1, (((0.42 - facePatch.saturation) / 0.42) * 0.65) + (((0.9 - redRatio) / 0.9) * 0.35)));
+
+                    const payload: Partial<VitalsStreamData> & Record<string, unknown> = {
+                        session_id: consultationId,
+                        processed_at: new Date(now).toISOString(),
+                        source: 'web-browser-cv',
+                        signal_quality: Number(signalQuality.toFixed(3)),
+                        skin_condition: 'normal',
+                        fall_detected: false,
+                        tremor_detected: false,
+                    };
+
+                    if (heartHz) payload.heart_rate = Number(Math.max(45, Math.min(160, heartHz * 60)).toFixed(1));
+                    if (respirationHz) payload.respiration_rate = Number(Math.max(6, Math.min(32, respirationHz * 60)).toFixed(1));
+                    if (Number.isFinite(pallorScore)) payload.pallor_score = Number(pallorScore.toFixed(3));
+
+                    payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'active_signals', 'total_signals'].includes(key));
+                    payload.total_signals = (payload.active_signals as string[]).length;
+
+                    sendPatientVitals(payload);
+                } catch (error) {
+                    console.warn('Browser CV vitals sample skipped:', error);
                 }
+            };
 
-                const heartHz = signalQuality >= 0.3
-                    ? estimateDominantFrequency(pulseSamples, 0.8, 2.4, 8_000, 6)
-                    : null;
-                const respirationHz = estimateDominantFrequency(respirationSamples, 0.10, 0.60, 10_000, 7);
-                const redRatio = facePatch.red / Math.max(facePatch.green + facePatch.blue, 0.001);
-                const pallorScore = Math.max(0, Math.min(1, (((0.42 - facePatch.saturation) / 0.42) * 0.65) + (((0.9 - redRatio) / 0.9) * 0.35)));
-
-                const payload: Partial<VitalsStreamData> & Record<string, unknown> = {
-                    session_id: consultationId,
-                    processed_at: new Date(now).toISOString(),
-                    source: 'web-browser-cv',
-                    signal_quality: Number(signalQuality.toFixed(3)),
-                    skin_condition: 'normal',
-                    fall_detected: false,
-                    tremor_detected: false,
-                };
-
-                if (heartHz) payload.heart_rate = Number(Math.max(45, Math.min(160, heartHz * 60)).toFixed(1));
-                if (respirationHz) payload.respiration_rate = Number(Math.max(6, Math.min(32, respirationHz * 60)).toFixed(1));
-                if (Number.isFinite(pallorScore)) payload.pallor_score = Number(pallorScore.toFixed(3));
-
-                payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'active_signals', 'total_signals'].includes(key));
-                payload.total_signals = (payload.active_signals as string[]).length;
-
-                sendPatientVitals(payload);
-            } catch (error) {
-                console.warn('Browser CV vitals sample skipped:', error);
+            if ('requestIdleCallback' in window) {
+                (window as any).requestIdleCallback(processVitals, { timeout: 1000 });
+            } else {
+                setTimeout(processVitals, 0);
             }
         };
 
         publishBrowserVitals();
-        const interval = window.setInterval(publishBrowserVitals, 1500);
+        // Throttled to 3 seconds to reduce CPU overload
+        const interval = window.setInterval(publishBrowserVitals, 3000);
         return () => window.clearInterval(interval);
     }, [consultationId, connectionMode, isConnected, isVideoOn, sendPatientVitals, user?.role]);
 
@@ -794,7 +850,12 @@ export default function VideoConsultation() {
     const initializeMedia = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+                video: {
+                    width: { ideal: 640, max: 960 },
+                    height: { ideal: 480, max: 540 },
+                    frameRate: { ideal: 20, max: 24 },
+                    facingMode: 'user',
+                },
                 audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             });
             cameraUnavailableRef.current = false;
@@ -843,6 +904,8 @@ export default function VideoConsultation() {
                     // BALANCED is best for telemedicine over harsh networks:
                     // it allows smooth resolution drops without destroying framerate (no lag)
                     params.degradationPreference = 'balanced';
+                    params.encodings[0].maxBitrate = 700_000;
+                    params.encodings[0].maxFramerate = 20;
                     params.encodings[0].networkPriority = 'high';
                     sender.setParameters(params).catch(e => console.warn('Failed to set WebRTC encoding params', e));
                 }
@@ -955,6 +1018,10 @@ export default function VideoConsultation() {
             hasRemoteDescriptionRef.current = true;
 
             // Drain buffered ICE candidates
+            if (iceCandidateTimeoutRef.current) {
+                clearTimeout(iceCandidateTimeoutRef.current);
+                iceCandidateTimeoutRef.current = null;
+            }
             for (const candidate of pendingIceCandidatesRef.current) {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
             }
@@ -978,6 +1045,10 @@ export default function VideoConsultation() {
             hasRemoteDescriptionRef.current = true;
 
             // Drain buffered ICE candidates
+            if (iceCandidateTimeoutRef.current) {
+                clearTimeout(iceCandidateTimeoutRef.current);
+                iceCandidateTimeoutRef.current = null;
+            }
             for (const candidate of pendingIceCandidatesRef.current) {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
             }
@@ -994,7 +1065,16 @@ export default function VideoConsultation() {
 
             // Buffer ICE candidates until remote description is set
             if (!hasRemoteDescriptionRef.current) {
-                pendingIceCandidatesRef.current.push(candidate);
+                if (pendingIceCandidatesRef.current.length < 50) {
+                    pendingIceCandidatesRef.current.push(candidate);
+                }
+                if (!iceCandidateTimeoutRef.current) {
+                    iceCandidateTimeoutRef.current = setTimeout(() => {
+                        console.warn('ICE candidate buffer timed out. Clearing stale candidates.');
+                        pendingIceCandidatesRef.current = [];
+                        iceCandidateTimeoutRef.current = null;
+                    }, 15000);
+                }
                 return;
             }
 

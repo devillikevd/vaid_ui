@@ -42,6 +42,14 @@ output "turn_url" {
   value = var.turn_enabled ? local.turn_url : null
 }
 
+output "turn_tcp_url" {
+  value = var.turn_enabled ? local.turn_tcp_url : null
+}
+
+output "turns_url" {
+  value = var.turn_enabled && var.turn_domain_name != "" ? local.turns_url : null
+}
+
 output "turn_username" {
   value = var.turn_enabled ? var.turn_username : null
 }

@@ -125,10 +125,17 @@ const logSignalingEvent = async (roomId, userId, eventType, data = {}) => {
     
     // Check for TURN relay usage
     let isTurnUsed = false;
+    let candidateType = null;
+    let candidateProtocol = null;
+    let candidateTcpType = null;
     if (eventType === 'ice-candidate' && data.candidate && typeof data.candidate.candidate === 'string') {
-      if (data.candidate.candidate.includes('typ relay')) {
-        isTurnUsed = true;
-      }
+      const candidateParts = data.candidate.candidate.trim().split(/\s+/);
+      candidateProtocol = candidateParts[2]?.toLowerCase() || null;
+      const typeIndex = candidateParts.indexOf('typ');
+      const tcpTypeIndex = candidateParts.indexOf('tcptype');
+      candidateType = typeIndex >= 0 ? candidateParts[typeIndex + 1] || null : null;
+      candidateTcpType = tcpTypeIndex >= 0 ? candidateParts[tcpTypeIndex + 1] || null : null;
+      isTurnUsed = candidateType === 'relay';
     }
     
     await db.collection('webrtc_signaling_logs').insertOne({
@@ -136,6 +143,9 @@ const logSignalingEvent = async (roomId, userId, eventType, data = {}) => {
       userId,
       eventType,
       isTurnUsed,
+      candidateType,
+      candidateProtocol,
+      candidateTcpType,
       timestamp: new Date()
     });
   } catch (err) {

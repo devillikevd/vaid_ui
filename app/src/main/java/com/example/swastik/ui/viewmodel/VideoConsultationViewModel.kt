@@ -19,6 +19,7 @@ import com.example.swastik.data.repository.PatientRepository
 import com.example.swastik.data.repository.Result
 import com.example.swastik.data.repository.VideoCallSession
 import com.example.swastik.data.webrtc.WebRTCManager
+import com.example.swastik.util.ConsultationPerformanceState
 import com.example.swastik.util.vision.ComputerVisionAnalyzer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -252,7 +253,7 @@ class VideoConsultationViewModel @Inject constructor(
                     this.iceServers = iceServers
                 }
                 cvAnalyzer = try {
-                    ComputerVisionAnalyzer(appContext, viewModelScope).also {
+                    ComputerVisionAnalyzer(appContext).also {
                         android.util.Log.d("VideoConsultationVM", "✅ CV analyzer created successfully, faceLandmarker=${it.isFaceLandmarkerReady}")
                     }
                 } catch (error: Throwable) {
@@ -1029,6 +1030,7 @@ class VideoConsultationViewModel @Inject constructor(
         logEvent("CONSULTATION_JOIN_SUCCESS", mapOf("roomId" to session.consultationId))
         pendingAppointmentId = null
         pendingJoinRetryJob?.cancel()
+        ConsultationPerformanceState.isVideoConsultationActive = true
 
         // Fetch server-side ICE config (STUN/TURN) before creating PeerConnection.
         // This unifies ICE delivery with the web client's approach.
@@ -1375,12 +1377,13 @@ class VideoConsultationViewModel @Inject constructor(
     }
 
     private fun detachCvAnalyzer() {
-        val analyzer = cvAnalyzer ?: return
+        if (cvAnalyzer == null) return
         webRTCManager?.onCameraXFrame = null
         isCvAnalyzerAttached = false
     }
 
     private fun releaseWebRTC() {
+        ConsultationPerformanceState.isVideoConsultationActive = false
         patientOfferFallbackJob?.cancel()
         patientOfferFallbackJob = null
         hasSentLocalOffer = false

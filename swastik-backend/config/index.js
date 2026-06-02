@@ -27,6 +27,16 @@ const parseBoolean = (value, fallback = false) => {
   return String(value).toLowerCase() === 'true';
 };
 
+const parseCsvList = (value) => {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const uniqueList = (values) => [...new Set(values.filter(Boolean))];
+
 const buildDefaultStoragePublicUrl = ({ provider, bucketName, region, endpoint, port, useSSL }) => {
   if (provider === 's3') {
     return `https://${bucketName}.s3.${region}.amazonaws.com`;
@@ -201,7 +211,18 @@ const config = {
 
   // WebRTC
   webrtc: {
+    stunServers: uniqueList([
+      ...parseCsvList(process.env.WEBRTC_STUN_SERVERS),
+      process.env.WEBRTC_STUN_SERVER || 'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+    ]),
     stunServer: process.env.WEBRTC_STUN_SERVER || 'stun:stun.l.google.com:19302',
+    turnServers: uniqueList([
+      process.env.WEBRTC_TURN_SERVER || '',
+      ...parseCsvList(process.env.WEBRTC_TURN_SERVERS),
+      process.env.WEBRTC_TURN_TCP_SERVER || '',
+      process.env.WEBRTC_TURNS_SERVER || '',
+    ]),
     turnServer: process.env.WEBRTC_TURN_SERVER || '',
     turnUsername: process.env.WEBRTC_TURN_USERNAME || '',
     turnCredential: process.env.WEBRTC_TURN_CREDENTIAL || process.env.WEBRTC_TURN_PASSWORD || '',

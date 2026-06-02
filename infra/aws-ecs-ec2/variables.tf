@@ -231,6 +231,12 @@ variable "turn_realm" {
   default     = "vaididea.in"
 }
 
+variable "turn_domain_name" {
+  description = "Optional DNS name pointing at the TURN EIP. Used only for TLS/TCP fallback URLs and certificates."
+  type        = string
+  default     = "turn.vaididea.in"
+}
+
 variable "turn_username" {
   description = "Static TURN username. Use a non-obvious value in production."
   type        = string

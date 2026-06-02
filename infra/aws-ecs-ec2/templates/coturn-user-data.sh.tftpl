@@ -2,12 +2,37 @@
 set -euxo pipefail
 
 dnf update -y
-dnf install -y docker
+dnf install -y docker certbot
 systemctl enable --now docker
 
-mkdir -p /opt/coturn
+mkdir -p /opt/coturn/certs
 
-cat > /opt/coturn/turnserver.conf <<'EOF'
+# Self-signed certs keep coturn bootable before DNS and Let's Encrypt are ready.
+# Real TLS certs are fetched into /etc/letsencrypt once turn_domain_name resolves
+# to this instance's public IP.
+SELF_SIGNED_CN="${turn_domain_name}"
+if [ -z "$SELF_SIGNED_CN" ]; then
+  SELF_SIGNED_CN="turn.local"
+fi
+if [ ! -s /opt/coturn/certs/fullchain.pem ] || [ ! -s /opt/coturn/certs/privkey.pem ]; then
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /opt/coturn/certs/privkey.pem \
+    -out /opt/coturn/certs/fullchain.pem \
+    -subj "/CN=$SELF_SIGNED_CN"
+fi
+
+cat > /opt/coturn/render-config.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+TURN_DOMAIN='${turn_domain_name}'
+CONFIG=/opt/coturn/turnserver.conf
+TMP="$CONFIG.tmp"
+
+PUBLIC_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+PRIVATE_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/local-ipv4 || true)"
+
+cat > "$TMP" <<'CONF'
 listening-port=3478
 min-port=${turn_min_port}
 max-port=${turn_max_port}
@@ -19,18 +44,95 @@ user=${turn_username}:${turn_password}
 total-quota=${turn_total_quota}
 stale-nonce=600
 no-cli
-no-tls
-no-dtls
 no-multicast-peers
 no-loopback-peers
 log-file=stdout
 simple-log
-EOF
+CONF
+
+if [ -n "$TURN_DOMAIN" ]; then
+  CERT_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/fullchain.pem"
+  KEY_PATH="/etc/letsencrypt/live/$TURN_DOMAIN/privkey.pem"
+  if [ ! -s "$CERT_PATH" ] || [ ! -s "$KEY_PATH" ]; then
+    CERT_PATH="/opt/coturn/certs/fullchain.pem"
+    KEY_PATH="/opt/coturn/certs/privkey.pem"
+  fi
+  {
+    echo "tls-listening-port=5349"
+    echo "cert=$CERT_PATH"
+    echo "pkey=$KEY_PATH"
+  } >> "$TMP"
+else
+  {
+    echo "no-tls"
+    echo "no-dtls"
+  } >> "$TMP"
+fi
+
+if [ -n "$PUBLIC_IP" ] && [ -n "$PRIVATE_IP" ]; then
+  echo "external-ip=$PUBLIC_IP/$PRIVATE_IP" >> "$TMP"
+elif [ -n "$PUBLIC_IP" ]; then
+  echo "external-ip=$PUBLIC_IP" >> "$TMP"
+fi
+
+if ! cmp -s "$TMP" "$CONFIG" 2>/dev/null; then
+  mv "$TMP" "$CONFIG"
+  echo changed
+else
+  rm -f "$TMP"
+  echo unchanged
+fi
+SCRIPT
+chmod +x /opt/coturn/render-config.sh
+
+cat > /opt/coturn/reload-if-config-changed.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+CHANGE="$(/opt/coturn/render-config.sh)"
+if [ "$CHANGE" = "changed" ] && docker ps -a --format '{{.Names}}' | grep -qx coturn; then
+  docker restart coturn
+fi
+SCRIPT
+chmod +x /opt/coturn/reload-if-config-changed.sh
+
+cat > /opt/coturn/get-cert.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+TURN_DOMAIN='${turn_domain_name}'
+if [ -z "$TURN_DOMAIN" ]; then
+  exit 0
+fi
 
 PUBLIC_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
-if [ -n "$PUBLIC_IP" ]; then
-  echo "external-ip=$PUBLIC_IP" >> /opt/coturn/turnserver.conf
+RESOLVED_IP="$(getent ahostsv4 "$TURN_DOMAIN" | awk 'NR == 1 { print $1 }' || true)"
+
+if [ -n "$PUBLIC_IP" ] && [ -n "$RESOLVED_IP" ] && [ "$PUBLIC_IP" != "$RESOLVED_IP" ]; then
+  echo "Skipping certbot: $TURN_DOMAIN resolves to $RESOLVED_IP, instance public IP is $PUBLIC_IP"
+  exit 0
 fi
+
+certbot certonly --standalone \
+  -d "$TURN_DOMAIN" \
+  --non-interactive \
+  --agree-tos \
+  -m admin@vaididea.in \
+  --keep-until-expiring
+
+/opt/coturn/render-config.sh >/dev/null
+docker restart coturn || true
+SCRIPT
+chmod +x /opt/coturn/get-cert.sh
+
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+cat > /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh <<'SCRIPT'
+#!/bin/bash
+docker restart coturn || true
+SCRIPT
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-coturn.sh
+
+/opt/coturn/render-config.sh >/dev/null
 
 docker rm -f coturn || true
 docker run -d \
@@ -38,5 +140,35 @@ docker run -d \
   --network host \
   --restart unless-stopped \
   -v /opt/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
+  -v /opt/coturn/certs:/opt/coturn/certs:ro \
+  -v /etc/letsencrypt:/etc/letsencrypt:ro \
   coturn/coturn:4.6 \
   -c /etc/coturn/turnserver.conf
+
+cat > /etc/systemd/system/coturn-refresh.service <<'EOF'
+[Unit]
+Description=Refresh coturn AWS external IP mapping
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/coturn/reload-if-config-changed.sh
+EOF
+
+cat > /etc/systemd/system/coturn-refresh.timer <<'EOF'
+[Unit]
+Description=Refresh coturn AWS external IP mapping periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=coturn-refresh.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now coturn-refresh.timer
+
+/opt/coturn/get-cert.sh || true

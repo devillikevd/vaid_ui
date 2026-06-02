@@ -65,6 +65,10 @@ resource "aws_autoscaling_group" "ecs" {
     value               = "true"
     propagate_at_launch = true
   }
+
+  lifecycle {
+    ignore_changes = [desired_capacity]
+  }
 }
 
 resource "aws_ecs_capacity_provider" "ec2" {
@@ -209,7 +213,7 @@ resource "aws_ecs_service" "app" {
     container_port   = 8000
   }
 
-  health_check_grace_period_seconds  = 120
+  health_check_grace_period_seconds = 120
 
   depends_on = [
     aws_lb_listener.http,

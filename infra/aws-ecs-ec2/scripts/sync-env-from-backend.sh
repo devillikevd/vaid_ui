@@ -70,7 +70,10 @@ JWT_SECRET=${JWT_SECRET_VALUE}
 JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET_VALUE}
 JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET_VALUE}
 
-REDIS_URL=$(get_value REDIS_URL)
+REDIS_URL=$(awk '/upstash\\.io/ && /REDIS_URL=/ { match($0, /rediss?:\\/\\/[^ ]+/); print substr($0, RSTART, RLENGTH); exit }' "${BACKEND_ENV}")
+if [[ -z "${REDIS_URL}" ]]; then
+  REDIS_URL=$(get_value REDIS_URL)
+fi
 UPSTASH_REDIS_REST_URL=$(get_value UPSTASH_REDIS_REST_URL)
 UPSTASH_REDIS_REST_TOKEN=$(get_value UPSTASH_REDIS_REST_TOKEN)
 

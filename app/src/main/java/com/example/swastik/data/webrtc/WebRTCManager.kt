@@ -3,6 +3,7 @@ package com.example.swastik.data.webrtc
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.swastik.data.remote.ApiConfig
@@ -37,14 +38,60 @@ class WebRTCManager(
                 PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer()
             )
 
-            if (ApiConfig.TURN_URL.isNotBlank()) {
-                servers += PeerConnection.IceServer.builder(ApiConfig.TURN_URL)
+            val turnUrls = expandTurnUrls(ApiConfig.TURN_URL)
+            if (turnUrls.isNotEmpty() &&
+                ApiConfig.TURN_USERNAME.isNotBlank() &&
+                ApiConfig.TURN_CREDENTIAL.isNotBlank()
+            ) {
+                servers += PeerConnection.IceServer.builder(turnUrls)
                     .setUsername(ApiConfig.TURN_USERNAME)
                     .setPassword(ApiConfig.TURN_CREDENTIAL)
                     .createIceServer()
             }
 
             return servers
+        }
+
+        private fun expandTurnUrls(rawUrl: String): List<String> {
+            val trimmed = rawUrl.trim()
+            if (trimmed.isBlank()) return emptyList()
+
+            return try {
+                val normalized = when {
+                    trimmed.contains("://") -> trimmed
+                    trimmed.startsWith("turns:", ignoreCase = true) ->
+                        "turns://" + trimmed.removePrefix("turns:")
+                    trimmed.startsWith("turn:", ignoreCase = true) ->
+                        "turn://" + trimmed.removePrefix("turn:")
+                    else -> trimmed
+                }
+
+                val uri = Uri.parse(normalized)
+                val scheme = uri.scheme?.lowercase()
+                val host = uri.host
+                if (host.isNullOrBlank() || (scheme != "turn" && scheme != "turns")) {
+                    return listOf(trimmed)
+                }
+
+                val hostPart = if (host.contains(":") && !host.startsWith("[")) "[$host]" else host
+                val port = if (uri.port > 0) uri.port else if (scheme == "turns") 5349 else 3478
+                val transport = uri.getQueryParameter("transport")?.lowercase()
+
+                if (scheme == "turns") {
+                    listOf(
+                        "turn:$hostPart:3478?transport=udp",
+                        "turn:$hostPart:3478?transport=tcp",
+                        "turns:$hostPart:$port?transport=${transport ?: "tcp"}"
+                    ).distinct()
+                } else {
+                    listOf(
+                        "turn:$hostPart:$port?transport=udp",
+                        "turn:$hostPart:$port?transport=tcp"
+                    ).distinct()
+                }
+            } catch (_: Throwable) {
+                listOf(trimmed)
+            }
         }
     }
 
@@ -517,15 +564,16 @@ class WebRTCManager(
                 // immediately crushing detail on the patient feed.
                 params.degradationPreference = org.webrtc.RtpParameters.DegradationPreference.BALANCED
                 if (params.encodings.isNotEmpty()) {
-                    params.encodings[0].maxBitrateBps = 400000 // 400 kbps: smooth enough for 480p and prevents uplink flooding
-                    params.encodings[0].minBitrateBps = 150000
+                    params.encodings[0].maxBitrateBps = 700000
+                    params.encodings[0].minBitrateBps = 120000
+                    params.encodings[0].maxFramerate = 20
                 }
                 runCatching {
                     sender.parameters = params
                 }.onFailure {
                     Log.w(TAG, "Failed to apply video sender parameters: ${it.message}")
                 }
-                Log.d(TAG, "Video track encoding parameters applied: BALANCED, max=1200kbps")
+                Log.d(TAG, "Video track encoding parameters applied: BALANCED, max=700kbps, fps=20")
             }
         }
         Log.d(TAG, "PeerConnection created and local tracks added")

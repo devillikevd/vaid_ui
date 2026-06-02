@@ -37,6 +37,9 @@ class CameraXCapturer(
     private val analysisExecutor = Executors.newSingleThreadExecutor()
     private var frameCountWebrtc = 0
     private var frameCountAI = 0
+    private var captureWidth = 480
+    private var captureHeight = 360
+    private var captureFps = 20
 
     companion object {
         private const val TAG = "CameraXCapturer"
@@ -56,6 +59,9 @@ class CameraXCapturer(
         val ctx = context ?: return
         val helper = surfaceTextureHelper ?: return
         val observer = capturerObserver ?: return
+        if (width > 0) captureWidth = width
+        if (height > 0) captureHeight = height
+        if (framerate > 0) captureFps = framerate
 
         val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
         
@@ -64,12 +70,13 @@ class CameraXCapturer(
             try {
                 val provider = cameraProviderFuture.get()
                 cameraProvider = provider
+                val requestedSize = android.util.Size(captureWidth, captureHeight)
                 
                 provider.unbindAll()
 
                 // WebRTC Preview
                 val preview = Preview.Builder()
-                    .setTargetResolution(android.util.Size(width, height))
+                    .setTargetResolution(requestedSize)
                     .build()
                 
                 preview.setSurfaceProvider { request ->
@@ -99,6 +106,7 @@ class CameraXCapturer(
                 
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                     .setTargetResolution(targetResolution)
                     .build()
                     
@@ -143,7 +151,7 @@ class CameraXCapturer(
 
                 
                 observer.onCapturerStarted(true)
-                Log.d(TAG, "CameraX started successfully at decoupled stream architecture.")
+                Log.d(TAG, "CameraX started at ${captureWidth}x${captureHeight}@${captureFps}fps, AI=${targetResolution.width}x${targetResolution.height}.")
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start CameraX: ${e.message}", e)
@@ -187,7 +195,7 @@ class CameraXCapturer(
             try {
                 cameraProvider?.unbindAll()
                 // Re-start capture with new camera selector
-                startCapture(0, 0, 0) // We rely on the existing configuration
+                startCapture(captureWidth, captureHeight, captureFps)
             } catch (e: Exception) {
                 Log.e(TAG, "Error switching camera", e)
             }
