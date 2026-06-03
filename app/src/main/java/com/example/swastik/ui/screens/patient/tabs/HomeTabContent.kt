@@ -155,19 +155,19 @@ fun HomeTabContent(
                         onClick = onStartVideoConsultation
                     )
                 }
-                
+
                 // Digital Health ID Card
                 CompactHealthIdCard(onClick = onNavigateToHealthCard)
-                
+
                 // Secondary Actions (Reports, Appointments)
                 SecondaryActionsGrid(
                     onReportsClick = onNavigateToReports,
                     onAppointmentsClick = onNavigateToAppointments
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // 3. Quick Actions Group
             HealthcareServicesSection(
                 onClinicsClick = onNavigateToClinics,
@@ -175,7 +175,7 @@ fun HomeTabContent(
                 onDiagnosticsClick = onNavigateToDiagnostic,
                 onHospitalsClick = onNavigateToHospitals
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Recommended Doctors

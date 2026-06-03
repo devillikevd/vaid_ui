@@ -214,35 +214,45 @@ class PatientDashboardViewModel @Inject constructor(
 
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            val suggestionsJob = async { patientRepository.getSearchSuggestions() }
-            
-            when (val result = patientRepository.getDashboard()) {
-                is Result.Success -> {
-                    val suggestionsResult = suggestionsJob.await()
-                    val newSuggestions = if (suggestionsResult is Result.Success<*>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val list = suggestionsResult.data as? List<String>
-                        if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
-                    } else {
-                        _uiState.value.searchSuggestions
-                    }
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                
+                val suggestionsJob = async { 
+                    try { patientRepository.getSearchSuggestions() } catch (e: Exception) { Result.Error("Failed") }
+                }
+                
+                when (val result = patientRepository.getDashboard()) {
+                    is Result.Success -> {
+                        val suggestionsResult = suggestionsJob.await()
+                        val newSuggestions = if (suggestionsResult is Result.Success<*>) {
+                            @Suppress("UNCHECKED_CAST")
+                            val list = suggestionsResult.data as? List<String>
+                            if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
+                        } else {
+                            _uiState.value.searchSuggestions
+                        }
 
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        dashboard = result.data,
-                        activeEmergency = result.data.activeEmergency,
-                        searchSuggestions = newSuggestions
-                    )
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            dashboard = result.data,
+                            activeEmergency = result.data.activeEmergency,
+                            searchSuggestions = newSuggestions
+                        )
+                    }
+                    is Result.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
+                    is Result.Loading -> {}
                 }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
-                }
-                is Result.Loading -> {}
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "Load dashboard failed", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Connection failed. Please check your internet or server."
+                )
             }
         }
     }
@@ -257,38 +267,49 @@ class PatientDashboardViewModel @Inject constructor(
 
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            _isRefreshing.value = true
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            
-            val suggestionsJob = async { patientRepository.getSearchSuggestions() }
-            
-            when (val result = patientRepository.getDashboard()) {
-                is Result.Success -> {
-                    val suggestionsResult = suggestionsJob.await()
-                    val newSuggestions = if (suggestionsResult is Result.Success<*>) {
-                        @Suppress("UNCHECKED_CAST")
-                        val list = suggestionsResult.data as? List<String>
-                        if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
-                    } else {
-                        _uiState.value.searchSuggestions
-                    }
+            try {
+                _isRefreshing.value = true
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        dashboard = result.data,
-                        activeEmergency = result.data.activeEmergency,
-                        searchSuggestions = newSuggestions
-                    )
+                val suggestionsJob = async { 
+                    try { patientRepository.getSearchSuggestions() } catch (e: Exception) { Result.Error("Failed") }
                 }
-                is Result.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message
-                    )
+
+                when (val result = patientRepository.getDashboard()) {
+                    is Result.Success -> {
+                        val suggestionsResult = suggestionsJob.await()
+                        val newSuggestions = if (suggestionsResult is Result.Success<*>) {
+                            @Suppress("UNCHECKED_CAST")
+                            val list = suggestionsResult.data as? List<String>
+                            if (!list.isNullOrEmpty()) list else _uiState.value.searchSuggestions
+                        } else {
+                            _uiState.value.searchSuggestions
+                        }
+
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            dashboard = result.data,
+                            activeEmergency = result.data.activeEmergency,
+                            searchSuggestions = newSuggestions
+                        )
+                    }
+                    is Result.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
+                    is Result.Loading -> { }
                 }
-                is Result.Loading -> { }
+            } catch (e: Exception) {
+                Log.e("DashboardVM", "Refresh failed", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Refresh failed. Server might be unreachable."
+                )
+            } finally {
+                _isRefreshing.value = false
             }
-            _isRefreshing.value = false
         }
     }
 

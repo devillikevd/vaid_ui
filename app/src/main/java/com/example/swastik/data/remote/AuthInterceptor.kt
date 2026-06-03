@@ -46,7 +46,21 @@ class AuthInterceptor @Inject constructor(
             originalRequest
         }
 
-        val response = chain.proceed(request)
+        val response: Response
+        try {
+            response = chain.proceed(request)
+        } catch (e: java.io.IOException) {
+            // Network unreachable / timeout / connection refused — return a
+            // synthetic error response so callers get a Result.Error instead
+            // of an unhandled crash on the main thread.
+            return Response.Builder()
+                .request(originalRequest)
+                .protocol(okhttp3.Protocol.HTTP_1_1)
+                .code(503)
+                .message("Network error")
+                .body("""{"success":false,"message":"Unable to reach server. Please check your connection."}""".toResponseBody("application/json".toMediaTypeOrNull()))
+                .build()
+        }
 
         // If 401 Unauthorized, attempt token refresh (thread-safe)
         if (response.code == 401 && !path.endsWith("auth/refresh-token")) {

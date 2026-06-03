@@ -36,6 +36,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 fun SwastikGuardianCard(
     modifier: Modifier = Modifier,
     containerColor: Color = Color.White,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     isActive: Boolean,
     consentAccepted: Boolean,
     consentAcceptedAt: String?,
@@ -63,9 +65,6 @@ fun SwastikGuardianCard(
         )
     }
 
-    val isDark = isSystemInDarkTheme()
-    val boxBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
-
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -91,14 +90,14 @@ fun SwastikGuardianCard(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(boxBg)
+                            .background(Color.White)
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = secondaryColor,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -108,12 +107,12 @@ fun SwastikGuardianCard(
                             text = "Vaididea Guardian",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = contentColor
                         )
                         Text(
                             text = "Fall alerts • Crash SOS",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = secondaryColor
                         )
                     }
                 }
@@ -151,7 +150,7 @@ fun SwastikGuardianCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(if (isDark) MaterialTheme.colorScheme.surface else Color.White, RoundedCornerShape(12.dp))
+                    .background(Color.White, RoundedCornerShape(12.dp))
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
                     .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -161,6 +160,8 @@ fun SwastikGuardianCard(
                     label = "Fall Alert",
                     status = if (featurePreferences.fallDetection) "Allowed" else "Off",
                     isAllowed = featurePreferences.fallDetection,
+                    contentColor = contentColor,
+                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -169,6 +170,8 @@ fun SwastikGuardianCard(
                     label = "Crash SOS",
                     status = if (featurePreferences.crashDetection) "Allowed" else "Off",
                     isAllowed = featurePreferences.crashDetection,
+                    contentColor = contentColor,
+                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -177,6 +180,8 @@ fun SwastikGuardianCard(
                     label = "Mobility",
                     status = if (featurePreferences.mobilityAnalysis) "Allowed" else "Off",
                     isAllowed = featurePreferences.mobilityAnalysis,
+                    contentColor = contentColor,
+                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -185,6 +190,8 @@ fun SwastikGuardianCard(
                     label = "Data Sharing",
                     status = if (featurePreferences.doctorQrSharing) "Allowed" else "Off",
                     isAllowed = featurePreferences.doctorQrSharing,
+                    contentColor = contentColor,
+                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -196,7 +203,7 @@ fun SwastikGuardianCard(
                 onClick = { showLearnMore = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color(0xFFF3F4F6).copy(alpha = 0.5f),
+                color = Color(0xFFF3F4F6).copy(alpha = 0.5f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
             ) {
                 Row(
@@ -206,20 +213,20 @@ fun SwastikGuardianCard(
                     Icon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = secondaryColor,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Learn more about Guardian",
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = secondaryColor,
                         modifier = Modifier.weight(1f)
                     )
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = secondaryColor,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -234,6 +241,8 @@ private fun GuardianFeatureItem(
     label: String,
     status: String,
     isAllowed: Boolean,
+    contentColor: Color,
+    secondaryColor: Color,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -244,7 +253,7 @@ private fun GuardianFeatureItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isAllowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            tint = if (isAllowed) Color.Black else Color.Gray.copy(alpha = 0.7f),
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -252,7 +261,7 @@ private fun GuardianFeatureItem(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = contentColor,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -261,7 +270,7 @@ private fun GuardianFeatureItem(
             text = status,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
-            color = if (isAllowed) (if (isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32)) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            color = if (isAllowed) Color(0xFF2E7D32) else Color.Gray
         )
     }
 }

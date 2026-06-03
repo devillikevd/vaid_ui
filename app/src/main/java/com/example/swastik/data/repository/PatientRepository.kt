@@ -66,14 +66,14 @@ class PatientRepository @Inject constructor(
      * Fetch patient dashboard data
      * Fetches Dashboard Stats + Profile + Notifications
      */
-    suspend fun getDashboard(): Result<PatientDashboard> = coroutineScope {
-        try {
-            // Parallel execution of independent API calls
-            val dashboardDeferred = async { apiService.getPatientDashboard() }
-            val profileDeferred = async { apiService.getPatientProfile() }
-            val notificationsDeferred = async { apiService.getNotifications() }
-            val emergencyDeferred = async { apiService.getActiveEmergency() }
-            val prescriptionsDeferred = async { apiService.getPatientPrescriptions(1, 5) }
+    suspend fun getDashboard(): Result<PatientDashboard> = try {
+        coroutineScope {
+            // Parallel execution of independent API calls with individual try-catches
+            val dashboardDeferred = async { try { apiService.getPatientDashboard() } catch (e: Exception) { null } }
+            val profileDeferred = async { try { apiService.getPatientProfile() } catch (e: Exception) { null } }
+            val notificationsDeferred = async { try { apiService.getNotifications() } catch (e: Exception) { null } }
+            val emergencyDeferred = async { try { apiService.getActiveEmergency() } catch (e: Exception) { null } }
+            val prescriptionsDeferred = async { try { apiService.getPatientPrescriptions(1, 5) } catch (e: Exception) { null } }
 
             val dashboardResponse = dashboardDeferred.await()
             val profileResponse = profileDeferred.await()
@@ -88,50 +88,40 @@ class PatientRepository @Inject constructor(
             var activeEmergency: EmergencyResponse? = null
 
             // 1. Process Dashboard (Stats, Reminders, Consultations, Recommended Doctors)
-            if (dashboardResponse.isSuccessful && dashboardResponse.body()?.success == true) {
+            if (dashboardResponse != null && dashboardResponse.isSuccessful && dashboardResponse.body()?.success == true) {
                 val dashboardData = dashboardResponse.body()?.data
-                // dashboardData is PatientDashboardResponse?
-                
                 if (dashboardData != null) {
-                    // Update Stats
                     _stats.value = PatientStats(
                         totalConsultations = dashboardData.stats?.totalConsultations ?: 0,
                         totalPrescriptions = dashboardData.stats?.totalPrescriptions ?: 0,
                         totalReports = dashboardData.stats?.totalReports ?: 0
                     )
-                    
-                    // Update Reminders
                     if (dashboardData.reminders != null) {
                         _reminders.value = dashboardData.reminders.map { it.toReminder() }
                     }
-                    
-                    // Update Recent Consultations
                     if (dashboardData.recentConsultations != null) {
                          _consultations.value = dashboardData.recentConsultations.map { it.toConsultationRecord() }
                     }
-                    
                     if (dashboardData.upcomingAppointments != null) {
                         upcomingAppointments = dashboardData.upcomingAppointments.map { it.toAppointment() }
                     }
-                    
-                    // Update Recommended Doctors from smart recommendation engine
                     if (dashboardData.recommendedDoctors != null) {
                         _recommendedDoctors.value = dashboardData.recommendedDoctors.map { it.toDoctor() }
-                        Log.d("PatientRepository", "Loaded ${dashboardData.recommendedDoctors.size} recommended doctors")
                     }
                 }
             }
 
             if (_recommendedDoctors.value.isEmpty()) {
-                when (val recommendedResult = fetchRecommendedDoctors(limit = 8)) {
-                    is Result.Success -> _recommendedDoctors.value = recommendedResult.data
-                    is Result.Error -> Log.w("PatientRepository", "Recommended doctors fallback failed: ${recommendedResult.message}")
-                    is Result.Loading -> Unit
-                }
+                try {
+                    when (val recommendedResult = fetchRecommendedDoctors(limit = 8)) {
+                        is Result.Success -> _recommendedDoctors.value = recommendedResult.data
+                        else -> Unit
+                    }
+                } catch (_: Exception) {}
             }
 
             // 2. Process Profile
-            if (profileResponse.isSuccessful && profileResponse.body()?.success == true) {
+            if (profileResponse != null && profileResponse.isSuccessful && profileResponse.body()?.success == true) {
                 val patientData = profileResponse.body()?.data
                 if (patientData != null) {
                     patient = patientData.toPatient()
@@ -140,26 +130,20 @@ class PatientRepository @Inject constructor(
             }
 
             // 3. Process Notifications — cache to Room
-            if (notificationsResponse.isSuccessful && notificationsResponse.body()?.success == true) {
-                val notifData = notificationsResponse.body()?.data // NotificationsListData
+            if (notificationsResponse != null && notificationsResponse.isSuccessful && notificationsResponse.body()?.success == true) {
+                val notifData = notificationsResponse.body()?.data
                 val apiNotifications = notifData?.notifications
                 if (apiNotifications != null) {
-                    val uiNotifications = apiNotifications.map { notification ->
-                        notification.toDomainNotification()
-                    }.filter(::shouldShowNotification)
+                    val uiNotifications = apiNotifications.map { it.toDomainNotification() }.filter(::shouldShowNotification)
                     _notifications.value = uiNotifications
                     unreadNotifications = uiNotifications.count { !it.isRead }
-                    // Cache notifications
                     try {
                         val cached = apiNotifications.map { it.toCachedNotification() }
                         notificationDao.clearAll()
                         notificationDao.insertNotifications(cached)
-                    } catch (e: Exception) {
-                        Log.w("PatientRepository", "Failed to cache notifications: ${e.message}")
-                    }
+                    } catch (_: Exception) {}
                 }
             } else {
-                // Network failed for notifications — load from cache
                 try {
                     val cached = notificationDao.getAllNotificationsSync()
                     if (cached.isNotEmpty()) {
@@ -171,21 +155,17 @@ class PatientRepository @Inject constructor(
             }
             
             // 4. Process Prescriptions — cache to Room
-            if (prescriptionsResponse.isSuccessful) {
+            if (prescriptionsResponse != null && prescriptionsResponse.isSuccessful) {
                 val rxData = prescriptionsResponse.body()?.data
                 if (rxData != null) {
                     recentPrescriptions = rxData
-                    // Cache prescriptions
                     try {
                         val cached = rxData.map { it.toCachedPrescription() }
                         prescriptionDao.clearAll()
                         prescriptionDao.insertPrescriptions(cached)
-                    } catch (e: Exception) {
-                        Log.w("PatientRepository", "Failed to cache prescriptions: ${e.message}")
-                    }
+                    } catch (_: Exception) {}
                 }
             } else {
-                // Fallback to cached prescriptions
                 try {
                     val cached = prescriptionDao.getAllPrescriptionsSync()
                     if (cached.isNotEmpty()) {
@@ -195,14 +175,13 @@ class PatientRepository @Inject constructor(
             }
             
             // 5. Process Emergency
-            if (emergencyResponse.isSuccessful && emergencyResponse.body()?.success == true) {
+            if (emergencyResponse != null && emergencyResponse.isSuccessful && emergencyResponse.body()?.success == true) {
                 val emergency = emergencyResponse.body()?.data
                 if (emergency?.status != "completed" && emergency?.status != "cancelled") {
                     activeEmergency = emergency
                 }
             }
 
-            // Use real patient or a minimal fallback so dashboard still shows other data
             val resolvedPatient = patient ?: Patient(
                 id = "", userId = "", name = "Patient", phone = "", email = null,
                 dateOfBirth = null, gender = null, bloodGroup = null,
@@ -219,9 +198,10 @@ class PatientRepository @Inject constructor(
                     stats = _stats.value
                 )
             )
-        } catch (e: Exception) {
-            Result.Error(e.message ?: "Failed to load dashboard")
         }
+    } catch (e: Exception) {
+        Log.e("PatientRepository", "Dashboard load failed partially/fully", e)
+        Result.Error("Unable to reach server. Showing cached data if available.")
     }
     
     /**

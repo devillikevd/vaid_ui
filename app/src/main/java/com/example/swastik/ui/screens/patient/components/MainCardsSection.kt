@@ -60,7 +60,7 @@ fun MainCardsSection(
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Image(
-                        painter = painterResource(id = R.drawable.inperson_consultation),
+                        painter = painterResource(id = R.drawable.inpersoncons),
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -108,7 +108,7 @@ fun MainCardsSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     // Slot Availability
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPrimary))
@@ -131,7 +131,7 @@ fun MainCardsSection(
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Image(
-                        painter = painterResource(id = R.drawable.video_consultation),
+                        painter = painterResource(id = R.drawable.videocons),
                         contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -179,7 +179,7 @@ fun MainCardsSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Connect in 15 mins", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
