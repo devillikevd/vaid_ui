@@ -124,10 +124,11 @@ fun EditProfileDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = dateOfBirth.ifBlank { "Date of Birth" },
+                        value = dateOfBirth,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("DOB (YYYY-MM-DD)") },
+                        label = { Text("Date of Birth") },
+                        placeholder = { Text("YYYY-MM-DD") },
                         modifier = Modifier.weight(1f).clickable { if (!isSaving) showDatePicker = true },
                         shape = RoundedCornerShape(12.dp),
                         enabled = false,

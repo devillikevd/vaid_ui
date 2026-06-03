@@ -1485,7 +1485,7 @@ private fun ConfirmBookingStep(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "SWASTIK HEALTHCARE",
+                        "VAIDIDEA HEALTHCARE",
                         fontSize = 10.sp,
                         letterSpacing = 2.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1698,7 +1698,7 @@ private fun BookingConfirmedStep(
                         Time: $timeSlot
                         Type: ${if (selectedType == "video") "Video Consultation" else "In-Person Visit"}
                         
-                        — Swastik Healthcare
+                        — Vaididea Healthcare
                     """.trimIndent()
                     val shareIntent = Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"

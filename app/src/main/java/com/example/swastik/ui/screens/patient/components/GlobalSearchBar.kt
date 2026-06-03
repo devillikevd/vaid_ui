@@ -109,7 +109,7 @@ fun GlobalSearchBar(
                     spotColor = ShadowTint,
                     ambientColor = Color.Transparent
                 )
-                .background(Color.White, RoundedCornerShape(23.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(23.dp))
                 .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(23.dp)),
             singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),

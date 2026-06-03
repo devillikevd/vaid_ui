@@ -624,26 +624,26 @@ private fun HealthCardHowItWorks() {
             ) {
                 StepItem(
                     number = "1",
-                    title = "Generate QR Code",
-                    description = "Tap the button above to generate your QR code.",
+                    title = "Generate Secure QR Code",
+                    description = "Tap Generate QR Code to create your unique, time-limited health identity QR.",
                     isLast = false
                 )
                 StepItem(
                     number = "2",
-                    title = "Scan at Hospital",
-                    description = "Show the QR code at the hospital check-in desk.",
+                    title = "Present at Check-In",
+                    description = "Show the QR code at the hospital, clinic, pharmacy, or healthcare desk.",
                     isLast = false
                 )
                 StepItem(
                     number = "3",
-                    title = "Verify Identity",
-                    description = "Your profile will be scanned and verified securely.",
+                    title = "Instant Identity Verification",
+                    description = "Staff scan the QR code to securely verify your health identity and profile.",
                     isLast = false
                 )
                 StepItem(
                     number = "4",
-                    title = "Access Services",
-                    description = "Access your health records, benefits, appointments and prescriptions seamlessly.",
+                    title = "Access Healthcare Services",
+                    description = "Receive appointments, prescriptions, medical records, insurance benefits, and healthcare services faster.",
                     isLast = true
                 )
             }
@@ -654,13 +654,16 @@ private fun HealthCardHowItWorks() {
 @Composable
 private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.DailyFitnessLog? = null) {
     var expanded by remember { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
+    val outerBg = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.6f)
+    val innerBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
     
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-            .padding(12.dp)
+            .background(outerBg, RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .padding(16.dp)
     ) {
         // Header
         Row(
@@ -711,9 +714,10 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                    .padding(12.dp)
+                    .padding(top = 20.dp)
+                    .background(innerBg, RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
             ) {
                 StepItem(
                     number = "1",

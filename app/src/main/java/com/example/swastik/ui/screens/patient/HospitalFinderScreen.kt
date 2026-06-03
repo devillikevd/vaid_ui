@@ -277,7 +277,7 @@ fun HospitalFinderScreen(
                                 Icon(
                                     Icons.Default.LocalHospital,
                                     contentDescription = "Emergency",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -285,14 +285,14 @@ fun HospitalFinderScreen(
                             Icon(
                                 if (isMapView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.Map,
                                 contentDescription = "Toggle View",
-                                tint = textColor
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                         IconButton(onClick = onNavigateToNotifications) {
                             Icon(
                                 Icons.Default.Notifications,
                                 contentDescription = "Notifications",
-                                tint = textColor
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     },
@@ -790,7 +790,7 @@ private fun FilterBottomSheet(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val textColor = colorScheme.onSurface
-    val cardColor = colorScheme.surfaceVariant
+    val cardColor = colorScheme.primaryContainer
 
     Column(
         modifier = Modifier
@@ -834,14 +834,14 @@ private fun FilterBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(stringResource(R.string.n_1_km), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.n_1_km), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         "${distanceFilter.toInt()} km",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = SwastikPrimary
                     )
-                    Text("${MAX_DISCOVERY_RADIUS_KM.toInt()} km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${MAX_DISCOVERY_RADIUS_KM.toInt()} km", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Slider(
                     value = distanceFilter,
@@ -872,6 +872,7 @@ private fun FilterBottomSheet(
                 Text(
                     "Show only open facilities",
                     fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
                 )
                 Switch(
@@ -974,6 +975,7 @@ private fun FilterBottomSheet(
                 Text(
                     "Only with emergency services",
                     fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
                 )
                 Switch(
@@ -3144,7 +3146,7 @@ private fun SearchBarSection(
     onFilterClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val containerColor = if (isDarkMode) Color(0xFF2A2A2A) else MaterialTheme.colorScheme.surface
+    val containerColor = MaterialTheme.colorScheme.primaryContainer
     val placeholderText = when (selectedFacilityType) {
         FacilityType.HOSPITAL -> "Search hospitals..."
         FacilityType.CLINIC -> "Search clinics..."
@@ -3282,8 +3284,8 @@ private fun FacilityMapCard(
     onClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color.White
-    val textColor = if (isDarkMode) Color.White else Color.Black
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
+    val textColor = MaterialTheme.colorScheme.onPrimaryContainer
     val mapCardContext = LocalContext.current
 
     Card(
@@ -3482,8 +3484,8 @@ private fun FacilityListCard(
     onClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color.White
-    val textColor = if (isDarkMode) Color.White else Color.Black
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
+    val textColor = MaterialTheme.colorScheme.onPrimaryContainer
 
     Card(
         modifier = Modifier

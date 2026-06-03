@@ -551,14 +551,14 @@ fun SecondaryActionsGrid(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(44.dp)
                         .background(Color(0xFFF1F5F9), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.report_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(24.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -567,7 +567,7 @@ fun SecondaryActionsGrid(
                     Text(
                         "Reports",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.5.sp,
+                        fontSize = 11.sp,
                         color = Color(0xFF1E293B),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -603,14 +603,14 @@ fun SecondaryActionsGrid(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(44.dp)
                         .background(Color(0xFFF1F5F9), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.appoinment_icon),
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(24.dp),
                         contentScale = ContentScale.Fit
                     )
                 }
@@ -619,7 +619,7 @@ fun SecondaryActionsGrid(
                     Text(
                         "Appointments",
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.5.sp,
+                        fontSize = 11.sp,
                         color = Color(0xFF1E293B),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
