@@ -736,7 +736,7 @@ fun HealthcareServicesSection(
             text = "Healthcare Services",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
-            color = Color(0xFF1E293B),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
         )
 
@@ -949,146 +949,109 @@ fun DoctorCard(
             .fillMaxWidth()
             .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)), // Lightish blue background
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                // Profile Image with Verified Badge
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF8FAFC)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (!doctor.profileImageUrl.isNullOrBlank()) {
-                            coil.compose.AsyncImage(
-                                model = doctor.profileImageUrl,
-                                contentDescription = "Doctor Profile",
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Text("👨‍⚕️", fontSize = 32.sp)
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .background(Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.Verified, 
-                            null, 
-                            tint = Color(0xFF00796B), 
-                            modifier = Modifier.size(18.dp)
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Profile Image with Verified Badge
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!doctor.profileImageUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = doctor.profileImageUrl,
+                            contentDescription = "Doctor Profile",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Text("👨‍⚕️", fontSize = 28.sp)
                     }
                 }
-
-                Spacer(modifier = Modifier.width(14.dp))
-
-                // Info Column
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            doctor.name, 
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp, 
-                            color = Color(0xFF1E293B),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(14.dp))
-                            val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
-                            Text(" $ratingText", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
-                        }
-                    }
-                    
-                    Text(
-                        doctor.specialization, 
-                        fontSize = 13.sp, 
-                        color = Color(0xFF00796B),
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Verified, 
+                        null, 
+                        tint = Color(0xFF00796B), 
+                        modifier = Modifier.size(16.dp)
                     )
-                    
-                    Spacer(modifier = Modifier.height(6.dp))
-                    
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "${doctor.experienceYears ?: 5} Yrs Exp",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF475569)
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = doctor.qualification ?: doctor.qualifications?.firstOrNull() ?: "MBBS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF475569),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
                 }
             }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Info Column
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    doctor.name, 
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp, 
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    doctor.specialization, 
+                    fontSize = 12.sp, 
+                    color = Color(0xFF00796B),
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${doctor.experienceYears ?: 5} Yrs Exp • ${doctor.qualification ?: doctor.qualifications?.firstOrNull() ?: "MBBS"}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             
-            Spacer(modifier = Modifier.height(14.dp))
-            androidx.compose.material3.HorizontalDivider(color = Color(0xFFF1F5F9))
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Rating & Price Column
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(14.dp))
+                    val ratingText = doctor.averageRating?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.1f", it) } ?: "New"
+                    Text(" $ratingText", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "₹${doctor.consultationFee ?: 500}", 
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold, 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Book Button
+            Button(
+                onClick = onBookClick,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                modifier = Modifier.height(32.dp).defaultMinSize(minWidth = 1.dp)
             ) {
-                Column {
-                    Text("Consultation Fee", fontSize = 11.sp, color = Color(0xFF64748B))
-                    Text(
-                        "₹${doctor.consultationFee ?: 500}", 
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold, 
-                        color = Color(0xFF1E293B)
-                    )
-                }
-                
-                Button(
-                    onClick = onBookClick,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                    modifier = Modifier.height(40.dp)
-                ) {
-                    Text("Book Visit", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
+                Text("Book", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

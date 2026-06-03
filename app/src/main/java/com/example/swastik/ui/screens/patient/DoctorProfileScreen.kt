@@ -1,5 +1,6 @@
 package com.example.swastik.ui.screens.patient
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -50,6 +52,8 @@ fun DoctorProfileScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var isFavorite by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -61,10 +65,24 @@ fun DoctorProfileScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Handle favorite */ }) {
-                        Icon(Icons.Outlined.FavoriteBorder, contentDescription = "Favorite")
+                    IconButton(onClick = { isFavorite = !isFavorite }) {
+                        Icon(
+                            if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, 
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                    IconButton(onClick = { /* Handle share */ }) {
+                    IconButton(onClick = { 
+                        if (uiState is DoctorProfileViewModel.UiState.Success) {
+                            val doctor = (uiState as DoctorProfileViewModel.UiState.Success).details.doctor
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, "Check out Dr. ${doctor.name}, ${doctor.specialization} on Swastik! Book an appointment now.")
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Doctor Profile"))
+                        }
+                    }) {
                         Icon(Icons.Outlined.Share, contentDescription = "Share")
                     }
                 },
@@ -280,12 +298,12 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
                 icon = Icons.Filled.Star,
                 iconTint = Color(0xFFFFB800),
                 value = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "5.0",
-                label = "Rating"
+                label = "Rating\n"
             )
             StatCard(
                 icon = Icons.Outlined.Payments,
                 value = "₹${doctor.consultationFee ?: 0}",
-                label = "Consultation\nFee"
+                label = "Consult\nFee"
             )
         }
 
@@ -611,19 +629,32 @@ fun RowScope.StatCard(
     label: String
 ) {
     Card(
-        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 4.dp)
+            .height(96.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 16.dp, horizontal = 4.dp).fillMaxWidth()
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(value, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 14.sp)
+            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = SwastikPrimary)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label, 
+                fontSize = 10.sp, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, 
+                lineHeight = 12.sp,
+                maxLines = 2
+            )
         }
     }
 }
