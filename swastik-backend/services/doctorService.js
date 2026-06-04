@@ -666,18 +666,26 @@ class DoctorService {
     // Generate available time slots
     const availableSlots = [];
     slotConfig.forEach(config => {
-      const start = parseInt(config.start_time.split(':')[0]);
-      const end = parseInt(config.end_time.split(':')[0]);
+      const [startHour, startMin] = config.start_time.split(':').map(Number);
+      const [endHour, endMin] = config.end_time.split(':').map(Number);
+      const duration = config.slot_duration || 15;
 
-      for (let hour = start; hour < end; hour++) {
-        const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+      let currentTotalMins = startHour * 60 + (startMin || 0);
+      const endTotalMins = endHour * 60 + (endMin || 0);
+
+      while (currentTotalMins + duration <= endTotalMins) {
+        const h = Math.floor(currentTotalMins / 60);
+        const m = currentTotalMins % 60;
+        const timeSlot = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        
         if (!bookedSlots.includes(timeSlot)) {
           availableSlots.push({
             time: timeSlot,
-            period: hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening',
+            period: h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening',
             is_available: true,
           });
         }
+        currentTotalMins += duration;
       }
     });
 
