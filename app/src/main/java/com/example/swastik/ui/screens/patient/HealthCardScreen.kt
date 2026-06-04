@@ -217,10 +217,11 @@ fun HealthCardScreen(
                                 if (hcState.isLoading) {
                                     CircularProgressIndicator(modifier = Modifier.padding(32.dp))
                                 } else if (hcState.hasActiveCard && hcState.url != null) {
-                                    Box(
+                                    Column(
                                         modifier = Modifier
                                             .background(Color.White, RoundedCornerShape(8.dp))
-                                            .padding(8.dp)
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         if (qrBitmap != null) {
                                             Image(
@@ -229,6 +230,21 @@ fun HealthCardScreen(
                                                 modifier = Modifier.size(120.dp),
                                                 contentScale = ContentScale.Fit
                                             )
+                                            val token = hcState.url?.substringAfterLast("/")
+                                            if (!token.isNullOrEmpty()) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "Link ID: ${token.take(8)}...${token.takeLast(8)}",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.DarkGray
+                                                )
+                                                Text(
+                                                    text = "Share this ID for manual entry",
+                                                    fontSize = 10.sp,
+                                                    color = Color.Gray
+                                                )
+                                            }
                                         } else {
                                             Icon(
                                                 Icons.Outlined.QrCodeScanner,

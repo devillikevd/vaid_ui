@@ -156,11 +156,37 @@ export default function DoctorSchedulePage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-                                    <input type="time" value={newSlot.startTime} onChange={e => setNewSlot(s => ({ ...s, startTime: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200" />
+                                    <select 
+                                        value={newSlot.startTime} 
+                                        onChange={e => setNewSlot(s => ({ ...s, startTime: e.target.value }))} 
+                                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200"
+                                    >
+                                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                                            const h = Math.floor(i / 4);
+                                            const m = (i % 4) * 15;
+                                            const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                                            const d = new Date(); d.setHours(h, m);
+                                            const displayStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                            return <option key={timeStr} value={timeStr}>{displayStr}</option>;
+                                        })}
+                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
-                                    <input type="time" value={newSlot.endTime} onChange={e => setNewSlot(s => ({ ...s, endTime: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200" />
+                                    <select 
+                                        value={newSlot.endTime} 
+                                        onChange={e => setNewSlot(s => ({ ...s, endTime: e.target.value }))} 
+                                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200"
+                                    >
+                                        {Array.from({ length: 24 * 4 }).map((_, i) => {
+                                            const h = Math.floor(i / 4);
+                                            const m = (i % 4) * 15;
+                                            const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                                            const d = new Date(); d.setHours(h, m);
+                                            const displayStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                            return <option key={timeStr} value={timeStr}>{displayStr}</option>;
+                                        })}
+                                    </select>
                                 </div>
                             </div>
                         </div>

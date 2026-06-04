@@ -280,11 +280,11 @@ export default function ScanPatientQRPage() {
             {/* Instructions */}
             <Card>
                 <CardContent>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">How it works</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-4">How it works</h3>
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>1️⃣ Patient opens the VAIDIDEA app → Profile → taps <strong>&quot;Health QR Code&quot;</strong></p>
-                        <p>2️⃣ Patient shows the QR code on their phone screen</p>
-                        <p>3️⃣ You scan it here or use any phone camera to scan the QR</p>
+                        <p>1️⃣ Patient opens the VAIDIDEA app → Profile → taps <strong>&quot;Digital Health Identity&quot;</strong></p>
+                        <p>2️⃣ Patient taps <strong>&quot;Generate QR Code&quot;</strong> to view the QR code and Link ID</p>
+                        <p>3️⃣ Scan the QR code here or click <strong>&quot;Manual Entry&quot;</strong> above to enter the Link ID</p>
                         <p>4️⃣ Complete medical records open instantly — prescriptions, reports, vitals, allergies</p>
                         <p className="text-xs text-gray-400 mt-3">🔒 Health cards are time-limited (24h) and patient-controlled. The patient can revoke access anytime.</p>
                     </div>
