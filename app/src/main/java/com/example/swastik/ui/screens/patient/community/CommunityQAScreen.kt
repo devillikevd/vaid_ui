@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.*
@@ -94,10 +95,17 @@ fun CommunityQAScreen(
                 ) { index ->
                     val question = pagedQuestions[index]
                     if (question != null) {
+                        val isOwner = question.patient?.userId == viewModel.currentUserId
                         QuestionCard(
                             question = question,
+                            isOwner = isOwner,
                             onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.CommunityQADetails.createRoute(question.id)) },
-                            onUpvote = { viewModel.upvoteQuestion(question.id) }
+                            onUpvote = { viewModel.upvoteQuestion(question.id) },
+                            onDelete = {
+                                viewModel.deleteQuestion(question.id) {
+                                    pagedQuestions.refresh()
+                                }
+                            }
                         )
                     }
                 }
@@ -120,9 +128,36 @@ fun CommunityQAScreen(
 @Composable
 fun QuestionCard(
     question: CommunityQuestion,
+    isOwner: Boolean = false,
     onClick: () -> Unit,
-    onUpvote: () -> Unit
+    onUpvote: () -> Unit,
+    onDelete: () -> Unit = {}
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Question?", fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently delete your question and all its answers. This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -206,6 +241,20 @@ fun QuestionCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("${question.answerCount} Answers", fontSize = 14.sp, color = SwastikPrimary)
+                    if (isOwner) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete Question",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

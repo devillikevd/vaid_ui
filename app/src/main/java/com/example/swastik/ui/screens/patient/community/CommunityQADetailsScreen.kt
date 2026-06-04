@@ -110,6 +110,31 @@ fun CommunityQADetailsScreen(
 
 @Composable
 fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, onDelete: () -> Unit = {}) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Question?", fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently delete your question and all its answers globally. This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Text(
@@ -120,7 +145,7 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
                 modifier = Modifier.weight(1f)
             )
             if (isOwner) {
-                IconButton(onClick = onDelete) {
+                IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete Question", tint = MaterialTheme.colorScheme.error)
                 }
             }
@@ -166,6 +191,31 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
 
 @Composable
 fun AnswerCard(answer: CommunityAnswer, isQuestionOwner: Boolean = false, onUpvote: () -> Unit = {}, onDelete: () -> Unit = {}) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Reply?", fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently delete this doctor's reply from your question globally. This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -257,7 +307,7 @@ fun AnswerCard(answer: CommunityAnswer, isQuestionOwner: Boolean = false, onUpvo
                     Text(text = "Helpful (${answer.upvotes})")
                 }
                 if (isQuestionOwner) {
-                    IconButton(onClick = onDelete) {
+                    IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete Answer", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     }
                 }

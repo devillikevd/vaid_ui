@@ -45,6 +45,14 @@ fun EmailVerificationPendingScreen(
         }
     }
 
+    // Auto-navigate to login after successful verification
+    LaunchedEffect(uiState.emailVerificationComplete) {
+        if (uiState.emailVerificationComplete) {
+            delay(1500) // Let the user see the success state briefly
+            onGoToLogin()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
