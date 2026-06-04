@@ -282,7 +282,7 @@ export default function ScanPatientQRPage() {
                 <CardContent>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-4">How it works</h3>
                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>1️⃣ Patient opens the VAIDIDEA app → Profile → taps <strong>&quot;Digital Health Identity&quot;</strong></p>
+                        <p>1️⃣ Patient opens the VAIDIDEA app → Home Screen → taps <strong>&quot;Digital Health Identity&quot;</strong> card</p>
                         <p>2️⃣ Patient taps <strong>&quot;Generate QR Code&quot;</strong> to view the QR code and Link ID</p>
                         <p>3️⃣ Scan the QR code here or click <strong>&quot;Manual Entry&quot;</strong> above to enter the Link ID</p>
                         <p>4️⃣ Complete medical records open instantly — prescriptions, reports, vitals, allergies</p>
