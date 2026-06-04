@@ -208,6 +208,18 @@ class AmbulanceRepository @Inject constructor(
 
     // ==================== Location ====================
 
+    suspend fun getRoute(originLat: Double, originLng: Double, destLat: Double, destLng: Double): Result<RouteDto> =
+        retryWithBackoff {
+            val response = apiService.getRoute(originLat, originLng, destLat, destLng)
+            if (response.isSuccessful) {
+                val data = response.body()?.data ?: throw Exception("Empty route data")
+                Result.success(data)
+            } else {
+                val error = ApiErrorParser.from(response, "Failed to fetch route")
+                Result.failure(Exception(error))
+            }
+        }
+
     suspend fun updateLocationViaApi(latitude: Double, longitude: Double, vehicleId: String? = null): Result<Unit> {
         return try {
             val response = apiService.updateLocation(

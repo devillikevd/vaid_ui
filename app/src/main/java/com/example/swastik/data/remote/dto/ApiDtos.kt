@@ -33,6 +33,14 @@ data class EmergencyRequest(
     val notes: String?
 )
 
+data class DirectSosRequest(
+    val hospitalId: String,
+    val latitude: Double,
+    val longitude: Double,
+    val emergencyType: String? = null,
+    val notes: String? = null
+)
+
 data class EmergencyContactAlertRequest(
     val alertType: String,
     val latitude: Double? = null,

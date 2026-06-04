@@ -446,6 +446,8 @@ export const adminApi = {
             body: JSON.stringify({ status }),
         }),
 
+    getFleet: () => fetchWithAuth('/admin/fleet'),
+
     getComplianceDocuments: (
         filters: {
             days?: number;
@@ -707,6 +709,18 @@ export const hospitalApi = {
             method: 'POST',
             body: JSON.stringify({ ambulanceId }),
         }),
+
+    // ── Affiliated Ambulances ──
+    getAffiliatedAmbulances: () => fetchWithAuth('/hospital-manager/ambulances'),
+
+    inviteAmbulance: (email: string) =>
+        fetchWithAuth('/hospital-manager/ambulances/invite', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }),
+
+    removeAffiliatedAmbulance: (ambulanceId: string) =>
+        fetchWithAuth(`/hospital-manager/ambulances/${ambulanceId}`, { method: 'DELETE' }),
 
     // ── Departments ──
     getDepartments: () => fetchWithAuth('/hospital-manager/departments'),

@@ -28,6 +28,8 @@ import com.example.swastik.ambulance.data.remote.dto.EmergencyDto
 import com.example.swastik.ambulance.ui.components.MapMarkerData
 import com.example.swastik.ambulance.ui.components.OsmMapView
 import org.osmdroid.util.GeoPoint
+import kotlinx.coroutines.flow.SharedFlow
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,11 +38,31 @@ fun EmergencyDetailScreen(
     isLoading: Boolean,
     isActionInProgress: Boolean,
     onBack: () -> Unit,
-    onUpdateStatus: (String) -> Unit
+    onUpdateStatus: (String) -> Unit,
+    patientLocationUpdate: SharedFlow<String?>
 ) {
     val context = LocalContext.current
     val patientName = emergency?.resolvedPatientName ?: emergency?.patientInfo ?: "Patient details unavailable"
     val patientPhone = emergency?.resolvedPatientPhone
+
+    var livePatientLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+
+    LaunchedEffect(Unit) {
+        patientLocationUpdate.collect { data ->
+            data?.let {
+                try {
+                    val json = JSONObject(it)
+                    val lat = json.optDouble("latitude")
+                    val lng = json.optDouble("longitude")
+                    if (!lat.isNaN() && !lng.isNaN()) {
+                        livePatientLocation = Pair(lat, lng)
+                    }
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -203,9 +225,9 @@ fun EmergencyDetailScreen(
             }
 
             // Location Card
-            if (emergency.latitude != null && emergency.longitude != null) {
-                val pickupLatitude = emergency.latitude
-                val pickupLongitude = emergency.longitude
+            if (emergency.latitude != null && emergency.longitude != null || livePatientLocation != null) {
+                val pickupLatitude = livePatientLocation?.first ?: emergency.latitude ?: 20.5937
+                val pickupLongitude = livePatientLocation?.second ?: emergency.longitude ?: 78.9629
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),

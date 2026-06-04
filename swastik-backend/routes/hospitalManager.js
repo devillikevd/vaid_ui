@@ -301,6 +301,31 @@ router.get('/emergencies', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANA
     res.json({ success: true, data: data || [] });
 }));
 
+// Associated Ambulances
+router.get('/ambulances', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.getAffiliatedAmbulances(hospital.id, req.user.id);
+    res.json({ success: true, ...result });
+}));
+
+router.post('/ambulances/invite', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const result = await hospitalManagerService.inviteAmbulance(hospital.id, req.user.id, req.body);
+    res.json({ success: true, ...result });
+}));
+
+router.delete('/ambulances/:ambulanceId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('ambulanceId').isUUID().withMessage('Invalid ambulance ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    await hospitalManagerService.removeAffiliatedAmbulance(hospital.id, req.user.id, req.params.ambulanceId);
+    res.json({ success: true });
+}));
+
 // Consultations — view all consultations by hospital-affiliated doctors
 router.get('/consultations', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
     const { status, search, page = 1, limit = 20 } = req.query;

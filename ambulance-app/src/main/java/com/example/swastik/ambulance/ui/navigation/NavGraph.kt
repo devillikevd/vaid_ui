@@ -47,6 +47,7 @@ sealed class Screen(val route: String) {
     object Approval : Screen("approval")
     object Dashboard : Screen("dashboard")
     object Emergencies : Screen("emergencies")
+    object Invites : Screen("invites")
     object Profile : Screen("profile")
     object EmergencyDetail : Screen("emergency/{requestId}") {
         fun createRoute(requestId: String) = "emergency/$requestId"
@@ -161,6 +162,9 @@ fun AmbulanceNavGraph() {
                 onNavigateToProfile = {
                     navController.navigate(Screen.Profile.route)
                 },
+                onNavigateToInvites = {
+                    navController.navigate(Screen.Invites.route)
+                },
                 onLogout = { authViewModel.logout() }
             )
         }
@@ -184,6 +188,10 @@ fun AmbulanceNavGraph() {
                     navController.navigate(Screen.EmergencyDetail.createRoute(requestId))
                 }
             )
+        }
+        
+        composable(Screen.Invites.route) {
+            com.example.swastik.ambulance.ui.screens.invites.HospitalInvitesScreen()
         }
 
         composable(Screen.Profile.route) {
@@ -240,7 +248,8 @@ fun AmbulanceNavGraph() {
                 onBack = { navController.popBackStack() },
                 onUpdateStatus = { status ->
                     viewModel.updateEmergencyStatus(requestId, status)
-                }
+                },
+                patientLocationUpdate = viewModel.patientLocationUpdate
             )
         }
     }

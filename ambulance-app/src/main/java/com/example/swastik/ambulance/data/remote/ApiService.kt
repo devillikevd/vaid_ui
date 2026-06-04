@@ -80,12 +80,20 @@ interface ApiService {
         @Path("requestId") requestId: String
     ): Response<ApiResponse<Any>>
 
-    // ==================== Location ====================
+    // ==================== Location & Maps ====================
 
     @PUT("ambulances/location")
     suspend fun updateLocation(
         @Body request: LocationUpdateRequest
     ): Response<ApiResponse<Any>>
+
+    @GET("maps/route")
+    suspend fun getRoute(
+        @Query("originLat") originLat: Double,
+        @Query("originLng") originLng: Double,
+        @Query("destLat") destLat: Double,
+        @Query("destLng") destLng: Double
+    ): Response<ApiResponse<RouteDto>>
 
     // ==================== Profile ====================
 
@@ -108,4 +116,19 @@ interface ApiService {
         @Part file: MultipartBody.Part,
         @Part("providerType") providerType: RequestBody
     ): Response<ApiResponse<UploadedFileDto>>
+
+    // ==================== Hospital Invites ====================
+
+    @GET("ambulances/invites/pending")
+    suspend fun getPendingInvites(): Response<ApiResponse<List<InviteDto>>>
+
+    @POST("ambulances/invites/{token}/accept")
+    suspend fun acceptInvite(
+        @Path("token") token: String
+    ): Response<ApiResponse<Any>>
+
+    @POST("ambulances/invites/{token}/reject")
+    suspend fun rejectInvite(
+        @Path("token") token: String
+    ): Response<ApiResponse<Any>>
 }

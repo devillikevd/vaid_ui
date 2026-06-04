@@ -26,11 +26,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.model.*
+import com.example.swastik.data.remote.dto.HospitalReviewDto
 import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.HospitalDetailViewModel
 import com.example.swastik.utils.NavigationHelper
+import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
@@ -49,6 +54,31 @@ fun HospitalDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            uiState.facility?.id?.let {
+                viewModel.triggerDirectSOS(it)
+            }
+        } else {
+            Toast.makeText(context, "Location permission is required for Digital SOS", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    LaunchedEffect(uiState.sosSuccess, uiState.sosError) {
+        if (uiState.sosSuccess) {
+            Toast.makeText(context, "Digital SOS Sent Successfully! Ambulance will be dispatched.", Toast.LENGTH_LONG).show()
+            viewModel.clearSosState()
+        }
+        if (uiState.sosError != null) {
+            Toast.makeText(context, "SOS Error: ${uiState.sosError}", Toast.LENGTH_LONG).show()
+            viewModel.clearSosState()
+        }
+    }
 
     LaunchedEffect(facilityId, facilityType) {
         viewModel.loadFacilityDetails(facilityId, facilityType)
@@ -238,6 +268,48 @@ fun HospitalDetailScreen(
                                     Icon(Icons.Default.LocalHospital, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(stringResource(R.string.sos_1), fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    if (facility.isEmergencyAvailable) {
+                        item {
+                            Button(
+                                onClick = { 
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (uiState.sosCooldownRemaining > 0) Color.Gray else colorScheme.error
+                                ),
+                                contentPadding = PaddingValues(16.dp),
+                                enabled = !uiState.sosRequesting && uiState.sosCooldownRemaining <= 0
+                            ) {
+                                if (uiState.sosRequesting) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = colorScheme.onError)
+                                } else if (uiState.sosCooldownRemaining > 0) {
+                                    val minutes = uiState.sosCooldownRemaining / 60
+                                    val seconds = uiState.sosCooldownRemaining % 60
+                                    Icon(Icons.Default.Emergency, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Please wait ${String.format("%02d:%02d", minutes, seconds)}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Emergency, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Send Digital SOS", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

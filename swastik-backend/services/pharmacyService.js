@@ -774,6 +774,27 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
   if (error || !data) throw error;
   const normalizedOrder = normalizeOrderRecord(data);
 
+  // If order cancelled, restore inventory
+  if (nextStatus === 'cancelled' && ['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {
+    if (Array.isArray(normalizedOrder.items)) {
+      for (const item of normalizedOrder.items) {
+        if (item.inventory_id && item.quantity > 0) {
+          const { data: inv } = await supabaseAdmin
+            .from('pharmacy_inventory')
+            .select('quantity')
+            .eq('id', item.inventory_id)
+            .single();
+          if (inv) {
+            await supabaseAdmin
+              .from('pharmacy_inventory')
+              .update({ quantity: inv.quantity + item.quantity })
+              .eq('id', item.inventory_id);
+          }
+        }
+      }
+    }
+  }
+
   // Notify patient
   if (normalizedOrder?.patient_id) {
     const { data: patient } = await supabaseAdmin
@@ -920,6 +941,25 @@ const createOrder = async (patientUserId, orderData) => {
     .single();
 
   if (error) throw error;
+
+  // Decrement inventory stock
+  for (const item of enrichedItems) {
+    if (item.inventory_id && item.quantity > 0) {
+      const { data: currentInv } = await supabaseAdmin
+        .from('pharmacy_inventory')
+        .select('quantity')
+        .eq('id', item.inventory_id)
+        .single();
+      
+      if (currentInv) {
+        const newQuantity = Math.max(0, currentInv.quantity - item.quantity);
+        await supabaseAdmin
+          .from('pharmacy_inventory')
+          .update({ quantity: newQuantity })
+          .eq('id', item.inventory_id);
+      }
+    }
+  }
 
   // Notify pharmacy owner of new order
   if (pharmacy) {

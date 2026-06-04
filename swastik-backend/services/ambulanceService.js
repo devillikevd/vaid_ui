@@ -638,6 +638,98 @@ class AmbulanceService {
       { id: 'neonatal', name: 'Neonatal', icon: '👶', description: 'For newborn emergencies' },
     ];
   }
+
+  // Get pending hospital invites for driver
+  async getPendingInvites(driverUserId) {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', driverUserId)
+      .single();
+
+    if (!user || !user.email) return [];
+
+    const { data, error } = await supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .select('*, hospital:hospitals(name, address, city)')
+      .eq('driver_email', user.email)
+      .eq('status', 'pending');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Accept hospital invite
+  async acceptInvite(driverUserId, token) {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', driverUserId)
+      .single();
+
+    const { data: invite } = await supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .select('*')
+      .eq('token', token)
+      .eq('status', 'pending')
+      .single();
+
+    if (!invite) throw new ApiError(404, 'Invite not found or already processed');
+    if (invite.driver_email !== user.email) throw new ApiError(403, 'Unauthorized to accept this invite');
+
+    // Find the ambulance associated with this driver
+    const { data: ambulance } = await supabaseAdmin
+      .from('ambulances')
+      .select('id')
+      .eq('driver_user_id', driverUserId)
+      .single();
+
+    if (!ambulance) throw new ApiError(404, 'No ambulance registered for this driver');
+
+    // Update the invite status
+    await supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .update({ 
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+        ambulance_id: ambulance.id
+      })
+      .eq('id', invite.id);
+
+    // Link ambulance to hospital
+    await supabaseAdmin
+      .from('ambulances')
+      .update({ affiliated_hospital_id: invite.hospital_id })
+      .eq('id', ambulance.id);
+
+    return { success: true, message: 'Invite accepted successfully' };
+  }
+
+  // Reject hospital invite
+  async rejectInvite(driverUserId, token) {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('email')
+      .eq('id', driverUserId)
+      .single();
+
+    const { data: invite } = await supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .select('*')
+      .eq('token', token)
+      .eq('status', 'pending')
+      .single();
+
+    if (!invite) throw new ApiError(404, 'Invite not found or already processed');
+    if (invite.driver_email !== user.email) throw new ApiError(403, 'Unauthorized to reject this invite');
+
+    await supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .update({ status: 'rejected' })
+      .eq('id', invite.id);
+
+    return { success: true, message: 'Invite rejected' };
+  }
 }
 
 module.exports = new AmbulanceService();

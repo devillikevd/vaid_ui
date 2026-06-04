@@ -322,7 +322,7 @@ export default function DoctorDashboard() {
                                                 </div>
                                             </div>
                                             {review.comment && (
-                                                <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">"{review.comment}"</p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">&quot;{review.comment}&quot;</p>
                                             )}
                                         </div>
                                     ));

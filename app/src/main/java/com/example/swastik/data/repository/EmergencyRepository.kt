@@ -12,11 +12,13 @@ import javax.inject.Inject
  */
 interface EmergencyRepository {
     suspend fun requestEmergency(request: EmergencyRequest): Result<EmergencyResponse>
+    suspend fun requestHospitalEmergency(request: DirectSosRequest): Result<EmergencyResponse>
     suspend fun notifyEmergencyContacts(request: EmergencyContactAlertRequest): Result<EmergencyContactAlertResponse>
     suspend fun getActiveEmergency(): Result<EmergencyResponse?>
     suspend fun cancelEmergency(id: String, reason: String, legalNoticeAccepted: Boolean = true): Result<EmergencyResponse>
     suspend fun getNearbyAmbulances(latitude: Double, longitude: Double, radius: Int): Result<List<AmbulanceDto>>
     suspend fun trackAmbulance(requestId: String): Result<AmbulanceTrack>
+    suspend fun getRoute(originLat: Double, originLng: Double, destLat: Double, destLng: Double): Result<RouteDto>
 }
 
 /**
@@ -43,6 +45,21 @@ class EmergencyRepositoryImpl @Inject constructor(
                 } ?: Result.Error("No data received")
             } else {
                 Result.Error(response.apiError("Failed to request emergency"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun requestHospitalEmergency(request: DirectSosRequest): Result<EmergencyResponse> {
+        return try {
+            val response = apiService.requestHospitalEmergency(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let {
+                    Result.Success(it)
+                } ?: Result.Error("No data received")
+            } else {
+                Result.Error(response.apiError("Failed to request hospital emergency"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
@@ -146,6 +163,26 @@ class EmergencyRepositoryImpl @Inject constructor(
                 } ?: Result.Error("No tracking data received")
             } else {
                 Result.Error(response.apiError("Failed to track ambulance"))
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    override suspend fun getRoute(
+        originLat: Double,
+        originLng: Double,
+        destLat: Double,
+        destLng: Double
+    ): Result<RouteDto> {
+        return try {
+            val response = apiService.getRoute(originLat, originLng, destLat, destLng)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let {
+                    Result.Success(it)
+                } ?: Result.Error("No route data received")
+            } else {
+                Result.Error(response.apiError("Failed to fetch route"))
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

@@ -468,6 +468,146 @@ class DispatchService {
     };
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // MODEL 1.5: DIRECT HOSPITAL SOS DISPATCH
+  // Patient presses SOS specifically for a target hospital.
+  // ══════════════════════════════════════════════════════════════
+
+  async requestDirectHospitalSOS(userId, requestData) {
+    const { hospitalId, latitude, longitude, emergencyType, notes } = requestData;
+
+    if (!latitude || !longitude) {
+      throw new ApiError(400, 'Location (latitude, longitude) is required for SOS');
+    }
+    if (!hospitalId) {
+      throw new ApiError(400, 'hospitalId is required for Direct Hospital SOS');
+    }
+
+    // 1. Validate hospital exists
+    const { data: hospital } = await supabaseAdmin
+      .from('hospitals')
+      .select('id, name')
+      .eq('id', hospitalId)
+      .single();
+
+    if (!hospital) {
+      throw new ApiError(404, 'Hospital not found');
+    }
+
+    // 2. Fetch patient profile to auto-fill details
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id, name, user_id, user:users(phone)')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!patient) {
+      throw new ApiError(403, 'Patient profile not found. Please complete registration first.');
+    }
+
+    // Prevent duplicate active requests
+    const { data: existingRequest } = await supabaseAdmin
+      .from('emergency_requests')
+      .select('id, status')
+      .eq('patient_id', patient.id)
+      .in('status', ACTIVE_PATIENT_EMERGENCY_STATUSES)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingRequest) {
+      return {
+        requestId: existingRequest.id,
+        status: existingRequest.status,
+        message: 'You already have an active emergency request',
+        alreadyActive: true,
+      };
+    }
+
+    // 3. Spam protection: check if they recently cancelled an SOS to this hospital
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const { data: recentCancel } = await supabaseAdmin
+      .from('emergency_requests')
+      .select('id, updated_at')
+      .eq('patient_id', patient.id)
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'cancelled')
+      .gte('updated_at', threeMinutesAgo)
+      .limit(1)
+      .maybeSingle();
+
+    if (recentCancel) {
+      throw new ApiError(429, 'You recently cancelled an SOS to this hospital. Please wait 3 minutes before trying again to prevent spam.');
+    }
+
+    const requestId = uuidv4();
+    const priority = derivePriority(emergencyType || 'medical');
+    const patientPhone = patient.user?.phone || '';
+
+    // Create the emergency request in PENDING state locked to hospital
+    const { error: insertError } = await supabaseAdmin
+      .from('emergency_requests')
+      .insert({
+        id: requestId,
+        patient_id: patient.id,
+        hospital_id: hospitalId, // Lock to this specific hospital
+        requester_name: patient.name,
+        requester_phone: patientPhone,
+        pickup_address: requestData.address || `${latitude}, ${longitude}`,
+        pickup_latitude: latitude,
+        pickup_longitude: longitude,
+        emergency_type: emergencyType || 'medical',
+        priority,
+        status: 'pending',
+        dispatch_mode: DISPATCH_MODES.HOSPITAL_CONTROLLED,
+        status_history: JSON.stringify([{
+          status: 'pending',
+          timestamp: new Date().toISOString(),
+          by: userId,
+          note: 'Direct Digital SOS to Hospital'
+        }]),
+        notes,
+      });
+
+    if (insertError) {
+      console.error('Direct SOS insert error:', insertError);
+      throw new ApiError(500, 'Failed to create emergency request');
+    }
+
+    // Notify emergency contacts
+    emergencyContactNotificationService.notifyEmergencyContacts(userId, {
+      alertType: emergencyType === 'accident' ? 'car_crash' : 'sos',
+      latitude,
+      longitude,
+      notes,
+      sourceId: requestId,
+      idempotencyKey: `sos:direct:${requestId}`,
+    }).catch(err => console.warn('Direct SOS contact notification failed:', err.message));
+
+    // Emit specialized socket event directly to the hospital room
+    const hospitalRoom = eventEmitter.getHospitalDispatchRoom(hospitalId);
+    if (hospitalRoom) {
+      eventEmitter.notifyRoom(hospitalRoom, 'emergency:new-direct-sos', {
+        requestId,
+        patientId: patient.user_id,
+        patientName: patient.name,
+        patientPhone: patientPhone,
+        latitude,
+        longitude,
+        emergencyType: emergencyType || 'medical',
+        priority,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return {
+      requestId,
+      status: 'pending',
+      message: `Direct SOS sent to ${hospital.name}. Please wait while they assign an ambulance.`,
+      hospitalName: hospital.name
+    };
+  }
+
   // ── Internal: Broadcast to nearest ambulances ──────────────────
   async _broadcastToNearestAmbulances(requestId, latitude, longitude, round) {
     const radiusKm = this.BROADCAST_RADIUS_KM[round - 1] || 50;

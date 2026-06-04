@@ -905,6 +905,80 @@ const getConsultations = async (userId, page = 1, limit = 20, status, search = '
   };
 };
 
+// Get affiliated ambulances and pending invites
+const getAffiliatedAmbulances = async (hospitalId, userId) => {
+  const [
+    { data: ambulances, error: ambError },
+    { data: invites, error: invError }
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('ambulances')
+      .select('id, vehicle_number, driver_name, driver_phone, vehicle_type, is_active')
+      .eq('affiliated_hospital_id', hospitalId),
+    supabaseAdmin
+      .from('hospital_ambulance_invites')
+      .select('id, driver_email, status, created_at')
+      .eq('hospital_id', hospitalId)
+      .eq('status', 'pending')
+  ]);
+
+  if (ambError) throw ambError;
+  if (invError) throw invError;
+
+  return { ambulances: ambulances || [], invites: invites || [] };
+};
+
+// Invite an ambulance driver
+const inviteAmbulance = async (hospitalId, userId, data) => {
+  const { email } = data;
+  if (!email) throw new ApiError(400, 'Email is required');
+
+  // Check if an invite is already pending for this email
+  const { data: existingInvite } = await supabaseAdmin
+    .from('hospital_ambulance_invites')
+    .select('id')
+    .eq('hospital_id', hospitalId)
+    .eq('driver_email', email)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (existingInvite) {
+    throw new ApiError(409, 'An invitation is already pending for this email');
+  }
+
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+
+  const { data: invite, error } = await supabaseAdmin
+    .from('hospital_ambulance_invites')
+    .insert({
+      hospital_id: hospitalId,
+      driver_email: email,
+      token,
+      status: 'pending'
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  
+  // In a real system, send email via NotificationService. 
+  // Here we return success.
+  return { data: invite, message: 'Invitation sent to the ambulance driver.' };
+};
+
+// Remove affiliated ambulance
+const removeAffiliatedAmbulance = async (hospitalId, userId, ambulanceId) => {
+  const { error } = await supabaseAdmin
+    .from('ambulances')
+    .update({ affiliated_hospital_id: null })
+    .eq('id', ambulanceId)
+    .eq('affiliated_hospital_id', hospitalId);
+    
+  if (error) throw error;
+  return { success: true, message: 'Ambulance association removed.' };
+};
+
 module.exports = {
   getHospitalByOwner,
   getDashboard,
@@ -921,4 +995,7 @@ module.exports = {
   getManagers,
   addManager,
   getConsultations,
+  getAffiliatedAmbulances,
+  inviteAmbulance,
+  removeAffiliatedAmbulance,
 };

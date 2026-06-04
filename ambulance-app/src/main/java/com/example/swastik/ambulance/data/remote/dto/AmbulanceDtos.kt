@@ -239,3 +239,19 @@ data class ChangePasswordRequest(
     val currentPassword: String,
     val newPassword: String
 )
+
+data class InviteHospital(
+    val name: String,
+    val address: String,
+    val city: String
+)
+
+data class InviteDto(
+    val id: String,
+    val hospital_id: String,
+    val driver_email: String,
+    val token: String,
+    val status: String,
+    val created_at: String,
+    val hospital: InviteHospital?
+)

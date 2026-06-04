@@ -432,4 +432,34 @@ router.get('/system/health', asyncHandler(async (req, res) => {
     res.json({ success: true, data: health });
 }));
 
+/**
+ * GET /api/admin/fleet
+ * Fetch all ambulances for live tracking map
+ */
+router.get('/fleet', asyncHandler(async (req, res) => {
+    // Return all ambulances that have non-null coordinates
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data: ambulances, error } = await supabaseAdmin
+        .from('ambulances')
+        .select(`
+            id,
+            vehicle_number,
+            driver_name,
+            driver_phone,
+            vehicle_type,
+            status,
+            current_latitude,
+            current_longitude
+        `)
+        .not('current_latitude', 'is', null)
+        .not('current_longitude', 'is', null);
+
+    if (error) {
+        console.error('Fleet fetch error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to fetch fleet data' });
+    }
+
+    res.json({ success: true, data: ambulances });
+}));
+
 module.exports = router;

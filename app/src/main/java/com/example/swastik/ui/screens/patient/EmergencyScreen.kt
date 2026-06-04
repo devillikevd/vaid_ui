@@ -890,6 +890,7 @@ private fun ActiveEmergencyView(
                                 center = GeoPoint(midLat, midLng),
                                 zoom = 14.0,
                                 markers = trackingMarkers,
+                                route = uiState.route ?: emptyList(),
                                 showUserLocation = false
                             )
                         }

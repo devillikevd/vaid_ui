@@ -961,6 +961,22 @@ router.post('/emergency',
   })
 );
 
+// Request direct SOS to a specific hospital
+router.post('/emergency/hospital',
+  [
+    body('hospitalId').isUUID().withMessage('Valid hospital ID is required'),
+    body('latitude').isFloat().withMessage('Valid latitude is required'),
+    body('longitude').isFloat().withMessage('Valid longitude is required'),
+    body('emergencyType').optional().isIn(['medical', 'general', 'cardiac', 'accident', 'trauma', 'pregnancy', 'other']),
+    body('notes').optional().isString()
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await dispatchService.requestDirectHospitalSOS(req.user.id, req.body);
+    res.status(result.alreadyActive ? 200 : 201).json({ success: true, data: result });
+  })
+);
+
 // Get active emergency
 router.get('/emergency/active',
   asyncHandler(async (req, res) => {

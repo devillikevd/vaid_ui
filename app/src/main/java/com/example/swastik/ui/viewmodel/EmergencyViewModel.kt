@@ -44,7 +44,8 @@ data class EmergencyUiState(
     val vehicleNumber: String? = null,
     // ETA from ambulance location updates
     val ambulanceEta: String? = null,
-    val ambulanceDistanceKm: Double? = null
+    val ambulanceDistanceKm: Double? = null,
+    val route: List<org.osmdroid.util.GeoPoint>? = null
 )
 
 @HiltViewModel
@@ -156,6 +157,13 @@ class EmergencyViewModel @Inject constructor(
                         ambulanceEta = locationUpdate.eta ?: _uiState.value.ambulanceEta,
                         ambulanceDistanceKm = locationUpdate.distanceKm ?: _uiState.value.ambulanceDistanceKm
                     )
+                    // Fetch route dynamically
+                    if (_uiState.value.locationAvailable) {
+                        fetchRoute(
+                            locationUpdate.latitude, locationUpdate.longitude,
+                            _uiState.value.latitude, _uiState.value.longitude
+                        )
+                    }
                 }
             }
         }
@@ -192,6 +200,16 @@ class EmergencyViewModel @Inject constructor(
                         vehicleNumber = assigned.vehicleNumber
                     )
                 }
+            }
+        }
+    }
+
+    private fun fetchRoute(ambLat: Double, ambLng: Double, patLat: Double, patLng: Double) {
+        viewModelScope.launch {
+            val result = emergencyRepository.getRoute(ambLat, ambLng, patLat, patLng)
+            if (result is com.example.swastik.data.repository.Result.Success) {
+                val geoPoints = result.data.coordinates.map { org.osmdroid.util.GeoPoint(it[0], it[1]) }
+                _uiState.value = _uiState.value.copy(route = geoPoints)
             }
         }
     }

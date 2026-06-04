@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { hospitalApi } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
 import OsmMap from '@/components/shared/OsmMapDynamic';
-import type { MapMarker } from '@/components/shared/OsmMapDynamic';
+import type { MapMarker, MapRoute } from '@/components/shared/OsmMapDynamic';
 
 interface DispatchEmergency {
     id: string;
@@ -111,6 +111,10 @@ export default function HospitalEmergencyPage() {
     const [assigningId, setAssigningId] = useState<string | null>(null);
     const [selectedEmergency, setSelectedEmergency] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [affiliatedAmbulances, setAffiliatedAmbulances] = useState<any[]>([]);
+    const [incomingSos, setIncomingSos] = useState<any | null>(null);
+    const [routes, setRoutes] = useState<Record<string, [number, number][]>>({});
+    const [hospitalLocation, setHospitalLocation] = useState<{lat: number, lng: number} | null>(null);
     const { on, emit } = useSocket();
 
     const fetchEmergencies = useCallback(async () => {
@@ -130,14 +134,35 @@ export default function HospitalEmergencyPage() {
 
     const fetchAvailableAmbulances = useCallback(async (lat: number, lng: number) => {
         try {
-            const result = await hospitalApi.getAvailableAmbulances(lat, lng);
-            if (result.success) {
-                setAvailableAmbulances(Array.isArray(result.data) ? result.data : []);
+            const [availableRes, affiliatedRes] = await Promise.all([
+                hospitalApi.getAvailableAmbulances(lat, lng),
+                hospitalApi.getAffiliatedAmbulances()
+            ]);
+
+            if (availableRes.success) {
+                setAvailableAmbulances(Array.isArray(availableRes.data) ? availableRes.data : []);
+            }
+            if (affiliatedRes.success) {
+                setAffiliatedAmbulances(Array.isArray(affiliatedRes.data) ? affiliatedRes.data : []);
             }
         } catch { /* silent */ }
     }, []);
 
-    useEffect(() => { fetchEmergencies(); }, [fetchEmergencies]);
+    useEffect(() => { 
+        fetchEmergencies(); 
+        
+        // Fetch hospital profile to get location for return routing
+        hospitalApi.getProfile().then(res => {
+            const data = res.data as any;
+            if (res.success && data?.hospital) {
+                const hLat = data.hospital.latitude || data.hospital.location?.coordinates?.[1];
+                const hLng = data.hospital.longitude || data.hospital.location?.coordinates?.[0];
+                if (hLat && hLng) {
+                    setHospitalLocation({ lat: hLat, lng: hLng });
+                }
+            }
+        }).catch(() => {});
+    }, [fetchEmergencies]);
 
     // Join dispatch room for real-time updates
     useEffect(() => {
@@ -165,7 +190,29 @@ export default function HospitalEmergencyPage() {
                 }));
             }
         });
-        return () => { unsub1(); unsub2(); unsub3(); unsub4(); emit('ambulance:leave-dispatch', {}); };
+        
+        // M4: Listen for Direct Digital SOS from Patient App
+        const unsub5 = on('emergency:new-direct-sos', (data: any) => {
+            setIncomingSos(data);
+            fetchEmergencies();
+            // Play loud alarm
+            try {
+                const audio = new Audio('/sounds/emergency-alarm.mp3');
+                audio.loop = true;
+                audio.play().catch(e => console.warn("Audio autoplay blocked by browser", e));
+                (window as any)._sosAlarm = audio;
+            } catch (e) {
+                console.error("Audio play failed", e);
+            }
+        });
+
+        return () => { 
+            unsub1(); unsub2(); unsub3(); unsub4(); unsub5(); 
+            emit('ambulance:leave-dispatch', {}); 
+            if ((window as any)._sosAlarm) {
+                (window as any)._sosAlarm.pause();
+            }
+        };
     }, [on, emit, fetchEmergencies]);
 
     // Auto-refresh every 15 seconds
@@ -173,6 +220,46 @@ export default function HospitalEmergencyPage() {
         const interval = setInterval(fetchEmergencies, 15000);
         return () => clearInterval(interval);
     }, [fetchEmergencies]);
+
+    // Fetch routes for active emergencies
+    useEffect(() => {
+        const activeDispatches = emergencies.filter(e => 
+            ACTIVE_STATUSES.includes(toCanonicalStatus(e.status)) &&
+            Number.isFinite(e.latitude) && Number.isFinite(e.longitude) &&
+            Number.isFinite(e.ambulance?.latitude) && Number.isFinite(e.ambulance?.longitude)
+        );
+
+        activeDispatches.forEach(async (e) => {
+            const routeId = `route-${e.id}-${toCanonicalStatus(e.status)}`;
+            // If we don't have the route yet, fetch it
+            if (!routes[routeId]) {
+                try {
+                    const isReturningToHospital = toCanonicalStatus(e.status) === 'en_route_hospital' || toCanonicalStatus(e.status) === 'arrived_hospital';
+                    let destLat = e.latitude;
+                    let destLng = e.longitude;
+                    
+                    if (isReturningToHospital && hospitalLocation) {
+                        destLat = hospitalLocation.lat;
+                        destLng = hospitalLocation.lng;
+                    }
+                    
+                    if (destLat && destLng) {
+                        const token = localStorage.getItem('token');
+                        const res = await fetch(
+                            `/api/maps/route?originLat=${e.ambulance!.latitude}&originLng=${e.ambulance!.longitude}&destLat=${destLat}&destLng=${destLng}`,
+                            { headers: { 'Authorization': `Bearer ${token}` } }
+                        );
+                        const data = await res.json();
+                        if (data.success && data.data?.coordinates) {
+                            setRoutes(prev => ({ ...prev, [routeId]: data.data.coordinates }));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch route:', error);
+                }
+            }
+        });
+    }, [emergencies, routes, hospitalLocation]);
 
     // When selecting an emergency for assignment, load available ambulances
     const handleSelectForAssign = async (emergency: DispatchEmergency) => {
@@ -239,6 +326,12 @@ export default function HospitalEmergencyPage() {
         }
     });
 
+    const mapRoutes: MapRoute[] = Object.entries(routes).map(([id, coordinates]) => ({
+        id,
+        coordinates,
+        color: '#4F46E5', // Indigo route line
+    }));
+
     if (isLoading && emergencies.length === 0) {
         return <div className="flex items-center justify-center h-96"><Loader2 className="h-8 w-8 animate-spin text-red-600" /></div>;
     }
@@ -255,6 +348,51 @@ export default function HospitalEmergencyPage() {
                     <Button onClick={fetchEmergencies} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
                 </div>
             </div>
+
+            {/* Direct SOS Incoming Alarm Banner */}
+            {incomingSos && (
+                <div className="bg-red-600 rounded-2xl p-6 shadow-2xl border-4 border-red-500 animate-pulse text-white flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white p-4 rounded-full">
+                            <Siren className="h-10 w-10 text-red-600 animate-bounce" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black uppercase tracking-wider">🚨 Incoming Digital SOS 🚨</h2>
+                            <p className="text-red-100 mt-1 text-lg">
+                                {incomingSos.patientName} • {incomingSos.patientPhone}
+                            </p>
+                            <p className="font-mono bg-red-800/50 px-2 py-1 rounded inline-block mt-2">
+                                GPS: {incomingSos.latitude?.toFixed(5)}, {incomingSos.longitude?.toFixed(5)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button 
+                            variant="outline" 
+                            className="bg-red-700 text-white border-red-400 hover:bg-red-800"
+                            onClick={() => {
+                                if ((window as any)._sosAlarm) (window as any)._sosAlarm.pause();
+                                setIncomingSos(null);
+                            }}
+                        >
+                            Silence Alarm
+                        </Button>
+                        <Button 
+                            className="bg-white text-red-600 hover:bg-red-50 text-lg font-bold px-8 py-6 h-auto"
+                            onClick={() => {
+                                if ((window as any)._sosAlarm) (window as any)._sosAlarm.pause();
+                                setIncomingSos(null);
+                                // The fetchEmergencies already ran, so it's in the list.
+                                // We can auto-select it for assignment.
+                                const e = emergencies.find(em => em.id === incomingSos.requestId);
+                                if (e) handleSelectForAssign(e);
+                            }}
+                        >
+                            Assign Ambulance Now
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -302,6 +440,7 @@ export default function HospitalEmergencyPage() {
                             lng={mapMarkers[0]?.lng || 78.9629}
                             zoom={12}
                             markers={mapMarkers}
+                            routes={mapRoutes}
                             height="350px"
                             fitBounds
                         />
@@ -324,33 +463,67 @@ export default function HospitalEmergencyPage() {
                 <Card padding="md" className="border-2 border-blue-400 bg-blue-50/30">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-blue-900">🚑 Select Ambulance to Assign</h3>
-                        <button onClick={() => { setSelectedEmergency(null); setAvailableAmbulances([]); }}
+                        <button onClick={() => { setSelectedEmergency(null); setAvailableAmbulances([]); setAffiliatedAmbulances([]); }}
                             className="text-gray-400 hover:text-gray-600 dark:text-gray-400"><XCircle className="h-5 w-5" /></button>
                     </div>
-                    {availableAmbulances.length === 0 ? (
-                        <p className="text-gray-500 dark:text-gray-400 text-center py-4">No available ambulances found nearby</p>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {availableAmbulances.map((amb) => (
-                                <div key={amb.id} className="bg-white dark:bg-gray-900 border rounded-xl p-3 hover:border-blue-400 transition-colors">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium text-gray-900 dark:text-gray-100">{amb.vehicle_number}</span>
-                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Available</span>
+
+                    <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Hospital Affiliated Ambulances</h4>
+                        {affiliatedAmbulances.length === 0 ? (
+                            <p className="text-gray-500 text-sm">No affiliated ambulances available.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                                {affiliatedAmbulances.map((amb) => (
+                                    <div key={amb.id} className="bg-white border-2 border-indigo-200 rounded-xl p-3 hover:border-indigo-400 transition-colors">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-medium text-gray-900">{amb.vehicle_number}</span>
+                                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3"/> Affiliated
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-600">{amb.driver_name}</p>
+                                        <p className="text-xs text-gray-500">{amb.vehicle_type} • {amb.status}</p>
+                                        <button
+                                            onClick={() => handleAssignAmbulance(selectedEmergency, amb.id)}
+                                            disabled={actionLoading === selectedEmergency || amb.status !== 'available'}
+                                            className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {actionLoading === selectedEmergency ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                            Dispatch Affiliated
+                                        </button>
                                     </div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{amb.driver_name}</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{amb.vehicle_type} • {amb.distanceText} • ETA {amb.eta}</p>
-                                    <button
-                                        onClick={() => handleAssignAmbulance(selectedEmergency, amb.id)}
-                                        disabled={actionLoading === selectedEmergency}
-                                        className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-                                    >
-                                        {actionLoading === selectedEmergency ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                                        Assign
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Nearest Available Ambulances</h4>
+                        {availableAmbulances.length === 0 ? (
+                            <p className="text-gray-500 text-sm">No other ambulances found nearby.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {availableAmbulances.map((amb) => (
+                                    <div key={amb.id} className="bg-white dark:bg-gray-900 border rounded-xl p-3 hover:border-blue-400 transition-colors">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-medium text-gray-900 dark:text-gray-100">{amb.vehicle_number}</span>
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Available</span>
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">{amb.driver_name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{amb.vehicle_type} • {amb.distanceText} • ETA {amb.eta}</p>
+                                        <button
+                                            onClick={() => handleAssignAmbulance(selectedEmergency, amb.id)}
+                                            disabled={actionLoading === selectedEmergency}
+                                            className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            {actionLoading === selectedEmergency ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                            Dispatch Nearest
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </Card>
             )}
 

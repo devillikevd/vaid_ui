@@ -28,7 +28,10 @@ data class DashboardUiState(
     val vehicles: List<VehicleDto> = emptyList(),
     val actionRequestId: String? = null,
     val actionStatus: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val route: List<org.osmdroid.util.GeoPoint>? = null,
+    val distance: Double? = null,
+    val eta: Double? = null
 )
 
 data class EmergencyListState(
@@ -138,6 +141,16 @@ class DashboardViewModel @Inject constructor(
             socketManager.patientLocationFlow.collect { data ->
                 _patientLocationUpdate.tryEmit(data)
                 _userMessage.tryEmit("📍 Patient location updated")
+                data?.let {
+                    try {
+                        val json = org.json.JSONObject(it)
+                        val lat = json.optDouble("latitude")
+                        val lng = json.optDouble("longitude")
+                        if (!lat.isNaN() && !lng.isNaN()) {
+                            loadRouteToPatient(lat, lng)
+                        }
+                    } catch (e: Exception) {}
+                }
             }
         }
 
@@ -163,7 +176,14 @@ class DashboardViewModel @Inject constructor(
             result.fold(
                 onSuccess = { dashboard ->
                     syncActiveRequestTracking(dashboard.activeEmergencies.orEmpty())
-                    _dashboardState.value = DashboardUiState(
+                    val topEmergency = dashboard.activeEmergencies?.firstOrNull {
+                        it.latitude != null && it.longitude != null
+                    }
+                    if (topEmergency != null && topEmergency.latitude != null && topEmergency.longitude != null) {
+                        loadRouteToPatient(topEmergency.latitude, topEmergency.longitude)
+                    }
+                    _dashboardState.value = _dashboardState.value.copy(
+                        isLoading = false,
                         stats = dashboard.stats,
                         activeEmergencies = dashboard.activeEmergencies ?: emptyList(),
                         vehicles = dashboard.vehicles ?: emptyList(),
@@ -177,6 +197,29 @@ class DashboardViewModel @Inject constructor(
                         isLoading = false,
                         error = e.message
                     )
+                }
+            )
+        }
+    }
+
+    fun loadRouteToPatient(patientLat: Double, patientLng: Double) {
+        val currentLoc = com.example.swastik.ambulance.service.LocationTrackingService.currentLocation.value ?: return
+        viewModelScope.launch {
+            val result = ambulanceRepository.getRoute(
+                currentLoc.latitude, currentLoc.longitude,
+                patientLat, patientLng
+            )
+            result.fold(
+                onSuccess = { dto ->
+                    val geoPoints = dto.coordinates.map { org.osmdroid.util.GeoPoint(it[0], it[1]) }
+                    _dashboardState.value = _dashboardState.value.copy(
+                        route = geoPoints,
+                        distance = dto.distanceMeters,
+                        eta = dto.durationSeconds
+                    )
+                },
+                onFailure = { e ->
+                    Log.w(TAG, "Failed to load route: ${e.message}")
                 }
             )
         }

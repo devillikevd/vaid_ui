@@ -150,6 +150,31 @@ router.post('/:requestId/reject', authenticate,
   })
 );
 
+// Hospital Invites
+router.get('/invites/pending', authenticate,
+  requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER),
+  asyncHandler(async (req, res) => {
+    const result = await ambulanceService.getPendingInvites(req.user.id);
+    res.json({ success: true, data: result });
+  })
+);
+
+router.post('/invites/:token/accept', authenticate,
+  requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER),
+  asyncHandler(async (req, res) => {
+    const result = await ambulanceService.acceptInvite(req.user.id, req.params.token);
+    res.json({ success: true, ...result });
+  })
+);
+
+router.post('/invites/:token/reject', authenticate,
+  requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER),
+  asyncHandler(async (req, res) => {
+    const result = await ambulanceService.rejectInvite(req.user.id, req.params.token);
+    res.json({ success: true, ...result });
+  })
+);
+
 router.put('/location', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   [body('latitude').isFloat(), body('longitude').isFloat(),

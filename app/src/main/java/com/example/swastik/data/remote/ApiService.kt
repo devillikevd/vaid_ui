@@ -180,8 +180,21 @@ interface ApiService {
     @DELETE("reports/{id}")
     suspend fun deleteReport(@Path("id") id: String): Response<ApiResponse<Unit>>
     
+    // ==================== EMERGENCY ====================
+    
+    @GET("maps/route")
+    suspend fun getRoute(
+        @Query("originLat") originLat: Double,
+        @Query("originLng") originLng: Double,
+        @Query("destLat") destLat: Double,
+        @Query("destLng") destLng: Double
+    ): Response<ApiResponse<RouteDto>>
+
     @POST("patients/emergency")
     suspend fun requestEmergency(@Body request: com.example.swastik.data.remote.dto.EmergencyRequest): Response<ApiResponse<EmergencyResponse>>
+
+    @POST("patients/emergency/hospital")
+    suspend fun requestHospitalEmergency(@Body request: DirectSosRequest): Response<ApiResponse<EmergencyResponse>>
 
     @POST("patients/emergency-contact-alert")
     suspend fun notifyEmergencyContacts(

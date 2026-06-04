@@ -16,6 +16,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
 
 /**
  * Data class for map markers.
@@ -40,6 +41,7 @@ fun OsmMapView(
     center: GeoPoint = GeoPoint(20.5937, 78.9629),
     zoom: Double = 14.0,
     markers: List<MapMarkerData> = emptyList(),
+    route: List<GeoPoint> = emptyList(),
     showUserLocation: Boolean = false,
     userLatitude: Double = 0.0,
     userLongitude: Double = 0.0
@@ -107,6 +109,18 @@ fun OsmMapView(
                     icon = createCircleDrawable(context, android.graphics.Color.parseColor("#1976D2"), 20)
                 }
                 mapView.overlays.add(userMarker)
+            }
+
+            // Add route polyline if available
+            if (route.isNotEmpty()) {
+                val polyline = Polyline(mapView).apply {
+                    setPoints(route)
+                    outlinePaint.color = android.graphics.Color.parseColor("#4F46E5") // Indigo
+                    outlinePaint.strokeWidth = 10f
+                    outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                    outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
+                }
+                mapView.overlays.add(polyline)
             }
 
             markers.forEach { markerData ->

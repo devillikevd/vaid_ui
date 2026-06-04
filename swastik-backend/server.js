@@ -43,6 +43,8 @@ const uploadRoutes = require('./routes/uploads');
 const healthCardRoutes = require('./routes/healthCard');
 const vitalsRoutes = require('./routes/vitals');
 const outbreakRoutes = require('./routes/outbreak');
+const mapsRoutes = require('./routes/maps');
+
 const { startOutbreakCron } = require('./services/outbreakService');
 
 const isEnvEnabled = (name, fallback = true) => {
@@ -424,6 +426,8 @@ app.use('/api/health-card', healthCardRoutes);
 app.use('/api/vitals', vitalsRoutes);
 app.use('/api/admin/outbreaks', outbreakRoutes);
 app.use('/api/community', require('./routes/communityRoutes'));
+app.use('/api/maps', mapsRoutes);
+
 
 // Error handling
 app.use(notFound);

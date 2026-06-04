@@ -97,6 +97,9 @@ class LocationTrackingService : Service() {
                             }
                         }
                     }
+                    
+                    // Update companion object for local UI consumers
+                    currentLocation.value = android.location.Location(location)
                 }
             }
         }
@@ -263,6 +266,9 @@ class LocationTrackingService : Service() {
         private const val TAG = "LocationService"
         private const val CHANNEL_ID = "ambulance_location_channel"
         private const val NOTIFICATION_ID = 1001
+
+        /** Live GPS location available for app UI (e.g. Dashboard) */
+        val currentLocation = kotlinx.coroutines.flow.MutableStateFlow<android.location.Location?>(null)
 
         /** Location update interval in milliseconds (5 seconds) — active emergency */
         private const val LOCATION_INTERVAL_MS = 5000L

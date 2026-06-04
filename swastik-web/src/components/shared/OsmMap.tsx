@@ -14,6 +14,12 @@ export interface MapMarker {
     pulse?: boolean;
 }
 
+export interface MapRoute {
+    id: string;
+    coordinates: [number, number][]; // [lat, lng]
+    color?: string;
+}
+
 interface OsmMapProps {
     /** Map center latitude */
     lat?: number;
@@ -23,6 +29,8 @@ interface OsmMapProps {
     zoom?: number;
     /** Array of markers to display */
     markers?: MapMarker[];
+    /** Array of routes (polylines) to display */
+    routes?: MapRoute[];
     /** CSS class for the container */
     className?: string;
     /** Height of the map */
@@ -42,6 +50,7 @@ export default function OsmMap({
     lng = 78.9629,
     zoom = 13,
     markers = [],
+    routes = [],
     className = '',
     height = '400px',
     fitBounds = false,
@@ -92,11 +101,22 @@ export default function OsmMap({
         mapRef.current.setView([lat, lng], zoom);
     }, [lat, lng, zoom]);
 
-    // Update markers
+    // Update markers and routes
     useEffect(() => {
         if (!mapRef.current || !markersLayerRef.current) return;
         markersLayerRef.current.clearLayers();
 
+        // Add Routes
+        routes.forEach((route) => {
+            const polyline = L.polyline(route.coordinates, {
+                color: route.color || '#4F46E5', // Indigo by default
+                weight: 5,
+                opacity: 0.8,
+            });
+            markersLayerRef.current!.addLayer(polyline);
+        });
+
+        // Add Markers
         markers.forEach((m) => {
             const icon = createColoredIcon(m.color || '#D32F2F', m.pulse);
             const marker = L.marker([m.lat, m.lng], { icon, title: m.title });
@@ -114,12 +134,17 @@ export default function OsmMap({
             markersLayerRef.current!.addLayer(marker);
         });
 
-        // Auto-fit bounds if enabled and markers exist
-        if (fitBounds && markers.length > 0) {
-            const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng]));
-            mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+        // Auto-fit bounds if enabled and markers/routes exist
+        if (fitBounds && (markers.length > 0 || routes.length > 0)) {
+            const bounds = L.latLngBounds([]);
+            markers.forEach((m) => bounds.extend([m.lat, m.lng]));
+            routes.forEach((r) => r.coordinates.forEach((c) => bounds.extend(c)));
+            
+            if (bounds.isValid()) {
+                mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+            }
         }
-    }, [markers, fitBounds, onMarkerClick]);
+    }, [markers, routes, fitBounds, onMarkerClick]);
 
     return (
         <div

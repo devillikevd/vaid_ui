@@ -18,5 +18,5 @@ const OsmMap = dynamic(() => import('./OsmMap'), {
     ),
 });
 
-export type { MapMarker } from './OsmMap';
+export type { MapMarker, MapRoute } from './OsmMap';
 export default OsmMap;

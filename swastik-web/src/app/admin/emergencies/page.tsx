@@ -60,6 +60,17 @@ interface Emergency {
     longitude?: number;
 }
 
+interface FleetAmbulance {
+    id: string;
+    vehicle_number: string;
+    driver_name: string;
+    driver_phone: string;
+    vehicle_type: string;
+    status: string;
+    current_latitude: number;
+    current_longitude: number;
+}
+
 const STATUS_FILTERS = [
     { id: 'active', label: 'Active' },
     { id: 'all', label: 'All' },
@@ -82,6 +93,7 @@ const EMERGENCY_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 export default function EmergenciesPage() {
     const [emergencies, setEmergencies] = useState<Emergency[]>([]);
+    const [fleet, setFleet] = useState<FleetAmbulance[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState('active');
@@ -139,7 +151,18 @@ export default function EmergenciesPage() {
         setIsLoading(false);
     }, [page, statusFilter]);
 
-    useEffect(() => { fetchEmergencies(); }, [fetchEmergencies]);
+    const fetchFleet = useCallback(async () => {
+        try {
+            const result = await adminApi.getFleet();
+            if (result.success && Array.isArray(result.data)) {
+                setFleet(result.data);
+            }
+        } catch {
+            // silent
+        }
+    }, []);
+
+    useEffect(() => { fetchEmergencies(); fetchFleet(); }, [fetchEmergencies, fetchFleet]);
     useEffect(() => { setPage(1); }, [statusFilter]);
 
     // Join dispatch room for live updates
@@ -148,7 +171,6 @@ export default function EmergenciesPage() {
         const unsub1 = on('emergency:new', () => fetchEmergencies());
         const unsub2 = on('emergency:updated', () => fetchEmergencies());
         const unsub3 = on('ambulance:status-update', () => fetchEmergencies());
-        // M4: Listen for ambulance location updates for live map markers
         const unsub4 = on('ambulance:location-update', (data: any) => {
             if (data.latitude && data.longitude) {
                 setEmergencies((prev: Emergency[]) => prev.map(e => {
@@ -157,6 +179,12 @@ export default function EmergenciesPage() {
                     }
                     return e;
                 }));
+                setFleet((prev: FleetAmbulance[]) => prev.map(a => {
+                    if (a.id === data.ambulanceId) {
+                        return { ...a, current_latitude: data.latitude, current_longitude: data.longitude };
+                    }
+                    return a;
+                }));
             }
         });
         return () => { unsub1(); unsub2(); unsub3(); unsub4(); emit('ambulance:leave-dispatch', {}); };
@@ -164,9 +192,12 @@ export default function EmergenciesPage() {
 
     // Auto-refresh every 15 seconds
     useEffect(() => {
-        const interval = setInterval(fetchEmergencies, 15000);
+        const interval = setInterval(() => {
+            fetchEmergencies();
+            fetchFleet();
+        }, 15000);
         return () => clearInterval(interval);
-    }, [fetchEmergencies]);
+    }, [fetchEmergencies, fetchFleet]);
 
     const pendingCount = summary.pending;
     const activeCount = summary.active;
@@ -225,6 +256,21 @@ export default function EmergenciesPage() {
     });
     });
 
+    const fleetMarkers: MapMarker[] = fleet.map(a => {
+        const isAvailable = a.status === 'available';
+        return {
+            id: `fleet-${a.id}`,
+            lat: a.current_latitude,
+            lng: a.current_longitude,
+            title: `🚑 ${a.vehicle_number}`,
+            popup: `Driver: ${a.driver_name}<br/>Status: <strong>${a.status}</strong>`,
+            color: isAvailable ? '#059669' : '#3B82F6', // Green if available, Blue otherwise
+            pulse: !isAvailable, // Pulse if busy
+        };
+    });
+
+    const allMarkers = [...mapMarkers, ...fleetMarkers];
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -273,17 +319,16 @@ export default function EmergenciesPage() {
                 </Card>
             </div>
 
-            {/* Live Map */}
-            {mapMarkers.length > 0 && (
+            {allMarkers.length > 0 && (
                 <Card padding="none">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Radio className="h-5 w-5 text-red-500 animate-pulse" />
-                            Live Emergency Map
+                            Live Fleet & Emergency Map
                         </CardTitle>
                     </CardHeader>
                     <div className="px-4 pb-4">
-                        <OsmMap lat={mapMarkers[0].lat} lng={mapMarkers[0].lng} zoom={12} markers={mapMarkers} height="350px" fitBounds />
+                        <OsmMap lat={allMarkers[0].lat} lng={allMarkers[0].lng} zoom={12} markers={allMarkers} height="350px" fitBounds />
                     </div>
                 </Card>
             )}
