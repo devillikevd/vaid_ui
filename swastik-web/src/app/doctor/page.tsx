@@ -26,7 +26,7 @@ import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function DoctorDashboard() {
-    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation } = useDoctorStore();
+    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, fetchReviews, reviews, loadingReviews } = useDoctorStore();
     const { user } = useAuthStore();
     const router = useRouter();
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
@@ -66,6 +66,12 @@ export default function DoctorDashboard() {
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchReviews(user.id);
+        }
+    }, [user?.id, fetchReviews]);
 
     const currentTime = new Date();
     const nextAppointment = todaysAppointments.find((appointment: Appointment) =>
@@ -295,15 +301,6 @@ export default function DoctorDashboard() {
                         <CardContent>
                             <div className="space-y-3">
                                 {(() => {
-                                    // Local state for reviews since fetching relies on user ID
-                                    const { user } = useAuthStore();
-                                    const { fetchReviews, reviews, loadingReviews } = useDoctorStore();
-                                    useEffect(() => {
-                                        if (user?.id) {
-                                            fetchReviews(user.id);
-                                        }
-                                    }, [user?.id, fetchReviews]);
-                                    
                                     if (loadingReviews && reviews.length === 0) {
                                         return <div className="text-center py-4"><span className="text-emerald-600">Loading reviews...</span></div>;
                                     }
