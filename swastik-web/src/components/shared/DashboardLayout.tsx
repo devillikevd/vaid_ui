@@ -254,13 +254,19 @@ export default function DashboardLayout({
     );
     const normalizedApprovalStatus = user?.approval_status === 'under_review' ? 'review' : user?.approval_status;
 
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     useEffect(() => {
         if (_hasHydrated && (!isAuthenticated || !roleMatches)) {
             router.push(config.loginPath);
         }
     }, [isAuthenticated, _hasHydrated, roleMatches, router, config.loginPath]);
 
-    if (!_hasHydrated || !isAuthenticated || !roleMatches) {
+    if (!isMounted || !_hasHydrated || !isAuthenticated || !roleMatches) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
                 <div className={cn('animate-spin h-8 w-8 border-4 border-t-transparent rounded-full', colors.spinner)} />

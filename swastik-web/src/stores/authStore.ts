@@ -235,7 +235,9 @@ export const useAuthStore = create<AuthState>()(
                         const data = await response.json();
 
                         if (!response.ok || !data.success) {
-                            get().logout();
+                            if (response.status >= 400 && response.status < 500) {
+                                get().logout();
+                            }
                             return false;
                         }
 
@@ -254,8 +256,10 @@ export const useAuthStore = create<AuthState>()(
                         });
 
                         return true;
-                    } catch {
-                        get().logout();
+                    } catch (err: any) {
+                        if (err.name !== 'TypeError') {
+                            get().logout();
+                        }
                         return false;
                     } finally {
                         refreshPromise = null;
@@ -280,9 +284,8 @@ export const useAuthStore = create<AuthState>()(
                 // H12: Check if persisted access token is expired on rehydration
                 if (state?.accessToken && isJwtExpired(state.accessToken)) {
                     // Token expired — attempt a background refresh
-                    state.refreshAuth().then((ok) => {
-                        if (!ok) state.logout();
-                        else state.setLoading(false);
+                    state.refreshAuth().then(() => {
+                        state.setLoading(false);
                     });
                 } else {
                     state?.setLoading(false);
