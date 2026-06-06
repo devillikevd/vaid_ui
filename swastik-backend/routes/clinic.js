@@ -271,4 +271,13 @@ router.put('/owner/schedule', requireRole(ROLES.CLINIC_OWNER), asyncHandler(asyn
     res.json({ success: true, data: { schedule } });
 }));
 
+// Reviews
+router.get('/owner/reviews', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+    const clinic = await clinicService.getClinicByOwner(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+    const reviewService = require('../services/reviewService');
+    const result = await reviewService.getEntityReviews('clinic', clinic.id, parseInt(page), parseInt(limit));
+    res.json({ success: true, ...result });
+}));
+
 module.exports = router;

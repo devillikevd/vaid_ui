@@ -44,8 +44,13 @@ class HealthCardService {
       await cacheDel(`${HEALTH_CARD_PREFIX}${existingToken}`);
     }
 
-    // Generate a cryptographically secure token
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate a secure 6-character alphanumeric token for easy manual entry
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let token = '';
+    const randomBytesArray = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) {
+      token += chars[randomBytesArray[i] % chars.length];
+    }
 
     // Store: token → userId mapping (for public lookup)
     await cacheSet(`${HEALTH_CARD_PREFIX}${token}`, {

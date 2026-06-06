@@ -325,10 +325,10 @@ BEGIN
   FOR v_slot IN SELECT * FROM jsonb_array_elements(p_slots)
   LOOP
     INSERT INTO doctor_slots (
-      doctor_id, day_of_week, start_time, end_time, is_active
+      doctor_id, slot_date, start_time, end_time, is_active
     ) VALUES (
       p_doctor_id,
-      (v_slot->>'day_of_week')::INTEGER,
+      (v_slot->>'slot_date')::DATE,
       v_slot->>'start_time',
       v_slot->>'end_time',
       true

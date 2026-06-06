@@ -86,7 +86,11 @@ sealed class Screen(val route: String) {
         }
     }
     object Reports : Screen("reports")
-    object Prescriptions : Screen("prescriptions")
+    object Prescriptions : Screen("prescriptions?doctorId={doctorId}") {
+        fun createRoute(doctorId: String? = null): String {
+            return if (doctorId == null) "prescriptions" else "prescriptions?doctorId=$doctorId"
+        }
+    }
     object Chatbot : Screen("chatbot")
     object Emergency : Screen("emergency")
     object DiagnosticBooking : Screen("diagnostic_booking?centerId={centerId}") {

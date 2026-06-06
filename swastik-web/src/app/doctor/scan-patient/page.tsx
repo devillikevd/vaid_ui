@@ -89,7 +89,7 @@ export default function ScanPatientQRPage() {
                 if (barcodes.length > 0) {
                     const url = barcodes[0].rawValue;
                     // Extract token from URL like https://domain/health-card/TOKEN
-                    const tokenMatch = String(url || '').match(/health-card\/([a-f0-9]{64})/i);
+                    const tokenMatch = String(url || '').match(/health-card\/([A-Za-z0-9]{6})/i);
                     if (tokenMatch) {
                         // Stop scanning
                         if (streamRef.current) {
@@ -138,13 +138,13 @@ export default function ScanPatientQRPage() {
         const decoded = (() => {
             try { return decodeURIComponent(token); } catch { return token; }
         })();
-        const urlMatch = decoded.match(/health-card\/([a-f0-9]{64})/i);
-        const rawMatch = decoded.match(/^[a-f0-9]{64}$/i);
-        const extracted = (urlMatch?.[1] || (rawMatch ? decoded : null))?.toLowerCase();
+        const urlMatch = decoded.match(/health-card\/([A-Za-z0-9]{6})/i);
+        const rawMatch = decoded.match(/^[A-Za-z0-9]{6}$/i);
+        const extracted = (urlMatch?.[1] || (rawMatch ? decoded : null))?.toUpperCase();
         if (extracted) {
             validateAndNavigate(extracted);
         } else {
-            setResult({ success: false, message: 'Invalid token. Paste the full URL or 64-character token.' });
+            setResult({ success: false, message: 'Invalid token. Paste the full URL or 6-character Link ID.' });
         }
     };
 
@@ -220,8 +220,8 @@ export default function ScanPatientQRPage() {
                             Paste the health card URL or token shared by the patient
                         </p>
                         <div className="flex gap-2">
-                            <input type="text" value={manualToken} onChange={e => setManualToken(e.target.value)}
-                                placeholder="https://vaididea.in/health-card/abc123... or token"
+                            <input type="text" value={manualToken} onChange={e => setManualToken(e.target.value.toUpperCase())}
+                                placeholder="https://vaididea.in/health-card/A2B9X1 or 6-character Link ID"
                                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
                             />

@@ -1,5 +1,11 @@
 package com.example.swastik.ui.viewmodel
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+
+import com.example.swastik.data.remote.SocketManager
+import kotlinx.coroutines.flow.collectLatest
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.*
@@ -50,6 +56,7 @@ data class DoctorSearchFilters(
     val global: Boolean? = null
 )
 
+
 /**
  * Doctor Search ViewModel
  */
@@ -57,7 +64,8 @@ data class DoctorSearchFilters(
 class DoctorSearchViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository,
     private val apiService: ApiService,
-    private val locationHelper: LocationHelper
+    private val locationHelper: LocationHelper,
+    private val socketManager: SocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DoctorSearchUiState())
@@ -68,6 +76,34 @@ class DoctorSearchViewModel @Inject constructor(
 
     private val _selectedDate = MutableStateFlow("")
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
+
+    private var currentSubscribedDoctorId: String? = null
+
+    init {
+        listenForSlotUpdates()
+    }
+
+    private fun listenForSlotUpdates() {
+        viewModelScope.launch {
+            socketManager.doctorSlotsUpdates.collectLatest { update ->
+                val timeSlotStr = update.optString("time_slot") ?: update.optString("timeSlot")
+                
+                // Update availableSlots state if present
+                val currentSlotsResponse = _uiState.value.availableSlots
+                if (currentSlotsResponse != null) {
+                    val updatedSlots = currentSlotsResponse.slots.map { 
+                        if (it.time == timeSlotStr) it.copy(isAvailable = false) else it 
+                    }
+                    val hasAvailableSlots = updatedSlots.any { it.isAvailable }
+                    _uiState.value = _uiState.value.copy(
+                        availableSlots = currentSlotsResponse.copy(
+                            slots = updatedSlots
+                        )
+                    )
+                }
+            }
+        }
+    }
 
     val pagedDoctors: Flow<PagingData<Doctor>> = _filters.flatMapLatest { filters ->
         Pager(
@@ -98,7 +134,62 @@ class DoctorSearchViewModel @Inject constructor(
      * Load more doctors (pagination)
      */
     fun loadMore() {
-        // Handled by LazyPagingItems in UI
+        // Handled automatically by Paging 3
+    }
+
+    /**
+     * Set specialization filter
+     */
+    fun setSpecialization(specialization: String?) {
+        _filters.value = _filters.value.copy(specialization = specialization)
+        searchDoctors(resetList = true)
+    }
+
+    /**
+     * Set search query filter
+     */
+    fun setSearchQuery(query: String?) {
+        _filters.value = _filters.value.copy(search = query)
+        searchDoctors(resetList = true)
+    }
+
+    /**
+     * Update location filter
+     */
+    fun updateLocation(latitude: Double, longitude: Double, city: String? = null) {
+        _filters.value = _filters.value.copy(
+            latitude = latitude,
+            longitude = longitude,
+            city = city,
+            global = false
+        )
+        searchDoctors(resetList = true)
+    }
+
+    /**
+     * Toggle global search
+     */
+    fun toggleGlobalSearch(enabled: Boolean) {
+        if (enabled) {
+            _filters.value = _filters.value.copy(
+                global = true,
+                latitude = null,
+                longitude = null,
+                city = null
+            )
+            searchDoctors(resetList = true)
+        } else {
+            viewModelScope.launch {
+                val location = locationHelper.getLastLocation()
+                _filters.value = _filters.value.copy(
+                    global = false,
+                    latitude = location?.latitude,
+                    longitude = location?.longitude,
+                    city = null
+                )
+                searchDoctors(resetList = true)
+            }
+        }
     }
 
     /**
@@ -166,6 +257,12 @@ class DoctorSearchViewModel @Inject constructor(
      * Select a doctor and load details
      */
     fun selectDoctor(doctorId: String) {
+        if (currentSubscribedDoctorId != doctorId) {
+            currentSubscribedDoctorId?.let { socketManager.unsubscribeFromDoctorSlots(it) }
+            socketManager.subscribeToDoctorSlots(doctorId)
+            currentSubscribedDoctorId = doctorId
+        }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             
@@ -192,8 +289,17 @@ class DoctorSearchViewModel @Inject constructor(
      * Clear selected doctor
      */
     fun clearSelectedDoctor() {
+        currentSubscribedDoctorId?.let { 
+            socketManager.unsubscribeFromDoctorSlots(it) 
+            currentSubscribedDoctorId = null
+        }
         _uiState.value = _uiState.value.copy(selectedDoctor = null, availableSlots = null)
         _selectedDate.value = ""
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        currentSubscribedDoctorId?.let { socketManager.unsubscribeFromDoctorSlots(it) }
     }
 
     /**

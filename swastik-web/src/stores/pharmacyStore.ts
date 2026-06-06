@@ -72,6 +72,18 @@ export interface Prescription {
     date?: string;
 }
 
+export interface Review {
+    id: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+    is_anonymous: boolean;
+    created_at: string;
+    patient?: {
+        name: string;
+    };
+}
+
 export interface OrderSummary {
     total: number;
     pending: number;
@@ -217,7 +229,9 @@ interface PharmacyState {
     loadingOrders: boolean;
     loadingPrescriptions: boolean;
     loadingAnalytics: boolean;
+    loadingReviews: boolean;
     error: string | null;
+    reviews: Review[];
     inventoryQuery: InventoryQuery;
     ordersQuery: OrdersQuery;
     prescriptionsQuery: PrescriptionsQuery;
@@ -228,6 +242,7 @@ interface PharmacyState {
     fetchPrescriptions: (params?: PrescriptionsQuery) => Promise<void>;
     fetchLowStockItems: () => Promise<void>;
     fetchAnalytics: (period?: string) => Promise<void>;
+    fetchReviews: (page?: number) => Promise<void>;
     addInventoryItem: (data: Record<string, unknown>) => Promise<boolean>;
     addBulkInventoryItems: (items: any[]) => Promise<boolean>;
     updateInventoryItem: (id: string, data: Record<string, unknown>) => Promise<boolean>;
@@ -255,7 +270,9 @@ const pharmacyInitialState = {
     loadingOrders: false,
     loadingPrescriptions: false,
     loadingAnalytics: false,
+    loadingReviews: false,
     error: null as string | null,
+    reviews: [] as Review[],
     inventoryQuery: { page: 1, limit: 10 } as InventoryQuery,
     ordersQuery: { page: 1, limit: 10 } as OrdersQuery,
     prescriptionsQuery: { page: 1, limit: 10 } as PrescriptionsQuery,
@@ -552,6 +569,23 @@ export const usePharmacyStore = create<PharmacyState>((set, get) => ({
             console.error('Error updating order status:', error);
             set({ error: 'Failed to update order status.' });
             return false;
+        }
+    },
+
+    fetchReviews: async (page = 1) => {
+        set({ loadingReviews: true, error: null });
+        try {
+            const response = await pharmacyApi.getReviews(page);
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load reviews', loadingReviews: false });
+                return;
+            }
+            const rawData = response.data;
+            const reviews = (Array.isArray(rawData) ? rawData : (rawData as any)?.reviews || (rawData as any)?.data || []) as Review[];
+            set({ reviews, loadingReviews: false });
+        } catch (error) {
+            console.error('Error fetching reviews:', error);
+            set({ error: 'Failed to load reviews.', loadingReviews: false });
         }
     },
 }));

@@ -285,7 +285,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     )
                 },
                 onNavigateToReports = { navController.navigateSafe(Screen.Reports.route) },
-                onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.route) },
+                onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.createRoute()) },
                 onNavigateToChatbot = { navController.navigateSafe(Screen.Chatbot.route) },
                 onNavigateToBooking = { doctorId ->
                     if (doctorId != null) {
@@ -533,8 +533,20 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         )
                     )
                 },
-                onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.route) },
-                onNavigateToBooking = { navController.navigateSafe(Screen.AppointmentBooking.createRoute()) }
+                onNavigateToPrescriptions = { doctorId -> 
+                    if (doctorId != null) {
+                        navController.navigateSafe(Screen.Prescriptions.createRoute(doctorId = doctorId))
+                    } else {
+                        navController.navigateSafe(Screen.Prescriptions.createRoute()) 
+                    }
+                },
+                onNavigateToBooking = { doctorId -> 
+                    if (doctorId != null) {
+                        navController.navigateSafe(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
+                    } else {
+                        navController.navigateSafe(Screen.AppointmentBooking.createRoute())
+                    }
+                }
             )
             }
         }
@@ -717,12 +729,16 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val doctorName = java.net.URLDecoder.decode(
                     backStackEntry.arguments?.getString("doctorName") ?: "Doctor", "UTF-8"
                 )
-                VideoConsultationFlow(
-                    appointmentId = appointmentId,
-                    doctorName = doctorName,
-                    onBackClick = { navController.popBackStack() },
-                    onConsultationComplete = { navController.popBackStack() }
-                )
+                
+                val context = androidx.compose.ui.platform.LocalContext.current
+                LaunchedEffect(appointmentId) {
+                    val intent = android.content.Intent(context, com.example.swastik.ui.screens.consultation.ConsultationActivity::class.java).apply {
+                        putExtra("appointmentId", appointmentId)
+                        putExtra("doctorName", doctorName)
+                    }
+                    context.startActivity(intent)
+                    navController.popBackStack()
+                }
             }
         }
 
@@ -742,13 +758,22 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
 
         composable(
             route = Screen.Prescriptions.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("doctorId") {
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "vaididea://prescriptions" },
                 navDeepLink { uriPattern = "https://vaididea.in/prescriptions" }
             )
-        ) {
+        ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
+            val doctorId = backStackEntry.arguments?.getString("doctorId")
             PrescriptionsScreen(
+                initialDoctorId = doctorId,
                 onBackClick = { navController.popBackStack() },
                 onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
             )

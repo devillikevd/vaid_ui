@@ -287,13 +287,26 @@ class ComputerVisionAnalyzer(
         val uPlane = imageProxy.planes[1]
         val vPlane = imageProxy.planes[2]
         
-        val yBuffer = yPlane.buffer
-        val uBuffer = uPlane.buffer
-        val vBuffer = vPlane.buffer
-        
         val yStride = yPlane.rowStride
         val uStride = uPlane.rowStride
         val vStride = vPlane.rowStride
+        val uPixelStride = uPlane.pixelStride
+        val vPixelStride = vPlane.pixelStride
+
+        // Copy buffers synchronously to prevent use-after-free if CameraX recycles the native buffer
+        val yBytes = ByteArray(yPlane.buffer.remaining())
+        yPlane.buffer.get(yBytes)
+        val yBufferCopy = ByteBuffer.wrap(yBytes)
+
+        val uBytes = ByteArray(uPlane.buffer.remaining())
+        uPlane.buffer.get(uBytes)
+        val uBufferCopy = ByteBuffer.wrap(uBytes)
+
+        val vBytes = ByteArray(vPlane.buffer.remaining())
+        vPlane.buffer.get(vBytes)
+        val vBufferCopy = ByteBuffer.wrap(vBytes)
+
+        imageProxy.close()
 
         try {
             analysisScope.launch {
@@ -305,24 +318,24 @@ class ComputerVisionAnalyzer(
                     }
                     val nv21 = nv21Buffer!!
 
-                    copyPlane(yBuffer, yStride, nv21, width, height, 0)
+                    copyPlane(yBufferCopy, yStride, nv21, width, height, 0)
                     copyUvPlanesToNv21(
-                        vBuffer = vBuffer, vStride = vStride, vPixelStride = vPlane.pixelStride,
-                        uBuffer = uBuffer, uStride = uStride, uPixelStride = uPlane.pixelStride,
+                        vBuffer = vBufferCopy, vStride = vStride, vPixelStride = vPixelStride,
+                        uBuffer = uBufferCopy, uStride = uStride, uPixelStride = uPixelStride,
                         destination = nv21, width = width, height = height, offset = width * height
                     )
 
                     val yuvCheekColor = cachedRoi?.let { roi ->
                         val left = sampleYuvPatch(
-                            yBuffer, yStride,
-                            uBuffer, uStride, uPlane.pixelStride,
-                            vBuffer, vStride, vPlane.pixelStride,
+                            yBufferCopy, yStride,
+                            uBufferCopy, uStride, uPixelStride,
+                            vBufferCopy, vStride, vPixelStride,
                             width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
                         )
                         val right = sampleYuvPatch(
-                            yBuffer, yStride,
-                            uBuffer, uStride, uPlane.pixelStride,
-                            vBuffer, vStride, vPlane.pixelStride,
+                            yBufferCopy, yStride,
+                            uBufferCopy, uStride, uPixelStride,
+                            vBufferCopy, vStride, vPixelStride,
                             width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
                         )
                         if (left != null && right != null) averageRgb(left, right) else null
@@ -334,23 +347,23 @@ class ComputerVisionAnalyzer(
                     val roi = cachedRoi
                     if (roi != null) {
                         val leftCheek = sampleYuvPatch(
-                            yBuffer, yStride,
-                            uBuffer, uStride, uPlane.pixelStride,
-                            vBuffer, vStride, vPlane.pixelStride,
+                            yBufferCopy, yStride,
+                            uBufferCopy, uStride, uPixelStride,
+                            vBufferCopy, vStride, vPixelStride,
                             width, height, roi.faceBox, xFactor = 0.32, yFactor = 0.57
                         )
                         val rightCheek = sampleYuvPatch(
-                            yBuffer, yStride,
-                            uBuffer, uStride, uPlane.pixelStride,
-                            vBuffer, vStride, vPlane.pixelStride,
+                            yBufferCopy, yStride,
+                            uBufferCopy, uStride, uPixelStride,
+                            vBufferCopy, vStride, vPixelStride,
                             width, height, roi.faceBox, xFactor = 0.68, yFactor = 0.57
                         )
                         val avgColor = if (leftCheek != null && rightCheek != null) averageRgb(leftCheek, rightCheek) else null
                         
                         val lipColor = sampleYuvPatch(
-                            yBuffer, yStride,
-                            uBuffer, uStride, uPlane.pixelStride,
-                            vBuffer, vStride, vPlane.pixelStride,
+                            yBufferCopy, yStride,
+                            uBufferCopy, uStride, uPixelStride,
+                            vBufferCopy, vStride, vPixelStride,
                             width, height, roi.faceBox, xFactor = 0.50, yFactor = 0.78,
                             widthFactor = 0.12, heightFactor = 0.07
                         )
@@ -363,13 +376,11 @@ class ComputerVisionAnalyzer(
             } catch (e: Throwable) {
                 Log.e(TAG, "Frame processing error", e)
             } finally {
-                imageProxy.close()
                 isProcessingFrame = false
             }
             }
         } catch (error: RuntimeException) {
             Log.w(TAG, "Frame analysis executor unavailable: ${error.message}")
-            imageProxy.close()
             isProcessingFrame = false
         }
     }
@@ -377,6 +388,8 @@ class ComputerVisionAnalyzer(
     // ══════════════════════════════════════════════════════════════════
     //  TIER 1: KEYFRAME PROCESSING (async, ~2 Hz)
     // ══════════════════════════════════════════════════════════════════
+
+    private var argbBuffer: IntArray? = null
 
     private fun processKeyframe(
         nv21: ByteArray,
@@ -388,8 +401,11 @@ class ComputerVisionAnalyzer(
     ) {
         // Convert NV21 → Bitmap for FaceLandmarker directly (bypassing JPEG compression for extreme speed)
         val bitmap = try {
-            val argb = IntArray(width * height)
             val frameSize = width * height
+            if (argbBuffer == null || argbBuffer!!.size != frameSize) {
+                argbBuffer = IntArray(frameSize)
+            }
+            val argb = argbBuffer!!
             var yp = 0
             for (j in 0 until height) {
                 var uvp = frameSize + (j shr 1) * width
@@ -415,7 +431,11 @@ class ComputerVisionAnalyzer(
             }
             val decoded = Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888)
             val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-            Bitmap.createBitmap(decoded, 0, 0, width, height, matrix, true)
+            val rotated = Bitmap.createBitmap(decoded, 0, 0, width, height, matrix, true)
+            if (decoded != rotated) {
+                decoded.recycle()
+            }
+            rotated
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode keyframe.", e)
             null
@@ -440,8 +460,11 @@ class ComputerVisionAnalyzer(
             lastVideoTimestampMs = mpTimestamp
             landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), mpTimestamp)
         } catch (e: Exception) {
-            Log.e(TAG, "FaceLandmarker detection failed.", e)
+            Log.e(TAG, "Face landmarker error.", e)
+            handleFaceLoss()
             null
+        } finally {
+            bitmap.recycle()
         }
 
         val landmarks = result?.faceLandmarks()?.firstOrNull()

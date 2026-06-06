@@ -324,4 +324,13 @@ router.get('/owner/analytics', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requi
     res.json({ success: true, data: analytics });
 }));
 
+// Reviews
+router.get('/owner/reviews', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+    const reviewService = require('../services/reviewService');
+    const result = await reviewService.getEntityReviews('diagnostic_center', center.id, parseInt(page), parseInt(limit));
+    res.json({ success: true, ...result });
+}));
+
 module.exports = router;

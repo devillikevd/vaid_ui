@@ -327,6 +327,34 @@ private fun ReminderCard(
                         )
                     }
                 }
+            } else if (reminder.snoozeUntil != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Alarm,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        val snoozeTimeStr = try {
+                            val dt = java.time.Instant.parse(reminder.snoozeUntil).atZone(java.time.ZoneId.systemDefault())
+                            String.format("%02d:%02d", dt.hour, dt.minute)
+                        } catch(e: Exception) { "" }
+                        Text(
+                            text = "Snoozed until $snoozeTimeStr",
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

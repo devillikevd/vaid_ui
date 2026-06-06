@@ -595,6 +595,18 @@ const initializeSocketIO = (io) => {
       });
     }));
 
+    socket.on('consultation:ended', safeHandler(socket, async (data) => {
+      if (!hasRole(socket, VIDEO_ROLES)) return;
+      if (!validateData(data, ['consultationId'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.consultationId)) return;
+
+      // Broadcast to the other party so they can immediately end the call
+      socket.to(`video:${data.consultationId}`).emit('consultation:ended', {
+        consultationId: data.consultationId,
+        from: userId
+      });
+    }));
+
     // ==================== CONSULTATION CHAT ====================
 
     socket.on('chat:join', safeHandler(socket, async (consultationId) => {
@@ -675,6 +687,17 @@ const initializeSocketIO = (io) => {
         userId,
         isTyping: !!data.isTyping,
       });
+    }));
+
+    // ==================== DOCTOR SLOTS SUBSCRIPTION ====================
+    socket.on('doctor:slots:subscribe', safeHandler(socket, (data) => {
+      if (!data || !data.doctorId) return;
+      socket.join(`doctor:slots:${data.doctorId}`);
+    }));
+
+    socket.on('doctor:slots:unsubscribe', safeHandler(socket, (data) => {
+      if (!data || !data.doctorId) return;
+      socket.leave(`doctor:slots:${data.doctorId}`);
     }));
 
     // ==================== DISCONNECT ====================

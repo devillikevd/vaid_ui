@@ -267,32 +267,17 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Digital Health ID",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        Icons.Filled.Verified,
-                        contentDescription = "Verified",
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "Verified",
-                        fontSize = 9.sp,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(start = 2.dp)
-                    )
-                }
+                Text(
+                    text = "Digital Health ID",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
                 Text(
                     text = "View your vitals, history & more",
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
 
@@ -923,12 +908,13 @@ fun RecommendedDoctorsSection(
             }
         }
 
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            doctors.take(3).forEach { doctor ->
+            items(doctors) { doctor ->
                 DoctorCard(
+                    modifier = Modifier.width(320.dp),
                     doctor = doctor,
                     onBookClick = { onBookClick(doctor) },
                     onViewProfile = { onViewProfile(doctor) }
@@ -941,12 +927,12 @@ fun RecommendedDoctorsSection(
 @Composable
 fun DoctorCard(
     doctor: Doctor,
+    modifier: Modifier = Modifier.fillMaxWidth(),
     onBookClick: () -> Unit,
     onViewProfile: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clickable(onClick = onViewProfile),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

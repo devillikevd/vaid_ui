@@ -937,6 +937,7 @@ class PatientDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             when (val result = vitalsRepository.deleteReminder(reminderId)) {
                 is Result.Success -> {
+                    alarmScheduler.cancelById(reminderId)
                     com.example.swastik.ui.components.SnackbarManager.showMessage("Reminder deleted")
                     refresh()
                 }

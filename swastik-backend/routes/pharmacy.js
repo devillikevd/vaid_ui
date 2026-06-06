@@ -458,4 +458,13 @@ router.get('/analytics', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (
     res.json({ success: true, ...analytics });
 }));
 
+// Reviews
+router.get('/reviews', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+    const reviewService = require('../services/reviewService');
+    const result = await reviewService.getEntityReviews('pharmacy', pharmacy.id, parseInt(page), parseInt(limit));
+    res.json({ success: true, ...result });
+}));
+
 module.exports = router;

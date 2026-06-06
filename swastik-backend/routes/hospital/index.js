@@ -187,7 +187,23 @@ router.post('/:id/reviews',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const review = await hospitalService.addReview(req.user.id, req.params.id, req.body);
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { data: patient } = await supabaseAdmin.from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+      
+    if (!patient) return res.status(404).json({ success: false, message: 'Patient profile not found' });
+
+    const reviewService = require('../../services/reviewService');
+    const reviewData = {
+      reviewableType: 'hospital',
+      reviewableId: req.params.id,
+      rating: req.body.rating,
+      comment: req.body.comment
+    };
+
+    const review = await reviewService.submitReview(patient.id, reviewData);
     res.status(201).json({ success: true, data: review });
   })
 );

@@ -549,9 +549,9 @@ class VideoConsultationViewModel @Inject constructor(
         val currentMode = localBandwidthMode
         val targetMode = when (measured) {
             WebRTCManager.NetworkQuality.CRITICAL -> ConsultationMode.CHAT
-            WebRTCManager.NetworkQuality.POOR -> ConsultationMode.AUDIO
+            WebRTCManager.NetworkQuality.POOR,
             WebRTCManager.NetworkQuality.GOOD,
-            WebRTCManager.NetworkQuality.EXCELLENT -> ConsultationMode.VIDEO
+            WebRTCManager.NetworkQuality.EXCELLENT -> userPreferredMode
         }
 
         val isDegrading = targetMode.rank() < currentMode.rank()
@@ -595,9 +595,9 @@ class VideoConsultationViewModel @Inject constructor(
         val previousMode = localBandwidthMode
         val nextMode = when (quality) {
             WebRTCManager.NetworkQuality.CRITICAL -> ConsultationMode.CHAT
-            WebRTCManager.NetworkQuality.POOR -> ConsultationMode.AUDIO
+            WebRTCManager.NetworkQuality.POOR -> if (userPreferredMode == ConsultationMode.VIDEO) ConsultationMode.AUDIO else userPreferredMode
             WebRTCManager.NetworkQuality.GOOD,
-            WebRTCManager.NetworkQuality.EXCELLENT -> ConsultationMode.VIDEO
+            WebRTCManager.NetworkQuality.EXCELLENT -> userPreferredMode
         }
 
         if (nextMode == previousMode) return
@@ -624,7 +624,7 @@ class VideoConsultationViewModel @Inject constructor(
                     clearDelayMs = 5000
                 )
             }
-            nextMode == ConsultationMode.VIDEO && previousMode == ConsultationMode.CHAT -> {
+            nextMode == ConsultationMode.VIDEO && previousMode != ConsultationMode.VIDEO -> {
                 val restoredMode = effectiveMode()
                 applyEffectiveMediaState(
                     banner = if (restoredMode == ConsultationMode.VIDEO) {
@@ -826,9 +826,10 @@ class VideoConsultationViewModel @Inject constructor(
             return
         }
         val activeConsultationId = session.consultationId.ifEmpty { session.sessionId }
-        if (event.consultationId != activeConsultationId) return
+        if (event.consultationId != activeConsultationId && event.appointmentId != currentAppointmentId) return
 
         pendingAppointmentId = null
+        currentAppointmentId = null
         pendingJoinRetryJob?.cancel()
         socketManager.leaveVideoRoom(session.sessionId)
         socketManager.leaveChat(session.sessionId)
@@ -1181,10 +1182,22 @@ class VideoConsultationViewModel @Inject constructor(
         val consultationId = session.consultationId.ifEmpty { roomId }
 
         pendingAppointmentId = null
+        currentAppointmentId = null
         pendingJoinRetryJob?.cancel()
         // 1. Notify backend that consultation has ended
         viewModelScope.launch {
             appointmentRepository.endConsultation(consultationId)
+        }
+        
+        // Broadcast ended event manually to ensure the doctor receives it immediately
+        try {
+            val endPayload = org.json.JSONObject().apply {
+                put("consultationId", consultationId)
+                put("appointmentId", currentAppointmentId)
+            }
+            socketManager.getSocket()?.emit("consultation:ended", endPayload)
+        } catch (e: Exception) {
+            android.util.Log.e("VideoConsultationVM", "Failed to emit consultation ended manually: ${e.message}")
         }
 
         // 2. Leave socket room and release local resources

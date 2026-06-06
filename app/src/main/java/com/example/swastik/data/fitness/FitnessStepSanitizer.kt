@@ -8,7 +8,7 @@ object FitnessStepSanitizer {
     private const val MAX_STEPS_PER_MINUTE = 260
     private const val MAX_SINGLE_UPDATE_STEPS = 1_500
     private const val METERS_PER_STEP = 0.762f
-    private const val KCAL_PER_STEP = 0.04f
+    private const val KCAL_PER_STEP = 0.045f // Improved accuracy from 0.04f to 0.045f for avg adult
 
     data class Decision(
         val log: DailyFitnessLog,
@@ -18,7 +18,13 @@ object FitnessStepSanitizer {
 
     fun sanitizeStoredLog(log: DailyFitnessLog): DailyFitnessLog {
         val safeSteps = if (log.totalSteps in 0..MAX_DAILY_STEPS) log.totalSteps else 0
-        val safeActiveMinutes = log.activeMinutes.coerceIn(0, MAX_ACTIVE_MINUTES_PER_DAY)
+        
+        // Improve accuracy: Estimate active minutes from steps (assuming ~100 steps/min walking).
+        // This ensures accurate active minutes even if the OS puts ActivityRecognition to sleep.
+        val estimatedActiveMinutes = safeSteps / 100
+        val safeActiveMinutes = maxOf(log.activeMinutes, estimatedActiveMinutes)
+            .coerceIn(0, MAX_ACTIVE_MINUTES_PER_DAY)
+            
         return log.copy(
             totalSteps = safeSteps,
             activeMinutes = safeActiveMinutes,

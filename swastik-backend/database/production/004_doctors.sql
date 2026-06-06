@@ -64,7 +64,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS doctor_slots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doctor_id UUID REFERENCES doctors(id) ON DELETE CASCADE,
-    day_of_week INTEGER CHECK (day_of_week >= 0 AND day_of_week <= 6),
+    slot_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     slot_duration INTEGER DEFAULT 15,

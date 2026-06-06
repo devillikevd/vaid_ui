@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, useVitalsStream, type ConsultationVideoMode, type VitalsStreamData } from '@/hooks/useSocket';
+import { useSocket, useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, useVitalsStream, type ConsultationVideoMode, type VitalsStreamData } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
 
@@ -229,6 +229,36 @@ export default function VideoConsultation() {
     const { user } = useAuthStore();
     const consultationId = params.id as string;
     const isDoctor = user?.role === 'doctor';
+    const { emit } = useSocket();
+
+    // Draggable Local Video State
+    const isDraggingRef = useRef(false);
+    const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const [localVideoTranslate, setLocalVideoTranslate] = useState({ x: 0, y: 0 });
+
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        const target = e.currentTarget;
+        target.setPointerCapture(e.pointerId);
+        isDraggingRef.current = true;
+        dragOffsetRef.current = {
+            x: e.clientX - localVideoTranslate.x,
+            y: e.clientY - localVideoTranslate.y
+        };
+    };
+
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingRef.current) return;
+        setLocalVideoTranslate({
+            x: e.clientX - dragOffsetRef.current.x,
+            y: e.clientY - dragOffsetRef.current.y
+        });
+    };
+
+    const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!isDraggingRef.current) return;
+        isDraggingRef.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
 
     // Refs
     const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -1122,6 +1152,7 @@ export default function VideoConsultation() {
                 // Patients leave — they can't end the consultation
                 await api.consultations.leave(consultationId).catch(() => {});
             }
+            emit('consultation:ended', { consultationId });
         } catch (err) {
             console.error('Failed to end/leave consultation:', err);
         } finally {
@@ -1318,7 +1349,18 @@ export default function VideoConsultation() {
                         )}
 
                         {/* Local Video (Small/PIP) */}
-                        <div className="absolute bottom-24 right-4 h-36 w-48 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/60 shadow-2xl backdrop-blur">
+                        <div 
+                            className="absolute h-36 w-48 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/60 shadow-2xl backdrop-blur cursor-move touch-none"
+                            style={{
+                                bottom: '6rem', 
+                                right: '1rem',
+                                transform: `translate(${localVideoTranslate.x}px, ${localVideoTranslate.y}px)`
+                            }}
+                            onPointerDown={handlePointerDown}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={handlePointerUp}
+                            onPointerCancel={handlePointerUp}
+                        >
                             <video
                                 ref={localVideoRef}
                                 autoPlay

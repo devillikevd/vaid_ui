@@ -333,4 +333,13 @@ router.get('/consultations', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MA
     res.json({ success: true, ...result });
 }));
 
+// Reviews
+router.get('/reviews', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { page = 1, limit = 10 } = req.query;
+    const reviewService = require('../services/reviewService');
+    const result = await reviewService.getEntityReviews('hospital', hospital.id, parseInt(page), parseInt(limit));
+    res.json({ success: true, ...result });
+}));
+
 module.exports = router;

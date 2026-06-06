@@ -180,7 +180,7 @@ router.get('/me/slots',
       .from('doctor_slots')
       .select('*')
       .eq('doctor_id', doctor.id)
-      .order('day_of_week', { ascending: true });
+      .order('slot_date', { ascending: true });
 
     if (error) throw error;
     res.json({ success: true, data: slots || [] });
@@ -518,42 +518,16 @@ router.post('/:id/reviews',
       
     if (!patient) return res.status(404).json({ success: false, message: 'Patient profile not found' });
 
-    // Check if review already exists for this consultation if provided
-    if (consultationId) {
-        const { data: existing } = await supabaseAdmin.from('doctor_reviews')
-            .select('id')
-            .eq('patient_id', patient.id)
-            .eq('consultation_id', consultationId)
-            .maybeSingle();
-            
-        if (existing) {
-            return res.status(400).json({ success: false, message: 'Review already submitted for this consultation' });
-        }
-    }
-
-    // Insert review into doctor_reviews
-    const { data: review, error } = await supabaseAdmin.from('doctor_reviews').insert({
-      doctor_id: id,
-      patient_id: patient.id,
-      consultation_id: consultationId || null,
+    const reviewService = require('../../services/reviewService');
+    const reviewData = {
+      reviewableType: 'doctor',
+      reviewableId: id,
+      consultationId: consultationId,
       rating: rating,
-      comment: comment || null
-    }).select().single();
+      comment: comment
+    };
 
-    if (error) throw error;
-
-    // Recalculate average rating for doctor
-    const { data: allReviews } = await supabaseAdmin.from('doctor_reviews')
-      .select('rating')
-      .eq('doctor_id', id);
-      
-    if (allReviews && allReviews.length > 0) {
-      const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-      await supabaseAdmin.from('doctors').update({ 
-        rating: avg, 
-        total_reviews: allReviews.length 
-      }).eq('id', id);
-    }
+    const review = await reviewService.submitReview(patient.id, reviewData);
 
     res.status(201).json({ success: true, data: review });
   })

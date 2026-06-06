@@ -234,9 +234,10 @@ fun HealthCardScreen(
                                             if (!token.isNullOrEmpty()) {
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Text(
-                                                    text = "Link ID: ${token.take(8)}...${token.takeLast(8)}",
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.Bold,
+                                                    text = "Link ID: $token",
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 2.sp,
                                                     color = Color.DarkGray
                                                 )
                                                 Text(

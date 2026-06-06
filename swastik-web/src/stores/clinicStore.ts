@@ -41,6 +41,18 @@ export interface ClinicDoctor {
     status: 'active' | 'on-leave' | 'inactive';
 }
 
+export interface Review {
+    id: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+    is_anonymous: boolean;
+    created_at: string;
+    patient?: {
+        name: string;
+    };
+}
+
 const defaultPagination: PaginationState = {
     page: 1,
     totalPages: 1,
@@ -104,12 +116,15 @@ interface ClinicState {
     loadingAppointments: boolean;
     loadingDoctors: boolean;
     loadingSchedule: boolean;
+    loadingReviews: boolean;
     error: string | null;
+    reviews: Review[];
 
     fetchDashboardData: () => Promise<void>;
     fetchAppointments: (params?: { page?: number; limit?: number; search?: string; status?: string; date?: string }) => Promise<void>;
     fetchDoctors: (params?: { page?: number; limit?: number; search?: string }) => Promise<void>;
     fetchSchedule: () => Promise<void>;
+    fetchReviews: (page?: number) => Promise<void>;
     updateSchedule: (schedule: Record<string, unknown>) => Promise<boolean>;
     addDoctor: (data: Record<string, string>) => Promise<boolean>;
     removeDoctor: (doctorId: string) => Promise<boolean>;
@@ -131,7 +146,9 @@ const clinicInitialState = {
     loadingAppointments: false,
     loadingDoctors: false,
     loadingSchedule: false,
+    loadingReviews: false,
     error: null as string | null,
+    reviews: [] as Review[],
 };
 
 export const useClinicStore = create<ClinicState>((set, get) => ({
@@ -342,6 +359,23 @@ export const useClinicStore = create<ClinicState>((set, get) => ({
             console.error('Error removing doctor:', error);
             set({ error: 'Failed to remove doctor.' });
             return false;
+        }
+    },
+
+    fetchReviews: async (page = 1) => {
+        set({ loadingReviews: true, error: null });
+        try {
+            const response = await clinicApi.getReviews(page);
+            if (!response.success) {
+                set({ error: response.error || 'Failed to load reviews', loadingReviews: false });
+                return;
+            }
+            const rawData = response.data;
+            const reviews = (Array.isArray(rawData) ? rawData : (rawData as any)?.reviews || (rawData as any)?.data || []) as Review[];
+            set({ reviews, loadingReviews: false });
+        } catch (error) {
+            console.error('Error fetching reviews:', error);
+            set({ error: 'Failed to load reviews.', loadingReviews: false });
         }
     },
 }));

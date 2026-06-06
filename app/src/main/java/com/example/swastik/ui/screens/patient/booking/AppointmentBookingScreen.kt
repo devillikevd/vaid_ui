@@ -178,6 +178,33 @@ fun AppointmentBookingScreen(
         }
     }
 
+    // Handle race condition: If slot was booked by someone else right before confirming
+    val context = LocalContext.current
+    LaunchedEffect(appointmentState.error) {
+        val error = appointmentState.error
+        if (currentStep == 5 && error != null && 
+            (error.contains("already booked", ignoreCase = true) || error.contains("conflict", ignoreCase = true))) {
+            
+            // Show toast to user
+            android.widget.Toast.makeText(context, "This slot was just booked by someone else. Please choose another.", android.widget.Toast.LENGTH_LONG).show()
+            
+            // Clear the error and go back to step 3
+            appointmentViewModel.clearError()
+            selectedTimeSlot = null
+            currentStep = 3
+            
+            // Refresh the slots to grey out the newly booked one
+            if (selectedDoctor != null && selectedDate != null) {
+                val formatted = selectedDate!!.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val fallbackDates = availableDates
+                    .filter { it.isAfter(selectedDate!!) }
+                    .map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) }
+                    .take(2)
+                appointmentViewModel.loadTimeSlots(selectedDoctor!!.id, formatted, fallbackDates)
+            }
+        }
+    }
+
     val stepTitle = when (currentStep) {
         0 -> "Loading..."
         1 -> "Select Doctor"

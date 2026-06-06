@@ -21,22 +21,40 @@ class ReviewService {
 
     // If a consultation ID is provided, verify it belongs to the patient and is completed
     if (consultationId) {
-      const { data: consultation, error: consultationError } = await supabaseAdmin
+      let consultation = null;
+      
+      // Try finding it as a consultation first
+      const { data: consultData, error: consultError } = await supabaseAdmin
         .from('consultations')
         .select('id, status, patient_id')
         .eq('id', consultationId)
         .single();
 
-      if (consultationError || !consultation) {
-        throw new ApiError(404, 'Consultation not found');
+      if (!consultError && consultData) {
+        consultation = consultData;
+      } else {
+        // Try finding it as an appointment (since Android app passes appointment ID)
+        const { data: aptData, error: aptError } = await supabaseAdmin
+          .from('appointments')
+          .select('id, status, patient_id')
+          .eq('id', consultationId)
+          .single();
+          
+        if (!aptError && aptData) {
+          consultation = aptData;
+        }
+      }
+
+      if (!consultation) {
+        throw new ApiError(404, 'Consultation or Appointment not found');
       }
 
       if (consultation.patient_id !== patientId) {
         throw new ApiError(403, 'Not authorized to review this consultation');
       }
 
-      if (consultation.status !== 'completed') {
-        throw new ApiError(400, 'Can only review completed consultations');
+      if (consultation.status !== 'completed' && consultation.status !== 'in_progress') {
+        throw new ApiError(400, 'Can only review completed or in-progress consultations');
       }
 
       // Check for duplicate review for this specific consultation and entity

@@ -64,7 +64,7 @@ export interface DoctorPatient {
 
 export interface TimeSlot {
     id?: string;
-    day: string;
+    slot_date: string;
     startTime: string;
     endTime: string;
     isAvailable: boolean;
@@ -216,18 +216,11 @@ function mapDoctorPatient(raw: any): DoctorPatient {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTimeSlot(raw: any): TimeSlot {
-    const normalizedDay =
-        typeof raw.day === 'string' && raw.day.trim()
-            ? raw.day
-            : Number.isInteger(raw.day_of_week)
-                ? DAY_INDEX_TO_NAME[raw.day_of_week]
-                : Number.isInteger(raw.dayOfWeek)
-                    ? DAY_INDEX_TO_NAME[raw.dayOfWeek]
-                    : 'Monday';
+    const normalizedDay = raw.slot_date || raw.slotDate || raw.date || '';
 
     return {
         id: raw.id,
-        day: normalizedDay,
+        slot_date: normalizedDay,
         startTime: normalizeTimeValue(raw.startTime || raw.start_time),
         endTime: normalizeTimeValue(raw.endTime || raw.end_time),
         isAvailable: raw.isAvailable ?? raw.is_active ?? raw.isActive ?? true,
@@ -396,8 +389,8 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const apiData = (result.data as any)?.slots ?? result.data ?? [];
             const schedule = Array.isArray(apiData) ? apiData.map(mapTimeSlot).sort((a, b) => {
-                const dayDelta = (DAY_SORT_ORDER[a.day] ?? 99) - (DAY_SORT_ORDER[b.day] ?? 99);
-                if (dayDelta !== 0) return dayDelta;
+                const dateDelta = a.slot_date.localeCompare(b.slot_date);
+                if (dateDelta !== 0) return dateDelta;
                 return a.startTime.localeCompare(b.startTime);
             }) : [];
             set({ schedule, loadingSchedule: false });

@@ -13,7 +13,7 @@ import { useAppointmentUpdates } from '@/hooks/useSocket';
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
 
 export default function HospitalDashboard() {
-    const { stats, departments, isLoading, error, fetchDashboardData } = useHospitalStore();
+    const { stats, departments, isLoading, error, fetchDashboardData, fetchReviews, reviews, loadingReviews } = useHospitalStore();
     const { user } = useAuthStore();
     const router = useRouter();
 
@@ -39,7 +39,8 @@ export default function HospitalDashboard() {
 
     useEffect(() => {
         fetchDashboardData();
-    }, [fetchDashboardData]);
+        fetchReviews();
+    }, [fetchDashboardData, fetchReviews]);
 
     const currentTime = new Date();
 
@@ -180,6 +181,44 @@ export default function HospitalDashboard() {
                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Reports</p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">View analytics</p>
                             </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Recent Reviews */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Recent Reviews</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {(() => {
+                                if (loadingReviews && reviews.length === 0) {
+                                    return <div className="text-center py-4"><span className="text-teal-600">Loading reviews...</span></div>;
+                                }
+                                
+                                if (reviews.length === 0) {
+                                    return <p className="text-sm text-gray-500 dark:text-gray-400">No reviews yet.</p>;
+                                }
+                                
+                                return reviews.slice(0, 3).map((review) => (
+                                    <div key={review.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {review.is_anonymous ? 'Anonymous' : (review.patient?.name || 'Patient')}
+                                            </span>
+                                            <div className="flex">
+                                                {Array.from({ length: 5 }).map((_, i) => (
+                                                    <span key={i} className={`text-xs ${i < review.rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {review.comment && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-2">&quot;{review.comment}&quot;</p>
+                                        )}
+                                    </div>
+                                ));
+                            })()}
                         </div>
                     </CardContent>
                 </Card>

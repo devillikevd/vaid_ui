@@ -605,6 +605,9 @@ export const doctorApi = {
 export const hospitalApi = {
     getDashboard: () => fetchWithAuth('/hospital-manager/dashboard'),
 
+    getReviews: (page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/hospital-manager/reviews?page=${page}&limit=${limit}`),
+
     getProfile: () => fetchWithAuth('/hospital-manager/profile'),
 
     updateProfile: (data: Record<string, unknown>) =>
@@ -756,6 +759,9 @@ export const hospitalApi = {
 export const pharmacyApi = {
     getDashboard: () => fetchWithAuth('/pharmacy/dashboard'),
 
+    getReviews: (page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/pharmacy/reviews?page=${page}&limit=${limit}`),
+
     getProfile: () => fetchWithAuth('/pharmacy/profile'),
 
     updateProfile: (data: Record<string, unknown>) =>
@@ -846,6 +852,9 @@ export const pharmacyApi = {
 
 export const clinicApi = {
     getDashboard: () => fetchWithAuth('/clinics/owner/dashboard'),
+
+    getReviews: (page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/clinics/owner/reviews?page=${page}&limit=${limit}`),
 
     getProfile: () => fetchWithAuth('/clinics/owner/profile'),
 
@@ -939,6 +948,9 @@ export const clinicApi = {
 
 export const diagnosticCenterApi = {
     getDashboard: () => fetchWithAuth('/diagnostic-centers/owner/dashboard'),
+
+    getReviews: (page: number = 1, limit: number = 10) =>
+        fetchWithAuth(`/diagnostic-centers/owner/reviews?page=${page}&limit=${limit}`),
 
     getProfile: () => fetchWithAuth('/diagnostic-centers/owner/profile'),
 

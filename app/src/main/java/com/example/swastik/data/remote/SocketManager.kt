@@ -227,6 +227,10 @@ class SocketManager @Inject constructor(
     private val _appointmentUpdates = MutableSharedFlow<AppointmentUpdateEvent>(replay = 1)
     val appointmentUpdates: SharedFlow<AppointmentUpdateEvent> = _appointmentUpdates.asSharedFlow()
 
+    // Doctor Slots updates (for race condition fix)
+    private val _doctorSlotsUpdates = MutableSharedFlow<JSONObject>(replay = 0)
+    val doctorSlotsUpdates: SharedFlow<JSONObject> = _doctorSlotsUpdates.asSharedFlow()
+
     /** Track the active ambulance room for reconnect re-subscription */
     private var activeTrackingRequestId: String? = null
     /** Track active consultation rooms for reconnect re-subscription */
@@ -803,6 +807,16 @@ class SocketManager @Inject constructor(
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:confirmed", e) }
         }
+
+        // --- Doctor Slots Updates (Race Condition) ---
+        socket?.on("appointment:booked") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                scope.launch {
+                    _doctorSlotsUpdates.emit(data)
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:booked", e) }
+        }
     }
 
     fun disconnect() {
@@ -962,6 +976,17 @@ class SocketManager @Inject constructor(
     fun untrackAmbulance(requestId: String) {
         activeTrackingRequestId = null
         socket?.emit("ambulance:untrack", requestId)
+    }
+
+    // --- Doctor Slots Race Condition Subscriptions ---
+    fun subscribeToDoctorSlots(doctorId: String) {
+        val payload = JSONObject().apply { put("doctorId", doctorId) }
+        socket?.emit("doctor:slots:subscribe", payload)
+    }
+
+    fun unsubscribeFromDoctorSlots(doctorId: String) {
+        val payload = JSONObject().apply { put("doctorId", doctorId) }
+        socket?.emit("doctor:slots:unsubscribe", payload)
     }
 
     /**

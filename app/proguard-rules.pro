@@ -77,3 +77,21 @@
 # Preserve line numbers for debugging stack traces
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# ── MediaPipe (FaceLandmarker JNI bridge) ──
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# ── Socket.IO Engine (reflection-based transport) ──
+-keep class io.socket.engineio.** { *; }
+-dontwarn io.socket.engineio.**
+
+# ── CameraX internal lifecycle binding ──
+-keep class androidx.camera.** { *; }
+-dontwarn androidx.camera.**
+
+# ── Suppress warnings for annotation-processor-only classes ──
+-dontwarn com.google.auto.value.**
+-dontwarn autovalue.shaded.**

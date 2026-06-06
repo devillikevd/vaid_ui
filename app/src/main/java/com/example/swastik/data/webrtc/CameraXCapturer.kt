@@ -118,11 +118,19 @@ class CameraXCapturer(
                 
                 // Transition to Started state so CameraX can bind.
                 // It's safe to directly assign if we are on the main thread (which addListener guarantees via getMainExecutor).
+                if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) {
+                    Log.w(TAG, "Cannot start capture, lifecycle is destroyed.")
+                    return@addListener
+                }
                 if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
                     lifecycleRegistry.currentState = Lifecycle.State.CREATED
                 }
-                lifecycleRegistry.currentState = Lifecycle.State.STARTED
-                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+                if (lifecycleRegistry.currentState == Lifecycle.State.CREATED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.STARTED
+                }
+                if (lifecycleRegistry.currentState == Lifecycle.State.STARTED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+                }
 
                 provider.bindToLifecycle(
                     this,
@@ -166,6 +174,9 @@ class CameraXCapturer(
 
     override fun dispose() {
         stopCapture()
+        mainHandler.post {
+            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        }
         analysisExecutor.shutdown()
     }
 
@@ -204,11 +215,18 @@ class CameraXCapturer(
             if (imageAnalysisUseCase != null) return@post
 
             try {
+                if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) {
+                    return@post
+                }
                 if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
                     lifecycleRegistry.currentState = Lifecycle.State.CREATED
                 }
-                lifecycleRegistry.currentState = Lifecycle.State.STARTED
-                lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+                if (lifecycleRegistry.currentState == Lifecycle.State.CREATED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.STARTED
+                }
+                if (lifecycleRegistry.currentState == Lifecycle.State.STARTED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+                }
 
                 val (imageAnalyzer, description) = createImageAnalysisUseCase(ctx)
                 val cameraSelector = if (isFrontCamera) {

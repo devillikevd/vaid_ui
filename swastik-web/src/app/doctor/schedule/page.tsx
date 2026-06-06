@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/Button';
 import { useDoctorStore } from '@/stores/doctorStore';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 
 export default function DoctorSchedulePage() {
     const { schedule, loadingSchedule, error, fetchSchedule, updateSchedule, clearError } = useDoctorStore();
     const [showAddModal, setShowAddModal] = useState(false);
-    const [newSlot, setNewSlot] = useState({ day: 'Monday', startTime: '09:00', endTime: '17:00' });
+    const [newSlot, setNewSlot] = useState({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' });
     const [saving, setSaving] = useState(false);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
@@ -25,7 +25,7 @@ export default function DoctorSchedulePage() {
         const success = await updateSchedule(updatedSlots as unknown as Record<string, unknown>[]);
         if (success) {
             setShowAddModal(false);
-            setNewSlot({ day: 'Monday', startTime: '09:00', endTime: '17:00' });
+            setNewSlot({ slot_date: new Date().toISOString().split('T')[0], startTime: '09:00', endTime: '17:00' });
         }
         setSaving(false);
     };
@@ -62,9 +62,10 @@ export default function DoctorSchedulePage() {
         );
     }
 
-    const scheduleByDay = DAYS.map(day => ({
-        day,
-        slots: schedule.map((s, i) => ({ ...s, _idx: i })).filter(s => s.day === day),
+    const uniqueDates = Array.from(new Set(schedule.map(s => s.slot_date))).sort();
+    const scheduleByDate = uniqueDates.map(date => ({
+        date,
+        slots: schedule.map((s, i) => ({ ...s, _idx: i })).filter(s => s.slot_date === date),
     }));
     const activeSlots = schedule.filter((slot) => slot.isAvailable).length;
     const inactiveSlots = Math.max(schedule.length - activeSlots, 0);
@@ -113,9 +114,11 @@ export default function DoctorSchedulePage() {
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {scheduleByDay.map(({ day, slots }) => (
-                    <Card key={day} padding="md">
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{day}</h3>
+                {scheduleByDate.map(({ date, slots }) => (
+                    <Card key={date} padding="md">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                            {new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+                        </h3>
                         {slots.length === 0 ? (
                             <p className="text-sm text-gray-400">No slots configured</p>
                         ) : (
@@ -148,10 +151,14 @@ export default function DoctorSchedulePage() {
                         </div>
                         <div className="p-4 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Day</label>
-                                <select value={newSlot.day} onChange={e => setNewSlot(s => ({ ...s, day: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200">
-                                    {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                                <input 
+                                    type="date"
+                                    value={newSlot.slot_date} 
+                                    onChange={e => setNewSlot(s => ({ ...s, slot_date: e.target.value }))} 
+                                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200"
+                                    min={new Date().toISOString().split('T')[0]}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

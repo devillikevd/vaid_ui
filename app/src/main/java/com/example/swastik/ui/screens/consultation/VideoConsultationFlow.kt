@@ -8,7 +8,19 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.activity.compose.BackHandler
+
+import android.content.Context
+import android.content.ContextWrapper
+import android.app.Activity
+
 import com.example.swastik.ui.viewmodel.VideoConsultationViewModel
+
+tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 /**
  * Main Video Consultation Flow
@@ -21,6 +33,7 @@ import com.example.swastik.ui.viewmodel.VideoConsultationViewModel
 fun VideoConsultationFlow(
     appointmentId: String = "",
     doctorName: String = "Doctor",
+    isPipMode: Boolean = false,
     onBackClick: () -> Unit,
     onConsultationComplete: () -> Unit,
     viewModel: VideoConsultationViewModel = hiltViewModel()
@@ -31,13 +44,24 @@ fun VideoConsultationFlow(
     var showCompletionDialog by remember { mutableStateOf(false) }
     var hasBeenConnected by remember { mutableStateOf(false) }
 
+    // Intercept physical back button if connected or in a session
+    val context = LocalContext.current
+    val activity = context.findActivity()
+
+    BackHandler(enabled = uiState.isConnected || uiState.session != null) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val params = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(9, 16)).build()
+            activity?.enterPictureInPictureMode(params)
+        } else {
+            activity?.moveTaskToBack(true)
+        }
+    }
+
     // Get patient name from shared repository
     val patientName = viewModel.patientName.collectAsState().value
 
     // EGL context for video renderers
     val eglBaseContext = viewModel.eglBaseContext
-
-    val context = LocalContext.current
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -66,7 +90,13 @@ fun VideoConsultationFlow(
     // If was connected and now disconnected, show completion
     LaunchedEffect(uiState.consultationCompleted, hasBeenConnected) {
         if (hasBeenConnected && uiState.consultationCompleted) {
-            showCompletionDialog = true
+            if (isPipMode) {
+                // Cannot show dialog in PiP mode without crashing, just finish safely
+                viewModel.dismissCompletion()
+                onConsultationComplete()
+            } else {
+                showCompletionDialog = true
+            }
         }
     }
 
@@ -102,9 +132,14 @@ fun VideoConsultationFlow(
             medicalRecordAccessMessage = uiState.medicalRecordAccessMessage,
             guardianAnalyticsSharingAllowed = uiState.guardianAnalyticsSharingAllowed,
             isAiVitalsEnabled = uiState.hasConsentedToVisionAnalysis,
+            isPipMode = isPipMode,
             onBackClick = {
-                viewModel.endCall()
-                onBackClick()
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val params = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(9, 16)).build()
+                    activity?.enterPictureInPictureMode(params)
+                } else {
+                    activity?.moveTaskToBack(true)
+                }
             },
             onEndCall = {
                 viewModel.endCall()

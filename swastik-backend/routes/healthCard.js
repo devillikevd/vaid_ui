@@ -74,8 +74,8 @@ router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
   });
 
   // Validate token format before hitting Redis
-  // HealthCardService generates token via randomBytes(32).toString('hex') => 64 hex chars
-  const tokenRegex = /^[0-9a-f]{64}$/i;
+  // HealthCardService generates a 6-character alphanumeric token
+  const tokenRegex = /^[A-Za-z0-9]{6}$/;
   if (!tokenRegex.test(req.params.token)) {
     return res.status(400).json({ success: false, message: 'Invalid health card token format' });
   }

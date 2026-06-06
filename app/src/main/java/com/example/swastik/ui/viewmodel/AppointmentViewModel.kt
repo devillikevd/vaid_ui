@@ -16,6 +16,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.example.swastik.data.remote.SocketManager
+import kotlinx.coroutines.flow.collectLatest
+
 data class NextAvailableSlotSuggestion(
     val date: String,
     val availableSlotCount: Int,
@@ -27,7 +30,8 @@ data class NextAvailableSlotSuggestion(
  */
 @HiltViewModel
 class AppointmentViewModel @Inject constructor(
-    private val repository: AppointmentRepository
+    private val repository: AppointmentRepository,
+    private val socketManager: SocketManager
 ) : ViewModel() {
     
     var uiState by mutableStateOf(AppointmentUiState())
@@ -37,6 +41,26 @@ class AppointmentViewModel @Inject constructor(
     
     init {
         loadAppointments()
+        listenForSlotUpdates()
+    }
+    
+    private fun listenForSlotUpdates() {
+        viewModelScope.launch {
+            socketManager.doctorSlotsUpdates.collectLatest { update ->
+                // When someone books a slot, it triggers this update
+                val date = update.optString("appointment_date") ?: update.optString("date")
+                val timeSlotStr = update.optString("time_slot") ?: update.optString("timeSlot")
+                
+                // If we are currently viewing slots for this date, mark it as unavailable
+                val currentSlots = uiState.timeSlots
+                if (currentSlots.isNotEmpty()) {
+                    val updatedSlots = currentSlots.map { 
+                        if (it.time == timeSlotStr) it.copy(isAvailable = false) else it 
+                    }
+                    uiState = uiState.copy(timeSlots = updatedSlots)
+                }
+            }
+        }
     }
     
     /**
@@ -112,6 +136,8 @@ class AppointmentViewModel @Inject constructor(
         }
     }
     
+    private var currentSubscribedDoctorId: String? = null
+
     /**
      * Get time slots for a doctor on a specific date
      */
@@ -120,6 +146,12 @@ class AppointmentViewModel @Inject constructor(
         date: String,
         fallbackDates: List<String> = emptyList()
     ) {
+        if (currentSubscribedDoctorId != doctorId) {
+            currentSubscribedDoctorId?.let { socketManager.unsubscribeFromDoctorSlots(it) }
+            socketManager.subscribeToDoctorSlots(doctorId)
+            currentSubscribedDoctorId = doctorId
+        }
+        
         slotLookupJob?.cancel()
         slotLookupJob = viewModelScope.launch {
             uiState = uiState.copy(
@@ -247,6 +279,11 @@ class AppointmentViewModel @Inject constructor(
      */
     fun clearError() {
         uiState = uiState.copy(error = null)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        currentSubscribedDoctorId?.let { socketManager.unsubscribeFromDoctorSlots(it) }
     }
 
     fun resetSlotSelectionState() {

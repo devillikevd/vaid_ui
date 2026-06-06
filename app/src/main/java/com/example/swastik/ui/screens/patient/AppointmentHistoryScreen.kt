@@ -51,8 +51,8 @@ fun AppointmentHistoryScreen(
     onBackClick: () -> Unit,
     onAppointmentClick: (Appointment) -> Unit = {},
     onStartConsultation: (Appointment) -> Unit = {},
-    onNavigateToPrescriptions: () -> Unit = {},
-    onNavigateToBooking: () -> Unit = {},
+    onNavigateToPrescriptions: (String?) -> Unit = {},
+    onNavigateToBooking: (String?) -> Unit = {},
     viewModel: AppointmentViewModel = hiltViewModel(),
     reviewViewModel: com.example.swastik.ui.viewmodel.ReviewViewModel = hiltViewModel()
 ) {
@@ -142,7 +142,7 @@ fun AppointmentHistoryScreen(
                 }
                 uiState.appointments.isEmpty() -> EmptyAppointmentsView(
                     selectedFilter = selectedFilter,
-                    onBookClick = onNavigateToBooking
+                    onBookClick = { onNavigateToBooking(null) }
                 )
                 else -> {
                     LazyColumn(
@@ -221,8 +221,8 @@ fun AppointmentHistoryScreen(
                                             appointment = appointment,
                                             onClick = { onAppointmentClick(appointment) },
                                             onStartConsultation = { onStartConsultation(appointment) },
-                                            onPrescriptionClick = onNavigateToPrescriptions,
-                                            onBookAgainClick = onNavigateToBooking,
+                                            onPrescriptionClick = { onNavigateToPrescriptions(appointment.doctor?.id ?: appointment.doctorId) },
+                                            onBookAgainClick = { onNavigateToBooking(appointment.doctor?.id ?: appointment.doctorId) },
                                             onCancelClick = { showCancelDialog = appointment },
                                             onRateDoctorClick = { showReviewDialog = appointment },
                                             onViewCardClick = { selectedBookingStatusAppointment = appointment }
@@ -245,8 +245,8 @@ fun AppointmentHistoryScreen(
                     onConfirmCancellation = { reason ->
                         viewModel.cancelAppointment(showCancelDialog!!.id, reason)
                     },
-                    onBookAgain = onNavigateToBooking,
-                    onFindAnotherSpecialist = onNavigateToBooking
+                    onBookAgain = { onNavigateToBooking(showCancelDialog?.doctor?.id ?: showCancelDialog?.doctorId) },
+                    onFindAnotherSpecialist = { onNavigateToBooking(null) }
                 )
             }
 

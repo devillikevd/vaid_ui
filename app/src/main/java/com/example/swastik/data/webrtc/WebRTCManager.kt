@@ -119,7 +119,7 @@ class WebRTCManager(
     @Volatile
     private var hasRemoteDescription = false
 
-    val eglBase: EglBase by lazy { EglBase.create() }
+    lateinit var eglBase: EglBase
 
     // Callbacks — set by the ViewModel
     var onLocalVideoTrack: ((VideoTrack) -> Unit)? = null
@@ -316,6 +316,9 @@ class WebRTCManager(
      */
     fun initialize() {
         Log.d(TAG, "Initializing PeerConnectionFactory")
+        if (!::eglBase.isInitialized) {
+            eglBase = EglBase.create()
+        }
 
         runCatching {
             val initOptions = PeerConnectionFactory.InitializationOptions.builder(context)
@@ -833,7 +836,9 @@ class WebRTCManager(
         runCatching { peerConnectionFactory?.dispose() }
         peerConnectionFactory = null
 
-        runCatching { eglBase.release() }
+        if (::eglBase.isInitialized) {
+            runCatching { eglBase.release() }
+        }
 
         Log.d(TAG, "WebRTC resources released")
     }

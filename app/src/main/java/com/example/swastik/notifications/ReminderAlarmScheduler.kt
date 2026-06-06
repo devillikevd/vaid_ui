@@ -17,6 +17,7 @@ import javax.inject.Inject
 interface ReminderAlarmScheduler {
     fun schedule(reminder: Reminder)
     fun cancel(reminder: Reminder)
+    fun cancelById(id: String)
     fun cancelAll()
 }
 
@@ -136,15 +137,19 @@ class AndroidAlarmScheduler @Inject constructor(
     }
 
     override fun cancel(reminder: Reminder) {
+        cancelById(reminder.id)
+    }
+
+    override fun cancelById(id: String) {
         val intent = Intent(context, ReminderReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            reminder.id.hashCode(),
+            id.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-        Log.d("AndroidAlarmScheduler", "Cancelled alarm for reminder ${reminder.id}")
+        Log.d("AndroidAlarmScheduler", "Cancelled alarm for reminder $id")
     }
 
     override fun cancelAll() {

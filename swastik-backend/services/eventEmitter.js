@@ -206,6 +206,8 @@ class AppEventEmitter extends EventEmitter {
       timestamp: new Date().toISOString(),
       data: { appointmentId: appointment.id },
     });
+    // Broadcast to slot room so clients can update UI instantly
+    this.notifyRoom(`doctor:slots:${doctor_id}`, 'appointment:booked', appointment);
     // Notify hospital/clinic owner for real-time dashboard updates
     if (hospital_owner_id) {
       this.notifyUser(hospital_owner_id, 'appointment:new', appointment);

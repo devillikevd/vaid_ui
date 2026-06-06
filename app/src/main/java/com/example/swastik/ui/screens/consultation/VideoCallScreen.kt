@@ -2,6 +2,7 @@ package com.example.swastik.ui.screens.consultation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.viewinterop.AndroidView
 import android.util.Log
 import com.example.swastik.ui.viewmodel.ConsultationMode
@@ -56,6 +60,7 @@ fun VideoCallScreen(
     medicalRecordAccessMessage: String? = null,
     guardianAnalyticsSharingAllowed: Boolean = false,
     isAiVitalsEnabled: Boolean = false,
+    isPipMode: Boolean = false,
     onBackClick: () -> Unit,
     onEndCall: () -> Unit,
     onGrantMedicalRecordAccess: (Boolean) -> Unit = {},
@@ -139,20 +144,25 @@ fun VideoCallScreen(
             }
             ConsultationMode.VIDEO -> {
                 var showRecordPanel by remember { mutableStateOf(false) }
+                var localVideoOffsetX by remember { mutableFloatStateOf(0f) }
+                var localVideoOffsetY by remember { mutableFloatStateOf(0f) }
+                
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    ConsultationTopBar(
-                        title = doctorName,
-                        connectionStatus = connectionStatus,
-                        statusAccent = if (hasRemoteVideo) liveColor else warningColor,
-                        currentMode = connectionMode,
-                        callDurationLabel = if (callDurationSeconds > 0) formatCallDuration(callDurationSeconds) else null,
-                        onBackClick = onBackClick,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (!isPipMode) {
+                        ConsultationTopBar(
+                            title = doctorName,
+                            connectionStatus = connectionStatus,
+                            statusAccent = if (hasRemoteVideo) liveColor else warningColor,
+                            currentMode = connectionMode,
+                            callDurationLabel = if (callDurationSeconds > 0) formatCallDuration(callDurationSeconds) else null,
+                            onBackClick = onBackClick,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
-                    if (modeBanner != null) {
+                    if (!isPipMode && modeBanner != null) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -189,70 +199,80 @@ fun VideoCallScreen(
                             )
                         }
 
-                        if (!isCameraOff && localVideoTrack != null && eglBaseContext != null) {
+                        if (!isPipMode) {
                             Box(
                                 modifier = Modifier
-                                    .padding(end = 16.dp, bottom = 24.dp)
                                     .align(Alignment.BottomEnd)
+                                    .offset { IntOffset(localVideoOffsetX.toInt(), localVideoOffsetY.toInt()) }
+                                    .padding(end = 16.dp, bottom = 24.dp)
                                     .size(width = 112.dp, height = 156.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .border(2.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
+                                    .pointerInput(Unit) {
+                                        detectDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            localVideoOffsetX += dragAmount.x
+                                            localVideoOffsetY += dragAmount.y
+                                        }
+                                    }
                             ) {
-                                WebRTCVideoView(
-                                    videoTrack = localVideoTrack,
-                                    eglContext = eglBaseContext,
-                                    mirror = true,
-                                    isOverlay = true,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomStart)
-                                        .padding(8.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.Black.copy(alpha = 0.48f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "You",
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
+                                if (!isCameraOff && localVideoTrack != null && eglBaseContext != null) {
+                                    WebRTCVideoView(
+                                        videoTrack = localVideoTrack,
+                                        eglContext = eglBaseContext,
+                                        mirror = true,
+                                        isOverlay = true,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(8.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.Black.copy(alpha = 0.48f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "You",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    SelfVideoPlaceholder(
+                                        isCameraOff = isCameraOff,
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
                             }
-                        } else {
-                            SelfVideoPlaceholder(
-                                isCameraOff = isCameraOff,
-                                modifier = Modifier
-                                    .padding(end = 16.dp, bottom = 24.dp)
-                                    .align(Alignment.BottomEnd)
-                            )
                         }
 
                         // ── Floating Medical Record Bubble ──────────────
-                        IconButton(
-                            onClick = { showRecordPanel = !showRecordPanel },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 12.dp, end = 12.dp)
-                                .size(42.dp)
-                                .background(
-                                    if (hasMedicalRecordAccess) Color(0xFF2DD4BF).copy(alpha = 0.85f)
-                                    else Color.White.copy(alpha = 0.18f),
-                                    CircleShape
+                        if (!isPipMode) {
+                            IconButton(
+                                onClick = { showRecordPanel = !showRecordPanel },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 12.dp, end = 12.dp)
+                                    .size(42.dp)
+                                    .background(
+                                        if (hasMedicalRecordAccess) Color(0xFF2DD4BF).copy(alpha = 0.85f)
+                                        else Color.White.copy(alpha = 0.18f),
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = if (hasMedicalRecordAccess) Icons.Default.LockOpen else Icons.Default.Lock,
+                                    contentDescription = "Medical Records",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                        ) {
-                            Icon(
-                                imageVector = if (hasMedicalRecordAccess) Icons.Default.LockOpen else Icons.Default.Lock,
-                                contentDescription = "Medical Records",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            }
                         }
 
                         // ── Expandable Compact Panel ────────────────────
-                        if (showRecordPanel) {
+                        if (!isPipMode && showRecordPanel) {
                             Surface(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -276,23 +296,25 @@ fun VideoCallScreen(
                         }
                     }
 
-                    VideoCallControls(
-                        isMicMuted = isMicMuted,
-                        isCameraOff = isCameraOff,
-                        isSpeakerOn = isSpeakerOn,
-                        isAiVitalsEnabled = isAiVitalsEnabled,
-                        currentMode = connectionMode,
-                        accentColor = accentColor,
-                        surfaceColor = surfaceColor,
-                        onAiVitalsToggle = onAiVitalsToggle,
-                        onMicToggle = onMicToggle,
-                        onCameraToggle = onCameraToggle,
-                        onEndCall = onEndCall,
-                        onCameraFlip = onCameraFlip,
-                        onSpeakerToggle = onSpeakerToggle,
-                        onSwitchMode = onSwitchMode,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (!isPipMode) {
+                        VideoCallControls(
+                            isMicMuted = isMicMuted,
+                            isCameraOff = isCameraOff,
+                            isSpeakerOn = isSpeakerOn,
+                            isAiVitalsEnabled = isAiVitalsEnabled,
+                            currentMode = connectionMode,
+                            accentColor = accentColor,
+                            surfaceColor = surfaceColor,
+                            onAiVitalsToggle = onAiVitalsToggle,
+                            onMicToggle = onMicToggle,
+                            onCameraToggle = onCameraToggle,
+                            onEndCall = onEndCall,
+                            onCameraFlip = onCameraFlip,
+                            onSpeakerToggle = onSpeakerToggle,
+                            onSwitchMode = onSwitchMode,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             } // end VIDEO
         } // end when
@@ -531,12 +553,15 @@ private fun ConsultationTopBar(
 @Composable
 fun WebRTCVideoView(
     videoTrack: VideoTrack,
-    eglContext: EglBase.Context,
+    eglContext: EglBase.Context?,
     modifier: Modifier = Modifier,
     mirror: Boolean = false,
     isOverlay: Boolean = false
 ) {
+    if (eglContext == null) return
+
     key(videoTrack, isOverlay) {
+        var isRendererReleased = false
         AndroidView(
             factory = { context ->
                 SurfaceViewRenderer(context).apply {
@@ -550,14 +575,24 @@ fun WebRTCVideoView(
                     } catch (error: Throwable) {
                         Log.e("VideoCallScreen", "Unable to attach WebRTC renderer: ${error.message}", error)
                         runCatching { videoTrack.removeSink(this) }
-                        runCatching { release() }
+                        runCatching {
+                            if (!isRendererReleased) {
+                                isRendererReleased = true
+                                release()
+                            }
+                        }
                     }
                 }
             },
             onReset = null,
             onRelease = { renderer ->
                 runCatching { videoTrack.removeSink(renderer) }
-                runCatching { renderer.release() }
+                runCatching {
+                    if (!isRendererReleased) {
+                        isRendererReleased = true
+                        renderer.release()
+                    }
+                }
             },
             update = { renderer ->
                 try {
@@ -926,6 +961,7 @@ private fun VideoCallControls(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
                 .background(Color.White.copy(alpha = 0.06f))
+                .clickable { onAiVitalsToggle(!isAiVitalsEnabled) }
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -945,7 +981,7 @@ private fun VideoCallControls(
             Spacer(modifier = Modifier.weight(1f))
             Switch(
                 checked = isAiVitalsEnabled,
-                onCheckedChange = onAiVitalsToggle,
+                onCheckedChange = null,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
                     checkedTrackColor = Color(0xFF2DD4BF),

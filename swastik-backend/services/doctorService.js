@@ -647,7 +647,7 @@ class DoctorService {
       .select('*')
       .eq('doctor_id', doctorId)
       .eq('is_active', true)
-      .eq('day_of_week', new Date(date).getDay());
+      .eq('slot_date', date);
 
     if (!slotConfig || slotConfig.length === 0) {
       return [];
@@ -678,13 +678,22 @@ class DoctorService {
         const m = currentTotalMins % 60;
         const timeSlot = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         
-        if (!bookedSlots.includes(timeSlot)) {
-          availableSlots.push({
-            time: timeSlot,
-            period: h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening',
-            is_available: true,
-          });
+        let is_available = !bookedSlots.includes(timeSlot);
+
+        // Filter out past slots for today
+        if (is_available) {
+          const slotDateStr = `${date}T${timeSlot.padStart(5, '0')}:00+05:30`;
+          const slotTimeMs = Date.parse(slotDateStr);
+          if (!isNaN(slotTimeMs) && slotTimeMs < Date.now()) {
+            is_available = false;
+          }
         }
+
+        availableSlots.push({
+          time: timeSlot,
+          period: h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening',
+          is_available: is_available,
+        });
         currentTotalMins += duration;
       }
     });
@@ -729,15 +738,15 @@ class DoctorService {
     }
 
     // Accept both backend-native slot shape and web UI shape.
-    // Prevent invalid rows like day_of_week = null, which makes patient slot lookup fail.
+    // Prevent invalid rows like slot_date = null
     const slotsJson = slots.map((slot) => {
-      const day_of_week = normalizeDayOfWeek(slot);
+      const slot_date = slot.slot_date || slot.date || slot.slotDate;
       const start_time = normalizeTime24(slot.startTime ?? slot.start_time);
       const end_time = normalizeTime24(slot.endTime ?? slot.end_time);
       const is_active = normalizeBoolean(slot.isAvailable ?? slot.is_active ?? slot.isActive, true);
 
-      if (day_of_week === null || !start_time || !end_time) {
-        throw new ApiError(400, 'Invalid slot format. Provide valid day, startTime, and endTime.');
+      if (!slot_date || !start_time || !end_time) {
+        throw new ApiError(400, 'Invalid slot format. Provide valid slot_date, startTime, and endTime.');
       }
 
       const startMinutes = toMinutes(start_time);
@@ -746,7 +755,7 @@ class DoctorService {
         throw new ApiError(400, 'Invalid slot range. endTime must be after startTime.');
       }
 
-      return { day_of_week, start_time, end_time, is_active };
+      return { slot_date, start_time, end_time, is_active };
     });
 
     const canUseRpc = slotsJson.every((slot) => slot.is_active === true);
@@ -770,7 +779,7 @@ class DoctorService {
 
       const fallbackRows = slotsJson.map((slot) => ({
         doctor_id: doctor.id,
-        day_of_week: slot.day_of_week,
+        slot_date: slot.slot_date,
         start_time: slot.start_time,
         end_time: slot.end_time,
         slot_duration: 15,
@@ -793,7 +802,8 @@ class DoctorService {
       .from('doctor_slots')
       .select('*')
       .eq('doctor_id', doctor.id)
-      .order('day_of_week', { ascending: true });
+      .order('slot_date', { ascending: true })
+      .order('start_time', { ascending: true });
 
     if (fetchError) {
       throw new ApiError(400, 'Failed to fetch updated slots');
