@@ -448,6 +448,7 @@ class ComputerVisionAnalyzer(
 
         val landmarker = faceLandmarker
         if (landmarker == null) {
+            bitmap.recycle()
             handleFaceLoss()
             return
         }
@@ -461,14 +462,14 @@ class ComputerVisionAnalyzer(
             landmarker.detectForVideo(BitmapImageBuilder(bitmap).build(), mpTimestamp)
         } catch (e: Exception) {
             Log.e(TAG, "Face landmarker error.", e)
+            bitmap.recycle()
             handleFaceLoss()
             null
-        } finally {
-            bitmap.recycle()
         }
 
         val landmarks = result?.faceLandmarks()?.firstOrNull()
         if (landmarks.isNullOrEmpty()) {
+            bitmap.recycle()
             handleFaceLoss()
             return
         }
@@ -478,6 +479,7 @@ class ComputerVisionAnalyzer(
         // ── Extract face ROI ───────────────────────────────────────
         val faceBox = extractFaceBox(landmarks)
         if (faceBox == null || faceBox.width < MIN_FACE_WIDTH || faceBox.height < MIN_FACE_HEIGHT) {
+            bitmap.recycle()
             handleFaceLoss()
             return
         }
@@ -570,6 +572,8 @@ class ComputerVisionAnalyzer(
             confidence = (Math.min(1.0, Math.max(0.1, signalQuality * 0.8))).round(2),
             capturedAtMs = currentTimeMs
         )
+        
+        bitmap.recycle()
     }
 
     // ══════════════════════════════════════════════════════════════════

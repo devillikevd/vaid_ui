@@ -58,13 +58,12 @@ fun ProfileTabContent(
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showPersonalInfoDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
-    var showAppearanceDialog by remember { mutableStateOf(false) }
+
     var showNotificationDialog by remember { mutableStateOf(false) }
     var showGuardianSettingsDialog by remember { mutableStateOf(false) }
     var showFeedbackDialog by remember { mutableStateOf(false) }
     var showEmergencyContactsDialog by remember { mutableStateOf(false) }
     var showFamilyMembersDialog by remember { mutableStateOf(false) }
-    var showPrivacyDialog by remember { mutableStateOf(false) }
     var showHelpCenterDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
@@ -193,8 +192,6 @@ fun ProfileTabContent(
                     PreferencesCard(
                         onNotificationsClick = { showNotificationDialog = true },
                         onLanguageClick = { showLanguageDialog = true },
-                        onAppearanceClick = { showAppearanceDialog = true },
-                        onPrivacyClick = { showPrivacyDialog = true },
                         onGuardianClick = { showGuardianSettingsDialog = true }
                     )
                 }
@@ -265,9 +262,7 @@ fun ProfileTabContent(
         LanguagePickerDialog(onDismiss = { showLanguageDialog = false })
     }
 
-    if (showAppearanceDialog) {
-        AppearanceDialog(onDismiss = { showAppearanceDialog = false })
-    }
+
 
 
 
@@ -309,15 +304,7 @@ fun ProfileTabContent(
         )
     }
 
-    if (showPrivacyDialog) {
-        PrivacySecurityDialog(
-            onDismiss = { showPrivacyDialog = false },
-            onChangePassword = {
-                showPrivacyDialog = false
-                showChangePasswordDialog = true
-            }
-        )
-    }
+
 
     if (showHelpCenterDialog) {
         HelpCenterDialog(onDismiss = { showHelpCenterDialog = false })

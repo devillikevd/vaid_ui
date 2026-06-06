@@ -1434,9 +1434,12 @@ class VideoConsultationViewModel @Inject constructor(
         if (!consented) {
             stopVitalsStreaming()
             detachCvAnalyzer()
-            cvAnalyzer?.release()
+            val analyzerToRelease = cvAnalyzer
             cvAnalyzer = null
-            android.util.Log.d("VideoConsultationVM", "CV analyzer released: consent=false")
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                analyzerToRelease?.release()
+                android.util.Log.d("VideoConsultationVM", "CV analyzer released: consent=false")
+            }
             return
         }
 
@@ -1477,11 +1480,24 @@ class VideoConsultationViewModel @Inject constructor(
         detachCvAnalyzer()
         _localVideoTrack.value = null
         _remoteVideoTrack.value = null
-        cvAnalyzer?.release()
+        
+        val analyzerToRelease = cvAnalyzer
         cvAnalyzer = null
         isCvAnalyzerAttached = false
-        webRTCManager?.release()
+        
+        val managerToRelease = webRTCManager
         webRTCManager = null
+        
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            // Give Compose time to recompose and trigger AndroidView.onRelease
+            // for the SurfaceViewRenderers before destroying the EGL context and WebRTC threads.
+            kotlinx.coroutines.delay(500)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                analyzerToRelease?.release()
+                managerToRelease?.release()
+            }
+        }
+        
         isWebRTCInitialized = false
         resetAudioRoute()
     }
@@ -1636,12 +1652,16 @@ class VideoConsultationViewModel @Inject constructor(
             }
             
             try {
-                // First get appointment to get doctorId
                 val appointmentResult = appointmentRepository.getAppointmentDetails(appointmentId)
                 if (appointmentResult is Result.Success) {
                     val doctorId = appointmentResult.data.doctorId
-                    val consultationId = _uiState.value.session?.consultationId?.ifEmpty { _uiState.value.session?.sessionId }
-                    appointmentRepository.submitDoctorReview(doctorId, consultationId, rating, comment.ifBlank { null })
+                    val consultationId = _uiState.value.session?.consultationId?.ifEmpty { _uiState.value.session?.sessionId } ?: appointmentId
+                    patientRepository.submitReview(
+                        appointmentId = consultationId,
+                        doctorId = doctorId,
+                        rating = rating,
+                        comment = comment.ifBlank { null }
+                    )
                 }
             } catch (e: Exception) {
                 // Ignore failure for review

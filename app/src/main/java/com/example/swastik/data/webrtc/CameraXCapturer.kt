@@ -152,9 +152,7 @@ class CameraXCapturer(
     }
 
     override fun stopCapture() {
-        mainHandler.post {
-            // Demote to CREATED. CameraX unbinds use cases when lifecycle drops below STARTED.
-            // Using CREATED instead of DESTROYED allows WebRTC to safely stop/start tracks.
+        val action = {
             lifecycleRegistry.currentState = Lifecycle.State.CREATED
             try {
                 cameraProvider?.unbindAll()
@@ -166,6 +164,20 @@ class CameraXCapturer(
                 Log.e(TAG, "Error stopping CameraX: ${e.message}", e)
             }
         }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            action()
+        } else {
+            val latch = java.util.concurrent.CountDownLatch(1)
+            mainHandler.post {
+                action()
+                latch.countDown()
+            }
+            try {
+                latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (e: Exception) {
+                Log.e(TAG, "Timeout waiting for stopCapture on main thread", e)
+            }
+        }
     }
 
     override fun changeCaptureFormat(width: Int, height: Int, framerate: Int) {
@@ -174,8 +186,20 @@ class CameraXCapturer(
 
     override fun dispose() {
         stopCapture()
-        mainHandler.post {
+        val action = {
             lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            action()
+        } else {
+            val latch = java.util.concurrent.CountDownLatch(1)
+            mainHandler.post {
+                action()
+                latch.countDown()
+            }
+            try {
+                latch.await(1, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (e: Exception) { }
         }
         analysisExecutor.shutdown()
     }

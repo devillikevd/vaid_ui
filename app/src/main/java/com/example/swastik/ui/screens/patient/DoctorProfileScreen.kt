@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -584,35 +586,42 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
         Spacer(modifier = Modifier.height(24.dp))
         
         // Individual Review Cards
-        details.reviews?.take(2)?.forEach { review ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        if (!details.reviews.isNullOrEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(40.dp).background(SwastikPrimaryLight, CircleShape), contentAlignment = Alignment.Center) {
-                            Text(text = (review.patient?.name ?: "Anonymous").firstOrNull()?.toString() ?: "A", color = SwastikPrimary, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(text = review.patient?.name ?: "Anonymous", style = MaterialTheme.typography.titleMedium)
+                items(details.reviews) { review ->
+                    Card(
+                        modifier = Modifier.width(320.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                repeat(5) { i ->
-                                    Icon(
-                                        Icons.Filled.Star, 
-                                        contentDescription = null, 
-                                        tint = if (i < review.rating) Color(0xFFFFB800) else MaterialTheme.colorScheme.surfaceVariant, 
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                Box(modifier = Modifier.size(40.dp).background(SwastikPrimaryLight, CircleShape), contentAlignment = Alignment.Center) {
+                                    Text(text = (review.patient?.name ?: "Anonymous").firstOrNull()?.toString() ?: "A", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(text = review.patient?.name ?: "Anonymous", style = MaterialTheme.typography.titleMedium)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        repeat(5) { i ->
+                                            Icon(
+                                                Icons.Filled.Star, 
+                                                contentDescription = null, 
+                                                tint = if (i < review.rating) Color(0xFFFFB800) else MaterialTheme.colorScheme.surfaceVariant, 
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(review.comment ?: "Good experience.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 4, overflow = TextOverflow.Ellipsis)
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(review.comment ?: "Good experience.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }

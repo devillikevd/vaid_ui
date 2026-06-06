@@ -499,18 +499,11 @@ fun SettingsCard(
 fun PreferencesCard(
     onNotificationsClick: () -> Unit,
     onLanguageClick: () -> Unit,
-    onAppearanceClick: () -> Unit,
-    onPrivacyClick: () -> Unit,
     onGuardianClick: () -> Unit
 ) {
     val appSettings by AppSettingsStore.settings.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
     val currentLang = appSettings.language
-    val currentTheme = when (appSettings.themePreference) {
-        ThemePreference.LIGHT -> stringResource(R.string.light_mode)
-        ThemePreference.DARK -> stringResource(R.string.dark_mode)
-        ThemePreference.SYSTEM -> stringResource(R.string.system_default)
-    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -523,12 +516,6 @@ fun PreferencesCard(
             SettingsMenuItem(Icons.Outlined.Security, "Guardian Settings", "Fall detection & SOS", onClick = onGuardianClick)
             HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
             SettingsMenuItem(Icons.Outlined.Language, stringResource(R.string.language), stringResource(com.example.swastik.util.LanguageConfig.labelResId(currentLang)), onClick = onLanguageClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.DarkMode, stringResource(R.string.appearance), currentTheme, onClick = onAppearanceClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.Security, stringResource(R.string.privacy_security), stringResource(R.string.password_biometrics_2fa), onClick = onPrivacyClick)
-            HorizontalDivider(color = colorScheme.outline.copy(alpha = 0.3f))
-            SettingsMenuItem(Icons.Outlined.CloudSync, stringResource(R.string.data_sync), stringResource(R.string.auto_backup_enabled), onClick = {})
         }
     }
 }
