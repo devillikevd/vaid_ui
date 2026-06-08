@@ -129,14 +129,21 @@ fun EmergencyDetailScreen(
                 },
                 onNavigate = if (canNavigate) {
                     {
-                        val geoUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                        val geoUri = Uri.parse("google.navigation:q=${emergency.latitude},${emergency.longitude}&mode=d")
                         val geoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+                        geoIntent.setPackage("com.google.android.apps.maps")
                         try {
                             if (geoIntent.resolveActivity(context.packageManager) != null) {
                                 context.startActivity(geoIntent)
                             } else {
-                                val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
-                                context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                val fallbackUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                                val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri)
+                                if (fallbackIntent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(fallbackIntent)
+                                } else {
+                                    val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                }
                             }
                         } catch (_: android.content.ActivityNotFoundException) {
                             val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}")
@@ -275,16 +282,23 @@ fun EmergencyDetailScreen(
                         Spacer(Modifier.height(12.dp))
                         Button(
                             onClick = {
-                                // Use generic geo: intent — works with OsmAnd, Google Maps, any map app
-                                val geoUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                                // Prioritize Google Maps turn-by-turn navigation
+                                val geoUri = Uri.parse("google.navigation:q=${emergency.latitude},${emergency.longitude}&mode=d")
                                 val geoIntent = Intent(Intent.ACTION_VIEW, geoUri)
+                                geoIntent.setPackage("com.google.android.apps.maps")
                                 try {
                                     if (geoIntent.resolveActivity(context.packageManager) != null) {
                                         context.startActivity(geoIntent)
                                     } else {
-                                        // Fallback: OpenStreetMap in browser
-                                        val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                        // Fallback: Generic map intent
+                                        val fallbackUri = Uri.parse("geo:${emergency.latitude},${emergency.longitude}?q=${emergency.latitude},${emergency.longitude}(${Uri.encode("Patient Pickup")})")
+                                        val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri)
+                                        if (fallbackIntent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(fallbackIntent)
+                                        } else {
+                                            val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}#map=15/${emergency.latitude}/${emergency.longitude}")
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
+                                        }
                                     }
                                 } catch (_: android.content.ActivityNotFoundException) {
                                     val browserUri = Uri.parse("https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${emergency.latitude},${emergency.longitude}")

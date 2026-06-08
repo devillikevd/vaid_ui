@@ -129,8 +129,10 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     const [consultationFee, setConsultationFee] = useState('');
     const [languages, setLanguages] = useState('');
     const [bio, setBio] = useState('');
+    const [isEmergencyAvailable, setIsEmergencyAvailable] = useState(false);
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
+    const [hospitalType, setHospitalType] = useState('Private');
 
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -263,6 +265,7 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                         license_number: licenseNumber,
                         address: address.trim(),
                         ...(latitude != null && longitude != null && !(latitude === 0 && longitude === 0) ? { latitude, longitude } : {}),
+                        ...(config.role === 'hospital_owner' ? { is_emergency_available: isEmergencyAvailable, type: hospitalType } : {}),
                     };
                     break;
             }
@@ -579,6 +582,22 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                     error={fieldErrors.licenseNumber}
                                     required
                                 />
+                                {config.role === 'hospital_owner' && (
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            {withRequiredMark('Hospital Type', true)}
+                                        </label>
+                                        <select
+                                            value={hospitalType}
+                                            onChange={(e) => setHospitalType(e.target.value)}
+                                            className="w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 border-gray-200 dark:border-gray-700"
+                                            required
+                                        >
+                                            <option value="Private">Private</option>
+                                            <option value="Government">Government</option>
+                                        </select>
+                                    </div>
+                                )}
                                 <Input
                                     label={withRequiredMark('Address', true)}
                                     value={address}
@@ -611,6 +630,20 @@ export default function RegisterPage({ params }: RegisterPageProps) {
                                 />
                                 {fieldErrors.location && (
                                     <p className="text-sm text-red-600 dark:text-red-400 -mt-2">{fieldErrors.location}</p>
+                                )}
+                                {(config.role === 'hospital_owner' || config.role === 'clinic_owner') && (
+                                    <div className="flex items-center space-x-3 mt-4 mb-2 p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/50">
+                                        <input
+                                            type="checkbox"
+                                            id="emergency_available"
+                                            checked={isEmergencyAvailable}
+                                            onChange={(e) => setIsEmergencyAvailable(e.target.checked)}
+                                            className="w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-600 dark:border-gray-700 dark:bg-gray-900"
+                                        />
+                                        <label htmlFor="emergency_available" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            24/7 Emergency Services Available
+                                        </label>
+                                    </div>
                                 )}
                             </>
                         )}

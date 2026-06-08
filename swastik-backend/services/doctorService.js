@@ -163,7 +163,7 @@ class DoctorService {
       supabaseAdmin.from('appointments').select('patient_id').eq('doctor_id', doctor.id),
       supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('doctor_id', doctor.id),
       supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('doctor_id', doctor.id).eq('status', 'completed'),
-      supabaseAdmin.from('doctor_reviews').select('*').eq('doctor_id', doctor.id).order('created_at', { ascending: false }).limit(5),
+      supabaseAdmin.from('reviews').select('*').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).order('created_at', { ascending: false }).limit(5),
     ]);
 
     const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;
@@ -590,8 +590,8 @@ class DoctorService {
       { data: hospitalsData }
     ] = await Promise.all([
       supabaseAdmin.from('doctor_slots').select('*').eq('doctor_id', doctorId).eq('is_active', true),
-      supabaseAdmin.from('doctor_reviews').select('*, patient:patients(name)').eq('doctor_id', doctorId).order('created_at', { ascending: false }).limit(10),
-      supabaseAdmin.from('doctor_reviews').select('rating').eq('doctor_id', doctorId),
+      supabaseAdmin.from('reviews').select('*, patient:patients(name)').eq('reviewable_type', 'doctor').eq('reviewable_id', doctorId).order('created_at', { ascending: false }).limit(10),
+      supabaseAdmin.from('reviews').select('rating').eq('reviewable_type', 'doctor').eq('reviewable_id', doctorId),
       supabaseAdmin.rpc('get_doctor_queue_count', { p_doctor_id: doctorId }),
       supabaseAdmin.from('clinic_doctors').select('consultation_fee, schedule, clinic:clinics(*)').eq('doctor_id', doctorId).eq('is_active', true),
       supabaseAdmin.from('hospital_doctors').select('department, designation, schedule, hospital:hospitals(*)').eq('doctor_id', doctorId).eq('is_active', true),

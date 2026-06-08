@@ -103,6 +103,42 @@ const PRIORITY_COLORS: Record<string, string> = {
     normal: 'text-blue-600 bg-blue-50 border-blue-200',
 };
 
+// Web Audio API Native Siren
+const playNativeSiren = () => {
+    try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        
+        const ctx = new AudioContextClass();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'square';
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.value = 0.5; // Loud
+        osc.start();
+        
+        let up = true;
+        const interval = setInterval(() => {
+            osc.frequency.setValueAtTime(up ? 800 : 400, ctx.currentTime);
+            up = !up;
+        }, 500);
+
+        (window as any)._sosAlarm = {
+            pause: () => {
+                clearInterval(interval);
+                try { osc.stop(); } catch(e) {}
+                osc.disconnect();
+                gain.disconnect();
+                ctx.close();
+            }
+        };
+    } catch (e) {
+        console.error("Native Siren failed", e);
+    }
+};
+
 export default function HospitalEmergencyPage() {
     const [emergencies, setEmergencies] = useState<DispatchEmergency[]>([]);
     const [availableAmbulances, setAvailableAmbulances] = useState<AvailableAmbulance[]>([]);
@@ -195,12 +231,9 @@ export default function HospitalEmergencyPage() {
         const unsub5 = on('emergency:new-direct-sos', (data: any) => {
             setIncomingSos(data);
             fetchEmergencies();
-            // Play loud alarm
+            // Play loud native alarm
             try {
-                const audio = new Audio('/sounds/emergency-alarm.mp3');
-                audio.loop = true;
-                audio.play().catch(e => console.warn("Audio autoplay blocked by browser", e));
-                (window as any)._sosAlarm = audio;
+                playNativeSiren();
             } catch (e) {
                 console.error("Audio play failed", e);
             }

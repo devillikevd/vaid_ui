@@ -589,6 +589,7 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
         if (!details.reviews.isNullOrEmpty()) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
                 items(details.reviews) { review ->

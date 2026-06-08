@@ -153,4 +153,16 @@ object NavigationHelper {
             else -> "📍"
         }
     }
+
+    fun openWhatsApp(context: Context, phone: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            val cleanPhone = phone.replace(Regex("[^0-9+]"), "")
+            val finalPhone = if (cleanPhone.startsWith("+")) cleanPhone else "+91$cleanPhone"
+            intent.data = Uri.parse("https://wa.me/$finalPhone")
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
+        }
+    }
 }

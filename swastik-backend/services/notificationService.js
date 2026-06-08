@@ -139,11 +139,9 @@ const sendPushNotification = async (userId, notification) => {
     const admin = require('firebase-admin');
     const message = {
       token: user.fcm_token,
-      notification: {
-        title: notification.title,
-        body: notification.message,
-      },
       data: {
+        title: notification.title || '',
+        message: notification.message || '',
         type: notification.type || 'info',
         ...(notification.data ? Object.fromEntries(
           Object.entries(notification.data).map(([k, v]) => [k, String(v)])

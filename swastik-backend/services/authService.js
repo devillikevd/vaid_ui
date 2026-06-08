@@ -428,6 +428,8 @@ const createRoleProfile = async (userId, role, data) => {
         email: data.email || null,
         latitude: parseOptionalNumber(data.latitude),
         longitude: parseOptionalNumber(data.longitude),
+        is_emergency_available: data.is_emergency_available || false,
+        type: data.type || 'Private',
         is_approved: false,
         approval_status: 'pending',
       });

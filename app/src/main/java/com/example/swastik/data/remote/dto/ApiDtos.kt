@@ -615,7 +615,11 @@ data class HospitalDto(
     val rating: Float?,
     @SerializedName("is_emergency_available")
     val isEmergencyAvailable: Boolean?,
-    val distance: Float?
+    val distance: Float?,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null,
+    @SerializedName("is_24_hours") val is24Hours: Boolean? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 // ==================== MEDICINE DTOs ====================
@@ -918,7 +922,11 @@ data class PharmacyDto(
     val isOpen: Boolean?,
     val rating: Float?,
     @SerializedName("total_reviews")
-    val totalReviews: Int?
+    val totalReviews: Int?,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null,
+    @SerializedName("is_24_hours") val is24Hours: Boolean? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 data class ClinicDto(
@@ -937,7 +945,10 @@ data class ClinicDto(
     val is24Hours: Boolean?,
     val city: String? = null,
     val state: String? = null,
-    val email: String? = null
+    val email: String? = null,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 data class DiagnosticCenterDto(
@@ -956,7 +967,10 @@ data class DiagnosticCenterDto(
     @SerializedName("total_reviews")
     val totalReviews: Int?,
     @SerializedName("is_24_hours")
-    val is24Hours: Boolean?
+    val is24Hours: Boolean?,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 // ==================== COMMON DTOs ====================

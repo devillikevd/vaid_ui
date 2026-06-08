@@ -1542,7 +1542,7 @@ const getAnalytics = async (period = '30d') => {
     countRows('consultations', (query) => query.eq('status', 'completed').gte('created_at', sinceStr)),
     countRows('users', (query) => query.eq('is_active', true).gte('last_login', new Date(Date.now() - 15 * 60 * 1000).toISOString())),
     supabaseAdmin.from('reviews').select('rating').eq('is_visible', true),
-    supabaseAdmin.from('doctor_reviews').select('rating'),
+    supabaseAdmin.from('reviews').select('rating').eq('reviewable_type', 'doctor'),
     supabaseAdmin.from('doctors').select('specialization').eq('approval_status', 'approved'),
     supabaseAdmin.from('users').select('created_at').gte('created_at', sinceStr),
     supabaseAdmin.from('appointments').select('created_at').gte('created_at', sinceStr),

@@ -939,21 +939,23 @@ private fun FilterBottomSheet(
                 title = "Hospital Type",
                 cardColor = cardColor
             ) {
-                Row(
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf("Government", "Private", null).forEach { type ->
-                        FilterChip(
-                            selected = hospitalTypeFilter == type,
-                            onClick = { onHospitalTypeChange(type) },
-                            label = { Text(type ?: "All", fontSize = 13.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = SwastikPrimary,
-                                selectedLabelColor = Color.White
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
+                    item {
+                        listOf(null, "Government", "Private", "Multi-Specialty", "General").forEach { type ->
+                            FilterChip(
+                                selected = hospitalTypeFilter == type,
+                                onClick = { onHospitalTypeChange(type) },
+                                label = { Text(type ?: "All", fontSize = 13.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = SwastikPrimary,
+                                    selectedLabelColor = Color.White
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                     }
                 }
             }
@@ -1082,12 +1084,33 @@ private fun FacilityDetailSheet(
                         )
                     )
             ) {
-                 Icon(
-                     imageVector = facility.type.getMarkerIcon(),
-                     contentDescription = null,
-                     tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
-                     modifier = Modifier.size(80.dp).align(Alignment.Center)
-                 )
+                if (!facility.imageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = facility.imageUrl,
+                        contentDescription = facility.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+                } else {
+                     Icon(
+                         imageVector = facility.type.getMarkerIcon(),
+                         contentDescription = null,
+                         tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                         modifier = Modifier.size(80.dp).align(Alignment.Center)
+                     )
+                }
             }
         }
         
@@ -1140,7 +1163,7 @@ private fun FacilityDetailSheet(
                     )
                 }
             }
-            StatusBadge(isOpen = facility.isOpen)
+            StatusBadge(facility = facility)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1199,6 +1222,13 @@ private fun FacilityDetailSheet(
                 color = Color(0xFF2196F3),
                 modifier = Modifier.weight(1f),
                 onClick = { NavigationHelper.openDirections(actionContext, facility.latitude, facility.longitude, facility.name) }
+            )
+            QuickActionButton(
+                icon = androidx.compose.material.icons.Icons.Default.Message,
+                label = "WhatsApp",
+                color = Color(0xFF25D366),
+                modifier = Modifier.weight(1f),
+                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(actionContext, facility.phone) }
             )
             QuickActionButton(
                 icon = Icons.Default.CalendarMonth,
@@ -1454,9 +1484,10 @@ private fun FacilityDetailSheet(
                 )
             }
         }
-            }
-        }
     }
+}
+}
+
 }
 
 private fun mergeFacilityDetails(
@@ -1635,12 +1666,73 @@ private fun MedicalStoreDetailSheet(
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
 
-    Column(
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
     ) {
-        // Header
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .graphicsLayer {
+                        translationY = scrollOffset * 0.5f
+                        alpha = 1f - (scrollOffset / 300f).coerceIn(0f, 1f)
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                facility.type.getMarkerColor().copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            ) {
+                if (!facility.imageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = facility.imageUrl,
+                        contentDescription = facility.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+                } else {
+                     Icon(
+                         imageVector = facility.type.getMarkerIcon(),
+                         contentDescription = null,
+                         tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                         modifier = Modifier.size(80.dp).align(Alignment.Center)
+                     )
+                }
+            }
+        }
+        
+        item {
+            Column(
+                modifier = Modifier
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1678,7 +1770,7 @@ private fun MedicalStoreDetailSheet(
                     )
                 }
             }
-            StatusBadge(isOpen = facility.isOpen)
+            StatusBadge(facility = facility)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1928,6 +2020,8 @@ private fun MedicalStoreDetailSheet(
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.my_orders), color = SwastikPrimary)
         }
+            }
+        }
     }
 }
 
@@ -2120,12 +2214,73 @@ private fun ClinicDetailSheet(
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
 
-    Column(
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
     ) {
-        // Header
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .graphicsLayer {
+                        translationY = scrollOffset * 0.5f
+                        alpha = 1f - (scrollOffset / 300f).coerceIn(0f, 1f)
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                facility.type.getMarkerColor().copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            ) {
+                if (!facility.imageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = facility.imageUrl,
+                        contentDescription = facility.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+                } else {
+                     Icon(
+                         imageVector = facility.type.getMarkerIcon(),
+                         contentDescription = null,
+                         tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                         modifier = Modifier.size(80.dp).align(Alignment.Center)
+                     )
+                }
+            }
+        }
+        
+        item {
+            Column(
+                modifier = Modifier
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                // Header
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2147,7 +2302,7 @@ private fun ClinicDetailSheet(
                     Text(stringResource(R.string.clinic), fontSize = 14.sp, color = subtextColor)
                 }
             }
-            StatusBadge(isOpen = facility.isOpen)
+            StatusBadge(facility = facility)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2199,6 +2354,13 @@ private fun ClinicDetailSheet(
                 icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
                 modifier = Modifier.weight(1f),
                 onClick = { NavigationHelper.openDirections(clinicContext, facility.latitude, facility.longitude, facility.name) }
+            )
+            QuickActionButton(
+                icon = androidx.compose.material.icons.Icons.Default.Message,
+                label = "WhatsApp",
+                color = Color(0xFF25D366),
+                modifier = Modifier.weight(1f),
+                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(clinicContext, facility.phone) }
             )
             QuickActionButton(
                 icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPrimary,
@@ -2320,6 +2482,8 @@ private fun ClinicDetailSheet(
                 }
             }
         }
+            }
+        }
     }
 }
 
@@ -2335,12 +2499,73 @@ private fun DiagnosticCenterDetailSheet(
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
 
-    Column(
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
     ) {
-        // Header
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .graphicsLayer {
+                        translationY = scrollOffset * 0.5f
+                        alpha = 1f - (scrollOffset / 300f).coerceIn(0f, 1f)
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                facility.type.getMarkerColor().copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            ) {
+                if (!facility.imageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = facility.imageUrl,
+                        contentDescription = facility.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+                } else {
+                     Icon(
+                         imageVector = facility.type.getMarkerIcon(),
+                         contentDescription = null,
+                         tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                         modifier = Modifier.size(80.dp).align(Alignment.Center)
+                     )
+                }
+            }
+        }
+        
+        item {
+            Column(
+                modifier = Modifier
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                // Header
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2362,7 +2587,7 @@ private fun DiagnosticCenterDetailSheet(
                     Text(stringResource(R.string.diagnostic_center), fontSize = 14.sp, color = subtextColor)
                 }
             }
-            StatusBadge(isOpen = facility.isOpen)
+            StatusBadge(facility = facility)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2414,6 +2639,13 @@ private fun DiagnosticCenterDetailSheet(
                 icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
                 modifier = Modifier.weight(1f),
                 onClick = { NavigationHelper.openDirections(dcContext, facility.latitude, facility.longitude, facility.name) }
+            )
+            QuickActionButton(
+                icon = androidx.compose.material.icons.Icons.Default.Message,
+                label = "WhatsApp",
+                color = Color(0xFF25D366),
+                modifier = Modifier.weight(1f),
+                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(dcContext, facility.phone) }
             )
             if (facility.isEmergencyAvailable) {
                 QuickActionButton(
@@ -2509,6 +2741,8 @@ private fun DiagnosticCenterDetailSheet(
             Icon(Icons.Default.Science, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.book_a_test_1), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+            }
         }
     }
 }
@@ -2832,12 +3066,73 @@ private fun EmergencyFacilityDetailSheet(
     val subtextColor = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.Gray
     val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
 
-    Column(
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 32.dp)
     ) {
-        Row(
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .graphicsLayer {
+                        translationY = scrollOffset * 0.5f
+                        alpha = 1f - (scrollOffset / 300f).coerceIn(0f, 1f)
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                facility.type.getMarkerColor().copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            ) {
+                if (!facility.imageUrl.isNullOrBlank()) {
+                    coil.compose.AsyncImage(
+                        model = facility.imageUrl,
+                        contentDescription = facility.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.3f)
+                                    )
+                                )
+                            )
+                    )
+                } else {
+                     Icon(
+                         imageVector = facility.type.getMarkerIcon(),
+                         contentDescription = null,
+                         tint = facility.type.getMarkerColor().copy(alpha = 0.6f),
+                         modifier = Modifier.size(80.dp).align(Alignment.Center)
+                     )
+                }
+            }
+        }
+        
+        item {
+            Column(
+                modifier = Modifier
+                    .offset(y = (-24).dp)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .fillMaxWidth()
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
@@ -2875,7 +3170,7 @@ private fun EmergencyFacilityDetailSheet(
                     fontSize = 13.sp
                 )
             }
-            StatusBadge(isOpen = facility.isOpen)
+            StatusBadge(facility = facility)
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -2969,6 +3264,8 @@ private fun EmergencyFacilityDetailSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(facility.phone.ifBlank { "N/A (fallback: 108)" }, color = textColor, fontSize = 14.sp)
                 }
+            }
+        }
             }
         }
     }
@@ -3360,7 +3657,7 @@ private fun FacilityMapCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        StatusBadge(isOpen = facility.isOpen, small = true)
+                        StatusBadge(facility = facility, small = true)
                     }
                 }
             }
@@ -3529,7 +3826,7 @@ private fun FacilityListCard(
                             overflow = TextOverflow.Ellipsis,
                             color = textColor
                         )
-                        StatusBadge(isOpen = facility.isOpen)
+                        StatusBadge(facility = facility)
                     }
                     Text(
                         text = facility.type.getDisplayName(),
@@ -3629,22 +3926,55 @@ private fun FacilityListCard(
 }
 
 @Composable
-private fun StatusBadge(isOpen: Boolean, small: Boolean = false) {
+private fun StatusBadge(facility: MedicalFacility, small: Boolean = false) {
+    var statusText = if (facility.isOpen) "Open" else "Closed"
+    var statusColor = if (facility.isOpen) Color(0xFF4CAF50) else Color(0xFFE53935)
+    var bgColor = if (facility.isOpen) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+
+    if (facility.is24Hours) {
+        statusText = "Open 24/7"
+    } else if (facility.isOpen && !facility.closeTime.isNullOrBlank()) {
+        try {
+            val closeParts = facility.closeTime.split(":")
+            if (closeParts.size >= 2) {
+                val closeHour = closeParts[0].toInt()
+                val closeMinute = closeParts[1].toInt()
+                
+                val calendar = java.util.Calendar.getInstance()
+                val currentHour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                val currentMinute = calendar.get(java.util.Calendar.MINUTE)
+                
+                val currentMinutesTotal = currentHour * 60 + currentMinute
+                var closeMinutesTotal = closeHour * 60 + closeMinute
+                
+                if (closeMinutesTotal < currentMinutesTotal && closeHour < 12) {
+                    closeMinutesTotal += 24 * 60
+                }
+                
+                val diff = closeMinutesTotal - currentMinutesTotal
+                if (diff in 0..60) {
+                    statusText = "Closing Soon"
+                    statusColor = Color(0xFFFF9800) // Orange
+                    bgColor = Color(0xFFFFF3E0) // Light Orange
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore parsing errors
+        }
+    }
+
     Box(
         modifier = Modifier
-            .background(
-                if (isOpen) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
-                RoundedCornerShape(if (small) 4.dp else 6.dp)
-            )
+            .background(bgColor, RoundedCornerShape(if (small) 4.dp else 6.dp))
             .padding(
                 horizontal = if (small) 6.dp else 8.dp,
                 vertical = if (small) 2.dp else 4.dp
             )
     ) {
         Text(
-            text = if (isOpen) "Open" else "Closed",
+            text = statusText,
             fontSize = if (small) 10.sp else 11.sp,
-            color = if (isOpen) Color(0xFF4CAF50) else Color(0xFFE53935),
+            color = statusColor,
             fontWeight = FontWeight.Medium
         )
     }

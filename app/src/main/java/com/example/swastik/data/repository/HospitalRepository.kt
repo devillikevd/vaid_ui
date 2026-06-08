@@ -109,7 +109,11 @@ class HospitalRepository @Inject constructor(
                         latitude = pharmacy.latitude ?: 0.0,
                         longitude = pharmacy.longitude ?: 0.0,
                         phone = pharmacy.phone ?: "",
-                        isOpen = pharmacy.isOpen ?: true
+                        openTime = pharmacy.openTime,
+                        closeTime = pharmacy.closeTime,
+                        isOpen = pharmacy.isOpen ?: true,
+                        is24Hours = pharmacy.is24Hours ?: false,
+                        imageUrl = pharmacy.imageUrl
                     )
                 } ?: emptyList()
             }
@@ -145,7 +149,11 @@ class HospitalRepository @Inject constructor(
                         latitude = clinic.latitude ?: 0.0,
                         longitude = clinic.longitude ?: 0.0,
                         phone = clinic.phone ?: "",
+                        openTime = clinic.openTime,
+                        closeTime = clinic.closeTime,
                         isOpen = clinic.is24Hours ?: true,
+                        is24Hours = clinic.is24Hours ?: false,
+                        imageUrl = clinic.imageUrl,
                         specializations = clinic.specializations ?: emptyList()
                     )
                 } ?: emptyList()
@@ -182,7 +190,11 @@ class HospitalRepository @Inject constructor(
                         latitude = center.latitude ?: 0.0,
                         longitude = center.longitude ?: 0.0,
                         phone = center.phone ?: "",
+                        openTime = center.openTime,
+                        closeTime = center.closeTime,
                         isOpen = center.is24Hours ?: true,
+                        is24Hours = center.is24Hours ?: false,
+                        imageUrl = center.imageUrl,
                         isEmergencyAvailable = center.emergencyServices ?: false,
                         specializations = center.specialties ?: emptyList()
                     )
@@ -541,7 +553,11 @@ class HospitalRepository @Inject constructor(
             latitude = latitude ?: 0.0,
             longitude = longitude ?: 0.0,
             phone = phone ?: "",
+            openTime = openTime,
+            closeTime = closeTime,
             isOpen = is24Hours ?: false,
+            is24Hours = is24Hours ?: false,
+            imageUrl = imageUrl,
             isEmergencyAvailable = isEmergencyAvailable ?: false,
             specializations = resolvedSpecializations,
             doctors = resolvedDoctors,

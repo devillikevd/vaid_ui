@@ -26,6 +26,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.delay
+import android.media.RingtoneManager
 
 @Singleton
 class AmbulancePushNotificationCoordinator @Inject constructor(
@@ -98,6 +100,8 @@ class AmbulancePushNotificationCoordinator @Inject constructor(
             return
         }
 
+        playEmergencyAlarm()
+
         val intent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
@@ -144,6 +148,28 @@ class AmbulancePushNotificationCoordinator @Inject constructor(
         } catch (error: Exception) {
             Log.w(TAG, "Ambulance Firebase client config missing: ${error.message}")
             false
+        }
+        }
+    }
+
+    private fun playEmergencyAlarm() {
+        scope.launch {
+            try {
+                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                
+                val ringtone = RingtoneManager.getRingtone(context, alarmUri)
+                ringtone?.play()
+                
+                // Play for 8 seconds then stop to prevent indefinite ringing in background
+                delay(8000)
+                if (ringtone?.isPlaying == true) {
+                    ringtone.stop()
+                }
+            } catch (error: Exception) {
+                Log.e(TAG, "Failed to play emergency alarm: ${error.message}")
+            }
         }
     }
 }

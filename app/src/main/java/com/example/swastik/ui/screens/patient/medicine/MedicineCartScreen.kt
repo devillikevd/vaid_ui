@@ -303,14 +303,35 @@ fun MedicineCartScreen(
                             item {
                                 Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Spacer(Modifier.height(8.dp))
-                                OutlinedTextField(
-                                    value = cartState.deliveryAddress,
-                                    onValueChange = { viewModel.setDeliveryAddress(it) },
-                                    placeholder = { Text(stringResource(R.string.enter_your_delivery_address)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    minLines = 4,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
+                                if (cartState.deliveryAddress.isBlank()) {
+                                    com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+                                        initialAddress = "",
+                                        onAddressSaved = { address ->
+                                            viewModel.setDeliveryAddress(address)
+                                        }
+                                    )
+                                } else {
+                                    androidx.compose.material3.Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    ) {
+                                        Column(Modifier.padding(16.dp)) {
+                                            Text(
+                                                text = cartState.deliveryAddress,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(Modifier.height(8.dp))
+                                            TextButton(
+                                                onClick = { viewModel.setDeliveryAddress("") },
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text("Change Address", color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         

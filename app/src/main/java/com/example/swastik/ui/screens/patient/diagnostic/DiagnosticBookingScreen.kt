@@ -265,13 +265,35 @@ fun DiagnosticBookingScreen(
                     }
 
                     if (collectionType == "home_collection") {
-                        OutlinedTextField(
-                            value = collectionAddress,
-                            onValueChange = { collectionAddress = it },
-                            label = { Text(stringResource(R.string.collection_address)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 2
-                        )
+                        if (collectionAddress.isBlank()) {
+                            com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+                                initialAddress = "",
+                                onAddressSaved = { address ->
+                                    collectionAddress = address
+                                }
+                            )
+                        } else {
+                            androidx.compose.material3.Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            ) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = collectionAddress,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    TextButton(
+                                        onClick = { collectionAddress = "" },
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text("Change Address", color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },

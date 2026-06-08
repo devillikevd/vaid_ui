@@ -787,12 +787,12 @@ private fun ConsultationDetailsStep(
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Video Consultation card
             ConsultationTypeCard(
-                modifier = Modifier.weight(1f),
+                modifier = if (showBothTypes) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxWidth(0.48f).fillMaxHeight(),
                 icon = "📹",
                 title = "Video Consultation",
                 subtitle = "Consult with doctor online",
@@ -804,7 +804,7 @@ private fun ConsultationDetailsStep(
             // In-Person card
             if (showBothTypes) {
                 ConsultationTypeCard(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     icon = "🏥",
                     title = "In-Person Visit",
                     subtitle = "Visit doctor at clinic",
@@ -883,6 +883,7 @@ private fun ConsultationTypeCard(
 ) {
     Card(
         modifier = modifier
+            .height(130.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
@@ -895,7 +896,7 @@ private fun ConsultationTypeCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.fillMaxSize().padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(

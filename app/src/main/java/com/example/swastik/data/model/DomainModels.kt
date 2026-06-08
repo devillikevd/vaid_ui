@@ -191,7 +191,9 @@ data class Hospital(
     val type: String? = null,
     val city: String? = null,
     val departments: List<HospitalDepartment>? = null,
-    val doctors: List<HospitalDoctorAssignment>? = null
+    val doctors: List<HospitalDoctorAssignment>? = null,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null
 )
 
 data class HospitalDepartment(

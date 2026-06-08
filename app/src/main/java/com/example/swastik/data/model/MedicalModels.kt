@@ -25,6 +25,8 @@ data class MedicalFacility(
     @SerializedName("close_time") val closeTime: String? = null,
     @SerializedName("is_open") val isOpen: Boolean = true,
     @SerializedName("is_emergency_available") val isEmergencyAvailable: Boolean = false,
+    val imageUrl: String? = null,
+    val is24Hours: Boolean = false,
     val specializations: List<String> = emptyList(),
     val doctors: List<HospitalDoctor> = emptyList(),
     val hospitalSubType: String? = null, // "Government" or "Private"
