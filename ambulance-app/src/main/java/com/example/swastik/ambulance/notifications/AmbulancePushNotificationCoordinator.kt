@@ -149,7 +149,6 @@ class AmbulancePushNotificationCoordinator @Inject constructor(
             Log.w(TAG, "Ambulance Firebase client config missing: ${error.message}")
             false
         }
-        }
     }
 
     private fun playEmergencyAlarm() {
