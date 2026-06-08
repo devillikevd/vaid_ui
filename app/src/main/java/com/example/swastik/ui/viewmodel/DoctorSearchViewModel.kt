@@ -232,9 +232,9 @@ class DoctorSearchViewModel @Inject constructor(
         viewModelScope.launch {
             val location = locationHelper.getLastLocation()
             if (location != null) {
-                updateFilters(latitude = location.latitude, longitude = location.longitude, city = null, global = if(isGlobal) true else null)
-            } else if (isGlobal) {
-                updateFilters(global = true)
+                updateFilters(latitude = location.latitude, longitude = location.longitude, city = null, global = isGlobal)
+            } else {
+                updateFilters(latitude = null, longitude = null, city = null, global = isGlobal)
             }
         }
     }
@@ -243,12 +243,13 @@ class DoctorSearchViewModel @Inject constructor(
      * Clear all filters
      */
     fun clearFilters() {
-        // Preserve location when clearing search filters
+        // Preserve location and global state when clearing search filters
         val location = _filters.value
         _filters.value = DoctorSearchFilters(
             latitude = location.latitude,
             longitude = location.longitude,
-            city = location.city
+            city = location.city,
+            global = location.global
         )
         searchDoctors(resetList = true)
     }

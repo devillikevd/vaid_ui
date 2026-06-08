@@ -535,6 +535,11 @@ class DoctorService {
         result = result.filter(doc => doc.distance_km !== null && doc.distance_km <= 120.0);
       }
       // If filters.global is true, do not filter by distance
+    } else {
+      if (!filters.global && !filters.city && !filters.hospitalId && !filters.clinicId) {
+        // Cannot filter 120km if no location and no city provided
+        return paginatedResponse([], 0, page, limit);
+      }
     }
 
     // ALWAYS sort by SMART RANKING (top rated) as requested by the user
