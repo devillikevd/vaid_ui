@@ -11,6 +11,7 @@ const dispatchService = require('../../services/dispatchService');
 const emergencyContactNotificationService = require('../../services/emergencyContactNotificationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { supabaseAdmin } = require('../../config/supabase');
+const { signStorageUrlsInPayload } = require('../../config/minio');
 const eventEmitter = require('../../services/eventEmitter');
 
 const router = express.Router();
@@ -652,7 +653,8 @@ router.get('/doctors/recommended',
       req.user.id,
       limit
     );
-    res.json({ success: true, data: recommended });
+    const signedRecommended = await signStorageUrlsInPayload(recommended);
+    res.json({ success: true, data: signedRecommended });
   })
 );
 
@@ -665,7 +667,8 @@ router.get('/doctors',
       parseInt(page),
       parseInt(limit)
     );
-    res.json({ success: true, ...result });
+    const signedResult = await signStorageUrlsInPayload(result);
+    res.json({ success: true, ...signedResult });
   })
 );
 
@@ -673,17 +676,21 @@ router.get('/doctors',
 router.get('/doctors/:id',
   asyncHandler(async (req, res) => {
     const doctorDetails = await doctorService.getDoctorById(req.params.id);
+    const dataPayload = {
+      doctor: doctorDetails,
+      schedules: doctorDetails.slots || [],
+      reviews: doctorDetails.reviews || [],
+      reviewDistribution: doctorDetails.reviewDistribution || {},
+      queueCount: doctorDetails.queueCount || 0,
+      clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
+      hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
+    };
+
+    const signedData = await signStorageUrlsInPayload(dataPayload);
+
     res.json({
       success: true,
-      data: {
-        doctor: doctorDetails,
-        schedules: doctorDetails.slots || [],
-        reviews: doctorDetails.reviews || [],
-        reviewDistribution: doctorDetails.reviewDistribution || {},
-        queueCount: doctorDetails.queueCount || 0,
-        clinics: doctorDetails.affiliatedClinics?.map(ac => ({ ...ac.clinic, consultation_fee: ac.consultation_fee, schedule: ac.schedule })) || [],
-        hospitals: doctorDetails.affiliatedHospitals?.map(ah => ({ ...ah.hospital, department: ah.department, designation: ah.designation, schedule: ah.schedule })) || []
-      }
+      data: signedData
     });
   })
 );
@@ -1075,7 +1082,7 @@ router.get('/orders',
     const offset = (parseInt(page) - 1) * parseInt(limit);
     let query = supabaseAdmin
       .from('pharmacy_orders')
-      .select('*, pharmacy:pharmacies(id, name, phone, address)', { count: 'exact' })
+      .select('*, pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)', { count: 'exact' })
       .eq('patient_id', patient.id);
 
     if (status) {
@@ -1120,7 +1127,7 @@ router.get('/orders/:id',
 
     const { data, error } = await supabaseAdmin
       .from('pharmacy_orders')
-      .select('*, pharmacy:pharmacies(id, name, phone, address, city)')
+      .select('*, pharmacy:pharmacies(id, name, phone, address, city, latitude, longitude), delivery_agents(*)')
       .eq('id', req.params.id)
       .eq('patient_id', patient.id)
       .single();
@@ -1214,7 +1221,7 @@ router.get('/diagnostic-bookings',
       .select(`
         *,
         test:diagnostic_tests(id, name, category, price),
-        center:diagnostic_centers(id, name, phone, address, city)
+        center:diagnostic_centers(id, name, phone, address, city, latitude, longitude)
       `, { count: 'exact' })
       .eq('patient_id', patient.id);
 
@@ -1263,7 +1270,7 @@ router.get('/diagnostic-bookings/:id',
       .select(`
         *,
         test:diagnostic_tests(id, name, category, price, description),
-        center:diagnostic_centers(id, name, phone, address, city, email)
+        center:diagnostic_centers(id, name, phone, address, city, email, latitude, longitude)
       `)
       .eq('id', req.params.id)
       .eq('patient_id', patient.id)

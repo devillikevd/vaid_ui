@@ -10,6 +10,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useDiagnosticCenterStore, type DiagnosticBooking } from '@/stores/diagnosticCenterStore';
 import { useDiagnosticUpdates } from '@/hooks/useSocket';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { AssignAgentModal } from '@/components/shared/AssignAgentModal';
+import { AgentTrackingMap } from '@/components/shared/AgentTrackingMap';
 
 const STATUS_FILTERS = [
     { label: 'All', value: '' },
@@ -39,8 +41,12 @@ function getNextStatusActions(booking: DiagnosticBooking): BookingAction[] {
         case 'confirmed':
             return [
                 ...(booking.collection_type === 'home_collection'
-                    ? [{ label: 'Dispatch Team', value: 'dispatched', icon: Send } as BookingAction]
-                    : []),
+                    ? [{ label: 'Dispatch Team', value: 'dispatched', icon: Send } as BookingAction, { label: 'Collect Sample', value: 'sample_collected', icon: FlaskConical } as BookingAction]
+                    : [{ label: 'Mark Arrived', value: 'arrived', icon: CheckCircle2 } as BookingAction]),
+                { label: 'Cancel', value: 'cancelled', icon: XCircle, variant: 'outline' },
+            ];
+        case 'arrived':
+            return [
                 { label: 'Collect Sample', value: 'sample_collected', icon: FlaskConical },
                 { label: 'Cancel', value: 'cancelled', icon: XCircle, variant: 'outline' },
             ];
@@ -78,6 +84,7 @@ export default function BookingsPage() {
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [uploadingId, setUploadingId] = useState<string | null>(null);
+    const [assigningBookingId, setAssigningBookingId] = useState<string | null>(null);
     const [resultForm, setResultForm] = useState({ result_url: '', result_notes: '' });
     const [newBookingAlert, setNewBookingAlert] = useState(false);
     const [page, setPage] = useState(1);
@@ -108,6 +115,10 @@ export default function BookingsPage() {
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
     const handleStatusChange = async (bookingId: string, newStatus: string) => {
+        if (newStatus === 'dispatched') {
+            setAssigningBookingId(bookingId);
+            return;
+        }
         if (newStatus === 'cancelled') {
             const confirmed = await confirmAction({ title: 'Cancel Booking', message: 'Cancel this booking?', confirmLabel: 'Cancel Booking', variant: 'danger' });
             if (!confirmed) return;
@@ -242,6 +253,22 @@ export default function BookingsPage() {
                                     </div>
                                 )}
 
+                                {/* Live Tracking */}
+                                {booking.tracking_token && ['dispatched', 'out_for_delivery'].includes(booking.status) && (
+                                    <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                                        <h4 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Live Agent Tracking</h4>
+                                        <AgentTrackingMap 
+                                            trackingToken={booking.tracking_token} 
+                                            height="200px"
+                                            facilityLocation={booking.facility?.latitude && booking.facility?.longitude ? {
+                                                lat: booking.facility.latitude,
+                                                lng: booking.facility.longitude,
+                                                name: booking.facility.name || 'Diagnostic Center'
+                                            } : null}
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Actions */}
                                 <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                                     {getNextStatusActions(booking).map(action => {
@@ -316,6 +343,15 @@ export default function BookingsPage() {
                 </div>
             )}
             <ConfirmDialog {...dialogProps} />
+            <AssignAgentModal
+                isOpen={!!assigningBookingId}
+                onClose={() => setAssigningBookingId(null)}
+                orderId={assigningBookingId!}
+                orderType="diagnostic"
+                onAssigned={() => {
+                    fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize });
+                }}
+            />
         </div>
     );
 }

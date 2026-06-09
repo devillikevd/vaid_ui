@@ -30,6 +30,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -75,7 +76,7 @@ fun HealthCardScreen(
     dashboardViewModel: PatientDashboardViewModel,
     recordsViewModel: RecordsViewModel
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val healthCardMainBg = MaterialTheme.colorScheme.primaryContainer
     val hcState by dashboardViewModel.healthCardState.collectAsState()
     val syncState by dashboardViewModel.healthConnectSyncState.collectAsState()
@@ -573,7 +574,7 @@ fun HealthCardScreen(
 @Composable
 private fun HealthCardHowItWorks() {
     var expanded by remember { mutableStateOf(false) } // Defaulting to collapsed as requested by "Option 4" image style
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val outerBg = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.6f)
     val innerBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
 
@@ -671,7 +672,7 @@ private fun HealthCardHowItWorks() {
 @Composable
 private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.DailyFitnessLog? = null) {
     var expanded by remember { mutableStateOf(false) }
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val outerBg = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.6f)
     val innerBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White
     

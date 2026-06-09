@@ -108,7 +108,7 @@ fun OsmMapView(
                     position = GeoPoint(userLatitude, userLongitude)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     title = "Your Location"
-                    icon = createPinDrawable(context, android.graphics.Color.parseColor("#7C3AED"), 20)
+                    icon = getTintedPinDrawable(context, android.graphics.Color.parseColor("#7C3AED"))
                 }
                 mapView.overlays.add(userMarker)
             }
@@ -132,7 +132,7 @@ fun OsmMapView(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = markerData.title
                     snippet = markerData.snippet
-                    icon = createPinDrawable(context, markerData.markerColor, 32)
+                    icon = getTintedPinDrawable(context, markerData.markerColor)
                     if (markerData.onClick != null) {
                         setOnMarkerClickListener { _, _ ->
                             markerData.onClick.invoke()
@@ -151,8 +151,30 @@ fun OsmMapView(
             val zoomChanged = lastZoom == null || lastZoom != zoom
 
             if (centerChanged || (!userHasInteracted && zoomChanged)) {
-                mapView.controller.setCenter(center)
-                mapView.controller.setZoom(zoom)
+                if (markers.isNotEmpty() && !userHasInteracted) {
+                    try {
+                        val points = markers.map { GeoPoint(it.latitude, it.longitude) }.toMutableList()
+                        if (showUserLocation && userLatitude != 0.0 && userLongitude != 0.0) {
+                            points.add(GeoPoint(userLatitude, userLongitude))
+                        }
+                        if (points.size > 1) {
+                            val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPoints(points)
+                            mapView.post {
+                                mapView.zoomToBoundingBox(boundingBox, true, 100, 15.0, null)
+                            }
+                        } else {
+                            mapView.controller.setCenter(center)
+                            mapView.controller.setZoom(zoom)
+                        }
+                    } catch (e: Exception) {
+                        mapView.controller.setCenter(center)
+                        mapView.controller.setZoom(zoom)
+                    }
+                } else {
+                    mapView.controller.setCenter(center)
+                    mapView.controller.setZoom(zoom)
+                }
+                
                 lastCenter = center
                 lastZoom = zoom
                 // Reset interaction flag when new data arrives
@@ -165,72 +187,17 @@ fun OsmMapView(
 }
 
 /**
- * Create a custom pin teardrop drawable for map markers.
+ * Returns a reliably-bounded native map marker pin tinted to the specified color.
+ * Using the native marker guarantees that map clicks register correctly and the
+ * map pin targets the exact coordinate correctly.
  */
-private fun createPinDrawable(context: Context, color: Int, sizeDp: Int): Drawable {
-    val density = context.resources.displayMetrics.density
-    val widthPx = (sizeDp * density).toInt()
-    val heightPx = ((sizeDp * 1.3f) * density).toInt()
-
-    return object : Drawable() {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = Paint.Style.FILL
-        }
-        private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = android.graphics.Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 2f * density
-        }
-        private val path = android.graphics.Path()
-
-        override fun draw(canvas: Canvas) {
-            val width = bounds.width().toFloat()
-            val height = bounds.height().toFloat()
-            val radius = width / 2.2f
-            val cx = width / 2f
-            val cy = radius + 2f * density
-
-            path.reset()
-            // Top arc
-            path.addArc(cx - radius, cy - radius, cx + radius, cy + radius, 180f, 180f)
-            
-            // Right curve down to point
-            path.cubicTo(
-                cx + radius, cy + radius * 0.8f,
-                cx + radius * 0.3f, height - 4f * density,
-                cx, height - 2f * density
-            )
-            // Left curve back up
-            path.cubicTo(
-                cx - radius * 0.3f, height - 4f * density,
-                cx - radius, cy + radius * 0.8f,
-                cx - radius, cy
-            )
-            path.close()
-
-            // Add drop shadow
-            paint.setShadowLayer(4f, 0f, 4f, android.graphics.Color.argb(80, 0, 0, 0))
-            canvas.drawPath(path, paint)
-            
-            // Clear shadow for border and inner circle
-            paint.clearShadowLayer()
-            canvas.drawPath(path, borderPaint)
-
-            val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = android.graphics.Color.WHITE
-                style = Paint.Style.FILL
-            }
-            canvas.drawCircle(cx, cy, radius * 0.4f, innerPaint)
-        }
-
-        override fun getIntrinsicWidth() = widthPx
-        override fun getIntrinsicHeight() = heightPx
-        override fun setAlpha(alpha: Int) { paint.alpha = alpha }
-        override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter }
-        @Deprecated("Deprecated in Java")
-        override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
-    }.also {
-        it.setBounds(0, 0, widthPx, heightPx)
-    }
+private fun getTintedPinDrawable(context: Context, color: Int): Drawable {
+    val defaultMarker = androidx.core.content.ContextCompat.getDrawable(
+        context, 
+        org.osmdroid.library.R.drawable.marker_default
+    ) ?: return android.graphics.drawable.ColorDrawable(color)
+    
+    val drawable = androidx.core.graphics.drawable.DrawableCompat.wrap(defaultMarker).mutate()
+    androidx.core.graphics.drawable.DrawableCompat.setTint(drawable, color)
+    return drawable
 }

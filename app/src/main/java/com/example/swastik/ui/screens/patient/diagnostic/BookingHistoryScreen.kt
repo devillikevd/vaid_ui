@@ -30,17 +30,25 @@ import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.shape.CircleShape
+import com.example.swastik.ui.components.OsmMapView
+import com.example.swastik.ui.components.MapMarkerData
+import org.osmdroid.util.GeoPoint
+import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingHistoryScreen(
     onBackClick: () -> Unit,
+    onNavigateToTracking: (String, Double, Double) -> Unit = { _, _, _ -> },
     viewModel: DiagnosticViewModel = hiltViewModel()
 ) {
     val historyState by viewModel.bookingHistoryState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Pending", "Confirmed", "Dispatched", "Sample Collected", "Processing", "Completed", "Cancelled")
-    val statusFilters = listOf(null, "pending", "confirmed", "dispatched", "sample_collected", "processing", "completed", "cancelled")
+    // Only show active tracking map if an agent is actually assigned and tracking
+    val activeBooking = historyState.bookings.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
+    var showHistoryOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadBookingHistory()
@@ -53,25 +61,27 @@ fun BookingHistoryScreen(
         }
     }
 
+    val bgColor = MaterialTheme.colorScheme.background
     Scaffold(
+        containerColor = bgColor,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.my_bookings), fontWeight = FontWeight.Bold) },
+                title = { Text(if (showHistoryOnly) stringResource(R.string.booking_history) else "Diagnostic Bookings", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadBookingHistory(statusFilters[selectedTab]) }) {
+                    IconButton(onClick = { viewModel.loadBookingHistory() }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SwastikPrimary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
+                    containerColor = bgColor,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -81,25 +91,6 @@ fun BookingHistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Tab filter row
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = SwastikPrimary.copy(alpha = 0.05f),
-                contentColor = SwastikPrimary,
-                edgePadding = 8.dp
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = {
-                            selectedTab = index
-                            viewModel.loadBookingHistory(statusFilters[index])
-                        },
-                        text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp) }
-                    )
-                }
-            }
-
             // Cancel success banner
             AnimatedVisibility(visible = historyState.cancelSuccess) {
                 Card(
@@ -149,6 +140,13 @@ fun BookingHistoryScreen(
                         CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
+                activeBooking != null && !showHistoryOnly -> {
+                    ActiveBookingTrackingView(
+                        booking = activeBooking,
+                        onViewHistory = { showHistoryOnly = true },
+                        onNavigateToTracking = onNavigateToTracking
+                    )
+                }
                 historyState.bookings.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -156,19 +154,55 @@ fun BookingHistoryScreen(
                             Spacer(Modifier.height(12.dp))
                             Text(stringResource(R.string.no_bookings_found_1), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(stringResource(R.string.your_diagnostic_bookings_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            
+                            if (activeBooking != null) {
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { showHistoryOnly = false }) {
+                                    Text("Back to Active Booking")
+                                }
+                            }
                         }
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(historyState.bookings, key = { it.id }) { booking ->
-                            BookingHistoryCard(
-                                booking = booking,
-                                onCancel = { viewModel.cancelBooking(booking.id) }
-                            )
+                    Column {
+                        if (activeBooking != null) {
+                            Button(
+                                onClick = { showHistoryOnly = false },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                            ) {
+                                Icon(Icons.Default.Map, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Back to Active Tracking")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { /* Already in history view */ },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.History, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("See Your History")
+                            }
+                        }
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(historyState.bookings, key = { it.id }) { booking ->
+                                BookingHistoryCard(
+                                    booking = booking,
+                                    onCancel = { viewModel.cancelBooking(booking.id) },
+                                    onTrack = {
+                                        if (!booking.trackingToken.isNullOrEmpty()) {
+                                            onNavigateToTracking(booking.trackingToken, 0.0, 0.0)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -178,9 +212,266 @@ fun BookingHistoryScreen(
 }
 
 @Composable
+private fun ActiveBookingTrackingView(
+    booking: DiagnosticBookingDto,
+    onViewHistory: () -> Unit,
+    onNavigateToTracking: (String, Double, Double) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val trackingVm: OrderTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val trackingState by trackingVm.state.collectAsState()
+    
+    LaunchedEffect(booking.trackingToken) {
+        if (!booking.trackingToken.isNullOrEmpty()) {
+            trackingVm.startTracking(booking.trackingToken, 0.0, 0.0)
+        }
+    }
+
+    val isWalkIn = booking.collectionType == "walk_in" || booking.collectionType == "other"
+    val centerLat = booking.center?.latitude ?: 0.0
+    val centerLng = booking.center?.longitude ?: 0.0
+
+    var destLat by remember { mutableStateOf(if (isWalkIn) centerLat else 0.0) }
+    var destLng by remember { mutableStateOf(if (isWalkIn) centerLng else 0.0) }
+
+    LaunchedEffect(isWalkIn) {
+        if (!isWalkIn) {
+            try {
+                val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null) {
+                        destLat = location.latitude
+                        destLng = location.longitude
+                    }
+                }
+            } catch (e: SecurityException) {
+                // Ignore if permission denied
+            }
+        }
+    }
+
+    val isWaitingForAgent = !isWalkIn && trackingState.agentLocation == null
+
+    val mapCenter = if (isWalkIn) {
+        GeoPoint(centerLat, centerLng)
+    } else if (isWaitingForAgent) {
+        GeoPoint(if (destLat != 0.0) destLat else centerLat, if (destLng != 0.0) destLng else centerLng)
+    } else {
+        GeoPoint(
+            (destLat + trackingState.agentLocation!!.latitude) / 2.0,
+            (destLng + trackingState.agentLocation!!.longitude) / 2.0
+        )
+    }
+    
+    val markers = buildList {
+        // Diagnostic center marker (blue)
+        if (centerLat != 0.0 && centerLng != 0.0) {
+            add(
+                MapMarkerData(
+                    id = "center",
+                    latitude = centerLat,
+                    longitude = centerLng,
+                    title = booking.center?.name ?: "Diagnostic Center",
+                    snippet = if (isWalkIn) "Drop-off Location" else "Center Location",
+                    markerColor = android.graphics.Color.parseColor(if (isWalkIn) "#E91E63" else "#1976D2")
+                )
+            )
+        }
+        
+        // Patient location marker (green) - only for home collection
+        if (!isWalkIn && destLat != 0.0) {
+            add(
+                MapMarkerData(
+                    id = "dest",
+                    latitude = destLat,
+                    longitude = destLng,
+                    title = "Your Location",
+                    snippet = "Sample Collection",
+                    markerColor = android.graphics.Color.parseColor("#4CAF50")
+                )
+            )
+        }
+        
+        // Phlebotomist marker (purple)
+        if (!isWalkIn && trackingState.agentLocation != null) {
+            add(
+                MapMarkerData(
+                    id = "agent",
+                    latitude = trackingState.agentLocation!!.latitude,
+                    longitude = trackingState.agentLocation!!.longitude,
+                    title = "Phlebotomist",
+                    snippet = "Live Location",
+                    markerColor = android.graphics.Color.parseColor("#673AB7")
+                )
+            )
+        }
+    }
+
+    // Polyline: Center → Agent → Patient
+    val mapRoute = buildList {
+        if (!isWalkIn) {
+            if (centerLat != 0.0 && centerLng != 0.0) {
+                add(GeoPoint(centerLat, centerLng))
+            }
+            if (trackingState.agentLocation != null) {
+                add(GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude))
+            }
+            if (destLat != 0.0) {
+                add(GeoPoint(destLat, destLng))
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            OsmMapView(
+                modifier = Modifier.fillMaxSize(),
+                center = mapCenter,
+                zoom = 15.0,
+                markers = markers,
+                route = mapRoute,
+                showUserLocation = isWalkIn // Show patient's location so they can see how far they are
+            )
+            
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isWalkIn) "Visit Center" else if (isWaitingForAgent) "Locating Phlebotomist..." else "Agent on the way",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+        
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 16.dp,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Status: ${booking.status?.replaceFirstChar { it.uppercase() }}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = booking.test?.name ?: "Diagnostic Test",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (!booking.trackingToken.isNullOrEmpty() && booking.status in listOf("dispatched", "out_for_delivery")) {
+                        IconButton(
+                            onClick = { onNavigateToTracking(booking.trackingToken, 0.0, 0.0) },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        ) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = "Full map", tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                }
+                
+                booking.deliveryAgent?.let { agent ->
+                    Spacer(Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text("Phlebotomist / Agent", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            }
+                            IconButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${agent.phone}"))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Phone, contentDescription = "Call Agent", tint = Color.White)
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                
+                OutlinedButton(
+                    onClick = onViewHistory,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("See Your History")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BookingHistoryCard(
     booking: DiagnosticBookingDto,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onTrack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
@@ -205,10 +496,16 @@ private fun BookingHistoryCard(
         else -> booking.status?.replaceFirstChar { it.uppercase() } ?: "Unknown"
     }
 
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val textColorPrimary = if (isDark) Color(0xFFF8FAFC) else Color(0xFF1E293B)
+    val textColorSecondary = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         onClick = { expanded = !expanded }
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -223,12 +520,13 @@ private fun BookingHistoryCard(
                         booking.test?.name ?: "Diagnostic Test",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
+                        color = textColorPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         booking.center?.name ?: "Diagnostic Center",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = textColorSecondary,
                         fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -237,7 +535,7 @@ private fun BookingHistoryCard(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             bookingNumber,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = textColorSecondary,
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -259,22 +557,26 @@ private fun BookingHistoryCard(
             // Date & price row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CalendarMonth, null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        formatBookingDate(booking.bookingDate),
+                        text = buildString {
+                            append(formatBookingDate(booking.bookingDate))
+                            if (booking.bookingTime != null) append(" at ${booking.bookingTime}")
+                        },
                         fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = textColorSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    booking.bookingTime?.let {
-                        Text(" at $it", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
+                Spacer(Modifier.width(8.dp))
                 booking.test?.price?.let {
-                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 15.sp)
+                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
                 }
             }
 
@@ -287,12 +589,14 @@ private fun BookingHistoryCard(
                     // Collection type
                     booking.collectionType?.let { ct ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocalShipping, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.LocalShipping, null, tint = textColorSecondary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 "Collection: ${ct.replace("_", " ").replaceFirstChar { it.uppercase() }}",
                                 fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = textColorSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         Spacer(Modifier.height(4.dp))
@@ -402,6 +706,50 @@ private fun BookingHistoryCard(
                             Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.cancel_booking))
+                        }
+                    }
+
+                    // Track Delivery button (for dispatched home collections)
+                    if (booking.collectionType == "home_collection" && !booking.trackingToken.isNullOrEmpty() && booking.status in listOf("dispatched", "out_for_delivery")) {
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onTrack,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Track Agent")
+                        }
+                    }
+
+                    // Navigate button (for walk_in bookings)
+                    if (booking.collectionType == "walk_in" && booking.status in listOf("pending", "booked", "confirmed")) {
+                        val lat = booking.center?.latitude
+                        val lng = booking.center?.longitude
+                        if (lat != null && lng != null) {
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    try {
+                                        val uri = Uri.parse("google.navigation:q=$lat,$lng")
+                                        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                            setPackage("com.google.android.apps.maps")
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Google Maps is not installed", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.Directions, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Navigate to Center")
+                            }
                         }
                     }
                 }

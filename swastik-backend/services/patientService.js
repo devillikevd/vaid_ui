@@ -211,12 +211,6 @@ class PatientService {
       supabaseAdmin.from('family_members').select('*').eq('patient_id', patient.id),
       supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
       supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
-      supabaseAdmin
-        .from('diagnostic_bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('patient_id', patient.id)
-        .eq('result_status', 'completed')
-        .not('result_url', 'is', null),
     ]);
 
     return normalizePatientProfile(patient, {
@@ -224,7 +218,7 @@ class PatientService {
       familyMembers: familyMembers || [],
       stats: {
         appointments: appointmentCount || 0,
-        reports: (reportCount || 0) + (diagnosticReportCount || 0),
+        reports: reportCount || 0,
       },
     });
   }
@@ -529,12 +523,6 @@ class PatientService {
         supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
         supabaseAdmin.from('prescriptions').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
         supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
-        supabaseAdmin
-          .from('diagnostic_bookings')
-          .select('*', { count: 'exact', head: true })
-          .eq('patient_id', patient.id)
-          .eq('result_status', 'completed')
-          .not('result_url', 'is', null),
       ]),
     ]);
 
@@ -572,11 +560,11 @@ class PatientService {
     // Resolve stats counts
     let stats = { total_consultations: 0, total_prescriptions: 0, total_reports: 0 };
     if (statsResult.status === 'fulfilled') {
-      const [consultCount, prescCount, reportCount, diagnosticReportCount] = statsResult.value;
+      const [consultCount, prescCount, reportCount] = statsResult.value;
       stats = {
         total_consultations: consultCount.count || 0,
         total_prescriptions: prescCount.count || 0,
-        total_reports: (reportCount.count || 0) + (diagnosticReportCount.count || 0),
+        total_reports: reportCount.count || 0,
       };
     }
 

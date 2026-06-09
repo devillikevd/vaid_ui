@@ -399,6 +399,26 @@ const initializeSocketIO = (io) => {
         // No requestId, only admins/operators need the general fleet location stream.
         eventEmitter.emitEmergencyDispatch('ambulance:location-update', locationPayload);
       }
+
+      // Update the DB every 10 seconds to ensure the backend can find nearby ambulances
+      const dbRateLimitKey = `${RATE_LIMIT_PREFIX}db_driver:${userId}`;
+      const lastDbPingStr = await cacheGet(dbRateLimitKey);
+      const lastDbPing = lastDbPingStr ? parseInt(lastDbPingStr, 10) : 0;
+      if (now - lastDbPing >= 10000) {
+        cacheSet(dbRateLimitKey, now.toString(), 30);
+        try {
+          const ambulanceService = require('../services/ambulanceService');
+          await ambulanceService.updateLocation(
+            userId,
+            locationPayload.latitude,
+            locationPayload.longitude,
+            locationPayload.heading,
+            locationPayload.speed
+          );
+        } catch (err) {
+          console.warn('[sockets] failed to update DB location:', err.message);
+        }
+      }
     }));
 
     // Patient sends updated GPS location during active emergency
@@ -698,6 +718,31 @@ const initializeSocketIO = (io) => {
     socket.on('doctor:slots:unsubscribe', safeHandler(socket, (data) => {
       if (!data || !data.doctorId) return;
       socket.leave(`doctor:slots:${data.doctorId}`);
+    }));
+
+    // ==================== AGENT TRACKING SUBSCRIPTION ====================
+    socket.on('agent:track', safeHandler(socket, (data) => {
+      if (!data || !data.trackingToken) return;
+      socket.join(`tracking_${data.trackingToken}`);
+    }));
+
+    socket.on('agent:untrack', safeHandler(socket, (data) => {
+      if (!data || !data.trackingToken) return;
+      socket.leave(`tracking_${data.trackingToken}`);
+    }));
+
+    socket.on('agent:location-update', safeHandler(socket, (data) => {
+      if (!data || !data.trackingToken || data.latitude == null || data.longitude == null) return;
+      
+      const payload = {
+        latitude: parseFloat(data.latitude),
+        longitude: parseFloat(data.longitude),
+        heading: data.heading || 0,
+        speed: data.speed || 0,
+        timestamp: new Date().toISOString(),
+      };
+      
+      io.to(`tracking_${data.trackingToken}`).emit('agent:location-update', payload);
     }));
 
     // ==================== DISCONNECT ====================

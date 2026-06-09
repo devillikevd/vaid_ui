@@ -89,11 +89,19 @@ fun MedicineCartScreen(
     onBackClick: () -> Unit,
     onOrderComplete: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
-    viewModel: MedicineViewModel = hiltViewModel()
+    viewModel: MedicineViewModel = hiltViewModel(),
+    patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = hiltViewModel()
 ) {
+    val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
     val cartState by viewModel.cartState.collectAsState()
     var currentStep by remember { mutableStateOf(CheckoutStep.CART) }
     val context = LocalContext.current
+    
+    LaunchedEffect(patientProfile) {
+        if (cartState.patientPhone.isBlank() && !patientProfile?.phoneNumber.isNullOrBlank()) {
+            viewModel.setPatientPhone(patientProfile?.phoneNumber ?: "")
+        }
+    }
 
     // Order success dialog
     if (cartState.orderSuccess) {
@@ -303,6 +311,18 @@ fun MedicineCartScreen(
                             item {
                                 Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Spacer(Modifier.height(8.dp))
+                                
+                                OutlinedTextField(
+                                    value = cartState.patientPhone,
+                                    onValueChange = { viewModel.setPatientPhone(it) },
+                                    label = { Text(stringResource(R.string.phone_number) + " *") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                                    singleLine = true,
+                                    isError = cartState.patientPhone.isBlank()
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                
                                 if (cartState.deliveryAddress.isBlank()) {
                                     com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
                                         initialAddress = "",
@@ -403,7 +423,7 @@ fun MedicineCartScreen(
                                     when (currentStep) {
                                         CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
                                         CheckoutStep.ADDRESS -> {
-                                            if (cartState.deliveryAddress.isNotBlank()) {
+                                            if (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank()) {
                                                 currentStep = CheckoutStep.PAYMENT
                                             }
                                         }
@@ -412,7 +432,7 @@ fun MedicineCartScreen(
                                 },
                                 modifier = Modifier.weight(2f).height(52.dp),
                                 enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
-                                          (currentStep != CheckoutStep.ADDRESS || cartState.deliveryAddress.isNotBlank()),
+                                          (currentStep != CheckoutStep.ADDRESS || (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank())),
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                                 shape = RoundedCornerShape(12.dp)
                             ) {

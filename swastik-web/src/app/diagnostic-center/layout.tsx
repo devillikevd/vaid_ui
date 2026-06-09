@@ -10,6 +10,8 @@ import {
     Microscope,
     FileCheck,
     Link2,
+    Users,
+    Star,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -30,7 +32,9 @@ const DC_CONFIG: DashboardConfig = {
         { name: 'Bookings', href: '/diagnostic-center/bookings', icon: CalendarCheck },
         { name: 'Results', href: '/diagnostic-center/results', icon: FileCheck },
         { name: 'Associations', href: '/diagnostic-center/associations', icon: Link2 },
+        { name: 'Agents', href: '/diagnostic-center/agents', icon: Users },
         { name: 'Reports', href: '/diagnostic-center/reports', icon: BarChart3 },
+        { name: 'Reviews', href: '/diagnostic-center/reviews', icon: Star },
         { name: 'Settings', href: '/diagnostic-center/settings', icon: Settings },
     ],
 };

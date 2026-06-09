@@ -149,16 +149,11 @@ const sendPushNotification = async (userId, notification) => {
       },
       android: {
         priority: 'high',
-        notification: {
-          channelId: 'swastik_default',
-          sound: 'default',
-        },
       },
       apns: {
         payload: {
           aps: {
-            sound: 'default',
-            badge: 1,
+            'content-available': 1,
           },
         },
       },

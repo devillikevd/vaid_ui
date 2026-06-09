@@ -412,6 +412,13 @@ class AppEventEmitter extends EventEmitter {
     const { pharmacy_owner_id } = order;
     if (pharmacy_owner_id) {
       this.notifyUser(pharmacy_owner_id, 'order:new', order);
+      this.notifyUser(pharmacy_owner_id, 'notification:new', {
+        title: 'New Order Received',
+        message: `A new medicine order #${order.id?.slice(0, 8)?.toUpperCase()} has been received`,
+        type: 'pharmacy_order',
+        timestamp: new Date().toISOString(),
+        data: { orderId: order.id },
+      });
     }
     this.emitDistributed('order:new', order);
   }

@@ -525,7 +525,7 @@ const signStorageUrl = async (
   expiry = storageConfig.signedReadUrlExpirySeconds || storageConfig.signedUrlExpirySeconds || 86400,
   memo = new Map()
 ) => {
-  if (!isStorageObjectUrl(fileUrl) || isAlreadySignedUrl(fileUrl)) {
+  if (!isStorageObjectUrl(fileUrl)) {
     return fileUrl;
   }
 

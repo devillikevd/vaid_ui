@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -16,10 +17,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.data.remote.dto.MedicineOrderDto
 import com.example.swastik.ui.theme.SwastikPrimary
@@ -27,18 +31,26 @@ import com.example.swastik.ui.viewmodel.MedicineViewModel
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.ui.components.OsmMapView
+import com.example.swastik.ui.components.MapMarkerData
+import org.osmdroid.util.GeoPoint
+import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
+import androidx.compose.foundation.shape.CircleShape
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderHistoryScreen(
     onBackClick: () -> Unit,
+    onNavigateToTracking: (String, Double, Double) -> Unit = { _, _, _ -> },
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Pending", "Confirmed", "Processing", "Ready", "Dispatched", "Delivered", "Cancelled")
-    val statusFilters = listOf(null, "pending", "confirmed", "processing", "ready", "dispatched", "delivered", "cancelled")
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Only show active tracking map if an agent is actually assigned and tracking
+    val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
+    var showHistoryOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadOrderHistory()
@@ -84,22 +96,22 @@ fun OrderHistoryScreen(
         },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.my_orders), fontWeight = FontWeight.Bold) },
+                title = { Text(if (showHistoryOnly) stringResource(R.string.order_history) else "Medicine Orders", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadOrderHistory(statusFilters[selectedTab]) }) {
+                    IconButton(onClick = { viewModel.loadOrderHistory() }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         }
@@ -109,25 +121,6 @@ fun OrderHistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Tab filter row
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary,
-                edgePadding = 8.dp
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = {
-                            selectedTab = index
-                            viewModel.loadOrderHistory(statusFilters[index])
-                        },
-                        text = { Text(title, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
-                    )
-                }
-            }
-
             // Cancel success banner
             AnimatedVisibility(visible = historyState.cancelSuccess) {
                 Card(
@@ -177,6 +170,14 @@ fun OrderHistoryScreen(
                         CircularProgressIndicator(color = SwastikPrimary)
                     }
                 }
+                activeOrder != null && !showHistoryOnly -> {
+                    // Swiggy-style active order tracking
+                    ActiveOrderTrackingView(
+                        order = activeOrder,
+                        onViewHistory = { showHistoryOnly = true },
+                        onNavigateToTracking = onNavigateToTracking
+                    )
+                }
                 historyState.orders.isEmpty() -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -184,19 +185,54 @@ fun OrderHistoryScreen(
                             Spacer(Modifier.height(12.dp))
                             Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            
+                            if (activeOrder != null) {
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { showHistoryOnly = false }) {
+                                    Text("Back to Active Order")
+                                }
+                            }
                         }
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(historyState.orders, key = { it.id }) { order ->
-                            OrderHistoryCard(
-                                order = order,
-                                onCancel = { viewModel.cancelOrder(order.id) }
-                            )
+                    Column {
+                        if (activeOrder != null) {
+                            Button(
+                                onClick = { showHistoryOnly = false },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Icon(Icons.Default.Map, null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Back to Active Tracking")
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { /* Already in history view */ },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.History, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("See Your History")
+                            }
+                        }
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(historyState.orders, key = { it.id }) { order ->
+                                OrderHistoryCard(
+                                    order = order,
+                                    onCancel = { viewModel.cancelOrder(order.id) },
+                                    onTrack = {
+                                        if (!order.trackingToken.isNullOrEmpty()) {
+                                            onNavigateToTracking(order.trackingToken, 0.0, 0.0)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -206,9 +242,289 @@ fun OrderHistoryScreen(
 }
 
 @Composable
+private fun ActiveOrderTrackingView(
+    order: MedicineOrderDto,
+    onViewHistory: () -> Unit,
+    onNavigateToTracking: (String, Double, Double) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val trackingVm: OrderTrackingViewModel = hiltViewModel()
+    val trackingState by trackingVm.state.collectAsState()
+    
+    var destLat by remember { mutableStateOf(0.0) }
+    var destLng by remember { mutableStateOf(0.0) }
+    var hasDestination by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    destLat = location.latitude
+                    destLng = location.longitude
+                    hasDestination = true
+                } else {
+                    destLat = 20.5937
+                    destLng = 78.9629
+                    hasDestination = true
+                }
+            }.addOnFailureListener {
+                destLat = 20.5937
+                destLng = 78.9629
+                hasDestination = true
+            }
+        } catch (e: SecurityException) {
+            destLat = 20.5937
+            destLng = 78.9629
+            hasDestination = true
+        }
+    }
+
+    LaunchedEffect(order.trackingToken, hasDestination) {
+        if (!order.trackingToken.isNullOrEmpty() && hasDestination) {
+            trackingVm.startTracking(order.trackingToken, destLat, destLng)
+        }
+    }
+
+    val isWaitingForAgent = trackingState.agentLocation == null
+
+    val mapCenter = if (isWaitingForAgent) {
+        GeoPoint(if (hasDestination) destLat else 20.5937, if (hasDestination) destLng else 78.9629)
+    } else {
+        GeoPoint(
+            (destLat + trackingState.agentLocation!!.latitude) / 2.0,
+            (destLng + trackingState.agentLocation!!.longitude) / 2.0
+        )
+    }
+    
+    val markers = buildList {
+        // Pharmacy origin marker (blue)
+        val pharmLat = order.pharmacy?.latitude
+        val pharmLng = order.pharmacy?.longitude
+        if (pharmLat != null && pharmLng != null && pharmLat != 0.0 && pharmLng != 0.0) {
+            add(
+                MapMarkerData(
+                    id = "pharmacy",
+                    latitude = pharmLat,
+                    longitude = pharmLng,
+                    title = order.pharmacy?.name ?: "Pharmacy",
+                    snippet = "Order Origin",
+                    markerColor = android.graphics.Color.parseColor("#1976D2")
+                )
+            )
+        }
+        // Patient destination marker (green)
+        if (hasDestination) {
+            add(
+                MapMarkerData(
+                    id = "dest",
+                    latitude = destLat,
+                    longitude = destLng,
+                    title = "Delivery Location",
+                    snippet = "Your Location",
+                    markerColor = android.graphics.Color.parseColor("#4CAF50")
+                )
+            )
+        }
+        // Delivery agent marker (purple)
+        if (trackingState.agentLocation != null) {
+            add(
+                MapMarkerData(
+                    id = "agent",
+                    latitude = trackingState.agentLocation!!.latitude,
+                    longitude = trackingState.agentLocation!!.longitude,
+                    title = "Delivery Agent",
+                    snippet = "Live Location",
+                    markerColor = android.graphics.Color.parseColor("#673AB7")
+                )
+            )
+        }
+    }
+
+    // Polyline: Pharmacy → Agent → Patient (full route when agent is live)
+    val mapRoute = buildList {
+        val pharmLat = order.pharmacy?.latitude
+        val pharmLng = order.pharmacy?.longitude
+        if (pharmLat != null && pharmLng != null && pharmLat != 0.0 && pharmLng != 0.0) {
+            add(GeoPoint(pharmLat, pharmLng))
+        }
+        if (trackingState.agentLocation != null) {
+            add(GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude))
+        }
+        if (hasDestination) {
+            add(GeoPoint(destLat, destLng))
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Map Section
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            if (isWaitingForAgent && hasDestination) {
+                // Show map with destination + pharmacy, waiting for agent
+                OsmMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    center = mapCenter,
+                    zoom = 15.0,
+                    markers = markers,
+                    route = emptyList(),
+                    showUserLocation = false
+                )
+            } else if (!isWaitingForAgent && hasDestination) {
+                // Show live tracking map with full route
+                OsmMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    center = mapCenter,
+                    zoom = 15.0,
+                    markers = markers,
+                    route = mapRoute,
+                    showUserLocation = false
+                )
+            } else {
+                // Loading state
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = SwastikPrimary)
+                }
+            }
+            
+            // Floating pill for status
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isWaitingForAgent) "Locating Agent..." else "Agent on the way",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+        
+        // Order Status Details bottom sheet style
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 16.dp,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.DeliveryDining, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Order ${order.status.replaceFirstChar { it.uppercase() }}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = order.pharmacy?.name ?: "Pharmacy",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp
+                        )
+                    }
+                    if (!order.trackingToken.isNullOrEmpty() && order.status in listOf("dispatched", "out_for_delivery")) {
+                        IconButton(
+                            onClick = { onNavigateToTracking(order.trackingToken, 0.0, 0.0) },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        ) {
+                            Icon(Icons.Default.Fullscreen, contentDescription = "Full map", tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                }
+                
+                order.deliveryAgent?.let { agent ->
+                    Spacer(Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text("Delivery Agent", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            }
+                            IconButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${agent.phone}"))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Phone, contentDescription = "Call Agent", tint = Color.White)
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                
+                OutlinedButton(
+                    onClick = onViewHistory,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("See Your History")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun OrderHistoryCard(
     order: MedicineOrderDto,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onTrack: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     val statusColor = when (order.status) {
@@ -222,10 +538,16 @@ private fun OrderHistoryCard(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val textColorPrimary = if (isDark) Color(0xFFF8FAFC) else Color(0xFF1E293B)
+    val textColorSecondary = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         onClick = { expanded = !expanded }
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -240,13 +562,16 @@ private fun OrderHistoryCard(
                         order.pharmacy?.name ?: "Pharmacy",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
+                        color = textColorPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         "Order #${order.id.take(8)}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        color = textColorSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 // Status badge
@@ -270,22 +595,24 @@ private fun OrderHistoryCard(
             // Summary row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Medication, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                Spacer(Modifier.width(8.dp))
                 order.totalAmount?.let {
-                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 15.sp)
+                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
                 }
             }
 
             // Date
             order.createdAt?.let {
                 Spacer(Modifier.height(4.dp))
-                Text(formatDateShort(it), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatDateShort(it), fontSize = 12.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             // Expanded details
@@ -348,6 +675,21 @@ private fun OrderHistoryCard(
                             Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.cancel_order))
+                        }
+                    }
+
+                    // Track Delivery button (for dispatched/out_for_delivery)
+                    if (!order.trackingToken.isNullOrEmpty() && order.status in listOf("dispatched", "out_for_delivery")) {
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = onTrack,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Track Delivery")
                         }
                     }
                 }

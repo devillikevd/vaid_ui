@@ -215,6 +215,7 @@ class DiagnosticViewModel @Inject constructor(
         bookingTime: String? = null,
         collectionType: String? = "walk_in",
         collectionAddress: String? = null,
+        patientPhone: String? = null,
         notes: String? = null
     ) {
         val center = _uiState.value.selectedCenter ?: return
@@ -229,6 +230,7 @@ class DiagnosticViewModel @Inject constructor(
                 bookingTime = bookingTime,
                 collectionType = collectionType,
                 collectionAddress = collectionAddress,
+                patientPhone = patientPhone,
                 notes = notes
             )
             when (val result = repository.bookTest(request)) {

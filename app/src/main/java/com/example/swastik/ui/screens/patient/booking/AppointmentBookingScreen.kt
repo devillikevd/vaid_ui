@@ -111,9 +111,12 @@ fun AppointmentBookingScreen(
     val availableDates = remember { (0..13).map { LocalDate.now().plusDays(it.toLong()) } }
 
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
+    val filters by doctorSearchViewModel.filters.collectAsState()
+    val patientLat = filters.latitude
+    val patientLng = filters.longitude
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, preselectedSearch, patientProfile?.location) {
-        if (consultationMode == "in_person") {
+        if (consultationMode == "in_person" || consultationMode == null) {
             doctorSearchViewModel.setInPersonLocation(isGlobal = false)
         } else if (consultationMode == "video" || consultationMode == "speciality" || !preselectedSpecialization.isNullOrBlank()) {
             doctorSearchViewModel.setInPersonLocation(isGlobal = true)
@@ -230,11 +233,13 @@ fun AppointmentBookingScreen(
         else -> 1
     }
 
+    val recommendedDoctors by patientDashboardViewModel.recommendedDoctors.collectAsState()
+
     Scaffold(
         topBar = {
             if (currentStep != 6) {
                 TopAppBar(
-                    title = { Text(stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
+                    title = { Text(if (consultationMode == "recommended" && currentStep == 1) "Recommended Doctors" else stepTitle, fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                     navigationIcon = {
                         IconButton(onClick = {
                             when {
@@ -319,27 +324,66 @@ fun AppointmentBookingScreen(
                                 }
                             }
                         }
-                        1 -> DoctorSelectionStep(
-                            doctorSearchViewModel = doctorSearchViewModel,
-                            uiState = doctorState,
-                            onDoctorSelected = { doctor, isBooking ->
-                                if (isBooking) {
-                                    selectedDoctor = doctor
-                                    currentStep = 2
-                                } else {
-                                    onNavigateToDoctorProfile(doctor.id)
+                        1 -> {
+                            DoctorSelectionStep(
+                                doctorSearchViewModel = doctorSearchViewModel,
+                                uiState = doctorState,
+                                onDoctorSelected = { doctor, isBooking ->
+                                    if (isBooking) {
+                                        selectedDoctor = doctor
+                                        currentStep = 2
+                                    } else {
+                                        onNavigateToDoctorProfile(doctor.id)
+                                    }
+                                },
+                                consultationMode = consultationMode,
+                                recommendedDoctors = recommendedDoctors
+                            )
+                        }
+                        2 -> {
+                            val doctorDetails = doctorState.selectedDoctor
+                            val hospitals = doctorDetails?.hospitals
+                            val clinics = doctorDetails?.clinics
+                            
+                            val hasAffiliation = !selectedDoctor?.hospitalId.isNullOrBlank() || !selectedDoctor?.clinicId.isNullOrBlank()
+                            val isStrictVideoFlow = consultationMode == "video" || consultationMode == "speciality"
+                            
+                            val isFarAway = if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank()) {
+                                false
+                            } else if (consultationMode == "in_person") {
+                                false
+                            } else if (selectedDoctor?.distanceKm != null) {
+                                selectedDoctor!!.distanceKm!! > 120f
+                            } else {
+                                var computedDist = Float.MAX_VALUE
+                                if (patientLat != null && patientLng != null) {
+                                    val hospLat = selectedDoctor?.hospital?.latitude ?: hospitals?.firstOrNull()?.latitude
+                                    val hospLng = selectedDoctor?.hospital?.longitude ?: hospitals?.firstOrNull()?.longitude
+                                    if (hospLat != null && hospLng != null) {
+                                        val results = FloatArray(1)
+                                        android.location.Location.distanceBetween(patientLat, patientLng, hospLat, hospLng, results)
+                                        computedDist = minOf(computedDist, results[0] / 1000f)
+                                    }
+                                    // Clinic coordinates not available in model
+                                } else if (patientProfile?.city?.isNotBlank() == true || patientProfile?.location?.isNotBlank() == true) {
+                                    val pCity = (patientProfile?.city?.takeIf { it.isNotBlank() } ?: patientProfile?.location)?.lowercase()?.trim()
+                                    val docCity = selectedDoctor?.hospital?.city?.lowercase()?.trim() ?: hospitals?.firstOrNull()?.city?.lowercase()?.trim()
+                                    if (pCity != null && docCity != null && (pCity.contains(docCity) || docCity.contains(pCity))) {
+                                        computedDist = 0f // Assume nearby if in same city
+                                    }
                                 }
+                                computedDist > 120f
                             }
-                        )
-                        2 -> ConsultationDetailsStep(
-                            doctor = selectedDoctor,
-                            consultationMode = consultationMode,
-                            preselectedHospitalId = preselectedHospitalId,
-                            preselectedClinicId = preselectedClinicId,
-                            selectedType = selectedType,
-                            notes = notes,
-                            isDoctorLoaded = selectedDoctor != null,
-                            errorMessage = doctorState.error,
+                            
+                            val showBothTypes = !isStrictVideoFlow && !isFarAway && hasAffiliation
+
+                            ConsultationDetailsStep(
+                                doctor = selectedDoctor,
+                                showBothTypes = showBothTypes,
+                                selectedType = selectedType,
+                                notes = notes,
+                                isDoctorLoaded = selectedDoctor != null,
+                                errorMessage = doctorState.error,
                             onTypeChanged = { selectedType = it },
                             onNotesChanged = { if (it.length <= 500) notes = it },
                             onContinue = { currentStep = 3 },
@@ -349,6 +393,7 @@ fun AppointmentBookingScreen(
                                 }
                             }
                         )
+                        }
                         3 -> DateTimeSelectionStep(
                             doctor = selectedDoctor!!,
                             availableDates = availableDates,
@@ -538,7 +583,9 @@ private fun BookingStepperRedesigned(currentVisualStep: Int) {
 private fun DoctorSelectionStep(
     doctorSearchViewModel: DoctorSearchViewModel,
     uiState: DoctorSearchUiState,
-    onDoctorSelected: (Doctor, Boolean) -> Unit
+    onDoctorSelected: (com.example.swastik.data.model.Doctor, Boolean) -> Unit,
+    consultationMode: String?,
+    recommendedDoctors: List<com.example.swastik.data.model.Doctor>
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
@@ -600,6 +647,32 @@ private fun DoctorSelectionStep(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = { doctorSearchViewModel.searchDoctors(resetList = true) }) {
                             Text(stringResource(R.string.retry))
+                        }
+                    }
+                }
+            }
+            consultationMode == "recommended" -> {
+                if (recommendedDoctors.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(stringResource(R.string.no_doctors_found), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
+                        }
+                    }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(
+                            count = recommendedDoctors.size,
+                            key = { index -> recommendedDoctors[index].id },
+                            contentType = { "Doctor" }
+                        ) { index ->
+                            val doctor = recommendedDoctors[index]
+                            DoctorBookingCard(
+                                doctor = doctor,
+                                onSelect = { onDoctorSelected(doctor, true) },
+                                onViewProfile = { onDoctorSelected(doctor, false) }
+                            )
                         }
                     }
                 }
@@ -741,9 +814,7 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
 @Composable
 private fun ConsultationDetailsStep(
     doctor: Doctor?,
-    consultationMode: String?,
-    preselectedHospitalId: String?,
-    preselectedClinicId: String?,
+    showBothTypes: Boolean,
     selectedType: String,
     notes: String,
     isDoctorLoaded: Boolean,
@@ -755,18 +826,6 @@ private fun ConsultationDetailsStep(
 ) {
     val videoFee = doctor?.videoConsultationFee ?: doctor?.consultationFee
     val clinicFee = doctor?.consultationFee
-
-    val isNear = (doctor?.distanceKm != null && doctor.distanceKm <= 120f) || 
-                 !preselectedHospitalId.isNullOrBlank() || 
-                 !preselectedClinicId.isNullOrBlank()
-    // Doctor distance constraint: if > 120km, they cannot book an in-person visit.
-    val distance = doctor?.distanceKm ?: 0f
-    val isFarAway = distance > 120f
-    
-    // Check if the doctor is affiliated with a clinic or hospital
-    val hasAffiliation = !doctor?.hospitalId.isNullOrBlank() || !doctor?.clinicId.isNullOrBlank()
-    
-    val showBothTypes = !isFarAway && hasAffiliation
     
     // Auto-select video if in-person is disabled
     LaunchedEffect(showBothTypes) {
@@ -883,7 +942,7 @@ private fun ConsultationTypeCard(
 ) {
     Card(
         modifier = modifier
-            .height(130.dp)
+            .height(140.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
@@ -917,16 +976,20 @@ private fun ConsultationTypeCard(
             Text(
                 title,
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface,
+                minLines = 2,
                 maxLines = 2,
+                lineHeight = 16.sp,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 subtitle,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                minLines = 2,
                 maxLines = 2,
+                lineHeight = 14.sp,
                 overflow = TextOverflow.Ellipsis
             )
             Text(

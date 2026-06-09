@@ -610,7 +610,9 @@ data class HospitalDto(
     val address: String,
     val city: String?,
     val phone: String?,
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double,
     val rating: Float?,
     @SerializedName("is_emergency_available")
@@ -867,7 +869,9 @@ data class AmbulanceDto(
     val driverName: String,
     @SerializedName("driver_phone")
     val driverPhone: String,
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double?,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double?
 )
 
@@ -897,7 +901,9 @@ data class AmbulanceTrackInfo(
 )
 
 data class AmbulanceTrackLocation(
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double?,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double?,
     val heading: Float? = null,
     val speed: Float? = null
@@ -915,7 +921,9 @@ data class PharmacyDto(
     val name: String,
     val address: String?,
     val phone: String?,
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double?,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double?,
     val distance: Float?,
     @SerializedName("is_open")
@@ -926,7 +934,11 @@ data class PharmacyDto(
     @SerializedName("opening_time") val openTime: String? = null,
     @SerializedName("closing_time") val closeTime: String? = null,
     @SerializedName("is_24_hours") val is24Hours: Boolean? = null,
-    @SerializedName("image_url") val imageUrl: String? = null
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("delivery_available") val deliveryAvailable: Boolean? = null,
+    @SerializedName("offers_delivery") val offersDelivery: Boolean? = null,
+    @SerializedName("delivery_radius_km") val deliveryRadiusKm: Int? = null,
+    @SerializedName("min_order_delivery") val minOrderDelivery: Double? = null
 )
 
 data class ClinicDto(
@@ -934,7 +946,9 @@ data class ClinicDto(
     val name: String,
     val address: String?,
     val phone: String?,
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double?,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double?,
     val distance: Float?,
     val rating: Float?,
@@ -956,7 +970,9 @@ data class DiagnosticCenterDto(
     val name: String,
     val address: String?,
     val phone: String?,
+    @SerializedName(value = "latitude", alternate = ["lat", "location_lat"])
     val latitude: Double?,
+    @SerializedName(value = "longitude", alternate = ["lng", "location_lng"])
     val longitude: Double?,
     val distance: Float?,
     val rating: Float?,
@@ -970,7 +986,11 @@ data class DiagnosticCenterDto(
     val is24Hours: Boolean?,
     @SerializedName("opening_time") val openTime: String? = null,
     @SerializedName("closing_time") val closeTime: String? = null,
-    @SerializedName("image_url") val imageUrl: String? = null
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("home_collection_available") val homeCollectionAvailable: Boolean? = null,
+    @SerializedName("home_collection_fee") val homeCollectionFee: Double? = null,
+    val accreditations: List<String>? = null,
+    val images: List<String>? = null
 )
 
 // ==================== COMMON DTOs ====================
@@ -993,7 +1013,8 @@ data class ApiError(
 data class MedicineOrderRequest(
     val pharmacyId: String,
     val items: List<OrderItemRequest>,
-    val deliveryAddress: String
+    val deliveryAddress: String,
+    val patientPhone: String? = null
 )
 
 data class OrderItemRequest(
@@ -1013,9 +1034,11 @@ data class MedicineOrderDto(
     @SerializedName("total_amount") val totalAmount: Float?,
     val status: String,
     @SerializedName("payment_status") val paymentStatus: String?,
+    @SerializedName("tracking_token") val trackingToken: String?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("updated_at") val updatedAt: String?,
-    val pharmacy: OrderPharmacyDto?
+    val pharmacy: OrderPharmacyDto?,
+    @SerializedName("delivery_agents") val deliveryAgent: DeliveryAgentDto? = null
 )
 
 data class OrderPharmacyDto(
@@ -1023,7 +1046,9 @@ data class OrderPharmacyDto(
     val name: String?,
     val phone: String?,
     val address: String?,
-    val city: String?
+    val city: String?,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class OrderItemDto(
@@ -1057,6 +1082,7 @@ data class DiagnosticBookingRequest(
     val bookingTime: String?,
     val collectionType: String?,
     val collectionAddress: String?,
+    val patientPhone: String? = null,
     val notes: String?
 )
 
@@ -1075,10 +1101,22 @@ data class DiagnosticBookingDto(
     @SerializedName("result_url") val resultUrl: String?,
     @SerializedName("result_notes") val resultNotes: String?,
     @SerializedName("result_uploaded_at") val resultUploadedAt: String?,
+    @SerializedName("tracking_token") val trackingToken: String?,
     val notes: String?,
     @SerializedName("created_at") val createdAt: String?,
     val test: DiagnosticTestDto?,
-    val center: DiagnosticCenterDto?
+    val center: DiagnosticCenterDto?,
+    @SerializedName("delivery_agents") val deliveryAgent: DeliveryAgentDto? = null
+)
+
+data class DeliveryAgentDto(
+    val id: String,
+    val name: String,
+    val phone: String,
+    @SerializedName("vehicle_details") val vehicleDetails: String?,
+    val status: String?,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 // ==================== VITALS DTOs ====================

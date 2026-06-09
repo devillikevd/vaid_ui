@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.shadow
 import com.example.swastik.ui.screens.patient.components.shimmerEffect
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,7 +64,7 @@ fun MedicineScreen(
     val filteredMedicines = viewModel.getFilteredMedicines()
     val filteredNearbyMedicines = viewModel.getFilteredNearbyMedicines()
     val cartState by viewModel.cartState.collectAsState()
-    val isDarkMode = isSystemInDarkTheme()
+    val isDarkMode = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val bgColor = if (isDarkMode) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface
     val cardColor = if (isDarkMode) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
 
@@ -585,7 +586,7 @@ private fun NearbyMedicineCard(
     onClick: () -> Unit,
     onPharmacyClick: () -> Unit
 ) {
-    val cardColor = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
+    val cardColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
     Card(
         modifier = Modifier
             .width(260.dp)

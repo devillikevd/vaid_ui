@@ -11,6 +11,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import android.os.PowerManager
+import android.media.AudioAttributes
 import com.example.swastik.ambulance.MainActivity
 import com.example.swastik.ambulance.R
 import com.example.swastik.ambulance.data.local.TokenManager
@@ -152,23 +154,47 @@ class AmbulancePushNotificationCoordinator @Inject constructor(
     }
 
     private fun playEmergencyAlarm() {
-        scope.launch {
-            try {
-                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                
-                val ringtone = RingtoneManager.getRingtone(context, alarmUri)
-                ringtone?.play()
-                
-                // Play for 8 seconds then stop to prevent indefinite ringing in background
-                delay(8000)
-                if (ringtone?.isPlaying == true) {
-                    ringtone.stop()
-                }
-            } catch (error: Exception) {
-                Log.e(TAG, "Failed to play emergency alarm: ${error.message}")
+        var wakeLock: PowerManager.WakeLock? = null
+        try {
+            // Wake up the screen
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+                "AmbulanceApp:EmergencyAlarm"
+            )
+            wakeLock.acquire(10 * 1000L /*10 minutes*/)
+
+            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            
+            val ringtone = RingtoneManager.getRingtone(context, alarmUri)
+            
+            // Bypass silent mode by using USAGE_ALARM
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                ringtone?.audioAttributes = audioAttributes
             }
+            
+            ringtone?.play()
+            
+            // Block the thread (which is Firebase's worker thread) for 5 seconds.
+            // This prevents onMessageReceived from returning instantly,
+            // which forces Android to keep the CPU awake while the alarm sounds.
+            Thread.sleep(5000)
+            
+            if (ringtone?.isPlaying == true) {
+                ringtone.stop()
+            }
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to play emergency alarm: ${error.message}")
+        } finally {
+            wakeLock?.takeIf { it.isHeld }?.release()
         }
     }
 }

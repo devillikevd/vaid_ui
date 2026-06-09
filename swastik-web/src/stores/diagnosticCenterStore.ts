@@ -36,12 +36,19 @@ export interface DiagnosticBooking {
     collection_type: 'walk_in' | 'home_collection';
     collection_address?: string;
     notes?: string;
-    status: 'pending' | 'confirmed' | 'dispatched' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
+    tracking_token?: string;
+    agent_id?: string;
+    status: 'pending' | 'confirmed' | 'dispatched' | 'out_for_delivery' | 'arrived' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';
     result_status: 'pending' | 'processing' | 'completed' | 'delivered';
     result_url?: string;
     result_notes?: string;
     amount?: number;
     created_at: string;
+    facility?: {
+        latitude?: number;
+        longitude?: number;
+        name?: string;
+    };
 }
 
 export interface DiagnosticPagination {

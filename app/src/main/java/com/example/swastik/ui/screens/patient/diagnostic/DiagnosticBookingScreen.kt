@@ -34,7 +34,7 @@ import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
 
-private val SwastikPrimary = Color(0xFF6C63FF)
+private val SwastikPrimary = Color(0xFF00796B) // Updated to ecosystem color
 
 /**
  * Diagnostic Booking Screen — search centers, view tests, and book.
@@ -45,8 +45,10 @@ fun DiagnosticBookingScreen(
     onBackClick: () -> Unit,
     initialCenterId: String? = null,
     onNavigateToBookingHistory: () -> Unit = {},
-    viewModel: DiagnosticViewModel = hiltViewModel()
+    viewModel: DiagnosticViewModel = hiltViewModel(),
+    patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = hiltViewModel()
 ) {
+    val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var showBookingDialog by remember { mutableStateOf(false) }
@@ -54,6 +56,14 @@ fun DiagnosticBookingScreen(
     var bookingTime by remember { mutableStateOf("") }
     var collectionType by remember { mutableStateOf("walk_in") }
     var collectionAddress by remember { mutableStateOf("") }
+    var patientPhone by remember { mutableStateOf("") }
+    
+    LaunchedEffect(patientProfile) {
+        if (patientPhone.isBlank() && !patientProfile?.phoneNumber.isNullOrBlank()) {
+            patientPhone = patientProfile?.phoneNumber ?: ""
+        }
+    }
+
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -205,7 +215,10 @@ fun DiagnosticBookingScreen(
             onDismissRequest = { showBookingDialog = false },
             title = { Text(stringResource(R.string.book_test), fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
                     uiState.selectedTest!!.price?.let {
                         Text("Price: ₹${it.toInt()}", color = SwastikPrimary, fontWeight = FontWeight.Bold)
@@ -265,6 +278,17 @@ fun DiagnosticBookingScreen(
                     }
 
                     if (collectionType == "home_collection") {
+                        OutlinedTextField(
+                            value = patientPhone,
+                            onValueChange = { patientPhone = it },
+                            label = { Text(stringResource(R.string.phone_number) + " *") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                            singleLine = true,
+                            isError = patientPhone.isBlank()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         if (collectionAddress.isBlank()) {
                             com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
                                 initialAddress = "",
@@ -304,11 +328,12 @@ fun DiagnosticBookingScreen(
                             bookingDate = bookingDate,
                             bookingTime = bookingTime.ifBlank { null },
                             collectionType = collectionType,
-                            collectionAddress = if (collectionType == "home_collection") collectionAddress else null
+                            collectionAddress = if (collectionType == "home_collection") collectionAddress else null,
+                            patientPhone = if (collectionType == "home_collection") patientPhone else null
                         )
                         showBookingDialog = false
                     },
-                    enabled = bookingDate.isNotBlank(),
+                    enabled = bookingDate.isNotBlank() && (collectionType != "home_collection" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank())),
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.confirm_booking)) }
             },

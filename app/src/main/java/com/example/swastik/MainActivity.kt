@@ -412,6 +412,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(
                         Screen.AppointmentBooking.createRoute(doctorId = it)
                     )
+                },
+                onHospitalClick = { hospitalId ->
+                    navController.navigateSafe(Screen.HospitalDetail.createRoute(hospitalId))
+                },
+                onClinicClick = { clinicId ->
+                    navController.navigateSafe(Screen.ClinicDetail.createRoute(clinicId))
                 }
             )
         }

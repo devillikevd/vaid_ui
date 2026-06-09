@@ -5,6 +5,8 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validate');
+const { v4: uuidv4 } = require('uuid');
 const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
@@ -729,7 +731,7 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
   // Fetch current order to validate transition
   const { data: current, error: fetchError } = await supabaseAdmin
     .from('pharmacy_orders')
-    .select('status')
+    .select('status, tracking_token')
     .eq('id', orderId)
     .eq('pharmacy_id', pharmacyId)
     .single();
@@ -750,13 +752,19 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
   let data = null;
   let error = null;
   for (const candidateStatus of persistedStatusCandidates) {
+    let updatePayload = {
+      status: candidateStatus,
+      notes,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (candidateStatus === 'out_for_delivery' && !current.tracking_token) {
+      updatePayload.tracking_token = uuidv4();
+    }
+
     const response = await supabaseAdmin
       .from('pharmacy_orders')
-      .update({
-        status: candidateStatus,
-        notes,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', orderId)
       .eq('pharmacy_id', pharmacyId)
       .select('*')
@@ -924,7 +932,7 @@ const createOrder = async (patientUserId, orderData) => {
     pharmacy_id: orderData.pharmacyId,
     items: enrichedItems,
     total_amount: totalAmount,
-    delivery_address: orderData.deliveryAddress,
+    delivery_address: orderData.patientPhone ? `${orderData.deliveryAddress} | Phone: ${orderData.patientPhone}` : orderData.deliveryAddress,
     status: 'pending',
     payment_status: 'pending',
   };

@@ -7,6 +7,7 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="geo" />
         </intent>
+        <package android:name="com.google.android.apps.maps" />
     </queries>
 
     <!-- Location (continuous GPS tracking) -->
@@ -25,6 +26,8 @@
 
     <!-- Vibration for emergency alerts -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:name=".AmbulanceApp"

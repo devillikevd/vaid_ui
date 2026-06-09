@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -84,7 +85,11 @@ fun HospitalDetailScreen(
         viewModel.loadFacilityDetails(facilityId, facilityType)
     }
 
+    val isDarkSurface = colorScheme.surface.luminance() < 0.5f
+    val bgColor = if (isDarkSurface) colorScheme.background else Color(0xFFF8FAFC)
+
     Scaffold(
+        containerColor = bgColor,
         topBar = {
             TopAppBar(
                 title = {
@@ -157,20 +162,25 @@ fun HospitalDetailScreen(
                 ) {
                     // Header Card
                     item {
+                        val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+                        val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+                        val valueColor = if (isDarkSurface) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        val iconBgColor = if (isDarkSurface) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9)
+
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(modifier = Modifier.padding(20.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
                                             .size(56.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(facility.type.getMarkerColor().copy(alpha = 0.1f)),
+                                            .background(iconBgColor, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -184,8 +194,9 @@ fun HospitalDetailScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = facility.name,
-                                            fontWeight = FontWeight.Bold,
+                                            fontWeight = FontWeight.ExtraBold,
                                             fontSize = 20.sp,
+                                            color = titleColor,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -193,7 +204,7 @@ fun HospitalDetailScreen(
                                             Text(
                                                 text = facility.hospitalSubType,
                                                 fontSize = 14.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = valueColor
                                             )
                                         }
                                     }
@@ -207,11 +218,12 @@ fun HospitalDetailScreen(
                                             Icons.Default.Star,
                                             contentDescription = null,
                                             tint = SwastikOrange,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(16.dp)
                                         )
                                         Text(
                                             " ${facility.rating} (${facility.reviewCount} reviews)",
-                                            fontSize = 14.sp
+                                            fontSize = 13.sp,
+                                            color = valueColor
                                         )
                                     }
                                     if (facility.distanceKm > 0) {
@@ -220,9 +232,9 @@ fun HospitalDetailScreen(
                                                 Icons.Outlined.LocationOn,
                                                 contentDescription = null,
                                                 tint = SwastikPrimary,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(16.dp)
                                             )
-                                            Text(" ${facility.distance}", fontSize = 14.sp)
+                                            Text(" ${facility.distance}", fontSize = 13.sp, color = valueColor)
                                         }
                                     }
                                 }
@@ -317,74 +329,51 @@ fun HospitalDetailScreen(
 
                     // Info Section
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = when (facility.type) {
-                                        FacilityType.CLINIC -> "Clinic Information"
-                                        FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic Center Information"
-                                        FacilityType.MEDICAL_STORE -> "Medical Store Information"
-                                        else -> "Hospital Information"
-                                    },
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 16.sp
+                        Text(
+                            text = when (facility.type) {
+                                FacilityType.CLINIC -> "Clinic Information"
+                                FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic Center Information"
+                                FacilityType.MEDICAL_STORE -> "Medical Store Information"
+                                else -> "Hospital Information"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                        )
+                        
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // Address Card
+                            DetailInfoCard(
+                                icon = Icons.Outlined.Place,
+                                title = "Address",
+                                value = facility.address
+                            )
+
+                            // Phone Card
+                            if (facility.phone.isNotBlank()) {
+                                DetailInfoCard(
+                                    icon = Icons.Outlined.Phone,
+                                    title = "Contact",
+                                    value = facility.phone
                                 )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Address
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Outlined.Place, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(facility.address, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                }
-
-                                if (facility.phone.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(modifier = Modifier.fillMaxWidth()) {
-                                        Icon(Icons.Outlined.Phone, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text(facility.phone, fontSize = 14.sp)
-                                    }
-                                }
-
-                                if (facility.specializations.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(stringResource(R.string.specializations), fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        facility.specializations.forEach { spec ->
-                                            AssistChip(
-                                                onClick = {},
-                                                label = { Text(spec, fontSize = 12.sp) },
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                if (facility.departments.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(stringResource(R.string.departments), fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        facility.departments.forEach { department ->
-                                            AssistChip(
-                                                onClick = {},
-                                                label = { Text(department, fontSize = 12.sp) },
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                        }
-                                    }
-                                }
+                            }
+                            
+                            // Specializations Card
+                            if (facility.specializations.isNotEmpty()) {
+                                DetailInfoCard(
+                                    icon = Icons.Outlined.MedicalServices,
+                                    title = stringResource(R.string.specializations),
+                                    value = facility.specializations.joinToString(", ")
+                                )
+                            }
+                            
+                            // Departments Card
+                            if (facility.departments.isNotEmpty()) {
+                                DetailInfoCard(
+                                    icon = Icons.Outlined.Domain,
+                                    title = stringResource(R.string.departments),
+                                    value = facility.departments.joinToString(", ")
+                                )
                             }
                         }
                     }
@@ -461,10 +450,11 @@ fun HospitalDetailScreen(
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                )
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Text(
                                     text = when (facility.type) {
@@ -473,7 +463,7 @@ fun HospitalDetailScreen(
                                     },
                                     modifier = Modifier.padding(16.dp),
                                     fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
                                 )
                             }
                         }
@@ -500,7 +490,9 @@ private fun HospitalReviewSection(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -724,10 +716,16 @@ private fun DoctorDetailCard(
     doctor: HospitalDoctor,
     onBook: () -> Unit
 ) {
-    val colorScheme = MaterialTheme.colorScheme
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    val valueColor = if (isDarkSurface) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val iconBgColor = if (isDarkSurface) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -737,15 +735,15 @@ private fun DoctorDetailCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)),
+                    .size(52.dp)
+                    .background(iconBgColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (!doctor.profileImageUrl.isNullOrBlank()) {
                     coil.compose.AsyncImage(
                         model = doctor.profileImageUrl,
                         contentDescription = "Doctor Image",
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
@@ -754,12 +752,12 @@ private fun DoctorDetailCard(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(doctor.name, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(doctor.specialization, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(doctor.name, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = titleColor)
+                Text(doctor.specialization, fontSize = 12.sp, color = valueColor)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = SwastikOrange, modifier = Modifier.size(14.dp))
-                    Text(" ${doctor.rating}", fontSize = 12.sp)
-                    Text(" • ₹${doctor.consultationFee}", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                    Icon(Icons.Default.Star, contentDescription = null, tint = SwastikOrange, modifier = Modifier.size(12.dp))
+                    Text(" ${doctor.rating}", fontSize = 12.sp, color = valueColor)
+                    Text(" • ₹${doctor.consultationFee}", fontSize = 12.sp, color = valueColor)
                 }
             }
             Button(
@@ -768,6 +766,66 @@ private fun DoctorDetailCard(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(stringResource(R.string.book), fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailInfoCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    val valueColor = if (isDarkSurface) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val iconBgColor = if (isDarkSurface) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9)
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(iconBgColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = SwastikPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    value,
+                    fontSize = 13.sp,
+                    color = valueColor,
+                    fontWeight = FontWeight.Medium
+                    // No maxLines so it wraps fully!
+                )
             }
         }
     }

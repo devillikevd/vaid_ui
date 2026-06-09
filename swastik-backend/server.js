@@ -44,6 +44,7 @@ const healthCardRoutes = require('./routes/healthCard');
 const vitalsRoutes = require('./routes/vitals');
 const outbreakRoutes = require('./routes/outbreak');
 const mapsRoutes = require('./routes/maps');
+const deliveryAgentRoutes = require('./routes/deliveryAgentRoutes');
 
 const { startOutbreakCron } = require('./services/outbreakService');
 
@@ -427,6 +428,7 @@ app.use('/api/vitals', vitalsRoutes);
 app.use('/api/admin/outbreaks', outbreakRoutes);
 app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/maps', mapsRoutes);
+app.use('/api/delivery-agents', deliveryAgentRoutes);
 
 
 // Error handling

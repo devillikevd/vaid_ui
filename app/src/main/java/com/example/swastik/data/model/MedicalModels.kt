@@ -30,7 +30,20 @@ data class MedicalFacility(
     val specializations: List<String> = emptyList(),
     val doctors: List<HospitalDoctor> = emptyList(),
     val hospitalSubType: String? = null, // "Government" or "Private"
-    val departments: List<String> = emptyList()
+    @SerializedName("total_beds") val totalBeds: Int? = null,
+    @SerializedName("beds_available") val bedsAvailable: Int? = null,
+    val facilities: List<String> = emptyList(),
+    val departments: List<String> = emptyList(),
+    // Pharmacy fields
+    @SerializedName("delivery_available") val deliveryAvailable: Boolean = false,
+    @SerializedName("min_order_delivery") val minOrderDelivery: Double? = null,
+    @SerializedName("delivery_radius_km") val deliveryRadiusKm: Int? = null,
+    // Diagnostic Center fields
+    @SerializedName("home_collection_available") val homeCollectionAvailable: Boolean = false,
+    @SerializedName("home_collection_fee") val homeCollectionFee: Double? = null,
+    @SerializedName("test_categories") val testCategories: List<String> = emptyList(),
+    val accreditations: List<String> = emptyList(),
+    val images: List<String> = emptyList()
 )
 
 enum class FacilityType {

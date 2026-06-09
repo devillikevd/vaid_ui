@@ -165,7 +165,7 @@ fun SwiggyAddressEditor(
             OutlinedTextField(
                 value = pincode,
                 onValueChange = { pincode = it },
-                label = { Text("Pincode") },
+                label = { Text("Pincode", maxLines = 1) },
                 modifier = Modifier.weight(0.7f),
                 shape = RoundedCornerShape(8.dp),
                 singleLine = true
@@ -188,7 +188,8 @@ fun SwiggyAddressEditor(
                         text = tag,
                         color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1
                     )
                 }
             }
@@ -208,11 +209,11 @@ fun SwiggyAddressEditor(
                 val finalAddress = "[$selectedTag] $formattedAddress"
                 onAddressSaved(finalAddress)
             },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Save Delivery Address", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Save Delivery Address", fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }

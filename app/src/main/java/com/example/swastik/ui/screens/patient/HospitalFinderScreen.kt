@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -81,7 +82,7 @@ fun HospitalFinderScreen(
     val appContext = LocalContext.current
     val requestedFocusFacilityId = focusedFacilityId?.takeIf { it.isNotBlank() }
     val requestedFocusFacilityName = focusedFacilityName?.takeIf { it.isNotBlank() }
-    var selectedFacilityTypeOverride by remember { mutableStateOf<FacilityType?>(null) }
+    var selectedFacilityTypeOverride by remember { mutableStateOf<FacilityType?>(initialFacilityType) }
     var selectedFacility by remember { mutableStateOf<MedicalFacility?>(null) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -109,9 +110,10 @@ fun HospitalFinderScreen(
 
     val hospitalState by viewModel.uiState.collectAsState()
     val facilities = hospitalState.facilities
-    val selectedFacilityType = initialFacilityType ?: selectedFacilityTypeOverride
-    val resolvedDarkMode = isDarkMode || isSystemInDarkTheme()
-    val screenTitle = when (initialFacilityType) {
+    val selectedFacilityType = selectedFacilityTypeOverride
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val resolvedDarkMode = isDarkMode || isDarkSurface
+    val screenTitle = when (selectedFacilityType) {
         FacilityType.HOSPITAL -> "Hospitals"
         FacilityType.CLINIC -> "Clinics"
         FacilityType.MEDICAL_STORE -> "Medical Stores"
@@ -245,7 +247,10 @@ fun HospitalFinderScreen(
         }
     }
 
+    val bgColor = MaterialTheme.colorScheme.background
+
     Scaffold(
+        containerColor = bgColor,
         topBar = {
             if (isEmergencyMode) {
                 EmergencyTopBar(onExitEmergency = { isEmergencyMode = false })
@@ -299,8 +304,7 @@ fun HospitalFinderScreen(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
                 )
             }
-        },
-        containerColor = backgroundColor
+        }
     ) { paddingValues ->
         if (isEmergencyMode) {
             // Load emergency hospitals from dedicated server endpoint on toggle
@@ -347,13 +351,7 @@ fun HospitalFinderScreen(
                     }
                 }
 
-                if (initialFacilityType == null) {
-                    FilterChipsSection(
-                        selectedType = selectedFacilityType,
-                        onTypeSelected = { selectedFacilityTypeOverride = it },
-                        isDarkMode = resolvedDarkMode
-                    )
-                }
+
 
                 if (hospitalState.isLoading) {
                     Column(
@@ -421,44 +419,11 @@ fun HospitalFinderScreen(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .padding(16.dp)
-                                .padding(bottom = 180.dp),
+                                .padding(bottom = 80.dp), // Adjusted padding since bottom cards are removed
                             containerColor = surfaceColor,
                             contentColor = MaterialTheme.colorScheme.primary
                         ) {
                             Icon(Icons.Default.MyLocation, contentDescription = "My Location")
-                        }
-
-                        if (mappableFacilities.isEmpty()) {
-                            MapEmptyStateCard(
-                                selectedFacilityType = selectedFacilityType,
-                                activeRadiusKm = hospitalState.activeRadiusKm,
-                                facilitiesMissingMapCoordinates = facilitiesMissingMapCoordinates,
-                                onResetFilters = resetFilters,
-                                onRefreshNearby = { viewModel.loadNearbyFacilities(facilityType = selectedFacilityType) },
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(horizontal = 16.dp, vertical = 24.dp)
-                            )
-                        } else {
-                            LazyRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 16.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(mappableFacilities) { facility ->
-                                    FacilityMapCard(
-                                        facility = facility,
-                                        onClick = {
-                                            selectedFacility = facility
-                                            showBottomSheet = true
-                                        },
-                                        isDarkMode = resolvedDarkMode
-                                    )
-                                }
-                            }
                         }
                     }
                 } else if (filteredFacilities.isEmpty()) {
@@ -1054,9 +1019,9 @@ private fun FacilityDetailSheet(
     detailsError: String? = null,
     isDarkMode: Boolean
 ) {
-    val textColor = if (isDarkMode) Color.White else Color.Black
-    val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subtextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
 
@@ -1123,135 +1088,151 @@ private fun FacilityDetailSheet(
                     .fillMaxWidth()
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
-                // Sticky Header
-                Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                // Sticky Header Card
+                Card(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(facility.type.getMarkerColor().copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = facility.type.getMarkerIcon(),
-                        contentDescription = null,
-                        tint = facility.type.getMarkerColor(),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = facility.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = textColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = facility.type.getDisplayName(),
-                        fontSize = 14.sp,
-                        color = subtextColor
-                    )
-                }
-            }
-            StatusBadge(facility = facility)
-        }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .background(if (isDarkMode) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = facility.type.getMarkerIcon(),
+                                        contentDescription = null,
+                                        tint = facility.type.getMarkerColor(),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = facility.name,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 18.sp,
+                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = facility.type.getDisplayName(),
+                                        fontSize = 14.sp,
+                                        color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            StatusBadge(facility = facility)
+                        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-        // Rating and Distance
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Star,
-                    contentDescription = null,
-                    tint = Color(0xFFFFC107),
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    " ${facility.rating} (${facility.reviewCount} reviews)",
-                    fontSize = 14.sp,
-                    color = textColor
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = SwastikPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
-            }
-        }
+                        // Rating and Distance
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFC107),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    " ${facility.rating} (${facility.reviewCount} reviews)",
+                                    fontSize = 13.sp,
+                                    color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = SwastikPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            }
+                        }
+                    }
+                }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Quick Action Buttons
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        val actionContext = LocalContext.current
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val actionContext = LocalContext.current
-            QuickActionButton(
-                icon = Icons.Default.Call,
-                label = "Call",
-                color = Color(0xFF4CAF50),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(actionContext, facility.phone) }
-            )
-            QuickActionButton(
-                icon = Icons.Default.Directions,
-                label = "Directions",
-                color = Color(0xFF2196F3),
-                modifier = Modifier.weight(1f),
-                onClick = { NavigationHelper.openDirections(actionContext, facility.latitude, facility.longitude, facility.name) }
-            )
-            QuickActionButton(
-                icon = androidx.compose.material.icons.Icons.Default.Message,
-                label = "WhatsApp",
-                color = Color(0xFF25D366),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(actionContext, facility.phone) }
-            )
-            QuickActionButton(
-                icon = Icons.Default.CalendarMonth,
-                label = stringResource(R.string.book),
-                color = SwastikPrimary,
-                modifier = Modifier.weight(1f),
-                onClick = onBookAppointment
-            )
-            QuickActionButton(
-                icon = Icons.Default.Info,
-                label = "Details",
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-                onClick = onViewDetails
-            )
-            if (facility.isEmergencyAvailable) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 QuickActionButton(
-                    icon = Icons.Default.LocalHospital,
-                    label = "Emergency",
+                    icon = Icons.Default.Call,
+                    label = "Call",
+                    color = Color(0xFF4CAF50),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(actionContext, facility.phone) }
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Directions,
+                    label = "Directions",
+                    color = Color(0xFF2196F3),
+                    modifier = Modifier.weight(1f),
+                    onClick = { NavigationHelper.openDirections(actionContext, facility.latitude, facility.longitude, facility.name) }
+                )
+                QuickActionButton(
+                    icon = androidx.compose.material.icons.Icons.Default.Message,
+                    label = "WhatsApp",
+                    color = Color(0xFF25D366),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(actionContext, facility.phone) }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.CalendarMonth,
+                    label = stringResource(R.string.book),
+                    color = SwastikPrimary,
+                    modifier = Modifier.weight(1f),
+                    onClick = onBookAppointment
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Info,
+                    label = "Details",
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
-                    onClick = { NavigationHelper.openDialer(actionContext, "108") }
+                    onClick = onViewDetails
                 )
+                if (facility.isEmergencyAvailable) {
+                    QuickActionButton(
+                        icon = Icons.Default.LocalHospital,
+                        label = "Emergency",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        onClick = { NavigationHelper.openDialer(actionContext, "108") }
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
 
@@ -1523,31 +1504,32 @@ private fun DoctorCard(
     onBook: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val textColor = if (isDarkMode) Color.White else Color.Black
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else MaterialTheme.colorScheme.surface
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    val valueColor = if (isDarkSurface) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val iconBgColor = if (isDarkSurface) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF3A3A3A) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)),
+                    .size(52.dp)
+                    .background(iconBgColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (!doctor.profileImageUrl.isNullOrBlank()) {
                     coil.compose.AsyncImage(
                         model = doctor.profileImageUrl,
                         contentDescription = "Doctor Image",
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
@@ -1561,30 +1543,18 @@ private fun DoctorCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = doctor.name,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
-                    color = textColor
+                    color = titleColor
                 )
                 Text(
                     text = doctor.specialization,
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = valueColor
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.WorkHistory,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        " ${doctor.experience} exp",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         Icons.Default.Star,
                         contentDescription = null,
@@ -1594,26 +1564,14 @@ private fun DoctorCard(
                     Text(
                         " ${doctor.rating}",
                         fontSize = 12.sp,
-                        color = textColor
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "₹${doctor.consultationFee}",
-                        fontSize = 14.sp,
-                        color = SwastikPrimary,
-                        fontWeight = FontWeight.Bold
+                        color = valueColor
                     )
                     Text(
-                        " consultation",
+                        " • ₹${doctor.consultationFee}",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = valueColor
                     )
                 }
-
                 // Next available slot
                 if (doctor.availableSlots.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1664,7 +1622,7 @@ private fun MedicalStoreDetailSheet(
     val storeContext = LocalContext.current
     val textColor = if (isDarkMode) Color.White else Color.Black
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
@@ -1732,98 +1690,104 @@ private fun MedicalStoreDetailSheet(
                     .fillMaxWidth()
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
-                // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                Spacer(modifier = Modifier.height(24.dp))
+                // Sticky Header Card
+                Card(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF4CAF50).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Icon(
-                        Icons.Default.LocalPharmacy,
-                        contentDescription = null,
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .background(if (isDarkMode) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.LocalPharmacy,
+                                        contentDescription = null,
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = facility.name,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 18.sp,
+                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Medical Store",
+                                        fontSize = 14.sp,
+                                        color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            StatusBadge(facility = facility)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Rating and Distance
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFC107),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            }
+                        }
+
+                        // Features Badges
+                        val badges = buildList {
+                            if (facility.isOpen) add(Triple(Icons.Default.CheckCircle, "Open Now", Color(0xFF4CAF50)))
+                            if (facility.isEmergencyAvailable) add(Triple(Icons.Default.LocalHospital, "Emergency", Color(0xFFE53935)))
+                        }
+                        if (badges.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(badges.size) { index ->
+                                    FeatureBadge(
+                                        icon = badges[index].first,
+                                        text = badges[index].second,
+                                        color = badges[index].third
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = facility.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = textColor
-                    )
-                    Text(
-                        text = "Medical Store",
-                        fontSize = 14.sp,
-                        color = subtextColor
-                    )
-                }
-            }
-            StatusBadge(facility = facility)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Rating and Distance
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Star,
-                    contentDescription = null,
-                    tint = Color(0xFFFFC107),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(" ${facility.rating}", fontSize = 14.sp, color = textColor)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = Color(0xFF4CAF50),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Features Badges — only show if facility has specific capabilities
-        val badges = buildList {
-            if (facility.isOpen) add(Triple(Icons.Default.CheckCircle, "Open Now", Color(0xFF4CAF50)))
-            if (facility.isEmergencyAvailable) add(Triple(Icons.Default.LocalHospital, "Emergency", Color(0xFFE53935)))
-        }
-        if (badges.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier.padding(vertical = 8.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(badges.size) { index ->
-                    FeatureBadge(
-                        icon = badges[index].first,
-                        text = badges[index].second,
-                        color = badges[index].third
-                    )
-                }
-            }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
@@ -2061,7 +2025,7 @@ private fun PharmacyInventoryCard(
     onAddToCart: () -> Unit = {}
 ) {
     val textColor = if (isDarkMode) Color.White else Color.Black
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF8F8F8)
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
     var showAdded by remember { mutableStateOf(false) }
 
     LaunchedEffect(showAdded) {
@@ -2210,9 +2174,9 @@ private fun ClinicDetailSheet(
     isDarkMode: Boolean
 ) {
     val clinicContext = LocalContext.current
-    val textColor = if (isDarkMode) Color.White else Color.Black
-    val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subtextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
@@ -2280,107 +2244,121 @@ private fun ClinicDetailSheet(
                     .fillMaxWidth()
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
-                // Header
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                Spacer(modifier = Modifier.height(24.dp))
+                // Sticky Header Card
+                Card(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF4CAF50).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Icon(Icons.Default.MedicalServices, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(32.dp))
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(facility.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.clinic), fontSize = 14.sp, color = subtextColor)
-                }
-            }
-            StatusBadge(facility = facility)
-        }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .background(if (isDarkMode) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.MedicalServices, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(28.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(facility.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(stringResource(R.string.clinic), fontSize = 14.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                            }
+                            StatusBadge(facility = facility)
+                        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-        // Rating, Distance, Specialization
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
-                Text(" ${facility.rating}", fontSize = 14.sp, color = textColor)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
-                Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
-            }
-        }
+                        // Rating, Distance
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                                Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            }
+                        }
 
-        // Specialization badges
-        if (facility.specializations.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(facility.specializations) { spec ->
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFF4CAF50).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(spec, fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
+                        // Specialization badges
+                        if (facility.specializations.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(facility.specializations) { spec ->
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFF4CAF50).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(spec, fontSize = 11.sp, color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Quick Actions
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            QuickActionButton(
-                icon = Icons.Default.Call, label = "Call", color = Color(0xFF4CAF50),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(clinicContext, facility.phone) }
-            )
-            QuickActionButton(
-                icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
-                modifier = Modifier.weight(1f),
-                onClick = { NavigationHelper.openDirections(clinicContext, facility.latitude, facility.longitude, facility.name) }
-            )
-            QuickActionButton(
-                icon = androidx.compose.material.icons.Icons.Default.Message,
-                label = "WhatsApp",
-                color = Color(0xFF25D366),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(clinicContext, facility.phone) }
-            )
-            QuickActionButton(
-                icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPrimary,
-                modifier = Modifier.weight(1f),
-                onClick = onBookAppointment
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        OutlinedButton(
-            onClick = onViewDetails,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.open_clinic_details))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.Call, label = "Call", color = Color(0xFF4CAF50),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(clinicContext, facility.phone) }
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
+                    modifier = Modifier.weight(1f),
+                    onClick = { NavigationHelper.openDirections(clinicContext, facility.latitude, facility.longitude, facility.name) }
+                )
+                QuickActionButton(
+                    icon = androidx.compose.material.icons.Icons.Default.Message,
+                    label = "WhatsApp",
+                    color = Color(0xFF25D366),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(clinicContext, facility.phone) }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.CalendarMonth, label = stringResource(R.string.book), color = SwastikPrimary,
+                    modifier = Modifier.weight(1f),
+                    onClick = onBookAppointment
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Info,
+                    label = "Details",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                    onClick = onViewDetails
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -2497,7 +2475,7 @@ private fun DiagnosticCenterDetailSheet(
     val dcContext = LocalContext.current
     val textColor = if (isDarkMode) Color.White else Color.Black
     val subtextColor = if (isDarkMode) Color.Gray else Color.Gray
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
@@ -2626,33 +2604,45 @@ private fun DiagnosticCenterDetailSheet(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Quick Actions
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            QuickActionButton(
-                icon = Icons.Default.Call, label = "Call", color = Color(0xFF4CAF50),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(dcContext, facility.phone) }
-            )
-            QuickActionButton(
-                icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
-                modifier = Modifier.weight(1f),
-                onClick = { NavigationHelper.openDirections(dcContext, facility.latitude, facility.longitude, facility.name) }
-            )
-            QuickActionButton(
-                icon = androidx.compose.material.icons.Icons.Default.Message,
-                label = "WhatsApp",
-                color = Color(0xFF25D366),
-                modifier = Modifier.weight(1f),
-                onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(dcContext, facility.phone) }
-            )
-            if (facility.isEmergencyAvailable) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 QuickActionButton(
-                    icon = Icons.Default.LocalHospital, label = "Emergency", color = MaterialTheme.colorScheme.onSurface,
+                    icon = Icons.Default.Call, label = "Call", color = Color(0xFF4CAF50),
                     modifier = Modifier.weight(1f),
-                    onClick = { NavigationHelper.openDialer(dcContext, "108") }
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openDialer(dcContext, facility.phone) }
                 )
+                QuickActionButton(
+                    icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
+                    modifier = Modifier.weight(1f),
+                    onClick = { NavigationHelper.openDirections(dcContext, facility.latitude, facility.longitude, facility.name) }
+                )
+                QuickActionButton(
+                    icon = androidx.compose.material.icons.Icons.Default.Message,
+                    label = "WhatsApp",
+                    color = Color(0xFF25D366),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) NavigationHelper.openWhatsApp(dcContext, facility.phone) }
+                )
+            }
+            if (facility.isEmergencyAvailable) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    QuickActionButton(
+                        icon = Icons.Default.LocalHospital, label = "Emergency", color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        onClick = { NavigationHelper.openDialer(dcContext, "108") }
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
 
@@ -3064,7 +3054,7 @@ private fun EmergencyFacilityDetailSheet(
     val emergencyContext = LocalContext.current
     val textColor = if (isDarkMode) Color.White else Color.Black
     val subtextColor = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.Gray
-    val cardColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    val cardColor = MaterialTheme.colorScheme.primaryContainer
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 300f
@@ -4024,32 +4014,56 @@ private fun InfoCard(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    cardColor: Color = Color(0xFFF5F5F5),
-    textColor: Color = Color.Black
+    cardColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    textColor: Color = Color.Unspecified // Unused now, we use specific colors based on theme
 ) {
+    val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val titleColor = if (isDarkSurface) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+    val valueColor = if (isDarkSurface) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val iconBgColor = if (isDarkSurface) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9)
+
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        shape = RoundedCornerShape(12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = SwastikPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column {
-                Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(iconBgColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = SwastikPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Text(
                     value,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = textColor
+                    fontSize = 10.sp,
+                    color = valueColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

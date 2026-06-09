@@ -232,7 +232,11 @@ class SocketManager @Inject constructor(
     val doctorSlotsUpdates: SharedFlow<JSONObject> = _doctorSlotsUpdates.asSharedFlow()
 
     /** Track the active ambulance room for reconnect re-subscription */
+    private val _agentLocationUpdates = MutableSharedFlow<Pair<Double, Double>>()
+    val agentLocationUpdates: SharedFlow<Pair<Double, Double>> = _agentLocationUpdates
+
     private var activeTrackingRequestId: String? = null
+    private var activeAgentTrackingToken: String? = null
     /** Track active consultation rooms for reconnect re-subscription */
     private var activeVideoRoomId: String? = null
     private var activeVideoMode: String? = null
@@ -817,6 +821,19 @@ class SocketManager @Inject constructor(
                 }
             } catch (e: Exception) { Log.e(TAG, "Error parsing appointment:booked", e) }
         }
+        // --- Agent Tracking Updates ---
+        socket?.on("agent:location-update") { args ->
+            try {
+                val data = args[0] as? JSONObject ?: return@on
+                val lat = data.optDouble("latitude")
+                val lng = data.optDouble("longitude")
+                if (!lat.isNaN() && !lng.isNaN()) {
+                    scope.launch {
+                        _agentLocationUpdates.emit(Pair(lat, lng))
+                    }
+                }
+            } catch (e: Exception) { Log.e(TAG, "Error parsing agent:location-update", e) }
+        }
     }
 
     fun disconnect() {
@@ -824,6 +841,7 @@ class SocketManager @Inject constructor(
         socket?.off()
         socket = null
         activeTrackingRequestId = null
+        activeAgentTrackingToken = null
         activeVideoRoomId = null
         activeVideoMode = null
         activeVideoPreferredMode = null
@@ -976,6 +994,21 @@ class SocketManager @Inject constructor(
     fun untrackAmbulance(requestId: String) {
         activeTrackingRequestId = null
         socket?.emit("ambulance:untrack", requestId)
+    }
+
+    // --- Delivery Agent Tracking ---
+    fun trackAgent(trackingToken: String) {
+        activeAgentTrackingToken = trackingToken
+        val payload = JSONObject().apply { put("trackingToken", trackingToken) }
+        socket?.emit("agent:track", payload)
+    }
+
+    fun untrackAgent(trackingToken: String) {
+        if (activeAgentTrackingToken == trackingToken) {
+            activeAgentTrackingToken = null
+        }
+        val payload = JSONObject().apply { put("trackingToken", trackingToken) }
+        socket?.emit("agent:untrack", payload)
     }
 
     // --- Doctor Slots Race Condition Subscriptions ---

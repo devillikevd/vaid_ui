@@ -58,7 +58,14 @@ export interface Order {
     created_at?: string;
     delivery_address?: string;
     payment_status?: string;
-    status: 'pending' | 'confirmed' | 'processing' | 'ready' | 'dispatched' | 'delivered' | 'cancelled';
+    status: 'pending' | 'confirmed' | 'processing' | 'ready' | 'out_for_delivery' | 'dispatched' | 'delivered' | 'cancelled';
+    tracking_token?: string;
+    agent_id?: string;
+    facility?: {
+        latitude?: number;
+        longitude?: number;
+        name?: string;
+    };
 }
 
 export interface Prescription {

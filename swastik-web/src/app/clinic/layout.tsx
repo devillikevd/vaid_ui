@@ -12,6 +12,7 @@ import {
     Pill,
     Microscope,
     Radar,
+    Star,
 } from 'lucide-react';
 import DashboardLayout, { type DashboardConfig } from '@/components/shared/DashboardLayout';
 
@@ -35,6 +36,7 @@ const CLINIC_CONFIG: DashboardConfig = {
         { name: 'Consultations', href: '/clinic/consultations', icon: Stethoscope },
         { name: 'Schedule', href: '/clinic/schedule', icon: Clock },
         { name: 'Health Alerts', href: '/clinic/health-alerts', icon: Radar },
+        { name: 'Reviews', href: '/clinic/reviews', icon: Star },
         { name: 'Settings', href: '/clinic/settings', icon: Settings },
     ],
 };

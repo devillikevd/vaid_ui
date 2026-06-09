@@ -141,6 +141,25 @@ const playNativeSiren = () => {
 
 export default function HospitalEmergencyPage() {
     const [emergencies, setEmergencies] = useState<DispatchEmergency[]>([]);
+    const [isAlarmEnabled, setIsAlarmEnabled] = useState(false);
+
+    const handleEnableAlarms = () => {
+        setIsAlarmEnabled(true);
+        // Play a very brief silent sound to unlock AudioContext
+        try {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContextClass) return;
+            const ctx = new AudioContextClass();
+            ctx.resume();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            gain.gain.value = 0;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.01);
+        } catch(e) {}
+    };
     const [availableAmbulances, setAvailableAmbulances] = useState<AvailableAmbulance[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -203,7 +222,12 @@ export default function HospitalEmergencyPage() {
     // Join dispatch room for real-time updates
     useEffect(() => {
         emit('ambulance:join-dispatch', {});
-        const unsub1 = on('emergency:new', () => fetchEmergencies());
+        const unsub1 = on('emergency:new', () => {
+            fetchEmergencies();
+            if (isAlarmEnabled) {
+                try { playNativeSiren(); } catch (e) {}
+            }
+        });
         const unsub2 = on('emergency:updated', () => fetchEmergencies());
         const unsub3 = on('ambulance:status-update', () => fetchEmergencies());
         // M3: Listen for ambulance location updates to move map markers in real-time
@@ -231,11 +255,13 @@ export default function HospitalEmergencyPage() {
         const unsub5 = on('emergency:new-direct-sos', (data: any) => {
             setIncomingSos(data);
             fetchEmergencies();
-            // Play loud native alarm
-            try {
-                playNativeSiren();
-            } catch (e) {
-                console.error("Audio play failed", e);
+            if (isAlarmEnabled) {
+                // Play loud native alarm
+                try {
+                    playNativeSiren();
+                } catch (e) {
+                    console.error("Audio play failed", e);
+                }
             }
         });
 
@@ -246,7 +272,7 @@ export default function HospitalEmergencyPage() {
                 (window as any)._sosAlarm.pause();
             }
         };
-    }, [on, emit, fetchEmergencies]);
+    }, [on, emit, fetchEmergencies, isAlarmEnabled]);
 
     // Auto-refresh every 15 seconds
     useEffect(() => {
@@ -330,6 +356,8 @@ export default function HospitalEmergencyPage() {
 
     // Map markers
     const mapMarkers: MapMarker[] = [];
+    const plottedAmbulanceIds = new Set<string>();
+
     emergencies.forEach(e => {
         const patientLat = e.latitude;
         const patientLng = e.longitude;
@@ -348,13 +376,44 @@ export default function HospitalEmergencyPage() {
         const ambulanceLng = e.ambulance?.longitude;
         if (Number.isFinite(ambulanceLat) && Number.isFinite(ambulanceLng)) {
             const ambulance = e.ambulance;
+            plottedAmbulanceIds.add(ambulance!.id);
             mapMarkers.push({
                 id: `amb-${e.id}`,
                 lat: ambulanceLat as number,
                 lng: ambulanceLng as number,
                 title: `🚑 ${ambulance?.vehicleNumber || 'Ambulance'}`,
-                popup: `${ambulance?.driverName || 'Driver'} → ${e.patientName}`,
-                color: '#059669',
+                popup: `[Assigned] ${ambulance?.driverName || 'Driver'} → ${e.patientName}`,
+                color: '#059669', // Green for assigned
+            });
+        }
+    });
+
+    // Add idle affiliated ambulances to the map
+    affiliatedAmbulances.forEach(amb => {
+        if (!plottedAmbulanceIds.has(amb.id) && Number.isFinite(amb.current_latitude) && Number.isFinite(amb.current_longitude)) {
+            plottedAmbulanceIds.add(amb.id);
+            mapMarkers.push({
+                id: `idle-aff-${amb.id}`,
+                lat: amb.current_latitude as number,
+                lng: amb.current_longitude as number,
+                title: `🚑 ${amb.vehicle_number}`,
+                popup: `[Affiliated - ${amb.status}] ${amb.driver_name}`,
+                color: '#8B5CF6', // Purple for affiliated
+            });
+        }
+    });
+
+    // Add idle nearest available ambulances to the map
+    availableAmbulances.forEach(amb => {
+        if (!plottedAmbulanceIds.has(amb.id) && Number.isFinite(amb.current_latitude) && Number.isFinite(amb.current_longitude)) {
+            plottedAmbulanceIds.add(amb.id);
+            mapMarkers.push({
+                id: `idle-avail-${amb.id}`,
+                lat: amb.current_latitude as number,
+                lng: amb.current_longitude as number,
+                title: `🚑 ${amb.vehicle_number}`,
+                popup: `[Available Nearby] ${amb.driver_name} • ${amb.distanceText}`,
+                color: '#6B7280', // Gray for nearby unassigned
             });
         }
     });
@@ -378,6 +437,15 @@ export default function HospitalEmergencyPage() {
                     <p className="text-gray-600 dark:text-gray-400 mt-1">Hospital-controlled ambulance dispatch • Real-time tracking</p>
                 </div>
                 <div className="flex gap-2">
+                    {!isAlarmEnabled && (
+                        <Button 
+                            onClick={handleEnableAlarms} 
+                            className="bg-red-600 hover:bg-red-700 text-white animate-pulse"
+                            leftIcon={<Siren className="h-4 w-4" />}
+                        >
+                            Enable Alarms
+                        </Button>
+                    )}
                     <Button onClick={fetchEmergencies} leftIcon={<RefreshCw className="h-4 w-4" />}>Refresh</Button>
                 </div>
             </div>

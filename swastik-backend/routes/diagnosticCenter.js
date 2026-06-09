@@ -101,7 +101,7 @@ router.post('/book',
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes } = req.body;
+    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone } = req.body;
 
     // DC5: Use service-layer helpers instead of inline Supabase calls
     const patientId = await diagnosticCenterService.resolvePatientId(req.user.id);
@@ -113,7 +113,7 @@ router.post('/book',
         patientId,
         centerId,
         testId,
-        { bookingDate, bookingTime, collectionType, collectionAddress, notes }
+        { bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone }
     );
 
     // DC5: Use service-layer helper for center owner lookup

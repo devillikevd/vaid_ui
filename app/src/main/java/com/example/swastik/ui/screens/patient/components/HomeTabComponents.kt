@@ -168,47 +168,53 @@ private fun ConsultationTypeCard(
 ) {
     Card(
         modifier = modifier
-            .height(174.dp)
+            .height(190.dp) // Increased size
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f)) // Visible border
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.8f))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Image Layer - Placed first so it's in the background
+            // Image Layer
             Image(
                 painter = painterResource(id = imageRes),
                 contentDescription = null,
                 modifier = Modifier
-                    .fillMaxWidth(0.7f) // Reduced width to avoid text overlap
-                    .fillMaxHeight(0.6f) // Reduced height
+                    .fillMaxWidth(0.7f)
+                    .fillMaxHeight(0.6f)
                     .align(Alignment.BottomEnd)
                     .padding(end = 4.dp, bottom = 4.dp),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.BottomEnd
             )
 
-            // Text Layer - Placed second so it's on top
+            // Text Layer
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(14.dp),
                 verticalArrangement = Arrangement.Top
             ) {
                 Text(
                     text = title,
-                    fontSize = 16.sp,
+                    fontSize = 14.sp, // Reduced to prevent cut-off and wrap issues
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF1E293B),
-                    lineHeight = 19.sp
+                    lineHeight = 16.sp,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = subtitle,
                     fontSize = 11.sp,
                     color = Color(0xFF64748B),
-                    lineHeight = 14.sp
+                    lineHeight = 14.sp,
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -613,6 +619,124 @@ fun SecondaryActionsGrid(
     }
 }
 
+@Composable
+fun TertiaryActionsGrid(
+    modifier: Modifier = Modifier,
+    onOrdersClick: () -> Unit,
+    onBookingsClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 62.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // My Orders Card
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 62.dp)
+                .clickable(onClick = onOrdersClick),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFFF1F5F9), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.my_orders_icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                    Text(
+                        "My Orders",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp,
+                        color = Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Medicines",
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+            }
+        }
+
+        // My Bookings Card
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 62.dp)
+                .clickable(onClick = onBookingsClick),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFFF1F5F9), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.my_bookings_icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+                    Text(
+                        "My Bookings",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp,
+                        color = Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Lab Tests",
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF94A3B8), modifier = Modifier.size(14.dp))
+            }
+        }
+    }
+}
+
 private val HealthcareServiceCardHeight = 150.dp
 
 @Composable
@@ -738,7 +862,7 @@ fun HealthcareServicesSection(
                 ServiceCard(
                     modifier = Modifier.weight(1f),
                     title = "Find Hospitals",
-                    subtitle = "Discover nearby hospitals & book visits",
+                    subtitle = "Emergency care, IPD, OPD & specialists",
                     imageRes = R.drawable.find_hospital,
                     icon = Icons.Default.LocalHospital,
                     backgroundColor = Color(0xFFE3F2FD), // Light blue
@@ -748,7 +872,7 @@ fun HealthcareServicesSection(
                 ServiceCard(
                     modifier = Modifier.weight(1f),
                     title = "Book Clinics",
-                    subtitle = "Schedule appointments with doctors",
+                    subtitle = "Doctor appointments & consultations",
                     imageRes = R.drawable.clinic_visit,
                     icon = Icons.Default.MedicalServices,
                     backgroundColor = Color(0xFFE8F5E9), // Light green
@@ -763,7 +887,7 @@ fun HealthcareServicesSection(
                 ServiceCard(
                     modifier = Modifier.weight(1f),
                     title = "Order Medicines",
-                    subtitle = "Get medicines delivered home",
+                    subtitle = "Order medicines & home delivery",
                     imageRes = R.drawable.order_medicine,
                     icon = Icons.Default.Medication,
                     backgroundColor = Color(0xFFFFF3E0), // Light orange
@@ -773,7 +897,7 @@ fun HealthcareServicesSection(
                 ServiceCard(
                     modifier = Modifier.weight(1f),
                     title = "Book Lab Tests",
-                    subtitle = "Schedule blood tests & checkups",
+                    subtitle = "Book lab tests & home sample collection",
                     imageRes = R.drawable.book_test_lab,
                     icon = Icons.Default.Science,
                     backgroundColor = Color(0xFFF3E5F5), // Light purple

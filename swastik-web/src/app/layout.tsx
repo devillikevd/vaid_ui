@@ -5,6 +5,8 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import '@/lib/env'; // Validates env vars on server startup
 
+import { GlobalSocketToastsDynamic } from '@/components/shared/GlobalSocketToastsDynamic';
+
 export const metadata: Metadata = {
   title: "VAIDIDEA Healthcare Platform",
   description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
@@ -40,6 +42,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             {children}
+            <GlobalSocketToastsDynamic />
           </ToastProvider>
         </ThemeProvider>
       </body>

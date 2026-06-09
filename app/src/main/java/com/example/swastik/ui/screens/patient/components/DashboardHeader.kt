@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -178,7 +179,7 @@ fun DashboardHeader(
             date.format(formatter).uppercase()
         }
 
-        val homeBgColor = if (isSystemInDarkTheme()) {
+        val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
             MaterialTheme.colorScheme.background
         } else {
             Color(0xFFF4FBF9)

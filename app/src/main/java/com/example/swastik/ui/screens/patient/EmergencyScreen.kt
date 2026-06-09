@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -250,7 +252,10 @@ private fun EmergencyTypeSelection(
                         modifier = Modifier.padding(top = 8.dp)
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         EmergencyFeatureChip("Live GPS")
                         EmergencyFeatureChip("Driver contact")
                         EmergencyFeatureChip("Hospital-ready")
@@ -524,6 +529,7 @@ private fun EmergencyFeatureChip(label: String) {
             color = Color.White,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
         )
     }
@@ -735,7 +741,7 @@ private fun ActiveEmergencyView(
         "arrived_hospital" -> "Arrived at Hospital"
         "completed" -> "Emergency Completed"
         "timeout" -> "Search Timed Out — Retrying..."
-        "no_ambulance" -> "No Ambulance Available"
+        "no_ambulance" -> "Awaiting Hospital Dispatch..."
         else -> "Ambulance On The Way"
     }
 
@@ -747,7 +753,8 @@ private fun ActiveEmergencyView(
         "picked_up" -> "Heading to the nearest hospital"
         "en_route_hospital" -> "Transporting to the hospital"
         "arrived_hospital" -> "You've arrived at the hospital"
-        "timeout", "no_ambulance" -> "Please call 108 for immediate help"
+        "timeout" -> "Please call 108 for immediate help"
+        "no_ambulance" -> "Automated search failed. Waiting for nearby hospitals to assign an ambulance..."
         else -> "Help is coming to your location"
     }
 

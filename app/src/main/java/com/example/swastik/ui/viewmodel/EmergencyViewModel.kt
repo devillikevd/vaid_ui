@@ -75,13 +75,12 @@ class EmergencyViewModel @Inject constructor(
     }
 
     private fun isTerminalEmergencyStatus(status: String?): Boolean =
-        status in listOf("completed", "cancelled", "timeout", "no_ambulance")
+        status in listOf("completed", "cancelled", "timeout")
 
     private fun terminalEmergencyMessage(status: String?, message: String? = null): String? {
         val backendMessage = message?.takeIf { it.isNotBlank() }
         return when (status) {
             "timeout" -> backendMessage ?: "Ambulance search timed out. Please try again or call 108."
-            "no_ambulance" -> backendMessage ?: "No ambulance is currently available nearby. Please call 108 immediately."
             "cancelled" -> backendMessage ?: "Your SOS request has been cancelled."
             else -> null
         }

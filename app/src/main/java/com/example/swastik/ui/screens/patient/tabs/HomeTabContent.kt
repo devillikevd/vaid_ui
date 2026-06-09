@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +60,7 @@ fun HomeTabContent(
     onNavigateToCommunityQA: () -> Unit = {},
     onDoctorClick: (String) -> Unit = {}
 ) {
-    val homeBgColor = if (isSystemInDarkTheme()) {
+    val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
     } else {
         Color(0xFFF4FBF9)
@@ -159,10 +160,25 @@ fun HomeTabContent(
                 // Digital Health ID Card
                 CompactHealthIdCard(onClick = onNavigateToHealthCard)
 
+                // My Activity Section Title
+                Text(
+                    text = "My Activity",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 12.dp, top = 0.dp)
+                )
+
                 // Secondary Actions (Reports, Appointments)
                 SecondaryActionsGrid(
                     onReportsClick = onNavigateToReports,
                     onAppointmentsClick = onNavigateToAppointments
+                )
+                
+                // Tertiary Actions (Orders, Bookings)
+                TertiaryActionsGrid(
+                    onOrdersClick = onNavigateToOrderHistory,
+                    onBookingsClick = onNavigateToBookingHistory
                 )
             }
 

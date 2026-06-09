@@ -60,6 +60,7 @@ data class CartUiState(
     val selectedPharmacyId: String? = null,
     val selectedPharmacyName: String? = null,
     val deliveryAddress: String = "",
+    val patientPhone: String = "",
     val isOrdering: Boolean = false,
     val orderResult: MedicineOrderDto? = null,
     val orderError: String? = null,
@@ -439,6 +440,10 @@ class MedicineViewModel @Inject constructor(
         cartStore.set(cartStore.value.copy(deliveryAddress = address))
     }
 
+    fun setPatientPhone(phone: String) {
+        cartStore.set(cartStore.value.copy(patientPhone = phone))
+    }
+
     fun setPharmacy(pharmacyId: String, pharmacyName: String) {
         cartStore.set(cartStore.value.copy(
             selectedPharmacyId = pharmacyId,
@@ -448,8 +453,8 @@ class MedicineViewModel @Inject constructor(
 
     fun placeOrder() {
         val cart = cartStore.value
-        if (cart.selectedPharmacyId.isNullOrBlank() || cart.items.isEmpty() || cart.deliveryAddress.isBlank()) {
-            cartStore.set(cart.copy(orderError = "Please fill in all order details"))
+        if (cart.selectedPharmacyId.isNullOrBlank() || cart.items.isEmpty() || cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
+            cartStore.set(cart.copy(orderError = "Please fill in all order details including phone number"))
             return
         }
 
@@ -466,7 +471,8 @@ class MedicineViewModel @Inject constructor(
                         quantity = it.quantity
                     )
                 },
-                deliveryAddress = cart.deliveryAddress
+                deliveryAddress = cart.deliveryAddress,
+                patientPhone = cart.patientPhone
             )
             when (val result = medicineRepository.createOrder(request)) {
                 is Result.Success -> {

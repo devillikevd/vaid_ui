@@ -31,6 +31,13 @@ import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.viewmodel.RecordsViewModel
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import com.example.swastik.ui.screens.patient.tabs.UploadReportDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,15 +51,16 @@ fun ReportsScreen(
     val context = LocalContext.current
 
     var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Lab Reports", "Prescriptions", "Scans", "Other")
+    val filters = listOf("All", "Lab Reports", "Prescriptions", "Scans")
 
     val filteredReports = when (selectedFilter) {
         "Lab Reports" -> reports.filter { it.type == DocumentType.LAB_REPORT }
         "Prescriptions" -> reports.filter { it.type == DocumentType.PRESCRIPTION }
         "Scans" -> reports.filter { it.type == DocumentType.SCAN }
-        "Other" -> reports.filter { it.type !in listOf(DocumentType.LAB_REPORT, DocumentType.PRESCRIPTION, DocumentType.SCAN) }
         else -> reports
     }
+
+    var showUploadDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -61,6 +69,15 @@ fun ReportsScreen(
                 navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showUploadDialog = true },
+                containerColor = SwastikPrimary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Upload Report")
+            }
         }
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(paddingValues)) {
@@ -133,7 +150,11 @@ fun ReportsScreen(
                                         onReportClick(report)
                                     } else if (report.fileUrl.isNotBlank()) {
                                         try {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(report.fileUrl)))
+                                            val url = report.fileUrl
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                data = android.net.Uri.parse(url)
+                                            }
+                                            context.startActivity(intent)
                                         } catch (_: Exception) {
                                             Toast.makeText(context, context.getString(R.string.unable_open_report), Toast.LENGTH_SHORT).show()
                                         }
@@ -146,6 +167,17 @@ fun ReportsScreen(
                     }
                 }
             }
+        }
+
+        if (showUploadDialog) {
+            UploadReportDialog(
+                isUploading = uiState.uploadState == com.example.swastik.ui.viewmodel.UploadState.Uploading,
+                onDismiss = { showUploadDialog = false },
+                onUpload = { uri, name, type, url ->
+                    viewModel.uploadReport(uri, name, type, url)
+                    showUploadDialog = false
+                }
+            )
         }
     }
 }

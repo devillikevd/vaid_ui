@@ -193,7 +193,11 @@ data class Hospital(
     val departments: List<HospitalDepartment>? = null,
     val doctors: List<HospitalDoctorAssignment>? = null,
     @SerializedName("opening_time") val openTime: String? = null,
-    @SerializedName("closing_time") val closeTime: String? = null
+    @SerializedName("closing_time") val closeTime: String? = null,
+    @SerializedName("total_beds") val totalBeds: Int? = null,
+    @SerializedName("beds_available") val bedsAvailable: Int? = null,
+    val facilities: List<String>? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null
 )
 
 data class HospitalDepartment(
@@ -222,7 +226,21 @@ data class HospitalDoctorSummary(
 data class Clinic(
     val id: String,
     val name: String,
-    val address: String
+    val address: String,
+    val phone: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val distance: Float? = null,
+    val rating: Float? = null,
+    @SerializedName("total_reviews") val reviewCount: Int? = null,
+    val specializations: List<String>? = null,
+    val facilities: List<String>? = null,
+    @SerializedName("is_24_hours") val is24Hours: Boolean? = null,
+    @SerializedName("is_emergency_available") val isEmergencyAvailable: Boolean? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
+    @SerializedName("opening_time") val openTime: String? = null,
+    @SerializedName("closing_time") val closeTime: String? = null
 )
 
 data class Review(
@@ -335,7 +353,11 @@ data class Pharmacy(
     val distance: Float?,
     @SerializedName("is_open") val isOpen: Boolean?,
     @SerializedName("medicine_available") val medicineAvailable: Boolean?,
-    val price: Float?
+    val price: Float?,
+    val rating: Float? = null,
+    @SerializedName("total_reviews") val reviewCount: Int? = null,
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("delivery_available") val deliveryAvailable: Boolean? = null
 )
 
 data class TimeSlot(
@@ -458,7 +480,13 @@ data class DiagnosticCenter(
     val latitude: Double?,
     val longitude: Double?,
     val distance: Float?,
-    val rating: Float?
+    val rating: Float?,
+    @SerializedName("total_reviews") val reviewCount: Int? = null,
+    @SerializedName("test_categories") val testCategories: List<String>? = null,
+    @SerializedName("home_collection_available") val homeCollectionAvailable: Boolean? = null,
+    @SerializedName("is_24_hours") val is24Hours: Boolean? = null,
+    @SerializedName("image_url") val imageUrl: String? = null,
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null
 )
 
 data class DiagnosticBooking(

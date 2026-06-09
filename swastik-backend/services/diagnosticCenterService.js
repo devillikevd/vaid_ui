@@ -3,7 +3,8 @@
  * Registration, management, tests catalog, appointments, and results
  */
 const { supabaseAdmin } = require('../config/supabase');
-const { cacheDel } = require('../config/redis');
+const { v4: uuidv4 } = require('uuid');
+const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
@@ -513,7 +514,7 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   // Validate status transition
   const { data: current } = await supabaseAdmin
     .from('diagnostic_bookings')
-    .select('status, collection_type')
+    .select('status, collection_type, tracking_token')
     .eq('id', bookingId)
     .eq('center_id', centerId)
     .single();
@@ -540,6 +541,10 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
     updatePayload.cancelled_at = new Date().toISOString();
     if (meta.cancelledBy) updatePayload.cancelled_by = meta.cancelledBy;
     if (meta.reason) updatePayload.cancellation_reason = meta.reason;
+  }
+
+  if (nextStatus === 'dispatched' && current && !current.tracking_token) {
+    updatePayload.tracking_token = uuidv4();
   }
 
   const { data, error } = await supabaseAdmin
@@ -581,7 +586,7 @@ const uploadResult = async (centerId, bookingId, resultData, uploadedByUserId) =
     })
     .eq('id', bookingId)
     .eq('center_id', centerId)
-    .select('*')
+    .select('*, test:diagnostic_tests(name, category), center:diagnostic_centers(name)')
     .single();
 
   if (error) throw error;
@@ -590,6 +595,29 @@ const uploadResult = async (centerId, bookingId, resultData, uploadedByUserId) =
   if (data.patient_id) {
     const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
     if (patient) {
+      // Create Medical Record entry automatically
+      const testCategory = (data.test?.category || '').toLowerCase();
+      let reportType = 'other';
+      if (testCategory.includes('blood') || testCategory.includes('pathology')) reportType = 'blood_test';
+      else if (testCategory.includes('urine')) reportType = 'urine_test';
+      else if (testCategory.includes('x-ray') || testCategory.includes('xray')) reportType = 'x_ray';
+      else if (testCategory.includes('mri')) reportType = 'mri';
+      else if (testCategory.includes('ct') || testCategory.includes('scan')) reportType = 'ct_scan';
+      else if (testCategory.includes('ecg') || testCategory.includes('cardio')) reportType = 'ecg';
+      else if (testCategory.includes('ultrasound') || testCategory.includes('sono')) reportType = 'ultrasound';
+
+      await supabaseAdmin.from('reports').insert({
+        patient_id: data.patient_id,
+        name: data.test?.name || 'Diagnostic Report',
+        type: reportType,
+        lab_name: data.center?.name || 'Diagnostic Center',
+        test_date: data.booking_date,
+        result_date: new Date().toISOString().split('T')[0],
+        status: 'normal',
+        doctor_notes: data.result_notes,
+        file_url: data.result_url,
+      });
+
       eventEmitter.emitDiagnosticResultUploaded({ ...data, patient_id: patient.user_id });
     }
   }
@@ -694,7 +722,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
       booking_date: bookingData.bookingDate || bookingData.booking_date,
       booking_time: bookingData.bookingTime || bookingData.booking_time || null,
       collection_type: bookingData.collectionType || bookingData.collection_type || 'walk_in',
-      collection_address: bookingData.collectionAddress || bookingData.collection_address || null,
+      collection_address: bookingData.patientPhone ? `${bookingData.collectionAddress || bookingData.collection_address || ''} | Phone: ${bookingData.patientPhone}` : (bookingData.collectionAddress || bookingData.collection_address || null),
       notes: bookingData.notes || null,
       status: 'pending',
       result_status: 'pending',

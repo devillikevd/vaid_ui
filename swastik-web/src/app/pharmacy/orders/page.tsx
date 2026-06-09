@@ -13,6 +13,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { usePharmacyStore } from '@/stores/pharmacyStore';
 import { useOrderUpdates } from '@/hooks/useSocket';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { AssignAgentModal } from '@/components/shared/AssignAgentModal';
+import { AgentTrackingMap } from '@/components/shared/AgentTrackingMap';
 
 const PAGE_SIZE = 10;
 
@@ -25,6 +27,7 @@ export default function PharmacyOrdersPage() {
     const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
     const [newOrderAlert, setNewOrderAlert] = useState(false);
     const [page, setPage] = useState(1);
+    const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
     const loadOrders = useCallback(() => {
@@ -197,7 +200,7 @@ export default function PharmacyOrdersPage() {
                                                 </button>
                                             ) : null}
                                             {order.status === 'ready' ? (
-                                                <button onClick={() => void handleStatus(order.id, 'dispatched')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-purple-600 hover:bg-purple-50" title="Dispatch Order">
+                                                <button onClick={() => setAssigningOrderId(order.id)} className="rounded-lg p-1.5 text-purple-600 hover:bg-purple-50" title="Dispatch Order">
                                                     <Send className="h-4 w-4" />
                                                 </button>
                                             ) : null}
@@ -250,6 +253,21 @@ export default function PharmacyOrdersPage() {
                                         <span className="text-gray-500 dark:text-gray-400">Payment:</span>
                                         <StatusBadge status={order.payment_status || 'pending'} size="sm" />
                                     </div>
+                                    
+                                    {order.tracking_token && ['dispatched', 'out_for_delivery'].includes(order.status) && (
+                                        <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                            <h4 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Live Agent Tracking</h4>
+                                            <AgentTrackingMap 
+                                                trackingToken={order.tracking_token} 
+                                                height="200px"
+                                                facilityLocation={order.facility?.latitude && order.facility?.longitude ? {
+                                                    lat: order.facility.latitude,
+                                                    lng: order.facility.longitude,
+                                                    name: order.facility.name || 'Pharmacy'
+                                                } : null}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             ) : null}
                         </Card>
@@ -265,6 +283,15 @@ export default function PharmacyOrdersPage() {
                 itemsPerPage={PAGE_SIZE}
             />
             <ConfirmDialog {...dialogProps} />
+            <AssignAgentModal
+                isOpen={!!assigningOrderId}
+                onClose={() => setAssigningOrderId(null)}
+                orderId={assigningOrderId!}
+                orderType="pharmacy"
+                onAssigned={() => {
+                    loadOrders();
+                }}
+            />
         </div>
     );
 }

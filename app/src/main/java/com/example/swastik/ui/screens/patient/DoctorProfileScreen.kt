@@ -47,6 +47,8 @@ fun DoctorProfileScreen(
     doctorId: String,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onHospitalClick: (String) -> Unit = {},
+    onClinicClick: (String) -> Unit = {},
     viewModel: DoctorProfileViewModel = hiltViewModel()
 ) {
     LaunchedEffect(doctorId) {
@@ -164,7 +166,7 @@ fun DoctorProfileScreen(
                     )
                 }
                 is DoctorProfileViewModel.UiState.Success -> {
-                    DoctorProfileContent(state.details, state.queueStats)
+                    DoctorProfileContent(state.details, state.queueStats, onHospitalClick, onClinicClick)
                 }
             }
         }
@@ -172,7 +174,12 @@ fun DoctorProfileScreen(
 }
 
 @Composable
-fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik.data.remote.dto.DoctorQueueStatsDto?) {
+fun DoctorProfileContent(
+    details: DoctorDetails,
+    queueStats: com.example.swastik.data.remote.dto.DoctorQueueStatsDto?,
+    onHospitalClick: (String) -> Unit = {},
+    onClinicClick: (String) -> Unit = {}
+) {
     val scrollState = rememberScrollState()
     val doctor = details.doctor
 
@@ -460,7 +467,7 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
         details.clinics?.forEach { clinic ->
             allAffiliations.add {
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { /* Navigate to Clinic Details */ },
+                    modifier = Modifier.fillMaxWidth().clickable { onClinicClick(clinic.id) },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -479,7 +486,7 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(
-                            onClick = { /* Navigate to Clinic Details */ },
+                            onClick = { onClinicClick(clinic.id) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -493,7 +500,7 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
         details.hospitals?.forEach { hospital ->
             allAffiliations.add {
                 Card(
-                    modifier = Modifier.fillMaxWidth().clickable { /* Navigate to Hospital Details */ },
+                    modifier = Modifier.fillMaxWidth().clickable { onHospitalClick(hospital.id) },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -512,7 +519,7 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
                         }
                         Spacer(Modifier.height(12.dp))
                         OutlinedButton(
-                            onClick = { /* Navigate to Hospital Details */ },
+                            onClick = { onHospitalClick(hospital.id) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -534,7 +541,9 @@ fun DoctorProfileContent(details: DoctorDetails, queueStats: com.example.swastik
         // Reviews Section
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
             Text("Patient Reviews", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("View All", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable { })
+            Text("View All", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable {
+                com.example.swastik.ui.components.SnackbarManager.showMessage("Detailed reviews page will be available soon.")
+            })
         }
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

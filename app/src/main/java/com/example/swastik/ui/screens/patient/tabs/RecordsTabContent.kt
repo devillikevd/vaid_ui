@@ -88,11 +88,14 @@ fun RecordsTabContent(
         label = "blur"
     )
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .blur(blurRadius)
             .background(colorScheme.background)
+    ) {
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
         // Header
 
@@ -283,6 +286,20 @@ fun RecordsTabContent(
                 }
                 } // end else
             }
+        }
+    }
+    
+        // FAB for uploading records anytime
+        FloatingActionButton(
+            onClick = { showUploadDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 72.dp), // Account for bottom navigation
+            containerColor = SwastikPrimary,
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Outlined.CloudUpload, contentDescription = "Upload Medical Record")
         }
     }
 
@@ -695,6 +712,26 @@ private fun DocumentItem(document: MedicalDocument) {
                     }
                 }
             }
+            
+            IconButton(onClick = {
+                if (document.fileUrl.isNotEmpty()) {
+                    try {
+                        val sendIntent: Intent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, "Here is my medical record: ${document.fileUrl}")
+                            type = "text/plain"
+                        }
+                        val shareIntent = Intent.createChooser(sendIntent, "Share Medical Record")
+                        context.startActivity(shareIntent)
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Cannot share file", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Toast.makeText(context, context.getString(R.string.no_file_available), Toast.LENGTH_SHORT).show()
+                }
+            }) {
+                Icon(Icons.Outlined.Share, contentDescription = "Share", tint = SwastikPrimary)
+            }
 
             IconButton(onClick = {
                 if (document.fileUrl.isNotEmpty()) {
@@ -754,7 +791,7 @@ private enum class RecordFilter {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UploadReportDialog(
+fun UploadReportDialog(
     onDismiss: () -> Unit,
     onUpload: (Uri?, String, String, String?) -> Unit,
     isUploading: Boolean
@@ -774,8 +811,7 @@ private fun UploadReportDialog(
         "mri" to stringResource(R.string.report_type_mri),
         "ct_scan" to stringResource(R.string.report_type_ct_scan),
         "ultrasound" to stringResource(R.string.report_type_ultrasound),
-        "ecg" to stringResource(R.string.report_type_ecg),
-        "other" to stringResource(R.string.report_type_other)
+        "ecg" to stringResource(R.string.report_type_ecg)
     )
 
     val filePicker = rememberLauncherForActivityResult(

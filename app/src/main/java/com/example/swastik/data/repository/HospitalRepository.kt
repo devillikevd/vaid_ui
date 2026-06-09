@@ -617,7 +617,14 @@ class HospitalRepository @Inject constructor(
             latitude = latitude ?: 0.0,
             longitude = longitude ?: 0.0,
             phone = phone ?: "",
-            isOpen = isOpen ?: true
+            openTime = openTime,
+            closeTime = closeTime,
+            isOpen = isOpen ?: true,
+            is24Hours = is24Hours ?: false,
+            imageUrl = imageUrl,
+            deliveryAvailable = deliveryAvailable ?: offersDelivery ?: false,
+            minOrderDelivery = minOrderDelivery,
+            deliveryRadiusKm = deliveryRadiusKm
         )
     }
 
@@ -638,9 +645,18 @@ class HospitalRepository @Inject constructor(
             latitude = latitude ?: 0.0,
             longitude = longitude ?: 0.0,
             phone = phone ?: "",
+            openTime = openTime,
+            closeTime = closeTime,
             isOpen = is24Hours ?: true,
+            is24Hours = is24Hours ?: false,
+            imageUrl = imageUrl,
             isEmergencyAvailable = emergencyServices ?: false,
-            specializations = specialties ?: emptyList()
+            specializations = specialties ?: emptyList(),
+            homeCollectionAvailable = homeCollectionAvailable ?: false,
+            homeCollectionFee = homeCollectionFee,
+            testCategories = specialties ?: emptyList(),
+            accreditations = accreditations ?: emptyList(),
+            images = images ?: emptyList()
         )
     }
 

@@ -31,7 +31,9 @@ private val LightColorScheme = lightColorScheme(
     onSurface = TextPrimary,
     error = SwastikRed,
     onError = Color.White,
-    outline = TextHint
+    outline = TextHint,
+    surfaceVariant = SurfaceElevatedLight,
+    onSurfaceVariant = TextSecondary
 )
 
 private val DarkColorScheme = darkColorScheme(
