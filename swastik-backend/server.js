@@ -466,7 +466,7 @@ const startServer = async () => {
 
     // Start server
     const PORT = config.port;
-    server.listen(PORT, () => {
+    server.listen(PORT, '0.0.0.0', () => {
       if (isEnvEnabled('BACKGROUND_JOBS_ENABLED', true)) {
         // Start consultation timeout cron
         startConsultationTimeoutCron();

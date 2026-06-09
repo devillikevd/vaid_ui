@@ -204,8 +204,7 @@ class PatientService {
       { data: emergencyContacts },
       { data: familyMembers },
       { count: appointmentCount },
-      { count: reportCount },
-      { count: diagnosticReportCount }
+      { count: reportCount }
     ] = await Promise.all([
       supabaseAdmin.from('emergency_contacts').select('*').eq('patient_id', patient.id),
       supabaseAdmin.from('family_members').select('*').eq('patient_id', patient.id),
