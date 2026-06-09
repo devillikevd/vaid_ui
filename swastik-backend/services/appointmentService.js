@@ -137,8 +137,44 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
 
   if (error) throw error;
 
+  let appointments = data || [];
+
+  // Check if each appointment has been reviewed
+  if (appointments.length > 0) {
+    const appointmentIds = appointments.map(a => a.id);
+
+    // Find consultations linked to these appointments
+    const { data: consultations } = await supabaseAdmin
+      .from('consultations')
+      .select('id, appointment_id')
+      .in('appointment_id', appointmentIds);
+
+    const consultIds = (consultations || []).map(c => c.id);
+    const consultToAppt = new Map((consultations || []).map(c => [c.id, c.appointment_id]));
+
+    // Find reviews linked to either the appointments directly or their consultations
+    const { data: reviews } = await supabaseAdmin
+      .from('reviews')
+      .select('consultation_id')
+      .or(`consultation_id.in.(${appointmentIds.join(',')}),consultation_id.in.(${consultIds.join(',')})`);
+
+    const reviewedAppointmentIds = new Set();
+    (reviews || []).forEach(r => {
+      if (appointmentIds.includes(r.consultation_id)) {
+        reviewedAppointmentIds.add(r.consultation_id);
+      } else if (consultToAppt.has(r.consultation_id)) {
+        reviewedAppointmentIds.add(consultToAppt.get(r.consultation_id));
+      }
+    });
+
+    appointments = appointments.map(a => ({
+      ...a,
+      is_reviewed: reviewedAppointmentIds.has(a.id)
+    }));
+  }
+
   return {
-    data: data || [],
+    data: appointments,
     pagination: {
       page,
       limit,

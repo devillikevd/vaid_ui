@@ -590,7 +590,7 @@ class DoctorService {
       { data: hospitalsData }
     ] = await Promise.all([
       supabaseAdmin.from('doctor_slots').select('*').eq('doctor_id', doctorId).eq('is_active', true),
-      supabaseAdmin.from('reviews').select('*, patient:patients(name)').eq('reviewable_type', 'doctor').eq('reviewable_id', doctorId).order('created_at', { ascending: false }).limit(10),
+      supabaseAdmin.from('reviews').select('*, patient:patients(id, name, profile_image_url)').eq('reviewable_type', 'doctor').eq('reviewable_id', doctorId).order('created_at', { ascending: false }).limit(10),
       supabaseAdmin.from('reviews').select('rating').eq('reviewable_type', 'doctor').eq('reviewable_id', doctorId),
       supabaseAdmin.rpc('get_doctor_queue_count', { p_doctor_id: doctorId }),
       supabaseAdmin.from('clinic_doctors').select('consultation_fee, schedule, clinic:clinics(*)').eq('doctor_id', doctorId).eq('is_active', true),

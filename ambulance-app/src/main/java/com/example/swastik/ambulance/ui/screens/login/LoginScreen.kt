@@ -34,6 +34,7 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -49,7 +50,10 @@ fun LoginScreen(
         (uiState.error?.contains("verify your email", ignoreCase = true) == true)
 
     LaunchedEffect(uiState.isLoggedIn) {
-        if (uiState.isLoggedIn) onLoginSuccess()
+        if (uiState.isLoggedIn) {
+            android.widget.Toast.makeText(context, "Login Successful!", android.widget.Toast.LENGTH_SHORT).show()
+            onLoginSuccess()
+        }
     }
 
     LaunchedEffect(uiState.passwordResetCodeSent, showForgotPasswordDialog) {

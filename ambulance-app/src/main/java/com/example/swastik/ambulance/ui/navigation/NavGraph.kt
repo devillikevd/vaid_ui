@@ -120,13 +120,19 @@ fun AmbulanceNavGraph() {
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
                 },
-                onLoginSuccess = {}
+                onLoginSuccess = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                viewModel = authViewModel
             )
         }
 
         composable(Screen.Register.route) {
             RegisterScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                viewModel = authViewModel
             )
         }
 

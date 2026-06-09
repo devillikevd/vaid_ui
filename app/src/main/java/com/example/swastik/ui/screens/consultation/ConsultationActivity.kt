@@ -8,13 +8,10 @@ import android.util.Rational
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
-import com.example.swastik.data.local.AppSettingsStore
-import com.example.swastik.data.local.ThemePreference
 import com.example.swastik.ui.theme.SwastikTheme
 import com.example.swastik.ui.viewmodel.VideoConsultationViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,12 +33,6 @@ class ConsultationActivity : AppCompatActivity() {
         val doctorName = intent.getStringExtra("doctorName") ?: "Doctor"
 
         setContent {
-            val appSettings by AppSettingsStore.settings.collectAsState()
-            val darkTheme = when (appSettings.themePreference) {
-                ThemePreference.DARK -> true
-                ThemePreference.LIGHT -> false
-                ThemePreference.SYSTEM -> isSystemInDarkTheme()
-            }
             val pipMode by _isPipMode.collectAsState()
             val uiState by viewModel.uiState.collectAsState()
             
@@ -57,7 +48,7 @@ class ConsultationActivity : AppCompatActivity() {
                 }
             }
 
-            SwastikTheme(darkTheme = darkTheme) {
+            SwastikTheme {
                 VideoConsultationFlow(
                     appointmentId = appointmentId,
                     doctorName = doctorName,

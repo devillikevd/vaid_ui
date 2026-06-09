@@ -98,20 +98,19 @@ enum class DocumentType {
 // ==================== DOMAIN MODELS ====================
 
 data class Patient(
-    val id: String,
-    @SerializedName("user_id") val userId: String,
+    val id: String? = null,
+    @SerializedName("user_id") val userId: String? = null,
     val name: String,
-    val phone: String,
-    val email: String?,
-    @SerializedName("date_of_birth") val dateOfBirth: String?,
-    val gender: String?,
-    @SerializedName("blood_group") val bloodGroup: String?,
-    @SerializedName("emergency_contact") val emergencyContact: String?,
-    val address: String?,
-    @SerializedName("profile_image_url") val profileImageUrl: String?,
-    val allergies: List<String>?,
-    @SerializedName("chronic_conditions") val chronicConditions: List<String>?,
-    val location: String? = null
+    val phone: String? = null,
+    val email: String? = null,
+    @SerializedName("date_of_birth") val dateOfBirth: String? = null,
+    val gender: String? = null,
+    @SerializedName("blood_group") val bloodGroup: String? = null,
+    @SerializedName("emergency_contact") val emergencyContact: String? = null,
+    val address: String? = null,
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    val allergies: List<String>? = null,
+    @SerializedName("chronic_conditions") val chronicConditions: List<String>? = null
 )
 
 data class Doctor(
@@ -286,6 +285,7 @@ data class Appointment(
     @SerializedName("consultation_fee") val consultationFee: Int?,
     @SerializedName("cancellation_reason") val cancellationReason: String?,
     @SerializedName("cancelled_by") val cancelledBy: String? = null,
+    @SerializedName("is_reviewed") val isReviewed: Boolean = false,
     val doctor: Doctor?,
     val patient: Patient?,
     val hospital: AppointmentFacility? = null,

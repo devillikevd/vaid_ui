@@ -69,7 +69,22 @@ fun AppointmentHistoryScreen(
     var showCancelDialog by remember { mutableStateOf<Appointment?>(null) }
     var showReviewDialog by remember { mutableStateOf<Appointment?>(null) }
     val uiState = viewModel.uiState
+    val reviewUiState by reviewViewModel.uiState.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
+
+    // Refresh appointments when a review is submitted successfully
+    LaunchedEffect(reviewUiState.submitSuccess) {
+        if (reviewUiState.submitSuccess) {
+            val statusQuery = when (selectedFilter) {
+                AppointmentFilter.ALL -> null
+                AppointmentFilter.UPCOMING -> "scheduled"
+                AppointmentFilter.COMPLETED -> "completed"
+                AppointmentFilter.CANCELLED -> "cancelled"
+            }
+            viewModel.loadAppointments(statusQuery)
+            reviewViewModel.resetSubmitState()
+        }
+    }
 
     // Fetch latest on resume
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -253,35 +268,51 @@ fun AppointmentHistoryScreen(
 
     // Review Dialog
     showReviewDialog?.let { appointment ->
-        com.example.swastik.ui.screens.patient.appointments.MultiEntityReviewDialog(
-            doctorName = appointment.doctor?.name ?: "",
-            facilityName = appointment.clinic?.name ?: appointment.hospital?.name,
-            facilityType = when {
-                appointment.clinic != null -> "clinic"
-                appointment.hospital != null -> "hospital"
-                else -> null
-            },
-            onDismiss = { showReviewDialog = null },
-            onSubmitReview = { targetType, rating, comment ->
-                val reviewableId = when(targetType) {
-                    "doctor" -> appointment.doctorId
-                    "clinic" -> appointment.clinic?.id ?: ""
-                    "hospital" -> appointment.hospital?.id ?: ""
-                    else -> ""
-                }
-                if (reviewableId.isNotEmpty()) {
-                    reviewViewModel.submitReview(
-                        reviewableType = targetType,
-                        reviewableId = reviewableId,
-                        consultationId = appointment.id,
-                        rating = rating,
-                        comment = comment
-                    )
-                }
-                showReviewDialog = null
-                viewModel.loadAppointments()
+        val reviewUiState by reviewViewModel.uiState.collectAsState()
+        
+        // Fetch existing review if needed to support editing
+        LaunchedEffect(appointment.id) {
+            if (appointment.isReviewed) {
+                reviewViewModel.loadReviewForConsultation(appointment.id)
             }
-        )
+        }
+
+        if (appointment.isReviewed && reviewUiState.isLoadingExistingReview) {
+            // Wait for existing review to load
+        } else {
+            key(reviewUiState.existingReview?.id ?: "new") {
+                com.example.swastik.ui.screens.patient.appointments.MultiEntityReviewDialog(
+                    doctorName = appointment.doctor?.name ?: "",
+                    facilityName = appointment.clinic?.name ?: appointment.hospital?.name,
+                    facilityType = when {
+                        appointment.clinic != null -> "clinic"
+                        appointment.hospital != null -> "hospital"
+                        else -> null
+                    },
+                    initialRating = if (appointment.isReviewed) reviewUiState.existingReview?.rating ?: 0 else 0,
+                    initialComment = if (appointment.isReviewed) reviewUiState.existingReview?.comment ?: "" else "",
+                    onDismiss = { showReviewDialog = null },
+                    onSubmitReview = { targetType, rating, comment ->
+                        val reviewableId = when(targetType) {
+                            "doctor" -> appointment.doctorId
+                            "clinic" -> appointment.clinic?.id ?: ""
+                            "hospital" -> appointment.hospital?.id ?: ""
+                            else -> ""
+                        }
+                        if (reviewableId.isNotEmpty()) {
+                            reviewViewModel.submitReview(
+                                reviewableType = targetType,
+                                reviewableId = reviewableId,
+                                consultationId = appointment.id,
+                                rating = rating,
+                                comment = comment
+                            )
+                        }
+                        showReviewDialog = null
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -547,10 +578,15 @@ private fun AppointmentCard(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(
+                            if (appointment.isReviewed) Icons.Filled.Edit else Icons.Filled.Star, 
+                            contentDescription = null, 
+                            tint = Color.White, 
+                            modifier = Modifier.size(16.dp)
+                        )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Rate Doctor", 
+                            if (appointment.isReviewed) "Edit Review" else "Rate Doctor",
                             color = Color.White, 
                             fontSize = 12.sp,
                             maxLines = 1,

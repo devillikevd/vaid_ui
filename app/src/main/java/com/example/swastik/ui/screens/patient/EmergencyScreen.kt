@@ -3,8 +3,8 @@ package com.example.swastik.ui.screens.patient
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,10 +43,6 @@ import org.osmdroid.util.GeoPoint
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 
-private val EmergencyCanvas = Color(0xFFF8F2EB)
-private val EmergencySurface = Color(0xFFFFFBF7)
-private val EmergencyInk = Color(0xFF1F2937)
-private val EmergencyMuted = Color(0xFF6B7280)
 private val EmergencyAlert = Color(0xFFB91C1C)
 private val EmergencyAlertStrong = Color(0xFFDC2626)
 private val EmergencyAccent = Color(0xFFF97316)
@@ -60,6 +56,7 @@ fun EmergencyScreen(
     viewModel: EmergencyViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var isMapFullscreen by remember { mutableStateOf(false) }
 
     // ===== LOCATION PERMISSION =====
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -86,41 +83,43 @@ fun EmergencyScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(R.string.emergency_network), fontWeight = FontWeight.Bold)
-                        Text(
-                            "Ambulance dispatch and live response",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.82f)
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EmergencyAlert,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
+            if (!isMapFullscreen) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(stringResource(R.string.emergency_network), fontWeight = FontWeight.Bold)
+                            Text(
+                                "Ambulance dispatch and live response",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.82f)
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = EmergencyAlert,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White
+                    )
                 )
-            )
+            }
         }
     ) { paddingValues ->
         when {
             uiState.activeEmergency != null -> {
-                // Show active emergency tracking
                 ActiveEmergencyView(
                     uiState = uiState,
                     onCancel = { reason -> viewModel.cancelEmergency(reason) },
-                    modifier = Modifier.padding(paddingValues)
+                    isMapFullscreen = isMapFullscreen,
+                    onToggleMapFullscreen = { isMapFullscreen = it },
+                    modifier = Modifier.padding(if (isMapFullscreen) PaddingValues(0.dp) else paddingValues)
                 )
             }
             uiState.requestSent -> {
-                // Show confirmation
                 EmergencyConfirmation(
                     uiState = uiState,
                     onCancel = { reason -> viewModel.cancelEmergency(reason) },
@@ -128,7 +127,6 @@ fun EmergencyScreen(
                 )
             }
             else -> {
-                // Show emergency type selection
                 EmergencyTypeSelection(
                     uiState = uiState,
                     onRequestEmergency = { type, description ->
@@ -177,21 +175,21 @@ private fun EmergencyTypeSelection(
             label = "Cardiac",
             value = "cardiac",
             description = "Chest pain, stroke signs, unconsciousness",
-            color = MaterialTheme.colorScheme.onSurface
+            color = colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.Person,
             label = "Pregnancy",
             value = "pregnancy",
             description = "Labour pain, urgent maternal transport",
-            color = MaterialTheme.colorScheme.onSurface
+            color = colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.MedicalServices,
             label = "Other",
             value = "other",
             description = "Any urgent condition needing ambulance pickup",
-            color = MaterialTheme.colorScheme.onSurface
+            color = colorScheme.onSurface
         )
     )
 
@@ -366,7 +364,7 @@ private fun EmergencyTypeSelection(
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Text(
-                        uiState.error,
+                        uiState.error!!,
                         color = colorScheme.onErrorContainer,
                         modifier = Modifier.padding(14.dp),
                         fontSize = 14.sp
@@ -446,271 +444,11 @@ private fun EmergencyTypeSelection(
 }
 
 @Composable
-private fun EmergencyTypeCard(
-    item: EmergencyTypeItem,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
-        ),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else null,
-        elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(item.color.copy(alpha = 0.14f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = item.color,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-                if (isSelected) {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = item.color,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Text(
-                item.label,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                item.description,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                minLines = 2
-            )
-            Text(
-                if (isSelected) "Selected for dispatch" else "Tap to choose",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmergencyFeatureChip(label: String) {
-    Surface(
-        color = Color.White.copy(alpha = 0.16f),
-        shape = RoundedCornerShape(999.dp)
-    ) {
-        Text(
-            text = label,
-            color = Color.White,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun ActiveEmergencyHeroCard(
-    requestId: String?,
-    statusText: String,
-    statusSubtext: String,
-    isTrackingAmbulance: Boolean,
-    resolvedDriverName: String?,
-    resolvedVehicleNumber: String?,
-    trackingSummary: String?
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(6.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF3F0D12),
-                            EmergencyAlert,
-                            EmergencyAlertStrong
-                        )
-                    )
-                )
-                .padding(20.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.16f),
-                            shape = RoundedCornerShape(999.dp)
-                        ) {
-                            Text(
-                                text = "Request ${requestId ?: "Pending"}",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                            )
-                        }
-                        if (isTrackingAmbulance) {
-                            Surface(
-                                color = Color.White.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(999.dp)
-                            ) {
-                                Text(
-                                    text = "Live GPS Active",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                                )
-                            }
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color.White.copy(alpha = 0.14f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.LocalShipping,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = statusText,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                        lineHeight = 30.sp
-                    )
-                    Text(
-                        text = statusSubtext,
-                        color = Color.White.copy(alpha = 0.86f),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    EmergencyMetricTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Driver",
-                        value = resolvedDriverName ?: "Assigning now"
-                    )
-                    EmergencyMetricTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Vehicle",
-                        value = resolvedVehicleNumber ?: "Preparing"
-                    )
-                }
-
-                if (!trackingSummary.isNullOrBlank()) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Outlined.Route,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = trackingSummary,
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmergencyMetricTile(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String
-) {
-    Surface(
-        modifier = modifier,
-        color = Color.White.copy(alpha = 0.14f),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = label,
-                color = Color.White.copy(alpha = 0.76f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
 private fun ActiveEmergencyView(
     uiState: EmergencyUiState,
     onCancel: (String) -> Unit,
+    isMapFullscreen: Boolean,
+    onToggleMapFullscreen: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -758,313 +496,444 @@ private fun ActiveEmergencyView(
         else -> "Help is coming to your location"
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colorScheme.background),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            ActiveEmergencyHeroCard(
-                requestId = emergency?.resolvedRequestId(),
-                statusText = statusText,
-                statusSubtext = statusSubtext,
-                isTrackingAmbulance = uiState.isTrackingAmbulance,
-                resolvedDriverName = resolvedDriverName,
-                resolvedVehicleNumber = resolvedVehicleNumber,
-                trackingSummary = listOfNotNull(
-                    uiState.ambulanceDistanceKm?.let { String.format(java.util.Locale.US, "%.1f km away", it) },
-                    uiState.ambulanceEta
-                ).takeIf { it.isNotEmpty() }?.joinToString(" • ")
-            )
-        }
-
-        if (uiState.isTrackingAmbulance) {
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colorScheme.background),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                val trackingPulse = rememberInfiniteTransition(label = "tracking")
-                val dotAlpha by trackingPulse.animateFloat(
-                    initialValue = 0.35f,
-                    targetValue = 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(700),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "trackingDot"
+                ActiveEmergencyHeroCard(
+                    requestId = emergency?.resolvedRequestId(),
+                    statusText = statusText,
+                    statusSubtext = statusSubtext,
+                    isTrackingAmbulance = uiState.isTrackingAmbulance,
+                    resolvedDriverName = resolvedDriverName,
+                    resolvedVehicleNumber = resolvedVehicleNumber,
+                    trackingSummary = listOfNotNull(
+                        uiState.ambulanceDistanceKm?.let { String.format(java.util.Locale.US, "%.1f km away", it) },
+                        uiState.ambulanceEta
+                    ).takeIf { it.isNotEmpty() }?.joinToString(" • ")
                 )
+            }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.secondaryContainer.copy(alpha = 0.72f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            if (uiState.isTrackingAmbulance) {
+                item {
+                    val trackingPulse = rememberInfiniteTransition(label = "tracking")
+                    val dotAlpha by trackingPulse.animateFloat(
+                        initialValue = 0.35f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(700),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "trackingDot"
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.secondaryContainer.copy(alpha = 0.72f))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF22C55E).copy(alpha = dotAlpha))
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "Live response tracking is active",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                "Dispatch, driver movement, and your pickup location will keep syncing here.",
-                                fontSize = 12.sp,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
-                            Text(
-                                "${(uiState.ambulanceSpeed * 3.6f).toInt()} km/h",
-                                fontSize = 12.sp,
-                                color = EmergencySuccess,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            PatientEmergencyOverviewCard(
-                uiState = uiState,
-                statusText = statusText,
-                statusSubtext = statusSubtext,
-                resolvedDriverName = resolvedDriverName,
-                resolvedVehicleNumber = resolvedVehicleNumber,
-                resolvedDriverPhone = resolvedDriverPhone
-            )
-        }
-
-        if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
-            val ambLat = uiState.ambulanceLatitude
-            val ambLng = uiState.ambulanceLongitude
-            val midLat = (uiState.latitude + ambLat) / 2
-            val midLng = (uiState.longitude + ambLng) / 2
-
-            val trackingMarkers = listOf(
-                MapMarkerData(
-                    id = "patient",
-                    latitude = uiState.latitude,
-                    longitude = uiState.longitude,
-                    title = "Your Location",
-                    markerColor = android.graphics.Color.parseColor("#7C3AED")
-                ),
-                MapMarkerData(
-                    id = "ambulance",
-                    latitude = ambLat,
-                    longitude = ambLng,
-                    title = "Ambulance",
-                    snippet = uiState.ambulanceStatus ?: "En Route",
-                    markerColor = android.graphics.Color.parseColor("#D32F2F")
-                )
-            )
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            modifier = Modifier.padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Outlined.Map, contentDescription = null, tint = EmergencyRoute)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(stringResource(R.string.live_route_view), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
-                                Text(stringResource(R.string.live_route_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
-                            OsmMapView(
-                                modifier = Modifier.fillMaxSize(),
-                                center = GeoPoint(midLat, midLng),
-                                zoom = 14.0,
-                                markers = trackingMarkers,
-                                route = uiState.route ?: emptyList(),
-                                showUserLocation = false
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF22C55E).copy(alpha = dotAlpha))
                             )
-                        }
-                    }
-                }
-            }
-        } else if (uiState.latitude != 0.0 && uiState.longitude != 0.0) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = EmergencyRoute)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(stringResource(R.string.pickup_point_ready), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
-                                Text(stringResource(R.string.pickup_point_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                            OsmMapView(
-                                modifier = Modifier.fillMaxSize(),
-                                center = GeoPoint(uiState.latitude, uiState.longitude),
-                                zoom = 15.0,
-                                markers = emptyList(),
-                                showUserLocation = true,
-                                userLatitude = uiState.latitude,
-                                userLongitude = uiState.longitude
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (emergency != null) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(stringResource(R.string.dispatch_details), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        InfoRow("Request #", emergency.resolvedRequestId())
-                        InfoRow("Status", resolvedStatus)
-                        InfoRow("Type", emergency.emergencyType ?: "Emergency")
-                        if (emergency.estimatedArrival != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            InfoRow("ETA", emergency.estimatedArrival)
-                        }
-                        if (resolvedDriverName != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            InfoRow("Driver", resolvedDriverName)
-                            if (resolvedVehicleNumber != null) InfoRow("Vehicle", resolvedVehicleNumber)
-                            if (resolvedDriverPhone != null) InfoRow("Phone", resolvedDriverPhone)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            PatientResponseJourneyCard(currentStatus = resolvedStatus)
-        }
-
-        if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
-            val ambulanceLat = uiState.ambulanceLatitude
-            val ambulanceLng = uiState.ambulanceLongitude
-            val distanceKm = NavigationHelper.calculateDistanceKm(
-                uiState.latitude, uiState.longitude,
-                ambulanceLat, ambulanceLng
-            )
-            val distanceText = NavigationHelper.formatDistance(distanceKm)
-            val etaMinutes = NavigationHelper.estimateEtaMinutes(distanceKm, 50.0)
-            val dirArrow = NavigationHelper.getDirectionArrow(
-                uiState.latitude, uiState.longitude,
-                ambulanceLat, ambulanceLng
-            )
-
-            item {
-                val context = LocalContext.current
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.55f)),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            "$dirArrow Ambulance is $distanceText away",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = EmergencyRoute
-                        )
-                        Text(
-                            "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
-                            fontSize = 14.sp,
-                            color = colorScheme.onPrimaryContainer
-                        )
-                        Button(
-                            onClick = {
-                                NavigationHelper.openDirectionsFromTo(
-                                    context,
-                                    uiState.latitude, uiState.longitude,
-                                    ambulanceLat, ambulanceLng,
-                                    "Ambulance Location"
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Live response tracking is active",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorScheme.onSecondaryContainer
                                 )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = EmergencyRoute),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Icon(Icons.Default.Navigation, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.open_live_route_maps), fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Dispatch, driver movement, and your pickup location will keep syncing here.",
+                                    fontSize = 12.sp,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
+                                Text(
+                                    "${(uiState.ambulanceSpeed * 3.6f).toInt()} km/h",
+                                    fontSize = 12.sp,
+                                    color = EmergencySuccess,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        if (!resolvedDriverPhone.isNullOrBlank()) {
             item {
-                val context = LocalContext.current
-                Button(
-                    onClick = { NavigationHelper.openDialer(context, resolvedDriverPhone) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmergencySuccess),
-                    shape = RoundedCornerShape(14.dp)
+                PatientEmergencyOverviewCard(
+                    uiState = uiState,
+                    statusText = statusText,
+                    statusSubtext = statusSubtext,
+                    resolvedDriverName = resolvedDriverName,
+                    resolvedVehicleNumber = resolvedVehicleNumber,
+                    resolvedDriverPhone = resolvedDriverPhone
+                )
+            }
+
+            if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
+                val ambLat = uiState.ambulanceLatitude!!
+                val ambLng = uiState.ambulanceLongitude!!
+                val midLat = (uiState.latitude + ambLat) / 2
+                val midLng = (uiState.longitude + ambLng) / 2
+
+                val trackingMarkers = listOf(
+                    MapMarkerData(
+                        id = "patient",
+                        latitude = uiState.latitude,
+                        longitude = uiState.longitude,
+                        title = "Your Location",
+                        markerColor = android.graphics.Color.parseColor("#7C3AED")
+                    ),
+                    MapMarkerData(
+                        id = "ambulance",
+                        latitude = ambLat,
+                        longitude = ambLng,
+                        title = "Ambulance",
+                        snippet = uiState.ambulanceStatus ?: "En Route",
+                        markerColor = android.graphics.Color.parseColor("#D32F2F")
+                    )
+                )
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.Map, contentDescription = null, tint = EmergencyRoute)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.live_route_view), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                    Text(stringResource(R.string.live_route_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                }
+                                FilledIconButton(
+                                    onClick = { onToggleMapFullscreen(true) },
+                                    modifier = Modifier.size(36.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = colorScheme.primaryContainer,
+                                        contentColor = colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            Box(modifier = Modifier.fillMaxWidth().height(240.dp)) {
+                                OsmMapView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    center = GeoPoint(midLat, midLng),
+                                    zoom = 17.5,
+                                    markers = trackingMarkers,
+                                    route = uiState.route ?: emptyList(),
+                                    showUserLocation = false
+                                )
+                            }
+                        }
+                    }
+                }
+            } else if (uiState.latitude != 0.0 && uiState.longitude != 0.0) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Outlined.MyLocation, contentDescription = null, tint = EmergencyRoute)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.pickup_point_ready), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
+                                    Text(stringResource(R.string.pickup_point_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                                }
+                                FilledIconButton(
+                                    onClick = { onToggleMapFullscreen(true) },
+                                    modifier = Modifier.size(36.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = colorScheme.primaryContainer,
+                                        contentColor = colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+                                OsmMapView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    center = GeoPoint(uiState.latitude, uiState.longitude),
+                                    zoom = 18.0,
+                                    markers = emptyList(),
+                                    showUserLocation = true,
+                                    userLatitude = uiState.latitude,
+                                    userLongitude = uiState.longitude
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (emergency != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(stringResource(R.string.dispatch_details), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            InfoRow("Request #", emergency.resolvedRequestId())
+                            InfoRow("Status", resolvedStatus)
+                            InfoRow("Type", emergency.emergencyType ?: "Emergency")
+                            if (emergency.estimatedArrival != null) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                InfoRow("ETA", emergency.estimatedArrival)
+                            }
+                            if (resolvedDriverName != null) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                InfoRow("Driver", resolvedDriverName)
+                                if (resolvedVehicleNumber != null) InfoRow("Vehicle", resolvedVehicleNumber)
+                                if (resolvedDriverPhone != null) InfoRow("Phone", resolvedDriverPhone)
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                PatientResponseJourneyCard(currentStatus = resolvedStatus)
+            }
+
+            if (uiState.ambulanceLatitude != null && uiState.ambulanceLongitude != null) {
+                val ambulanceLat = uiState.ambulanceLatitude!!
+                val ambulanceLng = uiState.ambulanceLongitude!!
+                val distanceKm = NavigationHelper.calculateDistanceKm(
+                    uiState.latitude, uiState.longitude,
+                    ambulanceLat, ambulanceLng
+                )
+                val distanceText = NavigationHelper.formatDistance(distanceKm)
+                val etaMinutes = NavigationHelper.estimateEtaMinutes(distanceKm, 50.0)
+                val dirArrow = NavigationHelper.getDirectionArrow(
+                    uiState.latitude, uiState.longitude,
+                    ambulanceLat, ambulanceLng
+                )
+
+                item {
+                    val context = LocalContext.current
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.primaryContainer.copy(alpha = 0.55f)),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                "$dirArrow Ambulance is $distanceText away",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = EmergencyRoute
+                            )
+                            Text(
+                                "Estimated arrival: ${uiState.ambulanceEta ?: "~$etaMinutes min"}",
+                                fontSize = 14.sp,
+                                color = colorScheme.onPrimaryContainer
+                            )
+                            Button(
+                                onClick = {
+                                    NavigationHelper.openDirectionsFromTo(
+                                        context,
+                                        uiState.latitude, uiState.longitude,
+                                        ambulanceLat, ambulanceLng,
+                                        "Ambulance Location"
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = EmergencyRoute),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Default.Navigation, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.open_live_route_maps), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!resolvedDriverPhone.isNullOrBlank()) {
+                item {
+                    val context = LocalContext.current
+                    Button(
+                        onClick = { NavigationHelper.openDialer(context, resolvedDriverPhone) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmergencySuccess),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.call_ambulance_driver), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = { showCancelDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
+                    shape = RoundedCornerShape(14.dp),
+                    enabled = !uiState.isLoading && canPatientCancel
                 ) {
-                    Icon(Icons.Default.Call, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.call_ambulance_driver), fontWeight = FontWeight.Bold)
+                    Text(
+                        if (canPatientCancel) {
+                            stringResource(R.string.cancel_emergency_request)
+                        } else {
+                            "Call driver to close request"
+                        }
+                    )
                 }
             }
         }
 
-        item {
-            OutlinedButton(
-                onClick = { showCancelDialog = true },
+        // Fullscreen Map Overlay
+        AnimatedVisibility(
+            visible = isMapFullscreen,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
-                border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
-                shape = RoundedCornerShape(14.dp),
-                enabled = !uiState.isLoading && canPatientCancel
+                    .fillMaxSize()
+                    .background(Color.Black)
             ) {
-                Text(
-                    if (canPatientCancel) {
-                        stringResource(R.string.cancel_emergency_request)
-                    } else {
-                        "Call driver to close request"
-                    }
+                val ambLat = uiState.ambulanceLatitude
+                val ambLng = uiState.ambulanceLongitude
+                
+                val centerLat = if (ambLat != null && ambLng != null) (uiState.latitude + ambLat) / 2 else uiState.latitude
+                val centerLng = if (ambLat != null && ambLng != null) (uiState.longitude + ambLng) / 2 else uiState.longitude
+
+                val markers = mutableListOf<MapMarkerData>()
+                markers.add(
+                    MapMarkerData(
+                        id = "patient",
+                        latitude = uiState.latitude,
+                        longitude = uiState.longitude,
+                        title = "Your Location",
+                        markerColor = android.graphics.Color.parseColor("#7C3AED")
+                    )
                 )
+                if (ambLat != null && ambLng != null) {
+                    markers.add(
+                        MapMarkerData(
+                            id = "ambulance",
+                            latitude = ambLat,
+                            longitude = ambLng,
+                            title = "Ambulance",
+                            markerColor = android.graphics.Color.parseColor("#D32F2F")
+                        )
+                    )
+                }
+
+                OsmMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    center = GeoPoint(centerLat, centerLng),
+                    zoom = if (ambLat != null) 18.0 else 18.5,
+                    markers = markers,
+                    route = uiState.route ?: emptyList(),
+                    showUserLocation = ambLat == null,
+                    userLatitude = uiState.latitude,
+                    userLongitude = uiState.longitude
+                )
+
+                FilledIconButton(
+                    onClick = { onToggleMapFullscreen(false) },
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(16.dp)
+                        .size(48.dp)
+                        .align(Alignment.TopStart),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close Fullscreen Map")
+                }
+
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                        .navigationBarsPadding()
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = EmergencyAlertStrong
+                        )
+                        Text(
+                            text = if (uiState.isTrackingAmbulance) "Live ambulance tracking active" else "Pickup location synced",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                        if (uiState.ambulanceDistanceKm != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Navigation,
+                                    null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = EmergencyRoute
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "${String.format(java.util.Locale.US, "%.1f km", uiState.ambulanceDistanceKm!!)} away • ${uiState.ambulanceEta ?: "Calculating..."}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EmergencyRoute
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1212,7 +1081,8 @@ private fun PatientResponseJourneyCard(currentStatus: String) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.response_journey), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colorScheme.onSurface)
 
-            stages.forEachIndexed { index, (_, label) ->
+            stages.forEachIndexed { index, stage ->
+                val label = stage.second
                 val active = index <= currentIndex
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -1406,6 +1276,268 @@ private fun InfoRow(label: String, value: String) {
     ) {
         Text(label, color = colorScheme.onSurfaceVariant, fontSize = 14.sp)
         Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun EmergencyFeatureChip(label: String) {
+    Surface(
+        color = Color.White.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun EmergencyTypeCard(
+    item: EmergencyTypeItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+        ),
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else null,
+        elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(item.color.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        item.icon,
+                        contentDescription = null,
+                        tint = item.color,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = item.color,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Text(
+                item.label,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                item.description,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                minLines = 2
+            )
+            Text(
+                if (isSelected) "Selected for dispatch" else "Tap to choose",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveEmergencyHeroCard(
+    requestId: String?,
+    statusText: String,
+    statusSubtext: String,
+    isTrackingAmbulance: Boolean,
+    resolvedDriverName: String?,
+    resolvedVehicleNumber: String?,
+    trackingSummary: String?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF3F0D12),
+                            EmergencyAlert,
+                            EmergencyAlertStrong
+                        )
+                    )
+                )
+                .padding(20.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            color = Color.White.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text(
+                                text = "Request ${requestId ?: "Pending"}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            )
+                        }
+                        if (isTrackingAmbulance) {
+                            Surface(
+                                color = Color.White.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(999.dp)
+                            ) {
+                                Text(
+                                    text = "Live GPS Active",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.LocalShipping,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = statusText,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp
+                    )
+                    Text(
+                        text = statusSubtext,
+                        color = Color.White.copy(alpha = 0.86f),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    EmergencyMetricTile(
+                        modifier = Modifier.weight(1f),
+                        label = "Driver",
+                        value = resolvedDriverName ?: "Assigning now"
+                    )
+                    EmergencyMetricTile(
+                        modifier = Modifier.weight(1f),
+                        label = "Vehicle",
+                        value = resolvedVehicleNumber ?: "Preparing"
+                    )
+                }
+
+                if (!trackingSummary.isNullOrBlank()) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Route,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = trackingSummary,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmergencyMetricTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = label,
+                color = Color.White.copy(alpha = 0.76f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

@@ -46,6 +46,44 @@ router.post('/',
 );
 
 /**
+ * @route GET /api/patient/reviews/consultation/:consultationId
+ * @desc Get review for a specific consultation (to support editing)
+ * @access Private (Patient)
+ */
+router.get('/consultation/:consultationId',
+  authenticate,
+  authorize('patient'),
+  asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../../config/supabase');
+    const { consultationId } = req.params;
+
+    const { data: patientRow } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!patientRow) {
+      return res.status(404).json({ success: false, message: 'Patient profile not found' });
+    }
+
+    const { data: review, error } = await supabaseAdmin
+      .from('reviews')
+      .select('*')
+      .eq('patient_id', patientRow.id)
+      .eq('consultation_id', consultationId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: review
+    });
+  })
+);
+
+/**
  * @route GET /api/patient/reviews/:type/:id
  * @desc Get reviews for a specific entity
  * @access Public / Private (Patient)

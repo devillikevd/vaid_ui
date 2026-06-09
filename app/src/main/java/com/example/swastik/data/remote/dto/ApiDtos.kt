@@ -485,6 +485,8 @@ data class AppointmentDto(
     val type: String,
     val status: String,
     val notes: String?,
+    @SerializedName("is_reviewed")
+    val isReviewed: Boolean = false,
     @SerializedName("cancellation_reason")
     val cancellationReason: String? = null,
     @SerializedName("cancelled_by")

@@ -41,6 +41,7 @@ data class CachedAppointment(
     val notes: String?,
     val cancellationReason: String? = null,
     val cancelledBy: String? = null,
+    val isReviewed: Boolean = false,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

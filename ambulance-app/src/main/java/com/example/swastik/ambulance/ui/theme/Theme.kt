@@ -1,7 +1,6 @@
 package com.example.swastik.ambulance.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -28,30 +27,12 @@ private val LightColorScheme = lightColorScheme(
     onSurface = Color(0xFF1E1E1E)
 )
 
-// --- Premium Dark Theme Colors ---
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFEF5350),        // Lighter red for dark mode contrast
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFB71C1C),
-    onPrimaryContainer = Color(0xFFFFEBEE),
-    secondary = Color(0xFFBDBDBD),
-    onSecondary = Color(0xFF212121),
-    secondaryContainer = Color(0xFF333333),
-    onSecondaryContainer = Color(0xFFE0E0E0),
-    background = Color(0xFF121212),     // Deep dark background
-    surface = Color(0xFF1E1E1E),        // Elevated surface color
-    surfaceVariant = Color(0xFF2C2C2C), // For elevated cards
-    error = Color(0xFFEF5350),
-    onBackground = Color(0xFFE0E0E0),
-    onSurface = Color(0xFFE0E0E0)
-)
-
 @Composable
 fun SwastikAmbulanceTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    // Always use LightColorScheme for branding consistency
+    val colorScheme = LightColorScheme
 
     // Set the status bar color seamlessly
     val view = LocalView.current
@@ -59,7 +40,7 @@ fun SwastikAmbulanceTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
 

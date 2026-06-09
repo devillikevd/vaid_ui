@@ -968,6 +968,7 @@ class PatientRepository @Inject constructor(
             consultationFee = null,
             cancellationReason = cancellationReason,
             cancelledBy = cancelledBy,
+            isReviewed = isReviewed,
             doctor = doctor?.toDoctor(),
             patient = null,
             hospital = hospital?.toAppointmentFacility(),
@@ -1121,6 +1122,19 @@ class PatientRepository @Inject constructor(
                 Result.Success(response.body()!!)
             } else {
                 Result.Error("Failed to fetch reviews")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error occurred")
+        }
+    }
+
+    suspend fun getReviewForConsultation(consultationId: String): Result<Review?> {
+        return try {
+            val response = apiService.getReviewForConsultation(consultationId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()?.data)
+            } else {
+                Result.Error(response.body()?.message ?: "Failed to fetch review")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error occurred")

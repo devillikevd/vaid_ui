@@ -536,7 +536,8 @@ class AppointmentRepository @Inject constructor(
         status = status,
         notes = notes,
         cancellationReason = cancellationReason,
-        cancelledBy = cancelledBy
+        cancelledBy = cancelledBy,
+        isReviewed = isReviewed
     )
 
     private fun CachedAppointment.toDomainAppointment() = Appointment(
@@ -553,6 +554,7 @@ class AppointmentRepository @Inject constructor(
         consultationFee = null,
         cancellationReason = cancellationReason,
         cancelledBy = cancelledBy,
+        isReviewed = isReviewed,
         doctor = if (doctorName != null) Doctor(
             id = doctorId,
             name = doctorName,

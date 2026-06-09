@@ -71,7 +71,8 @@ fun PatientDashboardScreen(
     onNotificationActionRoute: (String) -> Unit = {},
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {},
-    onDoctorClick: (String) -> Unit = {}
+    onDoctorClick: (String) -> Unit = {},
+    onNavigateToAllRecommendedDoctors: () -> Unit = {}
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
     var showNotificationPanel by remember { mutableStateOf(false) }
@@ -265,7 +266,8 @@ fun PatientDashboardScreen(
                             onRefresh = { viewModel.refresh() },
                             onFindDoctorSpecialityClick = onFindDoctorSpecialityClick,
                             onNavigateToCommunityQA = onNavigateToCommunityQA,
-                            onDoctorClick = onDoctorClick
+                            onDoctorClick = onDoctorClick,
+                            onNavigateToAllRecommendedDoctors = onNavigateToAllRecommendedDoctors
                         )
                         }
                         1 -> RemindersTabContent(

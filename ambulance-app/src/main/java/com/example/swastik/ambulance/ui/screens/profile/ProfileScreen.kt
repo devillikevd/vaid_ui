@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,14 +24,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Pending
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Refresh
@@ -69,7 +76,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -238,65 +247,138 @@ fun ProfileScreen(
                 profileState.user?.let { user ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            // Top Banner
                             Box(
                                 modifier = Modifier
-                                    .size(80.dp)
+                                    .fillMaxWidth()
+                                    .height(100.dp)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primary,
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                            )
+                                        )
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocalShipping,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .padding(end = 24.dp)
+                                        .size(64.dp)
+                                        .graphicsLayer(alpha = 0.2f),
+                                    tint = Color.White
+                                )
+                            }
+
+                            // Profile Image (Overlapping)
+                            Box(
+                                modifier = Modifier
+                                    .offset(y = (-40).dp)
+                                    .size(88.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(4.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = (user.name?.firstOrNull() ?: 'A').uppercase(),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
 
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                text = user.name ?: "Ambulance operator",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = user.email,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (!user.companyName.isNullOrBlank()) {
+                            Column(
+                                modifier = Modifier
+                                    .offset(y = (-30).dp)
+                                    .padding(horizontal = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
                                 Text(
-                                    text = user.companyName,
+                                    text = user.name ?: "Ambulance Operator",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = user.email,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                            if (!user.phone.isNullOrBlank()) {
-                                Text(
-                                    text = user.phone,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
 
-                            Spacer(Modifier.height(10.dp))
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(user.role.replace("_", " ").replaceFirstChar { it.uppercase() }) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Badge, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.height(16.dp))
+
+                                // Contact Info Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (!user.companyName.isNullOrBlank()) {
+                                        ContactInfoItem(
+                                            icon = Icons.Default.Business,
+                                            text = user.companyName
+                                        )
+                                        Spacer(Modifier.width(16.dp))
+                                    }
+                                    if (!user.phone.isNullOrBlank()) {
+                                        ContactInfoItem(
+                                            icon = Icons.Default.Phone,
+                                            text = user.phone
+                                        )
+                                    }
                                 }
-                            )
 
-                            user.approvalStatus?.let { status ->
-                                Spacer(Modifier.height(8.dp))
-                                ApprovalChip(status)
+                                Spacer(Modifier.height(20.dp))
+
+                                // Status Badges
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Role Badge
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Badge,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = user.role.replace("_", " ").replaceFirstChar { it.uppercase() },
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    user.approvalStatus?.let { status ->
+                                        ApprovalChip(status)
+                                    }
+                                }
                             }
                         }
                     }
@@ -665,6 +747,25 @@ fun ProfileScreen(
 }
 
 @Composable
+private fun ContactInfoItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
 private fun StatusChip(status: String) {
     val color = when (status.lowercase()) {
         "available" -> MaterialTheme.colorScheme.primary
@@ -687,23 +788,31 @@ private fun StatusChip(status: String) {
 @Composable
 private fun ApprovalChip(status: String) {
     val normalizedStatus = status.lowercase()
-    val color = when (normalizedStatus) {
-        "approved" -> Color(0xFF1B8A3C)
-        "pending", "under_review", "review" -> Color(0xFFC15A00)
-        "rejected", "suspended" -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.outline
+    val (color, icon) = when (normalizedStatus) {
+        "approved" -> Color(0xFF1B8A3C) to Icons.Default.CheckCircle
+        "pending", "under_review", "review" -> Color(0xFFC15A00) to Icons.Default.Pending
+        "rejected", "suspended" -> MaterialTheme.colorScheme.error to Icons.Default.Cancel
+        else -> MaterialTheme.colorScheme.outline to Icons.AutoMirrored.Filled.HelpOutline
     }
 
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = color.copy(alpha = 0.12f)
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.1f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.2f))
     ) {
-        Text(
-            text = status.replace("_", " ").replaceFirstChar { it.uppercase() },
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = color
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = color)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = status.replace("_", " ").replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelMedium,
+                color = color,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

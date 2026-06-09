@@ -3,7 +3,6 @@ package com.example.swastik
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -96,11 +95,6 @@ private fun AuthGuard(
 fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
     val navController = rememberNavController()
     val appSettings by AppSettingsStore.settings.collectAsState()
-    val darkTheme = when (appSettings.themePreference) {
-        ThemePreference.DARK -> true
-        ThemePreference.LIGHT -> false
-        ThemePreference.SYSTEM -> isSystemInDarkTheme()
-    }
 
     // Apply Android internal localization when preference changes
     LaunchedEffect(appSettings.language) {
@@ -118,7 +112,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         }
     }
 
-    SwastikTheme(darkTheme = darkTheme) {
+    SwastikTheme {
         val startDestination = remember(tokenManager) {
             if (tokenManager.isAuthenticated()) {
                 Screen.PatientDashboard.createRoute()
@@ -318,6 +312,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToCommunityQA = { navController.navigateSafe(Screen.CommunityQA.route) },
                 onDoctorClick = { doctorId -> 
                     navController.navigateSafe(Screen.DoctorProfile.createRoute(doctorId))
+                },
+                onNavigateToAllRecommendedDoctors = {
+                    navController.navigateSafe(Screen.AppointmentBooking.createRoute(consultationMode = "recommended"))
                 }
             )
             }

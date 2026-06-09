@@ -18,7 +18,9 @@ data class ReviewUiState(
     val submitSuccess: Boolean = false,
     val error: String? = null,
     val reviews: List<Review> = emptyList(),
-    val isLoadingReviews: Boolean = false
+    val isLoadingReviews: Boolean = false,
+    val existingReview: Review? = null,
+    val isLoadingExistingReview: Boolean = false
 )
 
 @HiltViewModel
@@ -82,6 +84,27 @@ class ReviewViewModel @Inject constructor(
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoadingReviews = false,
+                        error = result.message
+                    )
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun loadReviewForConsultation(consultationId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingExistingReview = true, existingReview = null)
+            when (val result = patientRepository.getReviewForConsultation(consultationId)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingExistingReview = false,
+                        existingReview = result.data
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingExistingReview = false,
                         error = result.message
                     )
                 }

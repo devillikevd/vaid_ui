@@ -58,10 +58,15 @@ interface ApiService {
     suspend fun getVitalsHistory(): Response<ApiResponse<List<Vital>>>
 
     // Reviews
-    @POST("patient/reviews")
+    @POST("patients/reviews")
     suspend fun submitReview(@Body request: com.example.swastik.data.model.ReviewRequest): Response<ApiResponse<com.example.swastik.data.model.Review>>
     
-    @GET("patient/reviews/{type}/{id}")
+    @GET("patients/reviews/consultation/{consultationId}")
+    suspend fun getReviewForConsultation(
+        @Path("consultationId") consultationId: String
+    ): Response<ApiResponse<com.example.swastik.data.model.Review>>
+
+    @GET("patients/reviews/{type}/{id}")
     suspend fun getEntityReviews(
         @Path("type") type: String,
         @Path("id") id: String,

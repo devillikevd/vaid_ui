@@ -116,7 +116,7 @@ fun OsmMapView(
                 val polyline = Polyline(mapView).apply {
                     setPoints(route)
                     outlinePaint.color = android.graphics.Color.parseColor("#4F46E5") // Indigo
-                    outlinePaint.strokeWidth = 10f
+                    outlinePaint.strokeWidth = 14f
                     outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
                     outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
                 }

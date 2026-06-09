@@ -106,7 +106,8 @@ class AuthViewModel @Inject constructor(
                         isSessionResolved = true,
                         isLoggedIn = true,
                         user = user,
-                        isLoading = false
+                        isLoading = false,
+                        infoMessage = "Login Successful!"
                     )
                 },
                 onFailure = { e ->

@@ -58,7 +58,8 @@ fun HomeTabContent(
     onRefresh: () -> Unit = {},
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {},
-    onDoctorClick: (String) -> Unit = {}
+    onDoctorClick: (String) -> Unit = {},
+    onNavigateToAllRecommendedDoctors: () -> Unit = {}
 ) {
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
@@ -199,7 +200,7 @@ fun HomeTabContent(
                 doctors = doctors,
                 onBookClick = { onNavigateToBooking(it.id) },
                 onViewProfile = { onDoctorClick(it.id) },
-                onViewAllClick = { onNavigateToBooking(null) },
+                onViewAllClick = onNavigateToAllRecommendedDoctors,
                 onRetry = onRefresh
             )
             

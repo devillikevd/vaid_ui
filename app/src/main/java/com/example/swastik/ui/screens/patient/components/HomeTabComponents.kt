@@ -1,13 +1,16 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.yield
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -991,6 +994,7 @@ private fun ServiceCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecommendedDoctorsSection(
     doctors: List<Doctor>,
@@ -1000,6 +1004,18 @@ fun RecommendedDoctorsSection(
     onRetry: () -> Unit = {}
 ) {
     if (doctors.isEmpty()) return
+
+    val pagerState = rememberPagerState(pageCount = { doctors.size })
+
+    // Auto-scroll logic
+    LaunchedEffect(Unit) {
+        while (true) {
+            yield()
+            delay(3000) // 3 seconds delay between slides
+            val nextPage = (pagerState.currentPage + 1) % doctors.size
+            pagerState.animateScrollToPage(nextPage)
+        }
+    }
 
     Column {
         Row(
@@ -1032,16 +1048,37 @@ fun RecommendedDoctorsSection(
             }
         }
 
-        LazyRow(
+        HorizontalPager(
+            state = pagerState,
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            pageSpacing = 12.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val doctor = doctors[page]
+            DoctorCard(
+                modifier = Modifier.fillMaxWidth(),
+                doctor = doctor,
+                onBookClick = { onBookClick(doctor) },
+                onViewProfile = { onViewProfile(doctor) }
+            )
+        }
+        
+        // Page Indicators
+        Row(
+            Modifier
+                .height(20.dp)
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.Center
         ) {
-            items(doctors) { doctor ->
-                DoctorCard(
-                    modifier = Modifier.width(320.dp),
-                    doctor = doctor,
-                    onBookClick = { onBookClick(doctor) },
-                    onViewProfile = { onViewProfile(doctor) }
+            repeat(doctors.size) { iteration ->
+                val color = if (pagerState.currentPage == iteration) SwastikPrimary else SwastikPrimary.copy(alpha = 0.2f)
+                Box(
+                    modifier = Modifier
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .size(6.dp)
                 )
             }
         }
