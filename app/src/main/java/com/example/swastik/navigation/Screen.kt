@@ -80,6 +80,12 @@ sealed class Screen(val route: String) {
     object ClinicDetail : Screen("clinic_detail/{clinicId}") {
         fun createRoute(clinicId: String): String = "clinic_detail/$clinicId"
     }
+    object PharmacyDetail : Screen("pharmacy_detail/{pharmacyId}") {
+        fun createRoute(pharmacyId: String): String = "pharmacy_detail/$pharmacyId"
+    }
+    object DiagnosticDetail : Screen("diagnostic_detail/{centerId}") {
+        fun createRoute(centerId: String): String = "diagnostic_detail/$centerId"
+    }
     object VideoConsultation : Screen("video_consultation/{appointmentId}/{doctorName}") {
         fun createRoute(appointmentId: String, doctorName: String): String {
             return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8")}"

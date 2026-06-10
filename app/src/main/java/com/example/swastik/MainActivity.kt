@@ -602,6 +602,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onClinicClick = { clinicId ->
                         navController.navigateSafe(Screen.ClinicDetail.createRoute(clinicId))
                     },
+                    onPharmacyDetailClick = { pharmacyId ->
+                        navController.navigateSafe(Screen.PharmacyDetail.createRoute(pharmacyId))
+                    },
+                    onDiagnosticDetailClick = { centerId ->
+                        navController.navigateSafe(Screen.DiagnosticDetail.createRoute(centerId))
+                    },
                     onMedicineClick = { medicineId ->
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
@@ -668,6 +674,47 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                             )
                         )
                     }
+                )
+            }
+        }
+
+        composable(
+            Screen.PharmacyDetail.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("pharmacyId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val pharmacyId = backStackEntry.arguments?.getString("pharmacyId") ?: return@AuthGuard
+                com.example.swastik.ui.screens.patient.medicine.PharmacyDetailScreen(
+                    pharmacyId = pharmacyId,
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
+                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) }
+                )
+            }
+        }
+
+        composable(
+            Screen.DiagnosticDetail.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("centerId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val centerId = backStackEntry.arguments?.getString("centerId") ?: return@AuthGuard
+                com.example.swastik.ui.screens.patient.diagnostic.DiagnosticDetailScreen(
+                    centerId = centerId,
+                    onBackClick = { navController.popBackStack() },
+                    onBookTestsClick = { facility ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(facility.id))
+                    },
+                    onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
+                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) }
                 )
             }
         }

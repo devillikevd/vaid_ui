@@ -52,6 +52,7 @@ fun DiagnosticBookingScreen(
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var showBookingDialog by remember { mutableStateOf(false) }
+    var isPrescriptionBooking by remember { mutableStateOf(false) }
     var bookingDate by remember { mutableStateOf("") }
     var bookingTime by remember { mutableStateOf("") }
     var collectionType by remember { mutableStateOf("walk_in") }
@@ -179,7 +180,14 @@ fun DiagnosticBookingScreen(
                     tests = uiState.tests,
                     selectedTest = uiState.selectedTest,
                     onTestSelect = { viewModel.selectTest(it) },
-                    onBookClick = { showBookingDialog = true },
+                    onBookClick = { 
+                        isPrescriptionBooking = false
+                        showBookingDialog = true 
+                    },
+                    onPrescriptionUploadClick = {
+                        isPrescriptionBooking = true
+                        showBookingDialog = true
+                    },
                     onBackToList = {
                         viewModel.searchCenters(searchQuery)
                         viewModel.resetBooking()
@@ -210,18 +218,26 @@ fun DiagnosticBookingScreen(
     }
 
     // Booking Dialog
-    if (showBookingDialog && uiState.selectedTest != null) {
+    if (showBookingDialog && (uiState.selectedTest != null || isPrescriptionBooking)) {
         AlertDialog(
             onDismissRequest = { showBookingDialog = false },
-            title = { Text(stringResource(R.string.book_test), fontWeight = FontWeight.Bold) },
+            title = { Text(if (isPrescriptionBooking) "Book via Prescription" else stringResource(R.string.book_test), fontWeight = FontWeight.Bold) },
             text = {
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
-                    uiState.selectedTest!!.price?.let {
-                        Text("Price: ₹${it.toInt()}", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                    if (isPrescriptionBooking) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null, tint = SwastikPrimary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Prescription uploaded.", fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                        }
+                    } else {
+                        Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
+                        uiState.selectedTest!!.price?.let {
+                            Text("Price: ₹${it.toInt()}", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     OutlinedTextField(
@@ -453,6 +469,7 @@ private fun CenterTestsView(
     selectedTest: DiagnosticTestDto?,
     onTestSelect: (DiagnosticTestDto) -> Unit,
     onBookClick: () -> Unit,
+    onPrescriptionUploadClick: () -> Unit,
     onBackToList: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -471,7 +488,7 @@ private fun CenterTestsView(
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
-                if (tests.isEmpty()) {
+        if (tests.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.no_tests_available), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -496,7 +513,7 @@ private fun CenterTestsView(
                     onClick = onBookClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
                     shape = RoundedCornerShape(12.dp)
@@ -504,6 +521,39 @@ private fun CenterTestsView(
                     Icon(Icons.Default.EventAvailable, null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.book_test_name, selectedTest.name), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            }
+            
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            Text(
+                "Or Order via Prescription",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onPrescriptionUploadClick,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, SwastikPrimary)
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Gallery/Camera", color = SwastikPrimary, fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = onPrescriptionUploadClick,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, SwastikPrimary)
+                ) {
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("App Records", color = SwastikPrimary, fontSize = 12.sp)
                 }
             }
         }

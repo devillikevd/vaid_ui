@@ -135,7 +135,9 @@ class AuthViewModel @Inject constructor(
         state: String,
         alternatePhone: String,
         licenseDocumentUrl: String,
-        licenseExpiry: String
+        licenseExpiry: String,
+        vehicleNumber: String,
+        vehicleType: String
     ) {
         val trimmedName = name.trim()
         val trimmedEmail = email.trim()
@@ -144,6 +146,8 @@ class AuthViewModel @Inject constructor(
         val trimmedRegistrationNumber = registrationNumber.trim()
         val trimmedAlternatePhone = alternatePhone.trim()
         val trimmedLicenseExpiry = licenseExpiry.trim()
+        val trimmedVehicleNumber = vehicleNumber.trim()
+        val trimmedVehicleType = vehicleType.trim()
 
         when {
             trimmedName.isBlank() -> {
@@ -156,6 +160,10 @@ class AuthViewModel @Inject constructor(
             }
             trimmedRegistrationNumber.isBlank() -> {
                 _uiState.value = _uiState.value.copy(error = "Registration number is required for approval", errorCode = null)
+                return
+            }
+            trimmedVehicleNumber.isBlank() -> {
+                _uiState.value = _uiState.value.copy(error = "Vehicle number is required", errorCode = null)
                 return
             }
             !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches() -> {
@@ -201,7 +209,9 @@ class AuthViewModel @Inject constructor(
                         state = state,
                         alternatePhone = trimmedAlternatePhone.ifBlank { null },
                         licenseDocumentUrl = licenseDocumentUrl,
-                        licenseExpiry = trimmedLicenseExpiry.ifBlank { null }
+                        licenseExpiry = trimmedLicenseExpiry.ifBlank { null },
+                        vehicleNumber = trimmedVehicleNumber,
+                        vehicleType = trimmedVehicleType.ifBlank { "basic" }
                     )
                     result.fold(
                         onSuccess = { message ->

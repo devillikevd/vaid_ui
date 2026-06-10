@@ -23,7 +23,9 @@ data class RegisterRequest(
     val state: String? = null,
     val alternatePhone: String? = null,
     val licenseDocumentUrl: String? = null,
-    val licenseExpiry: String? = null
+    val licenseExpiry: String? = null,
+    val vehicleNumber: String? = null,
+    val vehicleType: String? = null
 )
 
 data class ResendVerificationRequest(
@@ -212,6 +214,10 @@ data class LocationUpdateRequest(
     val latitude: Double,
     val longitude: Double,
     val vehicleId: String? = null
+)
+
+data class VehicleStatusUpdateRequest(
+    val isActive: Boolean
 )
 
 data class StatusUpdateRequest(

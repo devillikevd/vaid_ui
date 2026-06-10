@@ -87,6 +87,11 @@ interface ApiService {
         @Body request: LocationUpdateRequest
     ): Response<ApiResponse<Any>>
 
+    @PUT("ambulances/vehicle/status")
+    suspend fun updateVehicleStatus(
+        @Body request: VehicleStatusUpdateRequest
+    ): Response<ApiResponse<Any>>
+
     @GET("maps/route")
     suspend fun getRoute(
         @Query("originLat") originLat: Double,

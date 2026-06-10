@@ -318,6 +318,42 @@ class HospitalRepository @Inject constructor(
     }
 
     /**
+     * Fetch full pharmacy details by ID.
+     */
+    suspend fun getPharmacyDetails(pharmacyId: String): MedicalFacility? {
+        return try {
+            val detailResponse = apiService.getPharmacyById(pharmacyId)
+            if (detailResponse.isSuccessful && detailResponse.body()?.success == true) {
+                val pharmacy = detailResponse.body()?.data ?: return null
+                pharmacy.toMedicalFacility()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch pharmacy details: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Fetch full diagnostic center details by ID.
+     */
+    suspend fun getDiagnosticCenterDetails(centerId: String): MedicalFacility? {
+        return try {
+            val detailResponse = apiService.getDiagnosticCenterById(centerId)
+            if (detailResponse.isSuccessful && detailResponse.body()?.success == true) {
+                val center = detailResponse.body()?.data ?: return null
+                center.toMedicalFacility()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch diagnostic center details: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * Search hospitals by query — network-first with cache fallback.
      */
     suspend fun searchHospitals(
@@ -624,7 +660,9 @@ class HospitalRepository @Inject constructor(
             imageUrl = imageUrl,
             deliveryAvailable = deliveryAvailable ?: offersDelivery ?: false,
             minOrderDelivery = minOrderDelivery,
-            deliveryRadiusKm = deliveryRadiusKm
+            deliveryRadiusKm = deliveryRadiusKm,
+            hospitalId = hospitalId,
+            clinicId = clinicId
         )
     }
 
@@ -656,7 +694,9 @@ class HospitalRepository @Inject constructor(
             homeCollectionFee = homeCollectionFee,
             testCategories = specialties ?: emptyList(),
             accreditations = accreditations ?: emptyList(),
-            images = images ?: emptyList()
+            images = images ?: emptyList(),
+            hospitalId = hospitalId,
+            clinicId = clinicId
         )
     }
 

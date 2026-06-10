@@ -5,10 +5,10 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,32 +27,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.ambulance.data.remote.dto.DashboardStats
 import com.example.swastik.ambulance.data.remote.dto.EmergencyDto
 import com.example.swastik.ambulance.service.LocationTrackingService
-import com.example.swastik.ambulance.ui.components.MapMarkerData
-import com.example.swastik.ambulance.ui.components.OsmMapView
 import com.example.swastik.ambulance.ui.components.StatusStepper
 import com.example.swastik.ambulance.ui.components.pulsingEffect
 import com.example.swastik.ambulance.ui.components.shimmerEffect
 import com.example.swastik.ambulance.ui.viewmodel.AuthViewModel
 import com.example.swastik.ambulance.ui.viewmodel.DashboardViewModel
 import kotlinx.coroutines.launch
-import org.osmdroid.util.GeoPoint
-import org.json.JSONObject
 
 /** Check whether our foreground service is actually running. */
 private fun isServiceRunning(context: Context): Boolean {
     val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    @Suppress("DEPRECATION") // still works for own-process services
+    @Suppress("DEPRECATION")
     return manager.getRunningServices(Int.MAX_VALUE)
         .any { it.service.className == LocationTrackingService::class.java.name }
 }
@@ -89,7 +83,6 @@ fun DashboardScreen(
     val dashboardState by dashboardViewModel.dashboardState.collectAsState()
     val context = LocalContext.current
     var isTracking by remember { mutableStateOf(isServiceRunning(context)) }
-    var isMapFullscreen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -98,134 +91,83 @@ fun DashboardScreen(
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Confirm Logout", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to logout? Active tracking will be stopped.") },
+            text = { Text("Are you sure you want to log out? You will stop receiving emergency broadcasts.") },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false
-                    stopTracking(context)
+                    if (isTracking) {
+                        stopTracking(context)
+                        isTracking = false
+                    }
                     authViewModel.logout()
                     onLogout()
-                }) {
-                    Text("Logout", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                }
+                }) { Text("Logout", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
             }
         )
     }
 
-    // --- Permission launchers ---
-    val backgroundLocationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            scope.launch {
-                snackbarHostState.showSnackbar("Background location denied. Tracking works while app is open.")
-            }
-        }
-        startTracking(context)
-        isTracking = true
-    }
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            scope.launch {
-                snackbarHostState.showSnackbar("Notifications denied. You may miss emergency alerts.")
-            }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        } else {
-            startTracking(context)
-            isTracking = true
+    val permissionsToRequest = mutableListOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
+    val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val fineLocation = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
-        if (fineLocation) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            } else {
-                startTracking(context)
-                isTracking = true
-            }
+        val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (locationGranted) {
+            startTracking(context)
+            isTracking = true
+            dashboardViewModel.toggleVehicleStatus(true)
         } else {
-            scope.launch {
-                snackbarHostState.showSnackbar("Location permission is required to start GPS tracking.")
+            scope.launch { snackbarHostState.showSnackbar("Location permission required to go online") }
+        }
+    }
+
+    fun requestPermissionsAndGoOnline() {
+        if (permissionsToRequest.all { hasPermission(context, it) }) {
+            startTracking(context)
+            isTracking = true
+            dashboardViewModel.toggleVehicleStatus(true)
+        } else {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+    }
+
+    fun goOffline() {
+        stopTracking(context)
+        isTracking = false
+        dashboardViewModel.toggleVehicleStatus(false)
+    }
+
+    LaunchedEffect(Unit) {
+        dashboardViewModel.loadDashboard()
+        dashboardViewModel.userMessage.collect { msg ->
+            if (msg.isNotEmpty()) {
+                snackbarHostState.showSnackbar(msg)
             }
         }
     }
 
-    fun requestPermissionsAndTrack() {
-        val hasFineLocation = hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-        val hasNotification = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-        val hasBackground = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
-            hasPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-
-        when {
-            !hasFineLocation -> locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-            !hasNotification -> notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            !hasBackground -> backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            else -> {
+    val vehicle = dashboardState.vehicles.firstOrNull()
+    // Sync tracking state based on vehicle backend status when loaded
+    LaunchedEffect(vehicle?.status) {
+        if (vehicle?.status == "available" && !isTracking) {
+            if (permissionsToRequest.all { hasPermission(context, it) }) {
                 startTracking(context)
                 isTracking = true
             }
-        }
-    }
-
-    var livePatientLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
-    var lastKnownLocation by remember { mutableStateOf<android.location.Location?>(null) }
-    
-    LaunchedEffect(Unit) {
-        if (hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            try {
-                val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
-                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                    if (location != null) {
-                        lastKnownLocation = location
-                    }
-                }
-            } catch (e: SecurityException) {
-                // Ignore
-            }
-        }
-    }
-    
-    val currentLocation by LocationTrackingService.currentLocation.collectAsState()
-    val effectiveLocation = currentLocation ?: lastKnownLocation
-    
-    val topEmergency = dashboardState.activeEmergencies.firstOrNull {
-        it.latitude != null && it.longitude != null
-    } ?: dashboardState.activeEmergencies.firstOrNull()
-
-    LaunchedEffect(Unit) {
-        launch {
-            dashboardViewModel.userMessage.collect { msg ->
-                snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
-            }
-        }
-        launch {
-            dashboardViewModel.patientLocationUpdate.collect { data ->
-                data?.let {
-                    try {
-                        val json = JSONObject(it)
-                        val lat = json.optDouble("latitude")
-                        val lng = json.optDouble("longitude")
-                        if (!lat.isNaN() && !lng.isNaN()) livePatientLocation = Pair(lat, lng)
-                    } catch (e: Exception) {}
-                }
-            }
+        } else if (vehicle?.status == "offline" && isTracking) {
+            stopTracking(context)
+            isTracking = false
         }
     }
 
@@ -233,27 +175,8 @@ fun DashboardScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text("Dashboard", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = if (isTracking) "GPS tracking active" else "GPS tracking is off",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isTracking) Color(0xFFB9F6CA) else Color(0xFFFFCDD2)
-                        )
-                    }
-                },
+                title = { Text("Swastik Responder", fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(onClick = {
-                        if (isTracking) { stopTracking(context); isTracking = false } 
-                        else requestPermissionsAndTrack()
-                    }) {
-                        Icon(
-                            Icons.Default.MyLocation,
-                            contentDescription = "Toggle GPS",
-                            tint = if (isTracking) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.5f)
-                        )
-                    }
                     IconButton(onClick = { dashboardViewModel.loadDashboard() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
@@ -298,175 +221,68 @@ fun DashboardScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Vehicle Header with Online/Offline Toggle
                     item {
-                        dashboardState.stats?.let { stats ->
-                            StatsRow(stats)
-                        }
-                    }
-
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            ActionCard(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Warning,
-                                title = "Emergency",
-                                color1 = Color(0xFFD32F2F),
-                                color2 = Color(0xFFC62828),
-                                onClick = onNavigateToEmergencies
-                            )
-                            ActionCard(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Business,
-                                title = "Invites",
-                                color1 = Color(0xFF7B1FA2),
-                                color2 = Color(0xFF4A148C),
-                                onClick = onNavigateToInvites
-                            )
-                            ActionCard(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.MyLocation,
-                                title = if (isTracking) "Stop GPS" else "Start GPS",
-                                color1 = if (isTracking) Color(0xFF388E3C) else Color(0xFF1976D2),
-                                color2 = if (isTracking) Color(0xFF2E7D32) else Color(0xFF1565C0),
-                                onClick = {
-                                    if (isTracking) { stopTracking(context); isTracking = false } 
-                                    else requestPermissionsAndTrack()
-                                }
-                            )
-                        }
-                    }
-
-                    // Always-visible map section
-                    item {
-                        val hasEmergency = topEmergency != null && (topEmergency.latitude != null || livePatientLocation != null)
-                        val ambLat = effectiveLocation?.latitude
-                        val ambLng = effectiveLocation?.longitude
-                        val patientLat = livePatientLocation?.first ?: topEmergency?.latitude
-                        val patientLng = livePatientLocation?.second ?: topEmergency?.longitude
-                        val displayLat = ambLat ?: patientLat ?: 20.5937
-                        val displayLng = ambLng ?: patientLng ?: 78.9629
-
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .shadow(8.dp, RoundedCornerShape(16.dp)),
+                            modifier = Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(16.dp)),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (hasEmergency) MaterialTheme.colorScheme.primary
-                                                else Color(0xFF4CAF50)
-                                            )
-                                            .run { if (hasEmergency) pulsingEffect() else this }
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (hasEmergency) "Live Pickup Monitoring" else "Live Map",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                if (hasEmergency && dashboardState.distance != null) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = topEmergency?.address ?: topEmergency?.location ?: "Tracking pickup route",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.weight(1f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        val distance = dashboardState.distance
-                                        if (distance != null) {
-                                            val distKm = String.format("%.1f km", distance / 1000.0)
-                                            val etaMins = (dashboardState.eta ?: 0.0) / 60.0
-                                            val etaStr = if (etaMins > 0) String.format("%.0f min", etaMins) else "--"
-                                            Text(
-                                                text = "$distKm • $etaStr",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Text(
-                                        text = if (hasEmergency)
-                                            topEmergency?.address ?: topEmergency?.location ?: "Pickup location tracking active"
-                                        else
-                                            "No active emergencies — showing your area",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(220.dp)
-                                        .clip(RoundedCornerShape(12.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val markers = mutableListOf<MapMarkerData>()
-                                    if (hasEmergency && patientLat != null && patientLng != null) {
-                                        markers.add(MapMarkerData(
-                                            id = topEmergency?.id ?: "patient",
-                                            latitude = patientLat,
-                                            longitude = patientLng,
-                                            title = topEmergency?.patientName ?: "Patient pickup",
-                                            snippet = topEmergency?.emergencyType ?: "Emergency request",
-                                            markerColor = android.graphics.Color.parseColor("#D32F2F")
-                                        ))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            vehicle?.vehicleNumber ?: "Unknown Vehicle",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            vehicle?.type?.replace("_", " ")?.uppercase() ?: "Standard Ambulance",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
-                                    if (ambLat != null && ambLng != null) {
-                                        markers.add(MapMarkerData(
-                                            id = "ambulance_self",
-                                            latitude = ambLat,
-                                            longitude = ambLng,
-                                            title = "You",
-                                            snippet = "Current Location",
-                                            markerColor = android.graphics.Color.parseColor("#1976D2")
-                                        ))
-                                    }
-                                    OsmMapView(
-                                        modifier = Modifier.fillMaxSize(),
-                                        center = GeoPoint(displayLat, displayLng),
-                                        zoom = if (hasEmergency) 17.0 else 16.5,
-                                        markers = markers,
-                                        route = dashboardState.route ?: emptyList()
-                                    )
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.15f)), startY = 140f))
+                                            .size(12.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isTracking) Color(0xFF4CAF50) else Color.Red)
                                     )
-                                    FilledIconButton(
-                                        onClick = { isMapFullscreen = true },
-                                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(36.dp),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = Color.White.copy(alpha = 0.9f),
-                                            contentColor = MaterialTheme.colorScheme.primary
-                                        )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(
+                                        onClick = { if (isTracking) goOffline() else requestPermissionsAndGoOnline() },
+                                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isTracking) Color(0xFFD32F2F) else Color(0xFF4CAF50)
+                                        ),
+                                        shape = RoundedCornerShape(12.dp)
                                     ) {
-                                        Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(18.dp))
+                                        Icon(
+                                            if (isTracking) Icons.Default.CloudOff else Icons.Default.CloudUpload,
+                                            contentDescription = null
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            if (isTracking) "GO OFFLINE" else "GO ONLINE",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // Stats Row
+                    item {
+                        dashboardState.stats?.let { stats ->
+                            StatsRow(stats)
                         }
                     }
 
@@ -490,107 +306,27 @@ fun DashboardScreen(
                                 } else null,
                                 onUpdateStatus = { status ->
                                     dashboardViewModel.updateEmergencyStatus(emergency.id, status)
+                                },
+                                onNavigateToPatient = {
+                                    if (emergency.latitude != null && emergency.longitude != null) {
+                                        val uri = Uri.parse("google.navigation:q=${emergency.latitude},${emergency.longitude}")
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                            setPackage("com.google.android.apps.maps")
+                                        }
+                                        if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                            context.startActivity(mapIntent)
+                                        } else {
+                                            // Fallback to browser
+                                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${emergency.latitude},${emergency.longitude}"))
+                                            context.startActivity(browserIntent)
+                                        }
+                                    }
                                 }
                             )
                         }
                     } else {
                         item {
                             EmptyStateIllustration()
-                        }
-                    }
-                }
-            }
-
-            // Fullscreen Map Overlay
-            AnimatedVisibility(
-                visible = isMapFullscreen,
-                enter = androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.fadeOut()
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize().background(Color.Black)
-                ) {
-                    val hasEmergency = topEmergency != null && (topEmergency.latitude != null || livePatientLocation != null)
-                    val ambLat = effectiveLocation?.latitude
-                    val ambLng = effectiveLocation?.longitude
-                    val patientLat = livePatientLocation?.first ?: topEmergency?.latitude
-                    val patientLng = livePatientLocation?.second ?: topEmergency?.longitude
-                    val displayLat = ambLat ?: patientLat ?: 20.5937
-                    val displayLng = ambLng ?: patientLng ?: 78.9629
-
-                    val markers = mutableListOf<MapMarkerData>()
-                    if (hasEmergency && patientLat != null && patientLng != null) {
-                        markers.add(MapMarkerData(
-                            id = topEmergency?.id ?: "patient",
-                            latitude = patientLat,
-                            longitude = patientLng,
-                            title = topEmergency?.patientName ?: "Patient pickup",
-                            markerColor = android.graphics.Color.parseColor("#D32F2F")
-                        ))
-                    }
-                    if (ambLat != null && ambLng != null) {
-                        markers.add(MapMarkerData(
-                            id = "ambulance_self",
-                            latitude = ambLat,
-                            longitude = ambLng,
-                            title = "You",
-                            markerColor = android.graphics.Color.parseColor("#1976D2")
-                        ))
-                    }
-
-                    OsmMapView(
-                        modifier = Modifier.fillMaxSize(),
-                        center = GeoPoint(displayLat, displayLng),
-                        zoom = if (hasEmergency) 18.0 else 17.5,
-                        markers = markers,
-                        route = dashboardState.route ?: emptyList()
-                    )
-
-                    FilledIconButton(
-                        onClick = { isMapFullscreen = false },
-                        modifier = Modifier.statusBarsPadding().padding(16.dp).size(48.dp).align(Alignment.TopStart),
-                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = Color.Black)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close Fullscreen Map")
-                    }
-
-                    if (hasEmergency) {
-                        Card(
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).navigationBarsPadding().fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Emergency: ${topEmergency?.patientName ?: "Active Pickup"}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = topEmergency?.address ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                val distance = dashboardState.distance
-                                if (distance != null) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Navigation, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        val distKm = String.format("%.1f km", distance / 1000.0)
-                                        val etaMins = (dashboardState.eta ?: 0.0) / 60.0
-                                        val etaStr = if (etaMins > 0) String.format("%.0f min", etaMins) else "--"
-                                        Text(
-                                            text = "$distKm away • ETA $etaStr",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -608,15 +344,11 @@ fun SkeletonDashboard(padding: PaddingValues) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        Box(modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(modifier = Modifier.weight(1f).height(80.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
             Box(modifier = Modifier.weight(1f).height(80.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
             Box(modifier = Modifier.weight(1f).height(80.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.weight(1f).height(100.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
-            Box(modifier = Modifier.weight(1f).height(100.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
-            Box(modifier = Modifier.weight(1f).height(100.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
         }
         Box(modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
         Box(modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(16.dp)).shimmerEffect())
@@ -650,7 +382,7 @@ fun EmptyStateIllustration() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "All Clear",
+                "Online & Ready",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -671,9 +403,9 @@ private fun StatsRow(stats: DashboardStats) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        StatCard(modifier = Modifier.weight(1f), label = "Total Trips", value = "${stats.completedToday}", color = Color(0xFF4CAF50))
         StatCard(modifier = Modifier.weight(1f), label = "Active", value = "${stats.activeEmergencies}", color = Color(0xFFE53935))
-        StatCard(modifier = Modifier.weight(1f), label = "Vehicles", value = "${stats.availableVehicles}", color = Color(0xFF2196F3))
-        StatCard(modifier = Modifier.weight(1f), label = "Completed", value = "${stats.completedToday}", color = Color(0xFF4CAF50))
+        StatCard(modifier = Modifier.weight(1f), label = "Response", value = stats.avgResponseTime.take(5), color = Color(0xFF2196F3))
     }
 }
 
@@ -688,37 +420,8 @@ private fun StatCard(modifier: Modifier, label: String, value: String, color: Co
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(value, style = MaterialTheme.typography.headlineMedium, color = color)
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun ActionCard(
-    modifier: Modifier,
-    icon: ImageVector,
-    title: String,
-    color1: Color,
-    color2: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier.shadow(6.dp, RoundedCornerShape(16.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(color1, color2)))
-                .padding(vertical = 20.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(title, color = Color.White, style = MaterialTheme.typography.labelLarge)
-            }
+            Text(value, style = MaterialTheme.typography.headlineMedium, color = color, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }
@@ -730,7 +433,8 @@ private fun EmergencyCard(
     onTap: () -> Unit,
     onAccept: () -> Unit,
     onReject: (() -> Unit)? = null,
-    onUpdateStatus: (String) -> Unit
+    onUpdateStatus: (String) -> Unit,
+    onNavigateToPatient: () -> Unit
 ) {
     val isCritical = emergency.priority == "critical"
     val isBroadcast = emergency.dispatchMode == "sos_broadcast"
@@ -767,15 +471,17 @@ private fun EmergencyCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        emergency.emergencyType ?: "Emergency request",
+                        emergency.emergencyType?.replaceFirstChar { it.uppercase() } ?: "Emergency Request",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 Text(
                     statusText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -861,18 +567,38 @@ private fun EmergencyCard(
                             onClick = { onUpdateStatus("en_route") },
                             enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Start Route", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Start Route", style = MaterialTheme.typography.labelLarge) }
+                        
+                        OutlinedButton(
+                            onClick = onNavigateToPatient,
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { 
+                            Icon(Icons.Default.Navigation, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Navigate")
+                        }
                     }
                     "en_route" -> {
                         Button(
                             onClick = { onUpdateStatus("arrived") },
                             enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Arrived at Location", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Arrived at Location", style = MaterialTheme.typography.labelLarge) }
+                        
+                        OutlinedButton(
+                            onClick = onNavigateToPatient,
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) { 
+                            Icon(Icons.Default.Navigation, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Map")
+                        }
                     }
                     "arrived" -> {
                         Button(
@@ -881,16 +607,16 @@ private fun EmergencyCard(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Patient Picked Up", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Patient Picked Up", style = MaterialTheme.typography.labelLarge) }
                     }
                     "picked_up" -> {
                         Button(
                             onClick = { onUpdateStatus("en_route_hospital") },
                             enabled = !isActionInProgress,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00897B)),
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Heading to Hospital", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Head to Hospital", style = MaterialTheme.typography.labelLarge) }
                     }
                     "en_route_hospital" -> {
                         Button(
@@ -899,7 +625,7 @@ private fun EmergencyCard(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20)),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Arrived at Hospital", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Arrived at Hospital", style = MaterialTheme.typography.labelLarge) }
                     }
                     "arrived_hospital" -> {
                         Button(
@@ -908,7 +634,7 @@ private fun EmergencyCard(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text(if (isActionInProgress) "Working..." else "Complete Emergency", style = MaterialTheme.typography.labelLarge) }
+                        ) { Text("Complete Emergency", style = MaterialTheme.typography.labelLarge) }
                     }
                 }
             }

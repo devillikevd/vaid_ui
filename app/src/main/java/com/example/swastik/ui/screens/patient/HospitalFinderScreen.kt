@@ -68,6 +68,8 @@ fun HospitalFinderScreen(
     onDoctorBookClick: (HospitalDoctor, MedicalFacility) -> Unit = { _, _ -> },
     onHospitalClick: (String) -> Unit = {},
     onClinicClick: (String) -> Unit = {},
+    onPharmacyDetailClick: (String) -> Unit = {},
+    onDiagnosticDetailClick: (String) -> Unit = {},
     onMedicineClick: (String) -> Unit = {},
     onNavigateToCart: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
@@ -93,6 +95,10 @@ fun HospitalFinderScreen(
     var hasTriggeredFocusedSearch by remember(requestedFocusFacilityId, requestedFocusFacilityName) {
         mutableStateOf(false)
     }
+
+    // Pharmacy Booking Flow States
+    var showPharmacyBookingDialog by remember { mutableStateOf(false) }
+    var pharmacyBookingIsPrescription by remember { mutableStateOf(false) }
 
     // Handle back button when in map view
     if (isMapView) {
@@ -543,7 +549,15 @@ fun HospitalFinderScreen(
                                 showBottomSheet = false
                                 onNavigateToOrders()
                             },
-                            isDarkMode = resolvedDarkMode
+                            onViewDetails = {
+                                showBottomSheet = false
+                                onPharmacyDetailClick(facility.id)
+                            },
+                            isDarkMode = resolvedDarkMode,
+                            onOpenBookingFlow = { isPrescription ->
+                                pharmacyBookingIsPrescription = isPrescription
+                                showPharmacyBookingDialog = true
+                            }
                         )
                     }
                     FacilityType.HOSPITAL -> {
@@ -638,11 +652,58 @@ fun HospitalFinderScreen(
                                 showBottomSheet = false
                                 onNavigateToDiagnosticBooking(facility.id)
                             },
+                            onViewDetails = {
+                                showBottomSheet = false
+                                onDiagnosticDetailClick(facility.id)
+                            },
                             isDarkMode = resolvedDarkMode
                         )
                     }
                 }
             }
+        }
+
+        // Pharmacy Booking Full-Screen Flow
+        if (showPharmacyBookingDialog && selectedFacility != null && selectedFacility?.type == FacilityType.MEDICAL_STORE) {
+            com.example.swastik.ui.screens.patient.medicine.PharmacyBookingFlow(
+                facility = selectedFacility!!,
+                initialStep = if (pharmacyBookingIsPrescription) 3 else 1,
+                isPrescriptionBased = pharmacyBookingIsPrescription,
+                inventoryItems = hospitalState.pharmacyInventory,
+                isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
+                onInventorySearch = { query -> viewModel.loadPharmacyInventory(selectedFacility!!.id, query) },
+                onDismiss = { showPharmacyBookingDialog = false },
+                onConfirmOrder = { address, phone, items, isRx ->
+                    // Actually place the order via MedicineViewModel
+                    medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
+                    medicineViewModel.setDeliveryAddress(address)
+                    medicineViewModel.setPatientPhone(phone)
+                    // If not prescription, add selected items to cart
+                    if (!isRx) {
+                        medicineViewModel.clearCart()
+                        medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
+                        medicineViewModel.setDeliveryAddress(address)
+                        medicineViewModel.setPatientPhone(phone)
+                        items.forEach { item ->
+                            val medicine = Medicine(
+                                id = item.medicineId ?: item.id,
+                                inventoryItemId = item.id,
+                                name = item.displayName,
+                                manufacturer = item.manufacturer ?: "Unknown",
+                                price = item.price,
+                                requiresPrescription = item.requiresPrescription ?: false,
+                                inStock = true,
+                                stockCount = item.quantity ?: 0
+                            )
+                            medicineViewModel.addToCart(medicine, selectedFacility!!.id, selectedFacility!!.name)
+                        }
+                    }
+                    medicineViewModel.placeOrder()
+                    showPharmacyBookingDialog = false
+                    showBottomSheet = false
+                    onNavigateToOrders()
+                }
+            )
         }
 
         // Filter Bottom Sheet
@@ -1617,7 +1678,9 @@ private fun MedicalStoreDetailSheet(
     cartItemCount: Int = 0,
     onViewCart: () -> Unit = {},
     onViewOrders: () -> Unit = {},
-    isDarkMode: Boolean
+    onViewDetails: () -> Unit = {},
+    isDarkMode: Boolean,
+    onOpenBookingFlow: (isPrescription: Boolean) -> Unit = {}
 ) {
     val storeContext = LocalContext.current
     val textColor = if (isDarkMode) Color.White else Color.Black
@@ -1793,196 +1856,125 @@ private fun MedicalStoreDetailSheet(
         HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ========== PHARMACY-SPECIFIC INVENTORY ==========
-        Text(
-            "Available at ${facility.name}",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
-        Text(
-            "Only showing medicines stocked at this store",
-            fontSize = 13.sp,
-            color = subtextColor,
-            modifier = Modifier.padding(horizontal = 20.dp)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Inventory search
-        var inventoryQuery by remember { mutableStateOf("") }
-        OutlinedTextField(
-            value = inventoryQuery,
-            onValueChange = { query ->
-                inventoryQuery = query
-                if (query.length >= 2) onInventorySearch(query)
-                else if (query.isEmpty()) onInventorySearch("")
-            },
-            placeholder = { Text(stringResource(R.string.search_inventory_1), color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = Color(0xFF4CAF50)) },
-            trailingIcon = {
-                if (isInventoryLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF4CAF50))
-                } else if (inventoryQuery.isNotEmpty()) {
-                    IconButton(onClick = { inventoryQuery = ""; onInventorySearch("") }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                focusedBorderColor = Color(0xFF4CAF50),
-                unfocusedContainerColor = cardColor,
-                focusedContainerColor = cardColor
-            ),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        if (isInventoryLoading && inventoryItems.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF4CAF50))
-            }
-        } else if (inventoryItems.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(stringResource(R.string.string), fontSize = 32.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    if (inventoryQuery.isNotEmpty()) "No medicines found for \"$inventoryQuery\""
-                    else "No inventory data available",
-                    fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 300.dp),
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(inventoryItems) { item ->
-                    PharmacyInventoryCard(
-                        item = item,
-                        isDarkMode = isDarkMode,
-                        onAddToCart = { onAddInventoryToCart(item) }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Cart Badge (only show when items in cart)
-        if (cartItemCount > 0) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clickable { onViewCart() },
-                colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.1f)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = SwastikPrimary)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "$cartItemCount item(s) in cart",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = SwastikPrimary
-                        )
-                        Text("From ${facility.name}", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
-                    }
-                    Button(
-                        onClick = onViewCart,
-                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(stringResource(R.string.view_cart), fontSize = 13.sp)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        // Action Buttons Row 1: Call + Directions
+        // Info Cards - Timings & Contact
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
-                onClick = {
-                    if (facility.phone.isNotBlank()) {
-                        NavigationHelper.openDialer(storeContext, facility.phone)
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = ButtonDefaults.outlinedButtonBorder.copy(
-                    brush = Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF4CAF50)))
-                )
-            ) {
-                Icon(
-                    Icons.Default.Call,
-                    contentDescription = null,
-                    tint = Color(0xFF4CAF50)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.call_store), color = Color(0xFF4CAF50))
-            }
-            Button(
-                onClick = {
-                    NavigationHelper.openDirections(
-                        context = storeContext,
-                        destLat = facility.latitude,
-                        destLng = facility.longitude,
-                        label = facility.name
-                    )
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-            ) {
-                Icon(Icons.Default.Directions, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.directions))
+            InfoCard(
+                icon = Icons.Outlined.AccessTime,
+                title = "Timings",
+                value = if (facility.openTime == "24 hrs") "24x7" else "${facility.openTime ?: "N/A"} - ${facility.closeTime ?: ""}",
+                modifier = Modifier.weight(1f),
+                cardColor = cardColor,
+                textColor = textColor
+            )
+            InfoCard(
+                icon = Icons.Outlined.Phone,
+                title = "Contact",
+                value = facility.phone.ifBlank { "N/A" },
+                modifier = Modifier.weight(1f),
+                cardColor = cardColor,
+                textColor = textColor
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Address
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Place, contentDescription = null, tint = Color(0xFF4CAF50))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.address), fontSize = 12.sp, color = subtextColor)
+                    Text(facility.address, fontSize = 14.sp, color = textColor)
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Action Buttons Row 2: My Orders
-        OutlinedButton(
-            onClick = onViewOrders,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .padding(horizontal = 20.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = Brush.linearGradient(listOf(SwastikPrimary, SwastikPrimary))
-            )
+        // Details Card
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable { onViewDetails() },
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Icon(Icons.Default.History, contentDescription = null, tint = SwastikPrimary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.my_orders), color = SwastikPrimary)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF2196F3))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Details about Pharmacy", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                }
+                Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = subtextColor, modifier = Modifier.size(16.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Actions
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = { onOpenBookingFlow(false) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Medication, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Book Medicines", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        if (facility.phone.isNotBlank()) {
+                            NavigationHelper.openDialer(storeContext, facility.phone)
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF4CAF50)))
+                    )
+                ) {
+                    Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF4CAF50))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.call_store), color = Color(0xFF4CAF50))
+                }
+                Button(
+                    onClick = {
+                        NavigationHelper.openDirections(
+                            context = storeContext,
+                            destLat = facility.latitude,
+                            destLng = facility.longitude,
+                            label = facility.name
+                        )
+                    },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                ) {
+                    Icon(Icons.Default.Directions, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.directions))
+                }
+            }
         }
             }
         }
@@ -2470,6 +2462,7 @@ private fun ClinicDetailSheet(
 private fun DiagnosticCenterDetailSheet(
     facility: MedicalFacility,
     onBookTest: () -> Unit = {},
+    onViewDetails: () -> Unit = {},
     isDarkMode: Boolean
 ) {
     val dcContext = LocalContext.current
@@ -2716,7 +2709,29 @@ private fun DiagnosticCenterDetailSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Details Card
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clickable { onViewDetails() },
+            colors = CardDefaults.cardColors(containerColor = cardColor),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF2196F3))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Details about Diagnostic", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                }
+                Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = subtextColor, modifier = Modifier.size(16.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Book Test Button
         Button(

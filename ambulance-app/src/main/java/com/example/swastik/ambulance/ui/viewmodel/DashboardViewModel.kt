@@ -225,6 +225,21 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun toggleVehicleStatus(isActive: Boolean) {
+        viewModelScope.launch {
+            val result = ambulanceRepository.updateVehicleStatusViaApi(isActive)
+            result.fold(
+                onSuccess = {
+                    _userMessage.tryEmit(if (isActive) "Vehicle is now Online" else "Vehicle is now Offline")
+                    loadDashboard() // Reload to reflect status changes
+                },
+                onFailure = { e ->
+                    _userMessage.tryEmit("Failed to update vehicle status: ${e.message}")
+                }
+            )
+        }
+    }
+
     // ── Emergency History ────────────────────────────────────
 
     fun loadEmergencyHistory(status: String? = null) {

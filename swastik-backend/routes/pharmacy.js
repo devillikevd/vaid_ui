@@ -31,6 +31,7 @@ router.get('/search', asyncHandler(async (req, res) => {
     res.json({ success: true, ...result });
 }));
 
+// Find nearby pharmacies
 router.get('/nearby', asyncHandler(async (req, res) => {
     const { latitude, longitude, medicineId, radius = 10 } = req.query;
 
@@ -50,6 +51,12 @@ router.get('/nearby', asyncHandler(async (req, res) => {
     );
 
     res.json({ success: true, data: pharmacies });
+}));
+
+// Get pharmacy by ID
+router.get('/:id([0-9a-fA-F-]{36})', asyncHandler(async (req, res) => {
+    const pharmacy = await pharmacyService.getPharmacyById(req.params.id);
+    res.json({ success: true, data: pharmacy });
 }));
 
 // Protected routes - require authentication

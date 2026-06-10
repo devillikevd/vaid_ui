@@ -277,6 +277,51 @@ class AmbulanceService {
     return { success: true };
   }
 
+  // Update ambulance online/offline status
+  async updateAmbulanceStatus(driverUserId, isActive) {
+    // Resolve operator record
+    const { data: operator } = await supabaseAdmin
+      .from('ambulance_operators')
+      .select('id')
+      .eq('user_id', driverUserId)
+      .maybeSingle();
+
+    let ambulanceQuery = supabaseAdmin
+      .from('ambulances')
+      .select('id')
+      .eq('driver_user_id', driverUserId);
+
+    if (operator?.id) {
+      ambulanceQuery = supabaseAdmin
+        .from('ambulances')
+        .select('id')
+        .or(`driver_user_id.eq.${driverUserId},operator_id.eq.${operator.id}`);
+    }
+
+    const { data: ambulance } = await ambulanceQuery.limit(1).maybeSingle();
+
+    if (!ambulance) {
+      throw new ApiError(404, 'Ambulance not found');
+    }
+
+    const status = isActive ? 'available' : 'offline';
+
+    const { error } = await supabaseAdmin
+      .from('ambulances')
+      .update({
+        is_active: isActive,
+        status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', ambulance.id);
+
+    if (error) {
+      throw new ApiError(400, `Failed to update status: ${error.message}`);
+    }
+
+    return { success: true, isActive, status };
+  }
+
   // Get ambulance location for tracking
   async getAmbulanceLocation(requestId) {
     const { data: request } = await supabaseAdmin

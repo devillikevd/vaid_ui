@@ -134,6 +134,12 @@ class SocketManager @Inject constructor(
                 _broadcastRequestFlow.tryEmit(args.firstOrNull()?.toString())
             }
 
+            // Listen for general SOS broadcast on the dispatch room
+            socket?.on("emergency:new") { args ->
+                Log.d(TAG, "General emergency:new received: ${summarizePayload(args.firstOrNull())}")
+                _broadcastRequestFlow.tryEmit(args.firstOrNull()?.toString())
+            }
+
             // Listen for request-taken — another driver accepted the broadcast
             socket?.on("ambulance:request-taken") { args ->
                 Log.d(TAG, "Broadcast request taken: ${summarizePayload(args.firstOrNull())}")

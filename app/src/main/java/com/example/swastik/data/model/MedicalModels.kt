@@ -43,7 +43,10 @@ data class MedicalFacility(
     @SerializedName("home_collection_fee") val homeCollectionFee: Double? = null,
     @SerializedName("test_categories") val testCategories: List<String> = emptyList(),
     val accreditations: List<String> = emptyList(),
-    val images: List<String> = emptyList()
+    val images: List<String> = emptyList(),
+    // Affiliation fields
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null
 )
 
 enum class FacilityType {

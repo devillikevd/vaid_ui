@@ -175,6 +175,16 @@ router.post('/invites/:token/reject', authenticate,
   })
 );
 
+router.put('/vehicle/status', authenticate,
+  requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  [body('isActive').isBoolean()],
+  validate,
+  asyncHandler(async (req, res) => {
+    const result = await ambulanceService.updateAmbulanceStatus(req.user.id, req.body.isActive);
+    res.json(result);
+  })
+);
+
 router.put('/location', authenticate,
   requireRole(ROLES.AMBULANCE_OPERATOR, ROLES.AMBULANCE_DRIVER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   [body('latitude').isFloat(), body('longitude').isFloat(),

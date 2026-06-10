@@ -145,8 +145,23 @@ const getDiagnosticCenterById = async (id) => {
   if (error || !data) {
     throw new ApiError(404, 'Diagnostic center not found');
   }
+
+  const { data: assocs } = await supabaseAdmin
+    .from('facility_provider_associations')
+    .select('facility_id, facility_type')
+    .eq('provider_id', id)
+    .eq('provider_type', 'diagnostic_center')
+    .eq('status', 'accepted')
+    .maybeSingle();
+
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
-  return recordWithPhone || data;
+  const center = recordWithPhone || data;
+
+  return {
+    ...center,
+    hospital_id: assocs?.facility_type === 'hospital' ? assocs.facility_id : null,
+    clinic_id: assocs?.facility_type === 'clinic' ? assocs.facility_id : null
+  };
 };
 
 // ==================== Owner Registration ====================

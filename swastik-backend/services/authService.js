@@ -481,8 +481,8 @@ const createRoleProfile = async (userId, role, data) => {
         approval_status: 'pending',
       });
       break;
-    case 'ambulance_operator':
-      await insertProfile('ambulance_operators', {
+    case 'ambulance_operator': {
+      const { data: operator, error: opError } = await supabaseAdmin.from('ambulance_operators').insert({
         user_id: userId,
         name: data.name || data.companyName || 'Unnamed Operator',
         company_name: data.companyName || data.name,
@@ -498,8 +498,31 @@ const createRoleProfile = async (userId, role, data) => {
         is_active: false,
         is_approved: false,
         approval_status: 'pending',
+      }).select().single();
+
+      if (opError) throw opError;
+
+      // Auto-create the single ambulance vehicle for this operator
+      const vehicleNumber = data.vehicleNumber || data.vehicle_number || data.registrationNumber || 'UNKNOWN';
+      const vehicleType = data.vehicleType || data.vehicle_type || 'basic';
+      
+      const { error: ambError } = await supabaseAdmin.from('ambulances').insert({
+        operator_id: operator.id,
+        driver_user_id: userId, // The operator is the driver for this app instance
+        vehicle_number: vehicleNumber,
+        driver_name: data.name || operator.name,
+        driver_phone: data.phone || operator.phone,
+        vehicle_type: vehicleType,
+        is_active: false,
+        status: 'offline'
       });
+
+      if (ambError) {
+        console.error('Failed to auto-create ambulance vehicle:', ambError.message);
+        throw ambError;
+      }
       break;
+    }
     default:
       break;
   }

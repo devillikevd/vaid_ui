@@ -238,6 +238,24 @@ class AmbulanceRepository @Inject constructor(
         }
     }
 
+    suspend fun updateVehicleStatusViaApi(isActive: Boolean): Result<Unit> {
+        return try {
+            val response = apiService.updateVehicleStatus(
+                VehicleStatusUpdateRequest(isActive)
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                CrashReporter.log("Vehicle Status API failure: ${response.code()}")
+                Result.failure(Exception(ApiErrorParser.from(response, "Failed to update vehicle status")))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "updateVehicleStatus API error", e)
+            CrashReporter.recordException(e, "Vehicle status update failed")
+            Result.failure(e)
+        }
+    }
+
     /**
      * Send location via Socket.IO for real-time tracking (preferred for frequent updates).
      */

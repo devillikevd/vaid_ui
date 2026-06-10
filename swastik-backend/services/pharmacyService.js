@@ -389,6 +389,39 @@ const getPharmacyByOwner = async (userId) => {
   };
 };
 
+// Get pharmacy by ID (public)
+const getPharmacyById = async (id) => {
+  const { data, error } = await supabaseAdmin
+    .from('pharmacies')
+    .select('*')
+    .eq('id', id)
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .single();
+
+  if (error || !data) {
+    throw new ApiError(404, 'Pharmacy not found');
+  }
+
+  const { data: assocs } = await supabaseAdmin
+    .from('facility_provider_associations')
+    .select('facility_id, facility_type')
+    .eq('provider_id', id)
+    .eq('provider_type', 'pharmacy')
+    .eq('status', 'accepted')
+    .maybeSingle();
+
+  const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
+  const pharmacy = recordWithPhone || data;
+
+  return {
+    ...pharmacy,
+    profile_image_url: pharmacy.profile_image_url || pharmacy.image_url || null,
+    hospital_id: assocs?.facility_type === 'hospital' ? assocs.facility_id : null,
+    clinic_id: assocs?.facility_type === 'clinic' ? assocs.facility_id : null
+  };
+};
+
 // Update pharmacy
 const updatePharmacy = async (pharmacyId, userId, updates) => {
   const { data: existingPharmacy, error: existingPharmacyError } = await supabaseAdmin
@@ -985,6 +1018,7 @@ const createOrder = async (patientUserId, orderData) => {
 module.exports = {
   searchPharmacies,
   findNearbyWithMedicine,
+  getPharmacyById,
   registerPharmacy,
   getPharmacyByOwner,
   updatePharmacy,

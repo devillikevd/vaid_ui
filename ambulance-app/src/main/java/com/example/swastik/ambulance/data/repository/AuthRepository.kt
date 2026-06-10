@@ -68,7 +68,9 @@ class AuthRepository @Inject constructor(
         state: String?,
         alternatePhone: String?,
         licenseDocumentUrl: String?,
-        licenseExpiry: String?
+        licenseExpiry: String?,
+        vehicleNumber: String?,
+        vehicleType: String?
     ): Result<String> {
         return try {
             val response = apiService.register(
@@ -84,7 +86,9 @@ class AuthRepository @Inject constructor(
                     state = state?.trim()?.takeIf { it.isNotBlank() },
                     alternatePhone = alternatePhone?.trim()?.takeIf { it.isNotBlank() },
                     licenseDocumentUrl = licenseDocumentUrl?.trim()?.takeIf { it.isNotBlank() },
-                    licenseExpiry = licenseExpiry?.trim()?.takeIf { it.isNotBlank() }
+                    licenseExpiry = licenseExpiry?.trim()?.takeIf { it.isNotBlank() },
+                    vehicleNumber = vehicleNumber?.trim()?.takeIf { it.isNotBlank() },
+                    vehicleType = vehicleType?.trim()?.takeIf { it.isNotBlank() }
                 )
             )
 

@@ -142,6 +142,7 @@ const playNativeSiren = () => {
 export default function HospitalEmergencyPage() {
     const [emergencies, setEmergencies] = useState<DispatchEmergency[]>([]);
     const [isAlarmEnabled, setIsAlarmEnabled] = useState(false);
+    const [isMapFullscreen, setIsMapFullscreen] = useState(false);
 
     const handleEnableAlarms = () => {
         setIsAlarmEnabled(true);
@@ -528,21 +529,31 @@ export default function HospitalEmergencyPage() {
 
             {/* Live Map */}
             {mapMarkers.length > 0 && (
-                <Card padding="none">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Radio className="h-5 w-5 text-red-500 animate-pulse" />
-                            Live Dispatch Map
+                <Card padding="none" className={isMapFullscreen ? "fixed inset-0 z-[100] m-0 rounded-none w-screen h-screen flex flex-col" : ""}>
+                    <CardHeader className={isMapFullscreen ? "bg-white dark:bg-gray-900 border-b z-10" : ""}>
+                        <CardTitle className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Radio className="h-5 w-5 text-red-500 animate-pulse" />
+                                Live Dispatch Map
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                                className={isMapFullscreen ? "text-red-600 hover:text-red-700" : ""}
+                            >
+                                {isMapFullscreen ? <><XCircle className="h-4 w-4 mr-2" /> Close Fullscreen</> : 'Expand Map'}
+                            </Button>
                         </CardTitle>
                     </CardHeader>
-                    <div className="px-4 pb-4">
+                    <div className={`px-4 pb-4 ${isMapFullscreen ? 'flex-1 p-0' : ''}`}>
                         <OsmMap
                             lat={mapMarkers[0]?.lat || 20.5937}
                             lng={mapMarkers[0]?.lng || 78.9629}
-                            zoom={12}
+                            zoom={isMapFullscreen ? 14 : 12}
                             markers={mapMarkers}
                             routes={mapRoutes}
-                            height="350px"
+                            height={isMapFullscreen ? "100%" : "350px"}
                             fitBounds
                         />
                     </div>

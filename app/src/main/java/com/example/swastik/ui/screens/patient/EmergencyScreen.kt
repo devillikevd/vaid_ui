@@ -629,15 +629,18 @@ private fun ActiveEmergencyView(
                                     Text(stringResource(R.string.live_route_view), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
                                     Text(stringResource(R.string.live_route_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                                 }
-                                FilledIconButton(
+                                Button(
                                     onClick = { onToggleMapFullscreen(true) },
-                                    modifier = Modifier.size(36.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                    modifier = Modifier.height(36.dp),
+                                    colors = ButtonDefaults.buttonColors(
                                         containerColor = colorScheme.primaryContainer,
                                         contentColor = colorScheme.primary
-                                    )
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                                 ) {
-                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Expand Map", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Box(modifier = Modifier.fillMaxWidth().height(240.dp)) {
@@ -674,15 +677,18 @@ private fun ActiveEmergencyView(
                                     Text(stringResource(R.string.pickup_point_ready), fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
                                     Text(stringResource(R.string.pickup_point_desc), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
                                 }
-                                FilledIconButton(
+                                Button(
                                     onClick = { onToggleMapFullscreen(true) },
-                                    modifier = Modifier.size(36.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                    modifier = Modifier.height(36.dp),
+                                    colors = ButtonDefaults.buttonColors(
                                         containerColor = colorScheme.primaryContainer,
                                         contentColor = colorScheme.primary
-                                    )
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                                 ) {
-                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Expand Map", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {

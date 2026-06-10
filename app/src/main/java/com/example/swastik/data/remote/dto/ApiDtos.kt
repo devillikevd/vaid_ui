@@ -940,7 +940,9 @@ data class PharmacyDto(
     @SerializedName("delivery_available") val deliveryAvailable: Boolean? = null,
     @SerializedName("offers_delivery") val offersDelivery: Boolean? = null,
     @SerializedName("delivery_radius_km") val deliveryRadiusKm: Int? = null,
-    @SerializedName("min_order_delivery") val minOrderDelivery: Double? = null
+    @SerializedName("min_order_delivery") val minOrderDelivery: Double? = null,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null
 )
 
 data class ClinicDto(
@@ -991,6 +993,8 @@ data class DiagnosticCenterDto(
     @SerializedName("image_url") val imageUrl: String? = null,
     @SerializedName("home_collection_available") val homeCollectionAvailable: Boolean? = null,
     @SerializedName("home_collection_fee") val homeCollectionFee: Double? = null,
+    @SerializedName("hospital_id") val hospitalId: String? = null,
+    @SerializedName("clinic_id") val clinicId: String? = null,
     val accreditations: List<String>? = null,
     val images: List<String>? = null
 )

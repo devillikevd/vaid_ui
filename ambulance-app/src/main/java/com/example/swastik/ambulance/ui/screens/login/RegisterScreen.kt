@@ -79,6 +79,8 @@ fun RegisterScreen(
     var email by remember { mutableStateOf("") }
     var licenseExpiry by remember { mutableStateOf("") }
     var licenseDocumentUrl by remember { mutableStateOf("") }
+    var vehicleNumber by remember { mutableStateOf("") }
+    var vehicleType by remember { mutableStateOf("basic") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -406,6 +408,36 @@ fun RegisterScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             OutlinedTextField(
+                                value = vehicleNumber,
+                                onValueChange = {
+                                    vehicleNumber = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("Vehicle Number (e.g. UP16-AB-1234)") },
+                                leadingIcon = { Icon(Icons.Default.LocalShipping, null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = vehicleType,
+                                onValueChange = {
+                                    vehicleType = it
+                                    if (uiState.error != null) viewModel.clearError()
+                                },
+                                label = { Text("Vehicle Type (basic, advanced, icu)") },
+                                leadingIcon = { Icon(Icons.Default.LocalShipping, null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
                                 value = password,
                                 onValueChange = {
                                     password = it
@@ -471,7 +503,9 @@ fun RegisterScreen(
                                         state = state,
                                         alternatePhone = alternatePhone,
                                         licenseDocumentUrl = licenseDocumentUrl,
-                                        licenseExpiry = licenseExpiry
+                                        licenseExpiry = licenseExpiry,
+                                        vehicleNumber = vehicleNumber,
+                                        vehicleType = vehicleType
                                     )
                                 },
                                 modifier = Modifier

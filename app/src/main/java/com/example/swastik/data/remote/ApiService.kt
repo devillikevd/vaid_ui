@@ -329,6 +329,11 @@ interface ApiService {
         @Query("limit") limit: Int = 50
     ): Response<PaginatedResponse<PharmacyDto>>
 
+    @GET("pharmacy/{id}")
+    suspend fun getPharmacyById(
+        @Path("id") id: String
+    ): Response<ApiResponse<PharmacyDto>>
+
     // Get clinic doctors (public — for patient discovery in hospital finder)
     @GET("hospitals/clinics/{clinicId}/doctors")
     suspend fun getClinicDoctors(

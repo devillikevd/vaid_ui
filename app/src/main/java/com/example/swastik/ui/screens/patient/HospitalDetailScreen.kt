@@ -432,39 +432,41 @@ fun HospitalDetailScreen(
                     }
 
                     // Doctors
-                    if (facility.doctors.isNotEmpty()) {
-                        item {
-                            Text(
-                                "Available Doctors",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                        items(facility.doctors) { doctor ->
-                            DoctorDetailCard(
-                                doctor = doctor,
-                                onBook = { onDoctorBookClick(doctor, facility) }
-                            )
-                        }
-                    } else {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
+                    if (facility.type == FacilityType.HOSPITAL || facility.type == FacilityType.CLINIC) {
+                        if (facility.doctors.isNotEmpty()) {
+                            item {
                                 Text(
-                                    text = when (facility.type) {
-                                        FacilityType.CLINIC -> "This clinic has not listed bookable doctors yet. You can still contact the clinic directly from this screen."
-                                        else -> "This hospital has not listed bookable doctors yet. You can still contact the hospital directly from this screen."
-                                    },
-                                    modifier = Modifier.padding(16.dp),
-                                    fontSize = 13.sp,
-                                    color = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    "Available Doctors",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
                                 )
+                            }
+                            items(facility.doctors) { doctor ->
+                                DoctorDetailCard(
+                                    doctor = doctor,
+                                    onBook = { onDoctorBookClick(doctor, facility) }
+                                )
+                            }
+                        } else {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Text(
+                                        text = when (facility.type) {
+                                            FacilityType.CLINIC -> "This clinic has not listed bookable doctors yet. You can still contact the clinic directly from this screen."
+                                            else -> "This hospital has not listed bookable doctors yet. You can still contact the hospital directly from this screen."
+                                        },
+                                        modifier = Modifier.padding(16.dp),
+                                        fontSize = 13.sp,
+                                        color = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    )
+                                }
                             }
                         }
                     }
