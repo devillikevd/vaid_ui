@@ -503,7 +503,7 @@ const createRoleProfile = async (userId, role, data) => {
       if (opError) throw opError;
 
       // Auto-create the single ambulance vehicle for this operator
-      const vehicleNumber = data.vehicleNumber || data.vehicle_number || data.registrationNumber || 'UNKNOWN';
+      const vehicleNumber = data.vehicleNumber || data.vehicle_number || data.registrationNumber || `UNKNOWN-${Date.now()}`;
       const vehicleType = data.vehicleType || data.vehicle_type || 'basic';
       
       const { error: ambError } = await supabaseAdmin.from('ambulances').insert({
