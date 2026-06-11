@@ -258,14 +258,16 @@ export default function EmergenciesPage() {
 
     const fleetMarkers: MapMarker[] = fleet.map(a => {
         const isAvailable = a.status === 'available';
+        const isOffline = a.status === 'offline';
+        const color = isAvailable ? '#059669' : isOffline ? '#9CA3AF' : '#3B82F6';
         return {
             id: `fleet-${a.id}`,
             lat: a.current_latitude,
             lng: a.current_longitude,
             title: `🚑 ${a.vehicle_number}`,
-            popup: `Driver: ${a.driver_name}<br/>Status: <strong>${a.status}</strong>`,
-            color: isAvailable ? '#059669' : '#3B82F6', // Green if available, Blue otherwise
-            pulse: !isAvailable, // Pulse if busy
+            popup: `Driver: ${a.driver_name}<br/>Status: <strong class="capitalize">${a.status}</strong>`,
+            color: color, 
+            pulse: !isAvailable && !isOffline, // Pulse only if busy
         };
     });
 
@@ -329,6 +331,30 @@ export default function EmergenciesPage() {
                     </CardHeader>
                     <div className="px-4 pb-4">
                         <OsmMap lat={allMarkers[0].lat} lng={allMarkers[0].lng} zoom={12} markers={allMarkers} height="350px" fitBounds />
+                        
+                        {/* Map Legend */}
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <div className="flex items-center gap-2">
+                                <span className="h-3.5 w-3.5 rounded-full bg-[#DC2626]"></span>
+                                <span>Pending / SOS</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3.5 w-3.5 rounded-full bg-[#F59E0B]"></span>
+                                <span>Assigned / En Route</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3.5 w-3.5 rounded-full bg-[#059669]"></span>
+                                <span>Available / Arrived</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3.5 w-3.5 rounded-full bg-[#3B82F6]"></span>
+                                <span>Ambulance Busy</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="h-3.5 w-3.5 rounded-full bg-[#9CA3AF]"></span>
+                                <span>Ambulance Offline</span>
+                            </div>
+                        </div>
                     </div>
                 </Card>
             )}

@@ -175,7 +175,7 @@ fun DashboardScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Swastik Responder", fontWeight = FontWeight.Bold) },
+                title = { Text("Vaididea Responder", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { dashboardViewModel.loadDashboard() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
@@ -400,12 +400,12 @@ fun EmptyStateIllustration() {
 @Composable
 private fun StatsRow(stats: DashboardStats) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        StatCard(modifier = Modifier.weight(1f), label = "Total Trips", value = "${stats.completedToday}", color = Color(0xFF4CAF50))
-        StatCard(modifier = Modifier.weight(1f), label = "Active", value = "${stats.activeEmergencies}", color = Color(0xFFE53935))
-        StatCard(modifier = Modifier.weight(1f), label = "Response", value = stats.avgResponseTime.take(5), color = Color(0xFF2196F3))
+        StatCard(modifier = Modifier.weight(1f).fillMaxHeight(), label = "Total Trips", value = "${stats.completedToday}", color = Color(0xFF4CAF50))
+        StatCard(modifier = Modifier.weight(1f).fillMaxHeight(), label = "Active", value = "${stats.activeEmergencies}", color = Color(0xFFE53935))
+        StatCard(modifier = Modifier.weight(1f).fillMaxHeight(), label = "Response", value = stats.avgResponseTime.replace(" min", "m").take(5), color = Color(0xFF2196F3))
     }
 }
 
@@ -417,10 +417,11 @@ private fun StatCard(modifier: Modifier, label: String, value: String, color: Co
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(value, style = MaterialTheme.typography.headlineMedium, color = color, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.headlineMedium, color = color, fontWeight = FontWeight.Bold, maxLines = 1)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
