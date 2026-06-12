@@ -85,7 +85,10 @@ data "aws_iam_policy_document" "task_s3" {
       "s3:PutBucketPolicy"
     ]
 
-    resources = ["arn:${local.partition}:s3:::${local.s3_bucket_name}"]
+    resources = [
+      "arn:${local.partition}:s3:::${local.s3_bucket_name}",
+      "arn:${local.partition}:s3:::swastik-telemedicine-bucket"
+    ]
   }
 
   statement {
@@ -95,7 +98,10 @@ data "aws_iam_policy_document" "task_s3" {
       "s3:DeleteObject"
     ]
 
-    resources = ["arn:${local.partition}:s3:::${local.s3_bucket_name}/*"]
+    resources = [
+      "arn:${local.partition}:s3:::${local.s3_bucket_name}/*",
+      "arn:${local.partition}:s3:::swastik-telemedicine-bucket/*"
+    ]
   }
 }
 
