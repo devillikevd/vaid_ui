@@ -42,10 +42,15 @@ class AIDiagnosticsViewModel @Inject constructor(
     fun downloadModel(modelType: String) {
         viewModelScope.launch {
             _downloadProgress.value = _downloadProgress.value + (modelType to 0.01f)
-            aiModelDownloader.downloadModelIfNeeded(modelType, forceUpdateCheck = true) { progress ->
-                _downloadProgress.value = _downloadProgress.value + (modelType to progress)
+            try {
+                aiModelDownloader.downloadModelIfNeeded(modelType, forceUpdateCheck = true) { progress ->
+                    _downloadProgress.value = _downloadProgress.value + (modelType to progress)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AIDiagnostics", "Manual download failed", e)
+            } finally {
+                _downloadProgress.value = _downloadProgress.value - modelType
             }
-            _downloadProgress.value = _downloadProgress.value - modelType
         }
     }
 
@@ -54,8 +59,14 @@ class AIDiagnosticsViewModel @Inject constructor(
             _uiState.value = AIDiagnosticsState.Loading("Downloading model (if needed)...")
             
             // 1. Download/Get Model
-            val modelFile = aiModelDownloader.downloadModelIfNeeded(modelType) { progress ->
-                _uiState.value = AIDiagnosticsState.Loading("Downloading model: ${(progress * 100).toInt()}%")
+            var modelFile: java.io.File? = null
+            try {
+                modelFile = aiModelDownloader.downloadModelIfNeeded(modelType) { progress ->
+                    _uiState.value = AIDiagnosticsState.Loading("Downloading model: ${(progress * 100).toInt()}%")
+                }
+            } catch (e: Exception) {
+                _uiState.value = AIDiagnosticsState.Error("Download failed: ${e.message}")
+                return@launch
             }
 
             var predictionResult = "Mock Prediction"

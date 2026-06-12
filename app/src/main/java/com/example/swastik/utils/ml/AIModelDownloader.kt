@@ -10,13 +10,15 @@ import java.io.FileOutputStream
 import javax.inject.Inject
 import com.example.swastik.data.remote.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Singleton
 
+@Singleton
 class AIModelDownloader @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val okHttpClient: OkHttpClient,
-    private val storageManager: AIModelStorageManager,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val storageManager: AIModelStorageManager
 ) {
+    private val okHttpClient = OkHttpClient()
 
     suspend fun downloadModelIfNeeded(
         modelName: String,
@@ -37,14 +39,17 @@ class AIModelDownloader @Inject constructor(
                 val urlResponse = apiService.getPresignedDownloadUrl("models/$modelName.tflite")
                 if (urlResponse.isSuccessful && urlResponse.body()?.success == true) {
                     downloadUrl = urlResponse.body()?.data?.url
+                    android.util.Log.d("AIModelDownloader", "Presigned URL obtained successfully.")
+                } else {
+                    android.util.Log.e("AIModelDownloader", "Failed to get presigned URL: ${urlResponse.code()} ${urlResponse.errorBody()?.string()}")
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("AIModelDownloader", "Exception getting presigned URL", e)
             }
 
             // If the presigned URL failed, we cannot proceed safely.
             if (downloadUrl == null) {
-                return@withContext null
+                throw Exception("Failed to obtain presigned URL from backend")
             }
 
             // 2. Download the model using the presigned URL
@@ -57,7 +62,10 @@ class AIModelDownloader @Inject constructor(
             }
 
             val request = requestBuilder.build()
+            android.util.Log.d("AIModelDownloader", "Downloading from URL: $downloadUrl")
             val response = okHttpClient.newCall(request).execute()
+            
+            android.util.Log.d("AIModelDownloader", "Response code: ${response.code}")
 
             if (response.code == 304) {
                 // Not Modified! Model is up to date.
@@ -67,11 +75,13 @@ class AIModelDownloader @Inject constructor(
             }
 
             if (!response.isSuccessful) {
-                return@withContext null
+                val errorBody = response.body?.string()
+                android.util.Log.e("AIModelDownloader", "Download failed! Code: ${response.code}, Body: $errorBody")
+                throw Exception("Failed to download model. Server returned ${response.code}: $errorBody")
             }
 
             val newEtag = response.header("ETag")
-            val body = response.body ?: return@withContext null
+            val body = response.body ?: throw Exception("Response body is null")
             val contentLength = body.contentLength()
 
             body.byteStream().use { input ->
