@@ -93,9 +93,29 @@ class AIDiagnosticsViewModel @Inject constructor(
                     classifier.close()
 
                     if (output != null) {
-                        val maxIndex = output.indices.maxByOrNull { output[it] } ?: -1
-                        confidence = if (maxIndex != -1) output[maxIndex] else 0f
-                        predictionResult = parsePredictionResult(modelType, maxIndex)
+                        android.util.Log.d("AIDiagnostics", "Model: $modelType, Output: ${output.contentToString()}")
+                        
+                        var classIndex = -1
+                        var conf = 0f
+                        
+                        if (output.size == 1) {
+                            // Binary classification (Sigmoid)
+                            val prob = output[0]
+                            if (prob > 0.5f) {
+                                classIndex = 1
+                                conf = prob
+                            } else {
+                                classIndex = 0
+                                conf = 1.0f - prob
+                            }
+                        } else {
+                            // Multi-class classification (Softmax)
+                            classIndex = output.indices.maxByOrNull { output[it] } ?: -1
+                            conf = if (classIndex != -1) output[classIndex] else 0f
+                        }
+                        
+                        confidence = conf
+                        predictionResult = parsePredictionResult(modelType, classIndex)
                     } else {
                         _uiState.value = AIDiagnosticsState.Error("Inference failed. Please check if the model is downloaded correctly.")
                         return@launch

@@ -67,9 +67,9 @@ class TFLiteClassifier(private val modelFile: File) {
                     byteBuffer.put((value shr 8 and 0xFF).toByte())
                     byteBuffer.put((value and 0xFF).toByte())
                 } else {
-                    byteBuffer.putFloat(((value shr 16 and 0xFF) - 127.5f) / 127.5f)
-                    byteBuffer.putFloat(((value shr 8 and 0xFF) - 127.5f) / 127.5f)
-                    byteBuffer.putFloat(((value and 0xFF) - 127.5f) / 127.5f)
+                    byteBuffer.putFloat((value shr 16 and 0xFF) / 255.0f)
+                    byteBuffer.putFloat((value shr 8 and 0xFF) / 255.0f)
+                    byteBuffer.putFloat((value and 0xFF) / 255.0f)
                 }
             }
         }

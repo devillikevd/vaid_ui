@@ -188,6 +188,7 @@ fun ProfileTabContent(
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
                 }
+                /*
                 item {
                     SettingsItem(
                         title = "AI Diagnostics Models",
@@ -197,6 +198,7 @@ fun ProfileTabContent(
                         iconColor = MaterialTheme.colorScheme.primary
                     )
                 }
+                */
                 item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     PreferencesCard(

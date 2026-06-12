@@ -76,7 +76,7 @@
                     },
                     {
                         "name": "S3_PUBLIC_URL",
-                        "value": "https://swastik-prod-725098487373-ap-south-1-uploads.s3.ap-south-1.amazonaws.com"
+                        "value": "https://swastik-telemedicine-bucket.s3.ap-south-1.amazonaws.com"
                     },
                     {
                         "name": "FRONTEND_WEB_URL",
@@ -84,7 +84,7 @@
                     },
                     {
                         "name": "S3_BUCKET_NAME",
-                        "value": "swastik-prod-725098487373-ap-south-1-uploads"
+                        "value": "swastik-telemedicine-bucket"
                     },
                     {
                         "name": "SUPABASE_URL",
@@ -136,7 +136,7 @@
                     },
                     {
                         "name": "BUCKET_NAME",
-                        "value": "swastik-prod-725098487373-ap-south-1-uploads"
+                        "value": "swastik-telemedicine-bucket"
                     },
                     {
                         "name": "WEBRTC_TURN_USERNAME",

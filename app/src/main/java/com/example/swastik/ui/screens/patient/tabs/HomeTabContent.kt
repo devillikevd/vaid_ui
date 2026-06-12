@@ -164,11 +164,13 @@ fun HomeTabContent(
                 // Digital Health ID Card
                 CompactHealthIdCard(onClick = onNavigateToHealthCard)
 
-                // AI Diagnostics Banner
+                // AI Diagnostics Banner Disabled temporarily due to poor accuracy
+                /*
                 AIDiagnosticSection(
                     onClick = onNavigateToAIDiagnostics,
                     onSettingsClick = onNavigateToAIDiagnostics
                 )
+                */
 
                 // My Activity Section Title
                 Text(

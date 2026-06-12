@@ -10,7 +10,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -95,7 +97,8 @@ fun AIScanScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             
@@ -114,38 +117,8 @@ fun AIScanScreen(
                         contentDescription = "Selected Image",
                         modifier = Modifier.fillMaxSize()
                     )
-                    
-                    // Render Bounding Box Overlay if AI Scan Succeeded
-                    if (uiState is AIDiagnosticsState.Success) {
-                        val scan = (uiState as AIDiagnosticsState.Success).scan
-                        if (!scan.predictionResult.contains("Normal", ignoreCase = true) &&
-                            !scan.predictionResult.contains("Benign", ignoreCase = true) &&
-                            !scan.predictionResult.contains("No Tumor", ignoreCase = true)) {
-                            // Simulate Bounding Box for anomaly detection
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(120.dp) // Smaller, realistic bounding box size
-                                    .offset(x = (-20).dp, y = 30.dp) // Offset slightly to simulate realistic tumor location
-                                    .border(
-                                        width = 2.dp,
-                                        color = Color(0xFF00FF00), // Green looks more professional
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                            ) {
-                                Text(
-                                    text = scan.predictionResult,
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .background(Color(0xCC000000))
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                        .align(Alignment.TopStart)
-                                )
-                            }
-                        }
-                    }
+                    // AI Model is a classification model, not an object detection model,
+                    // so we do not draw bounding boxes.
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
