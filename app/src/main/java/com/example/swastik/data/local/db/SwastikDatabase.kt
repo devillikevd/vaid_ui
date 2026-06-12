@@ -24,10 +24,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CachedHospital::class,
         PendingSyncAction::class,
         com.example.swastik.data.model.DailyFitnessLog::class,
-        GuardianEventEntity::class,
-        AIScanEntity::class
+        GuardianEventEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {
@@ -41,7 +40,6 @@ abstract class SwastikDatabase : RoomDatabase() {
     abstract fun syncQueueDao(): SyncQueueDao
     abstract fun fitnessDao(): FitnessDao
     abstract fun guardianDao(): GuardianDao
-    abstract fun aiScanDao(): AIScanDao
 
     companion object {
         @Volatile
@@ -154,6 +152,12 @@ abstract class SwastikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `ai_scans`")
+            }
+        }
+
         fun getDatabase(context: Context): SwastikDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -161,7 +165,7 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_8_9, MIGRATION_9_10)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .fallbackToDestructiveMigration()
                     .build()

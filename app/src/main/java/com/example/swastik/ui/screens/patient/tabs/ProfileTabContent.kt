@@ -188,17 +188,7 @@ fun ProfileTabContent(
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
                 }
-                /*
-                item {
-                    SettingsItem(
-                        title = "AI Diagnostics Models",
-                        subtitle = "Manage downloaded AI models for local inference",
-                        icon = Icons.Outlined.CloudDownload,
-                        onClick = { showAIModelsSettings = true },
-                        iconColor = MaterialTheme.colorScheme.primary
-                    )
-                }
-                */
+
                 item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     PreferencesCard(
@@ -282,9 +272,7 @@ fun ProfileTabContent(
         NotificationSettingsDialog(onDismiss = { showNotificationDialog = false })
     }
 
-    if (showAIModelsSettings) {
-        AIModelsSettingsDialog(onDismiss = { showAIModelsSettings = false })
-    }
+
 
     if (showGuardianSettingsDialog) {
         com.example.swastik.ui.screens.patient.profile.GuardianSettingsDialog(onDismiss = { showGuardianSettingsDialog = false })

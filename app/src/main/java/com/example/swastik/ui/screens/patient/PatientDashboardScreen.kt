@@ -61,7 +61,7 @@ fun PatientDashboardScreen(
     onNavigateToDiagnostic: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
-    onNavigateToAIDiagnostics: () -> Unit = {},
+
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
@@ -252,8 +252,7 @@ fun PatientDashboardScreen(
                             onNavigateToChatbot = onNavigateToChatbot,
                             onNavigateToDiagnostic = onNavigateToDiagnostic,
                             onNavigateToHealthCard = onNavigateToHealthCard,
-                            onNavigateToAIDiagnostics = onNavigateToAIDiagnostics,
-                            onNavigateToAISettings = { viewModel.setTab(4) },
+
                             onNavigateToVitals = onNavigateToVitals,
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToBooking = onNavigateToBooking,

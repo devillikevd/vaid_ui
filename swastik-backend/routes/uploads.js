@@ -26,7 +26,7 @@ const {
     uploadVideo,
     uploadLicenseDocument,
     uploadEntityImage,
-    uploadAiProof,
+
     getPresignedUrl,
     getPresignedUploadUrl,
     getPublicObjectUrl,
@@ -159,29 +159,7 @@ router.post('/report', authenticateToken, upload.single('file'), validateMagicBy
     }
 });
 
-// ==================== AI PROOFS ====================
 
-/**
- * @route POST /api/uploads/ai-proof
- * @desc Upload an AI scan proof image
- * @access Private
- */
-router.post('/ai-proof', authenticateToken, upload.single('file'), validateMagicBytes(ALLOWED_IMAGE_MIMES), async (req, res, next) => {
-    try {
-        if (!req.file) {
-            throw new ApiError(400, 'No file uploaded');
-        }
-
-        const result = await uploadAiProof(req.file, req.user.id);
-
-        res.json({
-            success: true,
-            data: await buildUploadResponseData(result),
-        });
-    } catch (error) {
-        next(error);
-    }
-});
 
 // ==================== PRESCRIPTIONS ====================
 

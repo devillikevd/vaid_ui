@@ -54,7 +54,7 @@ const STORAGE_FOLDERS = {
   ENTITIES: 'entities',
   THUMBNAILS: 'thumbnails',
   MEDIUM: 'medium',
-  AI_PROOFS: 'ai_proofs',
+
 };
 
 // Image processing constants
@@ -504,10 +504,7 @@ const uploadEntityImage = async (file, entityId, entityType) => {
   return uploadBuffer(objectName, file.buffer, file.mimetype);
 };
 
-const uploadAiProof = async (file, patientId) => {
-  const objectName = generateObjectName(STORAGE_FOLDERS.AI_PROOFS, patientId, file.originalname);
-  return uploadBuffer(objectName, file.buffer, file.mimetype);
-};
+
 
 const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpirySeconds || 3600) => {
   if (!isStorageAvailable()) throw new Error('File storage is not available');
@@ -697,7 +694,7 @@ module.exports = {
   uploadVideo,
   uploadLicenseDocument,
   uploadEntityImage,
-  uploadAiProof,
+
   getPresignedUrl,
   getPresignedUploadUrl,
   signStorageUrl,

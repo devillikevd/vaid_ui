@@ -211,9 +211,6 @@ object AppModule {
     @Singleton
     fun provideGuardianDao(db: SwastikDatabase) = db.guardianDao()
 
-    @Provides
-    @Singleton
-    fun provideAIScanDao(db: SwastikDatabase) = db.aiScanDao()
 
     @Provides
     @Singleton
@@ -241,11 +238,5 @@ object AppModule {
         return com.example.swastik.notifications.AndroidAlarmScheduler(context)
     }
 
-    // ==================== ML Manager ====================
-    
-    @Provides
-    @Singleton
-    fun provideAIModelStorageManager(@ApplicationContext context: Context): com.example.swastik.utils.ml.AIModelStorageManager {
-        return com.example.swastik.utils.ml.AIModelStorageManager(context)
-    }
+
 }

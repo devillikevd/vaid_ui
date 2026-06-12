@@ -268,10 +268,7 @@ dependencies {
     // MediaPipe for Edge CV
     implementation("com.google.mediapipe:tasks-vision:0.10.0")
 
-    // TensorFlow Lite for on-device AI Diagnostics
-    implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
+
 
     // FFT math for rPPG calculations
     implementation("com.github.wendykierp:JTransforms:3.1")
