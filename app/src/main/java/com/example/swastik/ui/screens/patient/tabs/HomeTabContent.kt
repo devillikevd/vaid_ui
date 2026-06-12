@@ -48,6 +48,7 @@ fun HomeTabContent(
     onNavigateToOrderHistory: () -> Unit = {},
     onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
+    onNavigateToAIDiagnostics: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
     onNavigateToPrescriptions: () -> Unit = {},
     onNavigateToBooking: (String?) -> Unit = {},
@@ -59,7 +60,8 @@ fun HomeTabContent(
     onFindDoctorSpecialityClick: (String) -> Unit = {},
     onNavigateToCommunityQA: () -> Unit = {},
     onDoctorClick: (String) -> Unit = {},
-    onNavigateToAllRecommendedDoctors: () -> Unit = {}
+    onNavigateToAllRecommendedDoctors: () -> Unit = {},
+    onNavigateToAISettings: () -> Unit = {}
 ) {
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
@@ -112,6 +114,7 @@ fun HomeTabContent(
                             "prescriptions" -> onNavigateToPrescriptions()
                             "vitals" -> onNavigateToVitals()
                             "health card" -> onNavigateToHealthCard()
+                            "ai scanner", "ai diagnostics", "skin scan", "brain scan", "lung scan" -> onNavigateToAIDiagnostics()
                             "emergency", "sos", "ambulance" -> onNavigateToEmergency()
                             "ai assistant", "chatbot" -> onNavigateToChatbot()
                         }
@@ -160,6 +163,12 @@ fun HomeTabContent(
 
                 // Digital Health ID Card
                 CompactHealthIdCard(onClick = onNavigateToHealthCard)
+
+                // AI Diagnostics Banner
+                AIDiagnosticSection(
+                    onClick = onNavigateToAIDiagnostics,
+                    onSettingsClick = onNavigateToAIDiagnostics
+                )
 
                 // My Activity Section Title
                 Text(

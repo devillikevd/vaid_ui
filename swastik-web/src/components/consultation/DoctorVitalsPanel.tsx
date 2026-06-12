@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useVitalsStream, VitalsStreamData, VitalsAlert } from '@/hooks/useSocket';
+import { useVitalsStream, VitalsStreamData, VitalsAlert, useSharedAiProof } from '@/hooks/useSocket';
 import { featureTogglesApi, consultationsApi } from '@/lib/api';
 import {
     Activity, Heart, Wind, Thermometer, Eye, AlertTriangle,
@@ -181,6 +181,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     const [showSettings, setShowSettings] = useState(false);
 
     const { latestVitals, vitalsHistory, alerts } = useVitalsStream(consultationId, 'doctor', toggles);
+    const { latestProof } = useSharedAiProof(consultationId);
 
     // AI Assistant
     const [aiQuery, setAiQuery] = useState('');
@@ -336,6 +337,31 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                         </div>
                                     )}
                                 </div>
+
+                                {latestProof && (
+                                    <div className="bg-gradient-to-r from-emerald-900/50 to-teal-900/50 rounded-xl p-3 border border-emerald-500/30 mb-3 relative overflow-hidden">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Brain className="w-4 h-4 text-emerald-400" />
+                                            <span className="text-[10px] text-emerald-300 uppercase tracking-wider font-bold">Shared AI Diagnosis</span>
+                                            <span className="ml-auto text-[10px] text-emerald-500">
+                                                {latestProof.timestamp ? new Date(latestProof.timestamp).toLocaleTimeString() : 'Just now'}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-16 h-16 rounded bg-gray-800 flex-shrink-0 border border-gray-700 overflow-hidden">
+                                                <img src={latestProof.proofUrl} alt="AI Proof" className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex flex-col justify-center">
+                                                <div className="text-white font-semibold text-sm">
+                                                    {latestProof.modelType.toUpperCase()}: {latestProof.predictionResult}
+                                                </div>
+                                                <div className="text-emerald-400 text-xs mt-1 font-medium">
+                                                    Confidence: {(latestProof.confidence * 100).toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <MeasuredSignals vitals={latestVitals} />
 

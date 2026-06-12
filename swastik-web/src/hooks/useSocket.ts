@@ -1263,3 +1263,29 @@ export function useVitalsStream(
 
     return { latestVitals, vitalsHistory, alerts, aiInsights, sendVitals };
 }
+
+export interface SharedAiProof {
+    roomId: string;
+    proofUrl: string;
+    predictionResult: string;
+    confidence: number;
+    modelType: string;
+    timestamp?: number;
+}
+
+export function useSharedAiProof(roomId: string | null) {
+    const { on } = useSocket();
+    const [latestProof, setLatestProof] = useState<SharedAiProof | null>(null);
+
+    useEffect(() => {
+        if (!roomId) return;
+        const cleanup = on('video:ai_proof', (data: SharedAiProof) => {
+            if (data.roomId === roomId) {
+                setLatestProof({ ...data, timestamp: Date.now() });
+            }
+        });
+        return cleanup;
+    }, [on, roomId]);
+
+    return { latestProof };
+}

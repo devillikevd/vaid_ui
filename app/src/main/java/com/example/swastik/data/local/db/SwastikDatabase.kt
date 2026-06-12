@@ -24,9 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CachedHospital::class,
         PendingSyncAction::class,
         com.example.swastik.data.model.DailyFitnessLog::class,
-        GuardianEventEntity::class
+        GuardianEventEntity::class,
+        AIScanEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class SwastikDatabase : RoomDatabase() {
@@ -40,6 +41,7 @@ abstract class SwastikDatabase : RoomDatabase() {
     abstract fun syncQueueDao(): SyncQueueDao
     abstract fun fitnessDao(): FitnessDao
     abstract fun guardianDao(): GuardianDao
+    abstract fun aiScanDao(): AIScanDao
 
     companion object {
         @Volatile
@@ -135,6 +137,23 @@ abstract class SwastikDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `ai_scans` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `modelType` TEXT NOT NULL,
+                        `imageLocalPath` TEXT NOT NULL,
+                        `predictionResult` TEXT NOT NULL,
+                        `confidence` REAL NOT NULL,
+                        `timestamp` INTEGER NOT NULL,
+                        `isSharedWithDoctor` INTEGER NOT NULL,
+                        `uploadedUrl` TEXT
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getDatabase(context: Context): SwastikDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -142,7 +161,7 @@ abstract class SwastikDatabase : RoomDatabase() {
                     SwastikDatabase::class.java,
                     "swastik_cache_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_8_9)
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .fallbackToDestructiveMigration()
                     .build()

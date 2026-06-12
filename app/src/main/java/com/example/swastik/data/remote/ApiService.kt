@@ -171,6 +171,24 @@ interface ApiService {
     ): Response<ApiResponse<Any>>
 
     @Multipart
+    @POST("uploads/report")
+    suspend fun uploadReport(
+        @Part file: MultipartBody.Part,
+        @Part("type") type: RequestBody
+    ): Response<com.example.swastik.data.remote.dto.ApiResponse<com.example.swastik.data.remote.dto.ReportDto>>
+
+    @Multipart
+    @POST("uploads/ai-proof")
+    suspend fun uploadAiProof(
+        @Part file: MultipartBody.Part
+    ): Response<com.example.swastik.data.remote.dto.ApiResponse<com.example.swastik.data.remote.dto.UploadResponse>>
+
+    @GET("uploads/presigned-download")
+    suspend fun getPresignedDownloadUrl(
+        @Query("fileName") fileName: String
+    ): Response<com.example.swastik.data.remote.dto.ApiResponse<com.example.swastik.data.remote.dto.UploadResponse>>
+
+    @Multipart
     @POST("reports")
     suspend fun createPatientReport(
         @Part file: MultipartBody.Part? = null,

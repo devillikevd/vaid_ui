@@ -70,6 +70,7 @@ fun ProfileTabContent(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showFullScreenImage by remember { mutableStateOf<String?>(null) }
     var showPhotoOptions by remember { mutableStateOf(false) }
+    var showAIModelsSettings by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -187,6 +188,15 @@ fun ProfileTabContent(
                         onEmergencyClick = { showEmergencyContactsDialog = true }
                     )
                 }
+                item {
+                    SettingsItem(
+                        title = "AI Diagnostics Models",
+                        subtitle = "Manage downloaded AI models for local inference",
+                        icon = Icons.Outlined.CloudDownload,
+                        onClick = { showAIModelsSettings = true },
+                        iconColor = MaterialTheme.colorScheme.primary
+                    )
+                }
                 item { Text(stringResource(R.string.preferences), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) }
                 item {
                     PreferencesCard(
@@ -268,6 +278,10 @@ fun ProfileTabContent(
 
     if (showNotificationDialog) {
         NotificationSettingsDialog(onDismiss = { showNotificationDialog = false })
+    }
+
+    if (showAIModelsSettings) {
+        AIModelsSettingsDialog(onDismiss = { showAIModelsSettings = false })
     }
 
     if (showGuardianSettingsDialog) {

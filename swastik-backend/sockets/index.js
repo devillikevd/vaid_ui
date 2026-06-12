@@ -57,7 +57,6 @@ const safeHandler = (socket, handler) => {
 const hasRole = (socket, allowedRoles) => {
   return allowedRoles.includes(socket.userRole);
 };
-
 // Helper: validate required fields in data object
 const validateData = (data, requiredFields) => {
   if (!data || typeof data !== 'object') return false;
@@ -625,6 +624,19 @@ const initializeSocketIO = (io) => {
         consultationId: data.consultationId,
         from: userId
       });
+    }));
+
+    socket.on('video:ai_proof', safeHandler(socket, async (data) => {
+      if (!hasRole(socket, VIDEO_ROLES)) return;
+      if (!validateData(data, ['roomId', 'proofUrl', 'predictionResult'])) return;
+      if (!await ensureConsultationRoomAccess(socket, 'video', data.roomId)) return;
+
+      // Broadcast the AI proof to the other party (doctor) in the live consultation room securely
+      socket.to(`video:${data.roomId}`).emit('video:ai_proof', {
+        ...data,
+        from: userId
+      });
+      logSignalingEvent(data.roomId, userId, 'ai_proof');
     }));
 
     // ==================== CONSULTATION CHAT ====================

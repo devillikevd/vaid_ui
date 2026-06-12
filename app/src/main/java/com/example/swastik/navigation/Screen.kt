@@ -113,5 +113,11 @@ sealed class Screen(val route: String) {
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")
     object BookingHistory : Screen("booking_history")
+    
+    // AI Diagnostics
+    object AIDiagnosticsDashboard : Screen("ai_diagnostics_dashboard")
+    object AIScan : Screen("ai_scan/{modelType}") {
+        fun createRoute(modelType: String): String = "ai_scan/$modelType"
+    }
 
 }

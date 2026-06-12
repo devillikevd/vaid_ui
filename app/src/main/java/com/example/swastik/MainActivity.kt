@@ -294,8 +294,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 },
                 onNavigateToVitals = { /* handled internally or unused */ },
                 onNavigateToHealthCard = { navController.navigateSafe(Screen.HealthCard.route) },
+                onNavigateToAIDiagnostics = { navController.navigateSafe(Screen.AIDiagnosticsDashboard.route) },
                 onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) },
-                onNavigateToBookingHistory = { navController.navigateSafe(Screen.BookingHistory.route) },
                 onNavigateToMedicineDetail = { medicineId ->
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                 },
@@ -800,9 +800,35 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             )
         ) {
             AuthGuard(navController, tokenManager) {
-            ReportsScreen(
-                onBackClick = { navController.popBackStack() }
+                ReportsScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(Screen.AIDiagnosticsDashboard.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.diagnostic.AIDiagnosticsDashboardScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToScan = { modelType -> 
+                        navController.navigateSafe(Screen.AIScan.createRoute(modelType))
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.AIScan.route,
+            arguments = listOf(
+                navArgument("modelType") { type = NavType.StringType }
             )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val modelType = backStackEntry.arguments?.getString("modelType") ?: ""
+                com.example.swastik.ui.screens.patient.diagnostic.AIScanScreen(
+                    modelType = modelType,
+                    onBackClick = { navController.popBackStack() }
+                )
             }
         }
 

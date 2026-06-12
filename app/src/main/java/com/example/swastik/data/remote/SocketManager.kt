@@ -1027,17 +1027,34 @@ class SocketManager @Inject constructor(
      * The ambulance driver receives this as a live pickup-point update.
      */
     fun sendPatientLocationUpdate(requestId: String, latitude: Double, longitude: Double) {
-        if (socket?.connected() != true) return
         try {
             val payload = JSONObject().apply {
                 put("requestId", requestId)
-                put("latitude", latitude)
-                put("longitude", longitude)
+                put("lat", latitude)
+                put("lng", longitude)
             }
-            socket?.emit("patient:location-update", payload)
+            socket?.emit("location:update", payload)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send patient location", e)
+            Log.e(TAG, "Error sending location update", e)
         }
     }
 
+    /**
+     * Send AI Diagnostic Proof to the doctor during a live consultation.
+     */
+    fun sendAiProof(roomId: String, proofUrl: String, predictionResult: String, confidence: Float, modelType: String) {
+        try {
+            val payload = JSONObject().apply {
+                put("roomId", roomId)
+                put("proofUrl", proofUrl)
+                put("predictionResult", predictionResult)
+                put("confidence", confidence)
+                put("modelType", modelType)
+            }
+            socket?.emit("video:ai_proof", payload)
+            Log.d(TAG, "Sent AI proof for room $roomId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending AI proof", e)
+        }
+    }
 }

@@ -26,6 +26,7 @@ const {
     uploadVideo,
     uploadLicenseDocument,
     uploadEntityImage,
+    uploadAiProof,
     getPresignedUrl,
     getPresignedUploadUrl,
     getPublicObjectUrl,
@@ -148,6 +149,30 @@ router.post('/report', authenticateToken, upload.single('file'), validateMagicBy
         }
 
         const result = await uploadReport(req.file, req.user.id);
+
+        res.json({
+            success: true,
+            data: await buildUploadResponseData(result),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ==================== AI PROOFS ====================
+
+/**
+ * @route POST /api/uploads/ai-proof
+ * @desc Upload an AI scan proof image
+ * @access Private
+ */
+router.post('/ai-proof', authenticateToken, upload.single('file'), validateMagicBytes(ALLOWED_IMAGE_MIMES), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            throw new ApiError(400, 'No file uploaded');
+        }
+
+        const result = await uploadAiProof(req.file, req.user.id);
 
         res.json({
             success: true,
@@ -333,10 +358,12 @@ router.get('/presigned-download', authenticateToken, async (req, res, next) => {
         // 1. File belongs to the user (file path contains their user ID)
         // 2. User is an admin
         // 3. User is a doctor with an active/completed consultation with the file's patient
+        // 4. File is a public ecosystem asset (like AI models)
         const isOwner = fileName.includes(req.user.id);
         const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
+        const isPublicAsset = fileName.startsWith('models/');
 
-        if (!isOwner && !isAdmin) {
+        if (!isOwner && !isAdmin && !isPublicAsset) {
             // Check if the user is a doctor who has consulted with this patient
             let hasAccess = false;
             if (req.user.role === 'doctor') {
