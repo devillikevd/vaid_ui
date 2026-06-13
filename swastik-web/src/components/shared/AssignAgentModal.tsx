@@ -88,12 +88,12 @@ export function AssignAgentModal({ isOpen, onClose, orderId, orderType, onAssign
                                         <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>
                                         <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
                                             <Phone className="h-3 w-3" />
-                                            {agent.phone}
+                                            {agent.phone_number}
                                         </div>
                                     </div>
                                     <Button 
                                         size="sm" 
-                                        onClick={() => handleAssign(agent.id, agent.phone)}
+                                        onClick={() => handleAssign(agent.id, agent.phone_number)}
                                         disabled={assigningId !== null}
                                         className="bg-green-600 hover:bg-green-700"
                                     >
