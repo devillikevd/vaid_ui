@@ -180,6 +180,9 @@ fun DashboardScreen(
                     IconButton(onClick = { dashboardViewModel.loadDashboard() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
+                    IconButton(onClick = onNavigateToEmergencies) {
+                        Icon(Icons.Default.History, contentDescription = "History")
+                    }
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(Icons.Default.Person, contentDescription = "Profile")
                     }

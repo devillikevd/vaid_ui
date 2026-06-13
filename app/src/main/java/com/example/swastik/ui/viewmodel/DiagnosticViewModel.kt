@@ -207,7 +207,10 @@ class DiagnosticViewModel @Inject constructor(
     }
 
     fun selectTest(test: DiagnosticTestDto) {
-        _uiState.value = _uiState.value.copy(selectedTest = test)
+        val currentSelected = _uiState.value.selectedTest
+        _uiState.value = _uiState.value.copy(
+            selectedTest = if (currentSelected?.id == test.id) null else test
+        )
     }
 
     fun bookTest(
@@ -216,7 +219,8 @@ class DiagnosticViewModel @Inject constructor(
         collectionType: String? = "walk_in",
         collectionAddress: String? = null,
         patientPhone: String? = null,
-        notes: String? = null
+        notes: String? = null,
+        prescriptionId: String? = null
     ) {
         val center = _uiState.value.selectedCenter ?: return
         val test = _uiState.value.selectedTest ?: return
@@ -231,7 +235,8 @@ class DiagnosticViewModel @Inject constructor(
                 collectionType = collectionType,
                 collectionAddress = collectionAddress,
                 patientPhone = patientPhone,
-                notes = notes
+                notes = notes,
+                prescriptionId = prescriptionId
             )
             when (val result = repository.bookTest(request)) {
                 is Result.Success -> {

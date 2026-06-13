@@ -111,7 +111,7 @@ class DispatchService {
     this.pendingTimeouts = new Map(); // requestId → timeoutId
     this.ACCEPT_TIMEOUT_MS = 30_000;  // 30 s for each broadcast round
     this.MAX_BROADCAST_ROUNDS = 3;
-    this.BROADCAST_RADIUS_KM = [10, 25, 50]; // expanding radius per round
+    this.BROADCAST_RADIUS_KM = [10, 25, 42]; // expanding radius per round
   }
 
   async _resolveAmbulanceForUser(userId, { requireAvailable = false } = {}) {

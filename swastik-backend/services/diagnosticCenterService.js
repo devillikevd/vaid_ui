@@ -734,6 +734,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
       patient_id: patientId,
       center_id: centerId,
       test_id: testId,
+      prescription_id: bookingData.prescriptionId || bookingData.prescription_id || null,
       booking_date: bookingData.bookingDate || bookingData.booking_date,
       booking_time: bookingData.bookingTime || bookingData.booking_time || null,
       collection_type: bookingData.collectionType || bookingData.collection_type || 'walk_in',

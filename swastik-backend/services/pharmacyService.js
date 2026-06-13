@@ -201,7 +201,7 @@ const resolveInventoryRowForOrderItem = async (pharmacyId, item = {}, inventoryM
 
   const { data: inventoryRows, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, price, name, generic_name, medicine_id, quantity')
+    .select('id, price, name, generic_name, medicine_id, quantity, pack_size, unit_type')
     .eq('pharmacy_id', pharmacyId)
     .gt('quantity', 0)
     .or(orConditions.join(','))

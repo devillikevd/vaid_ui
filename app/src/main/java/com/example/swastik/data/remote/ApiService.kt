@@ -399,7 +399,8 @@ interface ApiService {
     suspend fun getNearbyMedicines(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
-        @Query("radius") radius: Int = 25
+        @Query("radius") radius: Int = 25,
+        @Query("limit") limit: Int = 100
     ): Response<ApiResponse<List<NearbyMedicineDto>>>
 
     @GET("medicines/{id}")

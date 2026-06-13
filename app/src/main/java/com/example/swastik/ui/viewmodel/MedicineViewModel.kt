@@ -317,8 +317,17 @@ class MedicineViewModel @Inject constructor(
         val state = _uiState.value
         return state.nearbyMedicines.filter { nearbyMedicine ->
             nearbyMedicine.inStock &&
-                (state.selectedCategory == null || nearbyMedicine.matchesSelectedCategory(state.selectedCategory))
+                (state.selectedCategory == null || nearbyMedicine.matchesSelectedCategory(state.selectedCategory)) &&
+                (state.searchQuery.isBlank() || nearbyMedicine.matchesSearchQuery(state.searchQuery))
         }
+    }
+
+    private fun NearbyMedicineDto.matchesSearchQuery(query: String): Boolean {
+        val q = query.lowercase(Locale.ROOT).trim()
+        if (q.isBlank()) return true
+        return name.lowercase(Locale.ROOT).contains(q) ||
+               (category?.lowercase(Locale.ROOT)?.contains(q) == true) ||
+               (pharmacyName?.lowercase(Locale.ROOT)?.contains(q) == true)
     }
 
     private fun Medicine.matchesSelectedCategory(category: MedicineCategory): Boolean {

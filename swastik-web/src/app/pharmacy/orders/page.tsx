@@ -182,7 +182,7 @@ export default function PharmacyOrdersPage() {
                                 </div>
                                 <div className="flex flex-shrink-0 items-center gap-4">
                                     {total > 0 ? <div className="flex items-center gap-1 font-bold text-gray-900 dark:text-gray-100"><IndianRupee className="h-4 w-4" />{Number(total).toFixed(0)}</div> : null}
-                                    {['pending', 'confirmed', 'processing', 'ready', 'dispatched'].includes(order.status) ? (
+                                    {['pending', 'confirmed', 'processing', 'ready', 'dispatched', 'out_for_delivery'].includes(order.status) ? (
                                         <div className="flex gap-1" onClick={(event) => event.stopPropagation()}>
                                             {order.status === 'pending' ? (
                                                 <button onClick={() => void handleStatus(order.id, 'confirmed')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50" title="Confirm">
@@ -204,7 +204,7 @@ export default function PharmacyOrdersPage() {
                                                     <Send className="h-4 w-4" />
                                                 </button>
                                             ) : null}
-                                            {order.status === 'dispatched' ? (
+                                            {order.status === 'dispatched' || order.status === 'out_for_delivery' ? (
                                                 <button onClick={() => void handleStatus(order.id, 'delivered')} disabled={actionLoading === order.id} className="rounded-lg p-1.5 text-green-600 hover:bg-green-50" title="Mark Delivered">
                                                     <CheckCircle className="h-4 w-4" />
                                                 </button>

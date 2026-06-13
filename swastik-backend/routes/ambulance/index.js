@@ -125,6 +125,33 @@ router.post('/cancel/:requestId', authenticate,
 router.get('/history', authenticate, asyncHandler(async (req, res) => {
   const { page = 1, limit = 10, status = null } = req.query;
   const result = await ambulanceService.getRequestHistory(req.user, +page, +limit, status);
+  const vehicles = await getVehiclesForUser(req.user);
+  const vehicleIds = (vehicles || []).map(v => v.id);
+
+  // Override status to 'declined' if the current user rejected it, 
+  // so the frontend can properly display it in the 'Declined' section
+  if (result.data && Array.isArray(result.data)) {
+    result.data = result.data.map(reqData => {
+      let history = [];
+      try {
+        history = typeof reqData.status_history === 'string' 
+          ? JSON.parse(reqData.status_history) 
+          : (reqData.status_history || []);
+      } catch(e) {}
+      
+      const isRejectedByUs = history.some(h => 
+        h.status === 'rejected' && (h.by === req.user.id || vehicleIds.includes(h.ambulanceId))
+      );
+      
+      const isAssignedToUs = reqData.vehicle_id && vehicleIds.includes(reqData.vehicle_id);
+
+      if (isRejectedByUs && !isAssignedToUs) {
+        return { ...reqData, status: 'declined' };
+      }
+      return reqData;
+    });
+  }
+  
   res.json({ success: true, ...result });
 }));
 
@@ -303,9 +330,26 @@ router.get('/dashboard', authenticate,
         .limit(20);
 
       targetedBroadcastRequests = (broadcastRequests || []).filter((request) => {
+        // If it's already accepted by us, it's covered by activeRequests, but keep it just in case
         if (request.vehicle_id && vehicleIds.includes(request.vehicle_id)) {
           return true;
         }
+
+        // Check if we rejected this broadcast
+        let history = [];
+        try {
+          history = typeof request.status_history === 'string' 
+            ? JSON.parse(request.status_history) 
+            : (request.status_history || []);
+        } catch(e) {}
+        
+        const isRejectedByUs = history.some(h => 
+          h.status === 'rejected' && (
+            (h.ambulanceId && vehicleIds.includes(h.ambulanceId)) || 
+            (h.by === req.user.id)
+          )
+        );
+        if (isRejectedByUs) return false;
 
         const broadcastVehicleIds = Array.isArray(request.broadcast_ambulance_ids)
           ? request.broadcast_ambulance_ids

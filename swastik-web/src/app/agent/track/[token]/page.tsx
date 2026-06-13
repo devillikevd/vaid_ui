@@ -21,7 +21,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
     useEffect(() => {
         const fetchOrder = async () => {
             try {
-                const res = await fetch(`${PUBLIC_API_URL}/delivery-agent/track/${token}`);
+                const res = await fetch(`${PUBLIC_API_URL}/delivery-agents/track/${token}`);
                 const data = await res.json();
                 if (data.success) {
                     setOrder(data.order);
@@ -51,7 +51,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
                 setLastLoc({ lat: latitude, lng: longitude });
                 // Push to backend
                 if (order?.agent_id) {
-                    await fetch(`${PUBLIC_API_URL.replace(/\/api$/, '')}/delivery-agent/location`, {
+                    await fetch(`${PUBLIC_API_URL}/delivery-agents/location`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ agent_id: order.agent_id, latitude, longitude })
@@ -78,7 +78,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
     const handleComplete = async () => {
         setCompleting(true);
         try {
-            const res = await fetch(`${PUBLIC_API_URL.replace(/\/api$/, '')}/delivery-agent/complete`, {
+            const res = await fetch(`${PUBLIC_API_URL}/delivery-agents/complete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token, type })

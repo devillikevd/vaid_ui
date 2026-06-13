@@ -67,7 +67,7 @@ fun EmergencyListScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("all" to "All", "active" to "Active", "completed" to "Completed").forEach { (key, label) ->
+                listOf("all" to "All", "active" to "Active", "completed" to "Completed", "declined" to "Declined").forEach { (key, label) ->
                     FilterChip(
                         selected = selectedFilter == key,
                         onClick = {
@@ -161,7 +161,7 @@ private fun EmergencyListItem(
         "arrived", "arrived_pickup" -> Color(0xFF00897B)
         "picked_up", "patient_onboard", "en_route_hospital" -> Color(0xFFD32F2F)
         "arrived_hospital" -> Color(0xFF2E7D32)
-        "timeout", "no_ambulance" -> Color(0xFFC62828)
+        "timeout", "no_ambulance", "declined", "rejected" -> Color(0xFFC62828)
         else -> Color(0xFFFF9800)
     }
 

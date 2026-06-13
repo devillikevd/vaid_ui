@@ -281,6 +281,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToReports = { navController.navigateSafe(Screen.Reports.route) },
                 onNavigateToPrescriptions = { navController.navigateSafe(Screen.Prescriptions.createRoute()) },
                 onNavigateToChatbot = { navController.navigateSafe(Screen.Chatbot.route) },
+                onNavigateToBookingHistory = { navController.navigateSafe(Screen.BookingHistory.route) },
                 onNavigateToBooking = { doctorId ->
                     if (doctorId != null) {
                         navController.navigateSafe(Screen.AppointmentBooking.createRoute(doctorId = doctorId))
@@ -691,7 +692,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     pharmacyId = pharmacyId,
                     onBackClick = { navController.popBackStack() },
                     onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
-                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) }
+                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
+                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
                 )
             }
         }

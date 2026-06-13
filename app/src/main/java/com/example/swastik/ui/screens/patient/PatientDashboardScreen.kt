@@ -60,6 +60,7 @@ fun PatientDashboardScreen(
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToDiagnostic: () -> Unit = {},
     onNavigateToOrderHistory: () -> Unit = {},
+    onNavigateToBookingHistory: () -> Unit = {},
     onNavigateToHealthCard: () -> Unit = {},
 
     onNavigateToMedicineDetail: (String) -> Unit = {},
@@ -252,7 +253,8 @@ fun PatientDashboardScreen(
                             onNavigateToChatbot = onNavigateToChatbot,
                             onNavigateToDiagnostic = onNavigateToDiagnostic,
                             onNavigateToHealthCard = onNavigateToHealthCard,
-
+                            onNavigateToOrderHistory = onNavigateToOrderHistory,
+                            onNavigateToBookingHistory = onNavigateToBookingHistory,
                             onNavigateToVitals = onNavigateToVitals,
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
                             onNavigateToBooking = onNavigateToBooking,

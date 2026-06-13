@@ -31,6 +31,8 @@ export interface InventoryItem {
     quantity: number;
     minQuantity: number;
     unit: string;
+    packSize?: number;
+    unitType?: string;
     price?: number;
     expiryDate?: string;
     manufacturer?: string;
@@ -165,6 +167,8 @@ function normalizeInventoryItem(raw: Record<string, any>): InventoryItem {
         quantity,
         minQuantity,
         unit: raw.unit || 'units',
+        packSize: Number(raw.pack_size ?? raw.packSize ?? 1),
+        unitType: raw.unit_type || raw.unitType || 'unit',
         price: raw.price ?? raw.mrp ?? undefined,
         expiryDate: raw.expiryDate || raw.expiry_date || undefined,
         manufacturer: raw.manufacturer || undefined,

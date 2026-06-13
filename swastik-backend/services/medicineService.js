@@ -232,7 +232,7 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
 
   const { data: inventory, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price')
+    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price, pack_size, unit_type')
     .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0);
 
@@ -277,7 +277,7 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
 
   const { data: inventoryItems, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, pharmacy_id, medicine_id, name, generic_name, category, price, quantity')
+    .select('id, pharmacy_id, medicine_id, name, generic_name, category, price, quantity, pack_size, unit_type')
     .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0)
     .limit(limit * 5);

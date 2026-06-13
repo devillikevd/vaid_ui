@@ -85,8 +85,7 @@ fun HospitalFinderScreen(
     val requestedFocusFacilityId = focusedFacilityId?.takeIf { it.isNotBlank() }
     val requestedFocusFacilityName = focusedFacilityName?.takeIf { it.isNotBlank() }
     var selectedFacilityTypeOverride by remember { mutableStateOf<FacilityType?>(initialFacilityType) }
-    var selectedFacility by remember { mutableStateOf<MedicalFacility?>(null) }
-    var showBottomSheet by remember { mutableStateOf(false) }
+    
     var showFilterSheet by remember { mutableStateOf(false) }
     var isMapView by remember { mutableStateOf(false) } // Defaulting to List View as requested
     var searchQuery by remember { mutableStateOf("") }
@@ -113,8 +112,13 @@ fun HospitalFinderScreen(
     var minimumRating by remember { mutableFloatStateOf(0f) }
     var hospitalTypeFilter by remember { mutableStateOf<String?>(null) }
     var emergencyServicesOnly by remember { mutableStateOf(false) }
+    var bedsAvailableOnly by remember { mutableStateOf(false) }
 
     val hospitalState by viewModel.uiState.collectAsState()
+    
+    // Instead of local state, we use ViewModel state for rotation persistence
+    val selectedFacility = hospitalState.selectedFacilityForSheet
+    val showBottomSheet = hospitalState.activeSheetType != null
     val facilities = hospitalState.facilities
     val selectedFacilityType = selectedFacilityTypeOverride
     val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -166,8 +170,9 @@ fun HospitalFinderScreen(
             facility.type == FacilityType.HOSPITAL &&
                 facility.hospitalSubType.equals(hospitalTypeFilter, ignoreCase = true)
             )
+        val bedsMatch = !bedsAvailableOnly || (facility.bedsAvailable != null && facility.bedsAvailable > 0)
 
-        typeMatch && searchMatch && openMatch && ratingMatch && emergencyMatch && distanceMatch && hospitalTypeMatch
+        typeMatch && searchMatch && openMatch && ratingMatch && emergencyMatch && distanceMatch && hospitalTypeMatch && bedsMatch
     }
 
     // Automatically ensure list view is shown if results are found near user
@@ -196,8 +201,7 @@ fun HospitalFinderScreen(
         }
 
         if (targetFacility != null) {
-            selectedFacility = targetFacility
-            showBottomSheet = true
+            viewModel.openFacilitySheet(targetFacility, targetFacility.type.name)
             isMapView = true
             if (searchQuery != targetFacility.name) {
                 searchQuery = targetFacility.name
@@ -323,9 +327,8 @@ fun HospitalFinderScreen(
                 },
                 isLoading = hospitalState.isEmergencyLoading,
                 selectedFacilityType = selectedFacilityType,
-                onFacilityClick = {
-                    selectedFacility = it
-                    showBottomSheet = true
+                onFacilityClick = { 
+                    viewModel.openFacilitySheet(it, it.type.name)
                 },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -415,8 +418,7 @@ fun HospitalFinderScreen(
                             userLng = hospitalState.userLongitude,
                             focusedFacilityId = selectedFacility?.id ?: requestedFocusFacilityId,
                             onFacilityClick = { facility ->
-                                selectedFacility = facility
-                                showBottomSheet = true
+                                viewModel.openFacilitySheet(facility, facility.type.name)
                             }
                         )
 
@@ -448,8 +450,7 @@ fun HospitalFinderScreen(
                             FacilityListCard(
                                 facility = facility,
                                 onClick = {
-                                    selectedFacility = facility
-                                    showBottomSheet = true
+                                    viewModel.openFacilitySheet(facility, facility.type.name)
                                 },
                                 isDarkMode = resolvedDarkMode
                             )
@@ -463,9 +464,8 @@ fun HospitalFinderScreen(
         if (showBottomSheet && selectedFacility != null) {
             val facility = selectedFacility ?: return@Scaffold
             ModalBottomSheet(
-                onDismissRequest = {
-                    showBottomSheet = false
-                    selectedFacility = null
+                onDismissRequest = { 
+                    viewModel.closeFacilitySheet()
                     viewModel.clearPharmacyMedicines()
                     viewModel.clearSelectedHospitalDetails()
                     viewModel.clearClinicDoctors()
@@ -542,15 +542,15 @@ fun HospitalFinderScreen(
                             },
                             cartItemCount = pharmacyCartState.totalItems,
                             onViewCart = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onNavigateToCart()
                             },
                             onViewOrders = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onNavigateToOrders()
                             },
                             onViewDetails = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onPharmacyDetailClick(facility.id)
                             },
                             isDarkMode = resolvedDarkMode,
@@ -569,7 +569,7 @@ fun HospitalFinderScreen(
                             isDetailsLoading = hospitalState.isHospitalDetailsLoading,
                             detailsError = hospitalState.hospitalDetailsError,
                             onDoctorBook = { doctor ->
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onDoctorBookClick(doctor, sheetFacility)
                             },
                             onBookAppointment = {
@@ -583,7 +583,7 @@ fun HospitalFinderScreen(
                                         ).show()
                                     }
                                     preferredDoctor != null -> {
-                                        showBottomSheet = false
+                                        viewModel.closeFacilitySheet()
                                         onDoctorBookClick(preferredDoctor, sheetFacility)
                                     }
                                     else -> {
@@ -596,7 +596,7 @@ fun HospitalFinderScreen(
                                 }
                             },
                             onViewDetails = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onHospitalClick(facility.id)
                             },
                             isDarkMode = resolvedDarkMode
@@ -612,11 +612,11 @@ fun HospitalFinderScreen(
                             clinicDoctors = hospitalState.clinicDoctors,
                             isDoctorsLoading = hospitalState.isClinicDoctorsLoading,
                             onDoctorBook = { doctor ->
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onDoctorBookClick(doctor, facility)
                             },
                             onViewDetails = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onClinicClick(facility.id)
                             },
                             onBookAppointment = {
@@ -632,7 +632,7 @@ fun HospitalFinderScreen(
                                 } ?: facility.doctors.firstOrNull()
 
                                 if (preferredDoctor != null) {
-                                    showBottomSheet = false
+                                    viewModel.closeFacilitySheet()
                                     onDoctorBookClick(preferredDoctor, facility)
                                 } else {
                                     android.widget.Toast.makeText(
@@ -649,11 +649,11 @@ fun HospitalFinderScreen(
                         DiagnosticCenterDetailSheet(
                             facility = facility,
                             onBookTest = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onNavigateToDiagnosticBooking(facility.id)
                             },
                             onViewDetails = {
-                                showBottomSheet = false
+                                viewModel.closeFacilitySheet()
                                 onDiagnosticDetailClick(facility.id)
                             },
                             isDarkMode = resolvedDarkMode
@@ -684,7 +684,7 @@ fun HospitalFinderScreen(
                         medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
                         medicineViewModel.setDeliveryAddress(address)
                         medicineViewModel.setPatientPhone(phone)
-                        items.forEach { item ->
+                        items.forEach { (item, orderQuantity) ->
                             val medicine = Medicine(
                                 id = item.medicineId ?: item.id,
                                 inventoryItemId = item.id,
@@ -696,11 +696,12 @@ fun HospitalFinderScreen(
                                 stockCount = item.quantity ?: 0
                             )
                             medicineViewModel.addToCart(medicine, selectedFacility!!.id, selectedFacility!!.name)
+                            medicineViewModel.updateCartQuantity(item.id, orderQuantity)
                         }
                     }
                     medicineViewModel.placeOrder()
                     showPharmacyBookingDialog = false
-                    showBottomSheet = false
+                    viewModel.closeFacilitySheet()
                     onNavigateToOrders()
                 }
             )
@@ -724,6 +725,8 @@ fun HospitalFinderScreen(
                     onHospitalTypeChange = { hospitalTypeFilter = it },
                     emergencyServicesOnly = emergencyServicesOnly,
                     onEmergencyServicesChange = { emergencyServicesOnly = it },
+                    bedsAvailableOnly = bedsAvailableOnly,
+                    onBedsAvailableChange = { bedsAvailableOnly = it },
                     showHospitalTypeFilter = selectedFacilityType == null || selectedFacilityType == FacilityType.HOSPITAL,
                     onApplyFilters = { 
                         showFilterSheet = false
@@ -810,6 +813,8 @@ private fun FilterBottomSheet(
     onHospitalTypeChange: (String?) -> Unit,
     emergencyServicesOnly: Boolean,
     onEmergencyServicesChange: (Boolean) -> Unit,
+    bedsAvailableOnly: Boolean,
+    onBedsAvailableChange: (Boolean) -> Unit,
     showHospitalTypeFilter: Boolean,
     onApplyFilters: () -> Unit,
     isDarkMode: Boolean
@@ -842,6 +847,7 @@ private fun FilterBottomSheet(
                 onRatingChange(0f)
                 onHospitalTypeChange(null)
                 onEmergencyServicesChange(false)
+                onBedsAvailableChange(false)
             }) {
                 Text(stringResource(R.string.reset), color = SwastikPrimary)
             }
@@ -1017,6 +1023,38 @@ private fun FilterBottomSheet(
             }
         }
 
+        if (showHospitalTypeFilter) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Beds Available Toggle
+            FilterSectionCard(
+                icon = Icons.Default.Bed,
+                title = "Beds Available",
+                cardColor = cardColor
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Only hospitals with available beds",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
+                    )
+                    Switch(
+                        checked = bedsAvailableOnly,
+                        onCheckedChange = onBedsAvailableChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = SwastikPrimary
+                        )
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Apply Filters Button
@@ -1184,9 +1222,7 @@ private fun FacilityDetailSheet(
                                         text = facility.name,
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 18.sp,
-                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
                                     )
                                     Text(
                                         text = facility.type.getDisplayName(),
@@ -1195,7 +1231,6 @@ private fun FacilityDetailSheet(
                                     )
                                 }
                             }
-                            StatusBadge(facility = facility)
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1203,30 +1238,34 @@ private fun FacilityDetailSheet(
                         // Rating and Distance
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFFC107),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    " ${facility.rating} (${facility.reviewCount} reviews)",
-                                    fontSize = 13.sp,
-                                    color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
-                                )
+                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFC107),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        " ${facility.rating} (${facility.reviewCount} reviews)",
+                                        fontSize = 13.sp,
+                                        color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                    )
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = SwastikPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = SwastikPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
-                            }
+                            StatusBadge(facility = facility)
                         }
                     }
                 }
@@ -1694,7 +1733,7 @@ private fun MedicalStoreDetailSheet(
         state = listState,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 32.dp)
+            .padding(bottom = 16.dp)
     ) {
         item {
             Box(
@@ -1789,9 +1828,7 @@ private fun MedicalStoreDetailSheet(
                                         text = facility.name,
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 18.sp,
-                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
                                     )
                                     Text(
                                         text = "Medical Store",
@@ -1800,7 +1837,6 @@ private fun MedicalStoreDetailSheet(
                                     )
                                 }
                             }
-                            StatusBadge(facility = facility)
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1808,26 +1844,30 @@ private fun MedicalStoreDetailSheet(
                         // Rating and Distance
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFFC107),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFC107),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
-                            }
+                            StatusBadge(facility = facility)
                         }
 
                         // Features Badges
@@ -1851,6 +1891,37 @@ private fun MedicalStoreDetailSheet(
                         }
                     }
                 }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Quick Actions
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickActionButton(
+                    icon = Icons.Default.Call, label = "Call", color = Color(0xFF4CAF50),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) com.example.swastik.utils.NavigationHelper.openDialer(storeContext, facility.phone) }
+                )
+                QuickActionButton(
+                    icon = Icons.Default.Directions, label = "Directions", color = Color(0xFF2196F3),
+                    modifier = Modifier.weight(1f),
+                    onClick = { com.example.swastik.utils.NavigationHelper.openDirections(storeContext, facility.latitude, facility.longitude, facility.name) }
+                )
+                QuickActionButton(
+                    icon = androidx.compose.material.icons.Icons.Default.Message,
+                    label = "WhatsApp",
+                    color = Color(0xFF25D366),
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (facility.phone.isNotBlank()) com.example.swastik.utils.NavigationHelper.openWhatsApp(storeContext, facility.phone) }
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
@@ -2263,25 +2334,31 @@ private fun ClinicDetailSheet(
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column {
-                                    Text(facility.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(facility.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B))
                                     Text(stringResource(R.string.clinic), fontSize = 14.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
                                 }
                             }
-                            StatusBadge(facility = facility)
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Rating, Distance
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
-                                Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                                    Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                    Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                                Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
-                            }
+                            StatusBadge(facility = facility)
                         }
 
                         // Specialization badges
@@ -2477,7 +2554,7 @@ private fun DiagnosticCenterDetailSheet(
         state = listState,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 32.dp)
+            .padding(bottom = 16.dp)
     ) {
         item {
             Box(
@@ -2536,65 +2613,87 @@ private fun DiagnosticCenterDetailSheet(
                     .fillMaxWidth()
             ) {
                 Spacer(modifier = Modifier.height(24.dp))
-                // Header
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                // Sticky Header Card
+                Card(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF7C3AED).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Icon(Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(facility.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.diagnostic_center), fontSize = 14.sp, color = subtextColor)
-                }
-            }
-            StatusBadge(facility = facility)
-        }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .background(if (isDarkMode) MaterialTheme.colorScheme.surface else Color(0xFFF1F5F9), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Science, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(28.dp))
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = facility.name,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 18.sp,
+                                        color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+                                    )
+                                    Text(stringResource(R.string.diagnostic_center), fontSize = 14.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                            }
+                        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-        // Rating and Distance
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
-                Text(" ${facility.rating}", fontSize = 14.sp, color = textColor)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                Text(" ${facility.distance}", fontSize = 14.sp, color = textColor)
-            }
-        }
+                        // Rating and Distance
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                                    Text(" ${facility.rating}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(16.dp))
+                                    Text(" ${facility.distance}", fontSize = 13.sp, color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B))
+                                }
+                            }
+                            StatusBadge(facility = facility)
+                        }
 
-        // Specialties
-        if (facility.specializations.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(facility.specializations) { spec ->
-                    Box(
-                        modifier = Modifier
-                            .background(Color(0xFF7C3AED).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(spec, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        // Specialties
+                        if (facility.specializations.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(facility.specializations) { spec ->
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Color(0xFF7C3AED).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(spec, fontSize = 11.sp, color = Color(0xFF7C3AED), fontWeight = FontWeight.Medium)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+
 
         // Quick Actions
         Column(
@@ -3831,7 +3930,9 @@ private fun FacilityListCard(
                             overflow = TextOverflow.Ellipsis,
                             color = textColor
                         )
-                        StatusBadge(facility = facility)
+                        if (facility.type != FacilityType.DIAGNOSTIC_CENTER && facility.type != FacilityType.MEDICAL_STORE) {
+                            StatusBadge(facility = facility)
+                        }
                     }
                     Text(
                         text = facility.type.getDisplayName(),
@@ -3936,9 +4037,7 @@ private fun StatusBadge(facility: MedicalFacility, small: Boolean = false) {
     var statusColor = if (facility.isOpen) Color(0xFF4CAF50) else Color(0xFFE53935)
     var bgColor = if (facility.isOpen) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
 
-    if (facility.is24Hours) {
-        statusText = "Open 24/7"
-    } else if (facility.isOpen && !facility.closeTime.isNullOrBlank()) {
+    if (facility.isOpen && !facility.closeTime.isNullOrBlank()) {
         try {
             val closeParts = facility.closeTime.split(":")
             if (closeParts.size >= 2) {

@@ -38,5 +38,14 @@
 \i 023_clinic_doctor_invites.sql
 \i 024_facility_provider_associations.sql
 \i 025_patient_record_access.sql
-
+\i 026_diagnostic_booking_manual_confirmation.sql
+\i 027_outbreak_detection.sql
+\i 028_community_qa.sql
+\i 029_reviews_trigger.sql
+\i 030_doctor_profile_enhancements.sql
+\i 031_hospital_ambulance_invites.sql
+\i 032_doctor_slots_date_migration.sql
+\i 033_delivery_tracking.sql
+\i 034_pharmacy_inventory_pack_size.sql
+\i 035_diagnostic_booking_prescription.sql
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

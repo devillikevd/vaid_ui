@@ -623,14 +623,24 @@ class AmbulanceService {
     if (patientId && role === 'patient') {
       query = query.eq('patient_id', patientId);
     } else if (vehicleIds.length > 0) {
-      query = query.in('vehicle_id', vehicleIds);
+      const declinedOrConditions = vehicleIds.map(vid => `status_history.cs.[{"status":"rejected","ambulanceId":"${vid}"}]`).join(',');
+      const assignedCondition = `vehicle_id.in.(${vehicleIds.join(',')})`;
+      
+      if (status === 'declined') {
+        query = query.or(declinedOrConditions);
+      } else if (!status || status === 'all') {
+        // For 'all', we want either assigned to us OR rejected by us
+        query = query.or(`${assignedCondition},${declinedOrConditions}`);
+      } else {
+        query = query.in('vehicle_id', vehicleIds);
+      }
     } else if (patientId) {
       query = query.eq('patient_id', patientId);
     } else {
       return { data: [], pagination: { page, limit, total: 0, totalPages: 1 } };
     }
 
-    if (status) {
+    if (status && status !== 'declined') {
       const normalizedStatus = String(status).toLowerCase();
       if (normalizedStatus === 'active') {
         query = query.in('status', [

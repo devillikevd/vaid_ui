@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS pharmacy_inventory (
     mrp DECIMAL(10, 2),
     discount_percent DECIMAL(5, 2) DEFAULT 0,
     quantity INTEGER NOT NULL DEFAULT 0,
+    pack_size INTEGER DEFAULT 1,
+    unit_type VARCHAR(50) DEFAULT 'unit',
     reorder_level INTEGER DEFAULT 10,
     expiry_date DATE,
     batch_number TEXT,

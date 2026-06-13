@@ -401,7 +401,7 @@ fun QuickActionGridCard(
             .height(130.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
     ) {
@@ -423,8 +423,8 @@ fun QuickActionGridCard(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-                                MaterialTheme.colorScheme.surface
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.90f),
+                                MaterialTheme.colorScheme.primaryContainer
                             )
                         )
                     )

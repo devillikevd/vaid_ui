@@ -98,10 +98,11 @@ router.post('/book',
     body('collectionType').optional().isIn(['walk_in', 'home_collection']).withMessage('Invalid collection type'),
     body('collectionAddress').if(body('collectionType').equals('home_collection'))
       .notEmpty().withMessage('Address is required for home collection'),
+    body('prescriptionId').optional().isUUID().withMessage('Invalid prescription ID format'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone } = req.body;
+    const { centerId, testId, bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId } = req.body;
 
     // DC5: Use service-layer helpers instead of inline Supabase calls
     const patientId = await diagnosticCenterService.resolvePatientId(req.user.id);
@@ -113,7 +114,7 @@ router.post('/book',
         patientId,
         centerId,
         testId,
-        { bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone }
+        { bookingDate, bookingTime, collectionType, collectionAddress, notes, patientPhone, prescriptionId }
     );
 
     // DC5: Use service-layer helper for center owner lookup

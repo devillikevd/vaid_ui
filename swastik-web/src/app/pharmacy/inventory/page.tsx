@@ -36,6 +36,8 @@ export default function PharmacyInventoryPage() {
     const [form, setForm] = useState({
         name: '',
         quantity: '',
+        packSize: '1',
+        unitType: 'unit',
         price: '',
         manufacturer: '',
         expiryDate: '',
@@ -60,7 +62,7 @@ export default function PharmacyInventoryPage() {
     }, [deferredSearchQuery, tab]);
 
     const resetForm = () => {
-        setForm({ name: '', quantity: '', price: '', manufacturer: '', expiryDate: '', minQuantity: '10' });
+        setForm({ name: '', quantity: '', packSize: '1', unitType: 'unit', price: '', manufacturer: '', expiryDate: '', minQuantity: '10' });
         setShowAdd(false);
         setEditId(null);
     };
@@ -71,6 +73,8 @@ export default function PharmacyInventoryPage() {
         const success = await addInventoryItem({
             name: form.name,
             quantity: parseInt(form.quantity, 10) || 0,
+            pack_size: parseInt(form.packSize, 10) || 1,
+            unit_type: form.unitType || 'unit',
             price: parseFloat(form.price) || 0,
             manufacturer: form.manufacturer,
             expiryDate: form.expiryDate || undefined,
@@ -89,6 +93,8 @@ export default function PharmacyInventoryPage() {
         const success = await updateInventoryItem(editId, {
             name: form.name,
             quantity: parseInt(form.quantity, 10) || 0,
+            pack_size: parseInt(form.packSize, 10) || 1,
+            unit_type: form.unitType || 'unit',
             price: parseFloat(form.price) || 0,
             manufacturer: form.manufacturer,
             expiryDate: form.expiryDate || undefined,
@@ -154,6 +160,8 @@ export default function PharmacyInventoryPage() {
         setForm({
             name: item.name || '',
             quantity: String(item.quantity ?? 0),
+            packSize: String(item.packSize ?? 1),
+            unitType: item.unitType || 'unit',
             price: String(item.price ?? ''),
             manufacturer: item.manufacturer || '',
             expiryDate: item.expiryDate || '',
@@ -251,8 +259,24 @@ export default function PharmacyInventoryPage() {
                         <div className="space-y-3">
                             <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter medicine name" />
                             <div className="grid grid-cols-2 gap-3">
-                                <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} />
-                                <Input label="Price (₹)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} />
+                                <Input label="Total Loose Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="Total pills" />
+                                <Input label="Price (₹ per Pack)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Input label="Pack Size (e.g. 15)" type="number" value={form.packSize} onChange={(e) => setForm((current) => ({ ...current, packSize: e.target.value }))} placeholder="Pills per strip" />
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Type</label>
+                                    <select
+                                        value={form.unitType}
+                                        onChange={(e) => setForm((current) => ({ ...current, unitType: e.target.value }))}
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                    >
+                                        <option value="unit">Unit</option>
+                                        <option value="strip">Strip</option>
+                                        <option value="bottle">Bottle</option>
+                                        <option value="tube">Tube</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <Input label="Minimum Stock" type="number" value={form.minQuantity} onChange={(e) => setForm((current) => ({ ...current, minQuantity: e.target.value }))} />

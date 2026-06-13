@@ -51,6 +51,9 @@ data class HospitalFinderUiState(
     // Pharmacy inventory
     val pharmacyInventory: List<PharmacyInventoryItemDto> = emptyList(),
     val isPharmacyInventoryLoading: Boolean = false,
+    // Bottom Sheet UI State (to survive rotation)
+    val selectedFacilityForSheet: MedicalFacility? = null,
+    val activeSheetType: String? = null
 )
 
 @HiltViewModel
@@ -430,6 +433,22 @@ class HospitalFinderViewModel @Inject constructor(
             selectedHospitalDetails = null,
             isHospitalDetailsLoading = false,
             hospitalDetailsError = null
+        )
+    }
+
+    // ==================== UI State Management ====================
+
+    fun openFacilitySheet(facility: MedicalFacility, type: String) {
+        _uiState.value = _uiState.value.copy(
+            selectedFacilityForSheet = facility,
+            activeSheetType = type
+        )
+    }
+
+    fun closeFacilitySheet() {
+        _uiState.value = _uiState.value.copy(
+            selectedFacilityForSheet = null,
+            activeSheetType = null
         )
     }
 

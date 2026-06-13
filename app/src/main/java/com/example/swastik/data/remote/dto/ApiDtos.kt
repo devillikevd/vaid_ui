@@ -1089,7 +1089,8 @@ data class DiagnosticBookingRequest(
     val collectionType: String?,
     val collectionAddress: String?,
     val patientPhone: String? = null,
-    val notes: String?
+    val notes: String?,
+    val prescriptionId: String? = null
 )
 
 data class DiagnosticBookingDto(
@@ -1109,6 +1110,7 @@ data class DiagnosticBookingDto(
     @SerializedName("result_uploaded_at") val resultUploadedAt: String?,
     @SerializedName("tracking_token") val trackingToken: String?,
     val notes: String?,
+    @SerializedName("prescription_id") val prescriptionId: String?,
     @SerializedName("created_at") val createdAt: String?,
     val test: DiagnosticTestDto?,
     val center: DiagnosticCenterDto?,
@@ -1229,6 +1231,8 @@ data class PharmacyInventoryItemDto(
     val quantity: Int?,
     val price: Float?,
     val mrp: Float?,
+    @SerializedName("pack_size") val packSize: Int? = 1,
+    @SerializedName("unit_type") val unitType: String? = "unit",
     val manufacturer: String?,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean?,
     @SerializedName("expiry_date") val expiryDate: String?,

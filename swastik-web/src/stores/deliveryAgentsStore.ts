@@ -66,7 +66,7 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
                 throw new Error(response.error);
             }
             set({ loading: false });
-            return { success: true, trackingToken: response.tracking_token as string };
+            return { success: true, trackingToken: (response.order as any)?.tracking_token as string };
         } catch (error: any) {
             set({ error: error.message || 'Failed to assign agent', loading: false });
             return { success: false };

@@ -6,9 +6,14 @@ import android.location.LocationManager
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -22,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -34,7 +40,9 @@ import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
 import androidx.compose.material3.MaterialTheme
 
-private val SwastikPrimary = Color(0xFF00796B) // Updated to ecosystem color
+private val SwastikPrimary = Color(0xFF00695C)
+private val SwastikPrimaryLight = Color(0xFFE0F2F1)
+private val SwastikPrimaryDark = Color(0xFF004D40)
 
 /**
  * Diagnostic Booking Screen — search centers, view tests, and book.
@@ -59,6 +67,10 @@ fun DiagnosticBookingScreen(
     var collectionAddress by remember { mutableStateOf("") }
     var patientPhone by remember { mutableStateOf("") }
     
+    LaunchedEffect(Unit) {
+        patientDashboardViewModel.loadDashboard()
+    }
+
     LaunchedEffect(patientProfile) {
         if (patientPhone.isBlank() && !patientProfile?.phoneNumber.isNullOrBlank()) {
             patientPhone = patientProfile?.phoneNumber ?: ""
@@ -191,7 +203,8 @@ fun DiagnosticBookingScreen(
                     onBackToList = {
                         viewModel.searchCenters(searchQuery)
                         viewModel.resetBooking()
-                    }
+                    },
+                    patientDashboardViewModel = patientDashboardViewModel
                 )
             } else {
                 // Show centers list
@@ -316,7 +329,8 @@ fun DiagnosticBookingScreen(
                             androidx.compose.material3.Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                                elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Column(Modifier.padding(16.dp)) {
                                     Text(
@@ -348,6 +362,7 @@ fun DiagnosticBookingScreen(
                             patientPhone = if (collectionType == "home_collection") patientPhone else null
                         )
                         showBookingDialog = false
+                        onNavigateToBookingHistory()
                     },
                     enabled = bookingDate.isNotBlank() && (collectionType != "home_collection" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank())),
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
@@ -423,45 +438,126 @@ fun DiagnosticBookingScreen(
 @Composable
 private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
-        onClick = onClick
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(SwastikPrimary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Biotech, null, tint = SwastikPrimary, modifier = Modifier.size(28.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(center.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(center.address ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    center.rating?.let {
-                        Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                        Text(" ${String.format(Locale.US, "%.1f", it)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF7C3AED).copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Science,
+                        contentDescription = null,
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = center.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     }
-                    center.distance?.let {
-                        Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                        Text(" ${String.format(Locale.US, "%.1f", it)} km", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = "Diagnostic Center",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        center.rating?.let {
+                            Icon(
+                                Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFC107),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = " ${String.format(Locale.US, "%.1f", it)} (${center.totalReviews ?: 0})",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+                        center.distance?.let {
+                            Icon(
+                                Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = SwastikPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = " ${String.format(Locale.US, "%.1f", it)} km",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    Icons.Outlined.Place,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = center.address ?: "Address not available",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (!center.specialties.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(center.specialties!!.take(3)) { spec ->
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    Color(0xFF7C3AED).copy(alpha = 0.1f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(text = spec, fontSize = 11.sp, color = Color(0xFF7C3AED))
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CenterTestsView(
     center: DiagnosticCenterDto,
@@ -470,8 +566,103 @@ private fun CenterTestsView(
     onTestSelect: (DiagnosticTestDto) -> Unit,
     onBookClick: () -> Unit,
     onPrescriptionUploadClick: () -> Unit,
-    onBackToList: () -> Unit
+    onBackToList: () -> Unit,
+    patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null,
+    onNavigateToBookingHistory: () -> Unit = {}
 ) {
+    var isUploading by remember { mutableStateOf(false) }
+    var uploadSuccess by remember { mutableStateOf(false) }
+    var showRecordsSheet by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    
+    val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            selectedUri = it
+            isUploading = true
+            coroutineScope.launch {
+                kotlinx.coroutines.delay(1500)
+                isUploading = false
+                uploadSuccess = true
+            }
+        }
+    }
+    
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            isUploading = true
+            coroutineScope.launch {
+                kotlinx.coroutines.delay(1500)
+                isUploading = false
+                uploadSuccess = true
+            }
+        }
+    }
+
+    var showCameraPermissionRationale by remember { mutableStateOf(false) }
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try { cameraLauncher.launch(null) } catch (e: Exception) { e.printStackTrace() }
+        } else {
+            showCameraPermissionRationale = true
+        }
+    }
+
+    if (showCameraPermissionRationale) {
+        AlertDialog(
+            onDismissRequest = { showCameraPermissionRationale = false },
+            title = { Text("Permission Required") },
+            text = { Text("Camera permission is required to capture documents.") },
+            confirmButton = {
+                TextButton(onClick = { showCameraPermissionRationale = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showRecordsSheet) {
+        ModalBottomSheet(onDismissRequest = { showRecordsSheet = false }) {
+            val uiState by patientDashboardViewModel?.uiState?.collectAsState() ?: remember { mutableStateOf(null) }
+            val prescriptions = uiState?.dashboard?.recentPrescriptions ?: emptyList()
+            
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                Text("Select a Prescription Record", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                if (prescriptions.isEmpty()) {
+                    Text("No records found.", color = Color.Gray)
+                } else {
+                    prescriptions.forEach { testRecord ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
+                                showRecordsSheet = false
+                                isUploading = true
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(1500)
+                                    isUploading = false
+                                    uploadSuccess = true
+                                }
+                            },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(testRecord.doctor?.name ?: "Prescription", fontWeight = FontWeight.Bold)
+                                Text("Date: ${testRecord.createdAt}", fontSize = 12.sp, color = Color.Gray)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         // Center header
         Row(
@@ -531,29 +722,58 @@ private fun CenterTestsView(
                 fontSize = 16.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onPrescriptionUploadClick,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, SwastikPrimary)
-                ) {
-                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Gallery/Camera", color = SwastikPrimary, fontSize = 12.sp)
+
+            if (isUploading) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Uploading...", color = SwastikPrimary)
                 }
-                OutlinedButton(
-                    onClick = onPrescriptionUploadClick,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, SwastikPrimary)
+            } else if (uploadSuccess) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Uploaded Successfully!", color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
+                }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(1000)
+                    onPrescriptionUploadClick()
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).padding(bottom = 8.dp)
                 ) {
-                    Icon(Icons.Default.Folder, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("App Records", color = SwastikPrimary, fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch(arrayOf("image/*", "application/pdf")) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, SwastikPrimary)
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Gallery", color = SwastikPrimary, fontSize = 11.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, SwastikPrimary)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Camera", color = SwastikPrimary, fontSize = 11.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { showRecordsSheet = true },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, SwastikPrimary)
+                    ) {
+                        Icon(Icons.Default.Folder, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Records", color = SwastikPrimary, fontSize = 11.sp)
+                    }
                 }
             }
         }
@@ -567,36 +787,36 @@ private fun TestCard(
     onSelect: () -> Unit
 ) {
     Card(
+        onClick = { onSelect() },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        border = if (isSelected) BorderStroke(2.dp, SwastikPrimary) else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) SwastikPrimary.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surface
-        ),
-        onClick = onSelect
+            containerColor = SwastikPrimaryLight
+        )
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
-            } else {
-                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-            }
-            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(test.name, fontWeight = FontWeight.SemiBold)
-                test.category?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+                Text(test.name, fontWeight = FontWeight.SemiBold, color = SwastikPrimaryDark)
+                test.category?.let { Text(it, color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
                 val turnaroundLabel = test.reportTime
                     ?: test.turnaroundHours?.let { hours ->
                         if (hours == 24) "24 hours" else "$hours hours"
                     }
-                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
-                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) }
+                turnaroundLabel?.let { Text(stringResource(R.string.report_in, it), color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
+                test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
             }
             test.price?.let {
                 Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            if (isSelected) {
+                Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
+            } else {
+                Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = SwastikPrimary.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
             }
         }
     }

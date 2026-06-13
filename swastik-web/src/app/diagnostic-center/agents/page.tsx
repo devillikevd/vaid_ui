@@ -29,7 +29,7 @@ export default function DiagnosticCenterAgentsPage() {
         if (!user?.id || !name || !phone) return;
         
         setIsAdding(true);
-        const success = await addAgent(user.id, 'diagnostic_center', name, phone);
+        const success = await addAgent(user.id, 'diagnostic', name, phone);
         setIsAdding(false);
         
         if (success) {
@@ -122,7 +122,7 @@ export default function DiagnosticCenterAgentsPage() {
                                     <li key={agent.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                         <div>
                                             <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{agent.phone_number}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">{agent.phone}</p>
                                         </div>
                                         <Button 
                                             variant="outline" 
