@@ -150,13 +150,15 @@ router.post('/complete', async (req, res) => {
             await supabaseAdmin.from('delivery_agents').update({ status: 'available' }).eq('id', data.agent_id);
         }
         
-        // Notify patient that delivery/collection is complete
+        // Notify patient and manager that delivery/collection is complete
         if (type === 'pharmacy') {
             const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
-            if (patient) eventEmitter.emitOrderStatusUpdated({ ...data, patient_id: patient.user_id });
+            const { data: pharmacy } = await supabaseAdmin.from('pharmacies').select('owner_id').eq('id', data.pharmacy_id).single();
+            if (patient) eventEmitter.emitOrderStatusUpdated({ ...data, patient_id: patient.user_id, pharmacy_owner_id: pharmacy?.owner_id });
         } else {
             const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
-            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id });
+            const { data: center } = await supabaseAdmin.from('diagnostic_centers').select('owner_id').eq('id', data.center_id).single();
+            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id, center_owner_id: center?.owner_id });
         }
         
         res.json({ success: true, order: data });
