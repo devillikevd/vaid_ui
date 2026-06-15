@@ -36,6 +36,7 @@ export interface DiagnosticBooking {
     collection_type: 'walk_in' | 'home_collection';
     collection_address?: string;
     notes?: string;
+    prescription?: { file_url: string; };
     tracking_token?: string;
     agent_id?: string;
     status: 'pending' | 'confirmed' | 'dispatched' | 'out_for_delivery' | 'arrived' | 'sample_collected' | 'processing' | 'completed' | 'cancelled';

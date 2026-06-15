@@ -104,6 +104,12 @@ const normalizeInventoryUpdates = (updates = {}) => {
   if (normalized.reorder_level === undefined && updates.minQuantity !== undefined) {
     normalized.reorder_level = updates.minQuantity;
   }
+  if (normalized.pack_size === undefined && updates.packSize !== undefined) {
+    normalized.pack_size = updates.packSize;
+  }
+  if (normalized.unit_type === undefined && updates.unitType !== undefined) {
+    normalized.unit_type = updates.unitType;
+  }
 
   return normalized;
 };
@@ -554,6 +560,8 @@ const addInventoryItem = async (pharmacyId, userId, itemData) => {
       manufacturer: itemData.manufacturer,
       requires_prescription: itemData.requiresPrescription ?? catalogMedicine?.requires_prescription ?? false,
       reorder_level: itemData.reorder_level || itemData.minQuantity || 10,
+      pack_size: parseInt(itemData.packSize) || parseInt(itemData.pack_size) || 1,
+      unit_type: itemData.unitType || itemData.unit_type || 'unit',
     })
     .select('*')
     .single();
@@ -572,15 +580,19 @@ const addBulkInventoryItems = async (pharmacyId, userId, itemsArray) => {
   // This is acceptable for bulk imports to be fast.
   const recordsToInsert = itemsArray.map((itemData) => ({
     pharmacy_id: pharmacyId,
-    name: itemData.name || itemData.generic_name || itemData.genericname || 'Unknown',
-    generic_name: itemData.generic_name || itemData.genericname || null,
+    name: itemData.name || itemData.generic_name || itemData.genericname || itemData.genericName || 'Unknown',
+    generic_name: itemData.generic_name || itemData.genericname || itemData.genericName || null,
     category: itemData.category || 'Tablet',
     quantity: parseInt(itemData.quantity) || 0,
     price: parseFloat(itemData.price) || 0,
     mrp: parseFloat(itemData.mrp) || parseFloat(itemData.price) || 0,
+    batch_number: itemData.batch_number || itemData.batchnumber || itemData.batchNumber || null,
+    requires_prescription: itemData.requires_prescription || itemData.requiresprescription || itemData.requiresPrescription || false,
     manufacturer: itemData.manufacturer || null,
     expiry_date: itemData.expiryDate || itemData.expirydate || itemData.expiry_date || null,
     reorder_level: parseInt(itemData.reorder_level) || parseInt(itemData.minQuantity) || parseInt(itemData.minquantity) || 10,
+    pack_size: parseInt(itemData.packSize) || parseInt(itemData.packsize) || parseInt(itemData.pack_size) || 1,
+    unit_type: itemData.unitType || itemData.unittype || itemData.unit_type || 'unit',
   }));
 
   const { data, error } = await supabaseAdmin
@@ -622,7 +634,7 @@ const updateInventoryItem = async (itemId, pharmacyId, userId, updates) => {
   // Whitelist allowed fields
   const allowedFields = ['name', 'generic_name', 'medicine_id', 'category', 'quantity', 'price', 'mrp',
     'batch_number', 'expiry_date', 'manufacturer', 'requires_prescription',
-    'reorder_level', 'description'];
+    'reorder_level', 'description', 'pack_size', 'unit_type'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];

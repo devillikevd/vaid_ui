@@ -63,9 +63,11 @@ router.post('/assign', authenticate, async (req, res) => {
         
         // Emit event to notify patient of the tracking link
         if (order_type === 'pharmacy') {
-            eventEmitter.emitOrderStatusUpdated(data);
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
+            if (patient) eventEmitter.emitOrderStatusUpdated({ ...data, patient_id: patient.user_id });
         } else {
-            eventEmitter.emitDiagnosticBookingStatusUpdated(data);
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
+            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id });
         }
         
         // Update agent status to busy
@@ -134,9 +136,11 @@ router.post('/complete', async (req, res) => {
         
         // Notify patient that delivery/collection is complete
         if (type === 'pharmacy') {
-            eventEmitter.emitOrderStatusUpdated(data);
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
+            if (patient) eventEmitter.emitOrderStatusUpdated({ ...data, patient_id: patient.user_id });
         } else {
-            eventEmitter.emitDiagnosticBookingStatusUpdated(data);
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
+            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id });
         }
         
         res.json({ success: true, order: data });
@@ -173,7 +177,8 @@ router.post('/location', async (req, res) => {
                 .select('tracking_token')
                 .eq('agent_id', agent_id)
                 .in('status', ['out_for_delivery'])
-                .single();
+                .limit(1)
+                .maybeSingle();
                 
             const trackingToken = activeOrder?.tracking_token;
             if (!trackingToken) {
@@ -182,7 +187,8 @@ router.post('/location', async (req, res) => {
                     .select('tracking_token')
                     .eq('agent_id', agent_id)
                     .in('status', ['dispatched'])
-                    .single();
+                    .limit(1)
+                    .maybeSingle();
                 if (diagBooking) {
                     io.to(`tracking_${diagBooking.tracking_token}`).emit('agent:location-update', { latitude, longitude });
                 }

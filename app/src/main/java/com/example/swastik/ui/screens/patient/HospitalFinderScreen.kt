@@ -673,17 +673,14 @@ fun HospitalFinderScreen(
                 isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
                 onInventorySearch = { query -> viewModel.loadPharmacyInventory(selectedFacility!!.id, query) },
                 onDismiss = { showPharmacyBookingDialog = false },
-                onConfirmOrder = { address, phone, items, isRx ->
+                onConfirmOrder = { address, phone, items, isRx, bitmap ->
                     // Actually place the order via MedicineViewModel
+                    medicineViewModel.clearCart()
                     medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
                     medicineViewModel.setDeliveryAddress(address)
                     medicineViewModel.setPatientPhone(phone)
                     // If not prescription, add selected items to cart
                     if (!isRx) {
-                        medicineViewModel.clearCart()
-                        medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
-                        medicineViewModel.setDeliveryAddress(address)
-                        medicineViewModel.setPatientPhone(phone)
                         items.forEach { (item, orderQuantity) ->
                             val medicine = Medicine(
                                 id = item.medicineId ?: item.id,
@@ -699,7 +696,7 @@ fun HospitalFinderScreen(
                             medicineViewModel.updateCartQuantity(item.id, orderQuantity)
                         }
                     }
-                    medicineViewModel.placeOrder()
+                    medicineViewModel.placeOrder(appContext, bitmap)
                     showPharmacyBookingDialog = false
                     viewModel.closeFacilitySheet()
                     onNavigateToOrders()

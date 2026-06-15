@@ -30,8 +30,14 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
     fetchAgents: async (facilityId) => {
         set({ loading: true, error: null });
         try {
-            const response = await fetchWithAuth(`/delivery-agents/facility/${facilityId}`);
-            set({ agents: (response.agents as DeliveryAgent[]) || [], loading: false });
+            const response = await fetchWithAuth<any>(`/delivery-agents/facility/${facilityId}`);
+            const responseData = response.data as any || {};
+            const rawAgents = responseData.agents || (response as any).agents || [];
+            const agents = rawAgents.map((a: any) => ({
+                ...a,
+                phone_number: a.phone || a.phone_number
+            }));
+            set({ agents, loading: false });
         } catch (error: any) {
             set({ error: error.message || 'Failed to fetch delivery agents', loading: false });
         }
@@ -58,7 +64,7 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
     assignAgent: async (orderId, orderType, agentId) => {
         set({ loading: true, error: null });
         try {
-            const response = await fetchWithAuth(`/delivery-agents/assign`, {
+            const response = await fetchWithAuth<any>(`/delivery-agents/assign`, {
                 method: 'POST',
                 body: JSON.stringify({ order_id: orderId, order_type: orderType, agent_id: agentId })
             });
@@ -66,7 +72,9 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
                 throw new Error(response.error);
             }
             set({ loading: false });
-            return { success: true, trackingToken: (response.order as any)?.tracking_token as string };
+            const responseData = response.data as any || {};
+            const trackingToken = responseData.tracking_token || (response as any).tracking_token;
+            return { success: true, trackingToken };
         } catch (error: any) {
             set({ error: error.message || 'Failed to assign agent', loading: false });
             return { success: false };

@@ -194,10 +194,12 @@ fun DiagnosticBookingScreen(
                     onTestSelect = { viewModel.selectTest(it) },
                     onBookClick = { 
                         isPrescriptionBooking = false
+                        viewModel.selectPrescription(null)
                         showBookingDialog = true 
                     },
-                    onPrescriptionUploadClick = {
+                    onPrescriptionUploadClick = { prescriptionId ->
                         isPrescriptionBooking = true
+                        viewModel.selectPrescription(prescriptionId)
                         showBookingDialog = true
                     },
                     onBackToList = {
@@ -359,7 +361,8 @@ fun DiagnosticBookingScreen(
                             bookingTime = bookingTime.ifBlank { null },
                             collectionType = collectionType,
                             collectionAddress = if (collectionType == "home_collection") collectionAddress else null,
-                            patientPhone = if (collectionType == "home_collection") patientPhone else null
+                            patientPhone = if (collectionType == "home_collection") patientPhone else null,
+                            prescriptionId = if (isPrescriptionBooking) uiState.selectedPrescriptionId else null
                         )
                         showBookingDialog = false
                         onNavigateToBookingHistory()
@@ -565,7 +568,7 @@ private fun CenterTestsView(
     selectedTest: DiagnosticTestDto?,
     onTestSelect: (DiagnosticTestDto) -> Unit,
     onBookClick: () -> Unit,
-    onPrescriptionUploadClick: () -> Unit,
+    onPrescriptionUploadClick: (String?) -> Unit,
     onBackToList: () -> Unit,
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null,
     onNavigateToBookingHistory: () -> Unit = {}
@@ -575,12 +578,14 @@ private fun CenterTestsView(
     var showRecordsSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var selectedPrescriptionId by remember { mutableStateOf<String?>(null) }
     
     val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri: android.net.Uri? ->
         uri?.let {
             selectedUri = it
+            selectedPrescriptionId = null
             isUploading = true
             coroutineScope.launch {
                 kotlinx.coroutines.delay(1500)
@@ -594,6 +599,7 @@ private fun CenterTestsView(
         contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
+            selectedPrescriptionId = null
             isUploading = true
             coroutineScope.launch {
                 kotlinx.coroutines.delay(1500)
@@ -642,6 +648,7 @@ private fun CenterTestsView(
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
                                 showRecordsSheet = false
+                                selectedPrescriptionId = testRecord.id
                                 isUploading = true
                                 coroutineScope.launch {
                                     kotlinx.coroutines.delay(1500)
@@ -737,7 +744,7 @@ private fun CenterTestsView(
                 }
                 LaunchedEffect(Unit) {
                     kotlinx.coroutines.delay(1000)
-                    onPrescriptionUploadClick()
+                    onPrescriptionUploadClick(selectedPrescriptionId)
                 }
             } else {
                 Row(

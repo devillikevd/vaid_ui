@@ -28,12 +28,15 @@ export interface InventoryItem {
     id: string;
     name: string;
     genericName?: string;
+    category?: string;
     quantity: number;
     minQuantity: number;
     unit: string;
     packSize?: number;
     unitType?: string;
     price?: number;
+    mrp?: number;
+    batchNumber?: string;
     expiryDate?: string;
     manufacturer?: string;
     isLowStock: boolean;
@@ -164,12 +167,15 @@ function normalizeInventoryItem(raw: Record<string, any>): InventoryItem {
         id: raw.id || '',
         name: raw.name || raw.medicine_name || 'Medicine',
         genericName: raw.genericName || raw.generic_name || raw.medicine_name || undefined,
+        category: raw.category || undefined,
         quantity,
         minQuantity,
         unit: raw.unit || 'units',
         packSize: Number(raw.pack_size ?? raw.packSize ?? 1),
         unitType: raw.unit_type || raw.unitType || 'unit',
         price: raw.price ?? raw.mrp ?? undefined,
+        mrp: raw.mrp ?? raw.price ?? undefined,
+        batchNumber: raw.batchNumber || raw.batch_number || undefined,
         expiryDate: raw.expiryDate || raw.expiry_date || undefined,
         manufacturer: raw.manufacturer || undefined,
         isLowStock: raw.isLowStock ?? quantity < minQuantity,

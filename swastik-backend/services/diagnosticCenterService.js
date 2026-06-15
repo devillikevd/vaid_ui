@@ -456,7 +456,7 @@ const deleteTest = async (centerId, testId) => {
 const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   let query = supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type)', {
+    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type), prescription:prescriptions(file_url)', {
       count: 'exact',
     })
     .eq('center_id', centerId);
@@ -516,8 +516,9 @@ const getBookingById = async (centerId, bookingId) => {
 // Valid status transitions
 const VALID_STATUS_TRANSITIONS = {
   pending: ['confirmed', 'cancelled'],
-  confirmed: ['dispatched', 'sample_collected', 'cancelled'],
-  dispatched: ['sample_collected', 'cancelled'],
+  confirmed: ['dispatched', 'arrived', 'sample_collected', 'cancelled'],
+  dispatched: ['arrived', 'sample_collected', 'cancelled'],
+  arrived: ['sample_collected', 'cancelled'],
   sample_collected: ['processing', 'cancelled'],
   processing: ['completed', 'cancelled'],
   completed: [],
@@ -733,7 +734,7 @@ const bookTest = async (patientId, centerId, testId, bookingData) => {
     .insert({
       patient_id: patientId,
       center_id: centerId,
-      test_id: testId,
+      test_id: testId || null,
       prescription_id: bookingData.prescriptionId || bookingData.prescription_id || null,
       booking_date: bookingData.bookingDate || bookingData.booking_date,
       booking_time: bookingData.bookingTime || bookingData.booking_time || null,

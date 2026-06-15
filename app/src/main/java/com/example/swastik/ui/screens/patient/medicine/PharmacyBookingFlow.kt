@@ -47,7 +47,7 @@ fun PharmacyBookingFlow(
     isInventoryLoading: Boolean = false,
     onInventorySearch: (String) -> Unit = {},
     onDismiss: () -> Unit,
-    onConfirmOrder: (address: String, phone: String, items: List<Pair<PharmacyInventoryItemDto, Int>>, isPrescription: Boolean) -> Unit,
+    onConfirmOrder: (address: String, phone: String, items: List<Pair<PharmacyInventoryItemDto, Int>>, isPrescription: Boolean, bitmap: android.graphics.Bitmap?) -> Unit,
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var currentStep by remember { mutableIntStateOf(initialStep) }
@@ -55,6 +55,7 @@ fun PharmacyBookingFlow(
     var deliveryAddress by remember { mutableStateOf("") }
     var patientPhone by remember { mutableStateOf("") }
     var localIsPrescriptionBased by remember { mutableStateOf(isPrescriptionBased) }
+    var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
     
@@ -114,7 +115,8 @@ fun PharmacyBookingFlow(
                             onAdd = { item, qty -> selectedItems = selectedItems + (item to qty) },
                             onRemove = { item -> selectedItems = selectedItems.filter { it.first.id != item.id } },
                             onSearch = onInventorySearch,
-                            onPrescriptionUpload = {
+                            onPrescriptionUpload = { bmp ->
+                                capturedBitmap = bmp
                                 localIsPrescriptionBased = true
                                 currentStep = 3
                             },
@@ -133,11 +135,10 @@ fun PharmacyBookingFlow(
                 ) {
                     Button(
                         onClick = {
-                            if (currentStep < 4) {
-                                currentStep++
-                            } else {
-                                onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased)
-                            }
+                            if (currentStep == 4) onConfirmOrder(deliveryAddress, patientPhone, selectedItems, localIsPrescriptionBased, capturedBitmap)
+                            else if (currentStep == 1 && selectedItems.isNotEmpty()) currentStep++
+                            else if (currentStep == 2) currentStep++
+                            else if (currentStep == 3 && deliveryAddress.isNotBlank() && patientPhone.isNotBlank()) currentStep++
                         },
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
@@ -196,7 +197,7 @@ fun Step1Medicines(
     onAdd: (PharmacyInventoryItemDto, Int) -> Unit,
     onRemove: (PharmacyInventoryItemDto) -> Unit,
     onSearch: (String) -> Unit,
-    onPrescriptionUpload: () -> Unit,
+    onPrescriptionUpload: (android.graphics.Bitmap?) -> Unit,
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel? = null
 ) {
     var query by remember { mutableStateOf("") }
@@ -204,6 +205,7 @@ fun Step1Medicines(
     var uploadSuccess by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -212,23 +214,29 @@ fun Step1Medicines(
             selectedUri = it
             isUploading = true
             coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
+                try {
+                    val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(context.contentResolver, it))
+                    } else {
+                        android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+                    }
+                    onPrescriptionUpload(bitmap)
+                    uploadSuccess = true
+                } catch (e: Exception) { e.printStackTrace() }
                 isUploading = false
-                uploadSuccess = true
             }
         }
     }
     
-    val context = androidx.compose.ui.platform.LocalContext.current
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
             isUploading = true
             coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
-                isUploading = false
+                onPrescriptionUpload(bitmap)
                 uploadSuccess = true
+                isUploading = false
             }
         }
     }
@@ -328,7 +336,11 @@ fun Step1Medicines(
                                 title = { Text("Select Quantity") },
                                 text = {
                                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                        Text("Buy Full Unit ($unitType" + if (packSize > 1) " - contains $packSize pills)" else ")", modifier = Modifier.padding(bottom = 8.dp), fontWeight = FontWeight.Bold)
+                                        Text(
+                                            text = "Buy Full Unit ($unitType" + if (packSize > 1) " - contains $packSize pieces)" else ")",
+                                            modifier = Modifier.padding(bottom = 8.dp),
+                                            fontWeight = FontWeight.Bold
+                                        )
                                         OutlinedTextField(
                                             value = quantityText,
                                             onValueChange = { quantityText = it },
@@ -422,7 +434,7 @@ fun Step1Medicines(
             }
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(1000)
-                onPrescriptionUpload()
+                onPrescriptionUpload(null)
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

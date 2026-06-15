@@ -22,7 +22,8 @@ data class DiagnosticUiState(
     val bookingResult: DiagnosticBookingDto? = null,
     val error: String? = null,
     val searchQuery: String = "",
-    val bookingSuccess: Boolean = false
+    val bookingSuccess: Boolean = false,
+    val selectedPrescriptionId: String? = null
 )
 
 data class BookingHistoryUiState(
@@ -213,6 +214,12 @@ class DiagnosticViewModel @Inject constructor(
         )
     }
 
+    fun selectPrescription(prescriptionId: String?) {
+        _uiState.value = _uiState.value.copy(
+            selectedPrescriptionId = prescriptionId
+        )
+    }
+
     fun bookTest(
         bookingDate: String,
         bookingTime: String? = null,
@@ -223,13 +230,15 @@ class DiagnosticViewModel @Inject constructor(
         prescriptionId: String? = null
     ) {
         val center = _uiState.value.selectedCenter ?: return
-        val test = _uiState.value.selectedTest ?: return
+        val test = _uiState.value.selectedTest
+
+        if (test == null && prescriptionId == null) return
 
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, bookingSuccess = false)
         viewModelScope.launch {
             val request = DiagnosticBookingRequest(
                 centerId = center.id,
-                testId = test.id,
+                testId = test?.id,
                 bookingDate = bookingDate,
                 bookingTime = bookingTime,
                 collectionType = collectionType,

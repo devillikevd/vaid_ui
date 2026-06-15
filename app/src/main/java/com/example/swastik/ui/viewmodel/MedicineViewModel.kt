@@ -460,9 +460,11 @@ class MedicineViewModel @Inject constructor(
         ))
     }
 
-    fun placeOrder() {
+    fun placeOrder(context: android.content.Context, prescriptionBitmap: android.graphics.Bitmap?) {
         val cart = cartStore.value
-        if (cart.selectedPharmacyId.isNullOrBlank() || cart.items.isEmpty() || cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
+        val isRxOrder = prescriptionBitmap != null
+        
+        if (cart.selectedPharmacyId.isNullOrBlank() || (!isRxOrder && cart.items.isEmpty()) || cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
             cartStore.set(cart.copy(orderError = "Please fill in all order details including phone number"))
             return
         }
@@ -481,16 +483,42 @@ class MedicineViewModel @Inject constructor(
                     )
                 },
                 deliveryAddress = cart.deliveryAddress,
-                patientPhone = cart.patientPhone
+                patientPhone = cart.patientPhone,
+                isPrescriptionOrder = isRxOrder
             )
             when (val result = medicineRepository.createOrder(request)) {
                 is Result.Success -> {
-                    cartStore.set(cartStore.value.copy(
-                        isOrdering = false,
-                        orderResult = result.data,
-                        orderSuccess = true,
-                        items = emptyList() // Clear cart
-                    ))
+                    val orderDto = result.data
+                    // If we have a prescription, upload it
+                    if (prescriptionBitmap != null) {
+                        when (val uploadResult = medicineRepository.uploadPrescription(orderDto.id, prescriptionBitmap, context)) {
+                            is Result.Success -> {
+                                cartStore.set(cartStore.value.copy(
+                                    isOrdering = false,
+                                    orderResult = orderDto.copy(prescriptionUrl = uploadResult.data),
+                                    orderSuccess = true,
+                                    items = emptyList() // Clear cart
+                                ))
+                            }
+                            is Result.Error -> {
+                                cartStore.set(cartStore.value.copy(
+                                    isOrdering = false,
+                                    orderError = "Order created but failed to upload prescription: ${uploadResult.message}",
+                                    orderResult = orderDto,
+                                    orderSuccess = true, // Partially success
+                                    items = emptyList() // Clear cart
+                                ))
+                            }
+                            else -> {}
+                        }
+                    } else {
+                        cartStore.set(cartStore.value.copy(
+                            isOrdering = false,
+                            orderResult = orderDto,
+                            orderSuccess = true,
+                            items = emptyList() // Clear cart
+                        ))
+                    }
                 }
                 is Result.Error -> {
                     cartStore.set(cartStore.value.copy(

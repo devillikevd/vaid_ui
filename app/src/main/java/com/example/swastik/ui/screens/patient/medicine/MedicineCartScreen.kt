@@ -427,7 +427,7 @@ fun MedicineCartScreen(
                                                 currentStep = CheckoutStep.PAYMENT
                                             }
                                         }
-                                        CheckoutStep.PAYMENT -> viewModel.placeOrder()
+                                        CheckoutStep.PAYMENT -> viewModel.placeOrder(context, null)
                                     }
                                 },
                                 modifier = Modifier.weight(2f).height(52.dp),

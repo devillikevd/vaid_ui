@@ -35,13 +35,18 @@ export default function PharmacyInventoryPage() {
     const [editId, setEditId] = useState<string | null>(null);
     const [form, setForm] = useState({
         name: '',
+        genericName: '',
+        category: 'Tablet',
         quantity: '',
         packSize: '1',
         unitType: 'unit',
         price: '',
+        mrp: '',
+        batchNumber: '',
         manufacturer: '',
         expiryDate: '',
         minQuantity: '10',
+        requiresPrescription: false,
     });
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +67,11 @@ export default function PharmacyInventoryPage() {
     }, [deferredSearchQuery, tab]);
 
     const resetForm = () => {
-        setForm({ name: '', quantity: '', packSize: '1', unitType: 'unit', price: '', manufacturer: '', expiryDate: '', minQuantity: '10' });
+        setForm({ 
+            name: '', genericName: '', category: 'Tablet', quantity: '', packSize: '1', unitType: 'unit', 
+            price: '', mrp: '', batchNumber: '', manufacturer: '', expiryDate: '', minQuantity: '10', 
+            requiresPrescription: false 
+        });
         setShowAdd(false);
         setEditId(null);
     };
@@ -72,13 +81,18 @@ export default function PharmacyInventoryPage() {
         setActionLoading('add');
         const success = await addInventoryItem({
             name: form.name,
+            generic_name: form.genericName,
+            category: form.category,
             quantity: parseInt(form.quantity, 10) || 0,
             pack_size: parseInt(form.packSize, 10) || 1,
             unit_type: form.unitType || 'unit',
             price: parseFloat(form.price) || 0,
+            mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
+            batch_number: form.batchNumber,
             manufacturer: form.manufacturer,
             expiryDate: form.expiryDate || undefined,
             minQuantity: parseInt(form.minQuantity, 10) || 10,
+            requiresPrescription: form.requiresPrescription,
         });
         if (success) {
             resetForm();
@@ -92,13 +106,18 @@ export default function PharmacyInventoryPage() {
         setActionLoading('edit');
         const success = await updateInventoryItem(editId, {
             name: form.name,
+            generic_name: form.genericName,
+            category: form.category,
             quantity: parseInt(form.quantity, 10) || 0,
             pack_size: parseInt(form.packSize, 10) || 1,
             unit_type: form.unitType || 'unit',
             price: parseFloat(form.price) || 0,
+            mrp: parseFloat(form.mrp) || parseFloat(form.price) || 0,
+            batch_number: form.batchNumber,
             manufacturer: form.manufacturer,
             expiryDate: form.expiryDate || undefined,
             minQuantity: parseInt(form.minQuantity, 10) || 10,
+            requiresPrescription: form.requiresPrescription,
         });
         if (success) {
             resetForm();
@@ -159,13 +178,18 @@ export default function PharmacyInventoryPage() {
         setEditId(item.id);
         setForm({
             name: item.name || '',
+            genericName: item.genericName || '',
+            category: item.category || 'Tablet',
             quantity: String(item.quantity ?? 0),
             packSize: String(item.packSize ?? 1),
             unitType: item.unitType || 'unit',
             price: String(item.price ?? ''),
+            mrp: String(item.mrp ?? item.price ?? ''),
+            batchNumber: item.batchNumber || '',
             manufacturer: item.manufacturer || '',
             expiryDate: item.expiryDate || '',
             minQuantity: String(item.minQuantity ?? 10),
+            requiresPrescription: item.requiresPrescription ?? false,
         });
         setShowAdd(true);
     };
@@ -219,11 +243,18 @@ export default function PharmacyInventoryPage() {
                         variant="outline"
                         onClick={() => downloadCSV(inventory, [
                             { key: 'name', label: 'Medicine' },
+                            { key: 'genericName', label: 'Generic Name' },
+                            { key: 'category', label: 'Category' },
                             { key: 'quantity', label: 'Quantity' },
+                            { key: 'packSize', label: 'Pack Size' },
+                            { key: 'unitType', label: 'Unit Type' },
                             { key: 'minQuantity', label: 'Minimum Stock' },
                             { key: 'price', label: 'Price' },
+                            { key: 'mrp', label: 'MRP' },
+                            { key: 'batchNumber', label: 'Batch Number' },
                             { key: 'manufacturer', label: 'Manufacturer' },
                             { key: 'expiryDate', label: 'Expiry Date' },
+                            { key: 'requiresPrescription', label: 'Requires Prescription' },
                         ], 'inventory')}
                         leftIcon={<Download className="h-4 w-4" />}
                     >
@@ -233,11 +264,18 @@ export default function PharmacyInventoryPage() {
                         variant="outline"
                         onClick={() => downloadCSV([], [
                             { key: 'name', label: 'name' },
+                            { key: 'genericName', label: 'genericName' },
+                            { key: 'category', label: 'category' },
                             { key: 'quantity', label: 'quantity' },
+                            { key: 'packSize', label: 'packSize' },
+                            { key: 'unitType', label: 'unitType' },
                             { key: 'price', label: 'price' },
+                            { key: 'mrp', label: 'mrp' },
                             { key: 'minQuantity', label: 'minQuantity' },
+                            { key: 'batchNumber', label: 'batchNumber' },
                             { key: 'manufacturer', label: 'manufacturer' },
                             { key: 'expiryDate', label: 'expiryDate' },
+                            { key: 'requiresPrescription', label: 'requiresPrescription' },
                         ], 'inventory_template')}
                         leftIcon={<Download className="h-4 w-4" />}
                     >
@@ -251,19 +289,24 @@ export default function PharmacyInventoryPage() {
 
             {showAdd && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <Card padding="lg" className="w-full max-w-md">
+                    <Card padding="lg" className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                         <div className="mb-4 flex items-center justify-between">
                             <h2 className="text-lg font-semibold">{editId ? 'Edit Item' : 'Add Inventory Item'}</h2>
                             <button onClick={resetForm}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-3">
-                            <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter medicine name" />
-                            <div className="grid grid-cols-2 gap-3">
-                                <Input label="Total Loose Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="Total pills" />
-                                <Input label="Price (₹ per Pack)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter medicine name" />
+                                <Input label="Generic Name" value={form.genericName} onChange={(e) => setForm((current) => ({ ...current, genericName: e.target.value }))} placeholder="e.g. Paracetamol" />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <Input label="Pack Size (e.g. 15)" type="number" value={form.packSize} onChange={(e) => setForm((current) => ({ ...current, packSize: e.target.value }))} placeholder="Pills per strip" />
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <Input label="Total Loose Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="Total units" />
+                                <Input label="Min Stock" type="number" value={form.minQuantity} onChange={(e) => setForm((current) => ({ ...current, minQuantity: e.target.value }))} />
+                                <Input label="Price (Selling)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} />
+                                <Input label="MRP (Max Price)" type="number" value={form.mrp} onChange={(e) => setForm((current) => ({ ...current, mrp: e.target.value }))} />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Input label="Pack Size (e.g. 15)" type="number" value={form.packSize} onChange={(e) => setForm((current) => ({ ...current, packSize: e.target.value }))} placeholder="Items per pack" />
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Type</label>
                                     <select
@@ -277,12 +320,40 @@ export default function PharmacyInventoryPage() {
                                         <option value="tube">Tube</option>
                                     </select>
                                 </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+                                    <select
+                                        value={form.category}
+                                        onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                    >
+                                        <option value="Tablet">Tablet</option>
+                                        <option value="Syrup">Syrup</option>
+                                        <option value="Injection">Injection</option>
+                                        <option value="Capsule">Capsule</option>
+                                        <option value="Cream">Cream</option>
+                                        <option value="Drops">Drops</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <Input label="Minimum Stock" type="number" value={form.minQuantity} onChange={(e) => setForm((current) => ({ ...current, minQuantity: e.target.value }))} />
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <Input label="Batch Number" value={form.batchNumber} onChange={(e) => setForm((current) => ({ ...current, batchNumber: e.target.value }))} />
                                 <Input label="Expiry Date" type="date" value={form.expiryDate} onChange={(e) => setForm((current) => ({ ...current, expiryDate: e.target.value }))} />
+                                <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => setForm((current) => ({ ...current, manufacturer: e.target.value }))} />
                             </div>
-                            <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => setForm((current) => ({ ...current, manufacturer: e.target.value }))} />
+                            <div className="flex items-center gap-2 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="requiresPrescription"
+                                    checked={form.requiresPrescription}
+                                    onChange={(e) => setForm((current) => ({ ...current, requiresPrescription: e.target.checked }))}
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor="requiresPrescription" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Requires Prescription
+                                </label>
+                            </div>
                         </div>
                         <div className="mt-4 flex justify-end gap-2">
                             <Button variant="outline" onClick={resetForm}>Cancel</Button>
@@ -343,7 +414,15 @@ export default function PharmacyInventoryPage() {
                                             <div className="rounded-lg bg-orange-100 p-2"><Package className="h-4 w-4 text-orange-600" /></div>
                                             <div>
                                                 <span className="font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
-                                                {item.manufacturer ? <p className="text-xs text-gray-400">{item.manufacturer}</p> : null}
+                                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                    <span>{item.packSize > 1 ? `${item.packSize} / ${item.unitType}` : item.unitType}</span>
+                                                    {item.manufacturer && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span>{item.manufacturer}</span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>

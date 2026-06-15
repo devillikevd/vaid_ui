@@ -3,7 +3,7 @@
 import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import {
     ShoppingCart, Search, Loader2, RefreshCw, CheckCircle, XCircle,
-    AlertCircle, Package, Bell, MapPin, Clock, IndianRupee, ChevronDown, ChevronUp, Send,
+    AlertCircle, Package, Bell, MapPin, Clock, IndianRupee, ChevronDown, ChevronUp, Send, FileText,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -224,17 +224,31 @@ export default function PharmacyOrdersPage() {
                                 <div className="space-y-4 border-t border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/50">
                                     <div>
                                         <h4 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Order Items</h4>
-                                        <div className="space-y-2">
-                                            {items.map((item: any, index: number) => (
-                                                <div key={index} className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name || item.medicineName || 'Medicine'}</p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Qty: {item.quantity || 1}</p>
+                                        {items.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {items.map((item: any, index: number) => (
+                                                    <div key={index} className="flex items-center justify-between rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.name || item.medicineName || 'Medicine'}</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Qty: {item.quantity || 1}</p>
+                                                        </div>
+                                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">₹{item.subtotal || ((item.price || 0) * (item.quantity || 1))}</p>
                                                     </div>
-                                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">₹{item.subtotal || ((item.price || 0) * (item.quantity || 1))}</p>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-200">
+                                                <p className="font-medium">Prescription-only Order</p>
+                                                <p className="mt-1 text-xs">This order requires manual review of the prescription to determine items and total cost.</p>
+                                            </div>
+                                        )}
+                                        {order.prescription_url && (
+                                            <div className="mt-3">
+                                                <a href={order.prescription_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+                                                    <FileText className="h-4 w-4" /> View Prescription
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                     {order.delivery_address ? (
                                         <div className="flex items-start gap-2">

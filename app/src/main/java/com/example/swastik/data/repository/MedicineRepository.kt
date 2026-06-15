@@ -11,6 +11,9 @@ import okhttp3.ResponseBody
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Repository for Medicine data with Room caching.
@@ -238,6 +241,43 @@ class MedicineRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    /**
+     * Upload a prescription image for an order.
+     */
+    suspend fun uploadPrescription(orderId: String, bitmap: android.graphics.Bitmap, context: android.content.Context): Result<String> {
+        return try {
+            // Save bitmap to temporary file
+            val file = java.io.File(context.cacheDir, "prescription_${System.currentTimeMillis()}.jpg")
+            val outputStream = java.io.FileOutputStream(file)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+            outputStream.flush()
+            outputStream.close()
+
+            val mediaTypeImage = "image/jpeg".toMediaTypeOrNull()
+            val requestFile = file.asRequestBody(mediaTypeImage)
+            val body = okhttp3.MultipartBody.Part.createFormData("prescription", file.name, requestFile)
+            val mediaTypeText = "text/plain".toMediaTypeOrNull()
+            val orderIdBody = orderId.toRequestBody(mediaTypeText)
+
+            val response = apiService.uploadPrescription(body, orderIdBody)
+            
+            // Clean up temporary file
+            if (file.exists()) {
+                file.delete()
+            }
+
+            if (response.isSuccessful && response.body()?.success == true) {
+                // The API actually returns success: true, message: "...", data: null usually, but maybe it has a URL?
+                // For now, if successful, return true
+                Result.Success("Success")
+            } else {
+                Result.Error("Failed to upload prescription")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error during upload")
         }
     }
 

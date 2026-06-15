@@ -286,16 +286,13 @@ fun PharmacyDetailScreen(
                     isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
                     onInventorySearch = { query -> hospitalViewModel.loadPharmacyInventory(facility.id, query) },
                     onDismiss = { showPharmacyBookingDialog = false },
-                    onConfirmOrder = { address, phone, items, isRx ->
+                    onConfirmOrder = { address, phone, items, isRx, bitmap ->
+                        medicineViewModel.clearCart()
                         medicineViewModel.setPharmacy(facility.id, facility.name)
                         medicineViewModel.setDeliveryAddress(address)
                         medicineViewModel.setPatientPhone(phone)
                         
                         if (!isRx) {
-                            medicineViewModel.clearCart()
-                            medicineViewModel.setPharmacy(facility.id, facility.name)
-                            medicineViewModel.setDeliveryAddress(address)
-                            medicineViewModel.setPatientPhone(phone)
                             items.forEach { (item, orderQuantity) ->
                                 val medicine = com.example.swastik.data.model.Medicine(
                                     id = item.medicineId ?: item.id,
@@ -311,7 +308,7 @@ fun PharmacyDetailScreen(
                                 medicineViewModel.updateCartQuantity(item.id, orderQuantity)
                             }
                         }
-                        medicineViewModel.placeOrder()
+                        medicineViewModel.placeOrder(context, bitmap)
                         showPharmacyBookingDialog = false
                         onNavigateToOrderHistory()
                     }

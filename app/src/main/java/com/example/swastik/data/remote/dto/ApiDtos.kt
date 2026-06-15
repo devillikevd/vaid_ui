@@ -256,8 +256,13 @@ data class NearbyMedicineDto(
     val id: String, // Inventory ID
     val medicineId: String?,
     val name: String,
+    @SerializedName("generic_name") val genericName: String? = null,
     val category: String?,
     val price: Float,
+    val mrp: Float? = null,
+    @SerializedName("pack_size") val packSize: Int? = 1,
+    @SerializedName("unit_type") val unitType: String? = "unit",
+    @SerializedName("requires_prescription") val requiresPrescription: Boolean = false,
     val pharmacyName: String?,
     val pharmacyId: String?,
     val inStock: Boolean,
@@ -636,6 +641,9 @@ data class MedicineDto(
     val manufacturer: String,
     val category: String,
     val price: Float,
+    val mrp: Float? = null,
+    @SerializedName("pack_size") val packSize: Int? = 1,
+    @SerializedName("unit_type") val unitType: String? = "unit",
     val description: String?,
     @SerializedName("requires_prescription")
     val requiresPrescription: Boolean,
@@ -1020,7 +1028,8 @@ data class MedicineOrderRequest(
     val pharmacyId: String,
     val items: List<OrderItemRequest>,
     val deliveryAddress: String,
-    val patientPhone: String? = null
+    val patientPhone: String? = null,
+    val isPrescriptionOrder: Boolean = false
 )
 
 data class OrderItemRequest(
@@ -1041,6 +1050,7 @@ data class MedicineOrderDto(
     val status: String,
     @SerializedName("payment_status") val paymentStatus: String?,
     @SerializedName("tracking_token") val trackingToken: String?,
+    @SerializedName("prescription_url") val prescriptionUrl: String?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("updated_at") val updatedAt: String?,
     val pharmacy: OrderPharmacyDto?,
@@ -1083,7 +1093,7 @@ data class DiagnosticTestDto(
 
 data class DiagnosticBookingRequest(
     val centerId: String,
-    val testId: String,
+    val testId: String? = null,
     val bookingDate: String,
     val bookingTime: String?,
     val collectionType: String?,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CalendarCheck, Search, Loader2, Upload, Eye, Clock, CheckCircle2, XCircle, Bell, RefreshCw, FlaskConical, Send } from 'lucide-react';
+import { CalendarCheck, Search, Loader2, Upload, Eye, Clock, CheckCircle2, XCircle, Bell, RefreshCw, FlaskConical, Send, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -232,6 +232,11 @@ export default function BookingsPage() {
                                             {booking.collection_address && ` — ${booking.collection_address}`}
                                         </p>
                                         {booking.notes && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">&quot;{booking.notes}&quot;</p>}
+                                        {booking.prescription && booking.prescription.file_url && (
+                                            <a href={booking.prescription.file_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">
+                                                <FileText className="h-3 w-3" /> View Prescription
+                                            </a>
+                                        )}
                                     </div>
                                     <div className="text-right">
                                         {booking.amount && <p className="text-lg font-bold text-gray-900 dark:text-gray-100">₹{booking.amount}</p>}

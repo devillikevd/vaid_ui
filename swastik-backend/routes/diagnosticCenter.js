@@ -92,7 +92,7 @@ router.post('/book',
   requireRole(ROLES.PATIENT),
   [
     body('centerId').notEmpty().isUUID().withMessage('Valid center ID is required'),
-    body('testId').notEmpty().isUUID().withMessage('Valid test ID is required'),
+    body('testId').optional({ nullable: true, checkFalsy: true }).isUUID().withMessage('Valid test ID is required'),
     body('bookingDate').notEmpty().isDate().withMessage('Valid booking date is required'),
     body('bookingTime').optional().matches(/^\d{2}:\d{2}$/).withMessage('Time must be HH:MM format'),
     body('collectionType').optional().isIn(['walk_in', 'home_collection']).withMessage('Invalid collection type'),
@@ -268,7 +268,7 @@ router.patch('/owner/bookings/:bookingId/status',
   requireApproval,
   [
     body('status')
-      .isIn(['confirmed', 'dispatched', 'sample_collected', 'processing', 'completed', 'cancelled'])
+      .isIn(['confirmed', 'dispatched', 'arrived', 'sample_collected', 'processing', 'completed', 'cancelled'])
       .withMessage('Invalid booking status'),
     body('reason')
       .optional()

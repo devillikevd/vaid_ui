@@ -429,6 +429,13 @@ interface ApiService {
     @POST("medicines/orders")
     suspend fun createMedicineOrder(@Body request: MedicineOrderRequest): Response<ApiResponse<MedicineOrderDto>>
 
+    @Multipart
+    @POST("medicines/upload-prescription")
+    suspend fun uploadPrescription(
+        @Part prescription: okhttp3.MultipartBody.Part,
+        @Part("orderId") orderId: okhttp3.RequestBody
+    ): Response<ApiResponse<UploadResponse>>
+
     @GET("patients/orders")
     suspend fun getMyOrders(
         @Query("status") status: String? = null,

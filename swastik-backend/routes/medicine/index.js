@@ -151,14 +151,23 @@ router.post('/orders',
   authenticate,
   [
     body('pharmacyId').notEmpty().withMessage('Pharmacy ID is required'),
-    body('items').isArray({ min: 1 }).withMessage('Items array is required'),
-    body('items.*').custom((item) => {
+    body('items').isArray().withMessage('Items array is required'),
+    body('isPrescriptionOrder').optional().isBoolean(),
+    body('items').custom((items, { req }) => {
+      if (req.body.isPrescriptionOrder) return true;
+      if (!items || items.length === 0) {
+        throw new Error('Items array must not be empty unless this is a prescription order');
+      }
+      return true;
+    }),
+    body('items.*').custom((item, { req }) => {
+      if (!item && req.body.isPrescriptionOrder) return true;
       if (!item || (!item.medicineId && !item.inventoryItemId)) {
         throw new Error('Each order item must include a medicineId or inventoryItemId');
       }
       return true;
     }),
-    body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+    body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     body('deliveryAddress').notEmpty().withMessage('Delivery address is required'),
   ],
   validate,
