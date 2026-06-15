@@ -776,7 +776,7 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
   // Fetch current order to validate transition
   const { data: current, error: fetchError } = await supabaseAdmin
     .from('pharmacy_orders')
-    .select('status, tracking_token')
+    .select('status, tracking_token, agent_id')
     .eq('id', orderId)
     .eq('pharmacy_id', pharmacyId)
     .single();
@@ -826,6 +826,14 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
 
   if (error || !data) throw error;
   const normalizedOrder = normalizeOrderRecord(data);
+
+  // If order completed or cancelled, free up agent
+  if (['delivered', 'cancelled'].includes(nextStatus) && current.agent_id) {
+    await supabaseAdmin
+      .from('delivery_agents')
+      .update({ status: 'available' })
+      .eq('id', current.agent_id);
+  }
 
   // If order cancelled, restore inventory
   if (nextStatus === 'cancelled' && ['pending', 'confirmed', 'processing', 'ready'].includes(currentStatus)) {

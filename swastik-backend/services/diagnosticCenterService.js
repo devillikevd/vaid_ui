@@ -530,7 +530,7 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   // Validate status transition
   const { data: current } = await supabaseAdmin
     .from('diagnostic_bookings')
-    .select('status, collection_type, tracking_token')
+    .select('status, collection_type, tracking_token, agent_id')
     .eq('id', bookingId)
     .eq('center_id', centerId)
     .single();
@@ -573,6 +573,14 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
 
   if (error) throw error;
   const normalizedBooking = normalizeDiagnosticBookingRecord(data);
+
+  // If booking is completed, sample collected or cancelled, free up the agent
+  if (['sample_collected', 'completed', 'cancelled'].includes(nextStatus) && current && current.agent_id) {
+    await supabaseAdmin
+      .from('delivery_agents')
+      .update({ status: 'available' })
+      .eq('id', current.agent_id);
+  }
 
   // Notify patient about booking status change — resolve user_id from patients table
   if (normalizedBooking.patient_id) {
