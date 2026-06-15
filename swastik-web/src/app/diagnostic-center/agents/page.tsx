@@ -121,7 +121,12 @@ export default function DiagnosticCenterAgentsPage() {
                                 {agents.map(agent => (
                                     <li key={agent.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                         <div>
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${agent.status === 'available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                                                    {agent.status === 'available' ? 'Available' : 'Busy'}
+                                                </span>
+                                            </div>
                                             <p className="text-sm text-gray-500 dark:text-gray-400">{agent.phone_number}</p>
                                         </div>
                                         <Button 

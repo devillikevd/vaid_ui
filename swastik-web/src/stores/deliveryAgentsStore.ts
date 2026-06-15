@@ -7,7 +7,7 @@ export interface DeliveryAgent {
     facility_type: 'pharmacy' | 'diagnostic_center';
     name: string;
     phone_number: string;
-    status: 'active' | 'inactive';
+    status: 'available' | 'busy';
     created_at: string;
 }
 

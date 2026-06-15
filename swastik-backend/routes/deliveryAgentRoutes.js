@@ -39,7 +39,23 @@ router.post('/', authenticate, async (req, res) => {
     }
 });
 
-// 3. Assign Agent & Generate Tracking Link
+// 3. Delete Agent
+router.delete('/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabaseAdmin
+            .from('delivery_agents')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        res.json({ success: true, message: 'Agent deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 4. Assign Agent & Generate Tracking Link
 router.post('/assign', authenticate, async (req, res) => {
     try {
         const { order_id, order_type, agent_id } = req.body; // order_type: 'pharmacy' or 'diagnostic'

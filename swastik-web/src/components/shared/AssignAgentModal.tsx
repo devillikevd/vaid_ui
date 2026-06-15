@@ -80,9 +80,13 @@ export function AssignAgentModal({ isOpen, onClose, orderId, orderType, onAssign
                         <div className="text-center p-8 text-gray-500">
                             No active agents found. Please add agents from the Agents page.
                         </div>
+                    ) : agents.filter(a => a.status === 'available').length === 0 ? (
+                        <div className="text-center p-8 text-amber-600 bg-amber-50 rounded-lg">
+                            All your agents are currently busy. Wait for an agent to finish their delivery.
+                        </div>
                     ) : (
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg">
-                            {agents.map(agent => (
+                            {agents.filter(a => a.status === 'available').map(agent => (
                                 <li key={agent.id} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <div>
                                         <p className="font-medium text-gray-900 dark:text-gray-100">{agent.name}</p>

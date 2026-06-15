@@ -42,7 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun OrderHistoryScreen(
     onBackClick: () -> Unit,
-    onNavigateToTracking: (String, Double, Double) -> Unit = { _, _, _ -> },
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
@@ -228,7 +228,13 @@ fun OrderHistoryScreen(
                                     onCancel = { viewModel.cancelOrder(order.id) },
                                     onTrack = {
                                         if (!order.trackingToken.isNullOrEmpty()) {
-                                            onNavigateToTracking(order.trackingToken, 0.0, 0.0)
+                                            onNavigateToTracking(
+                                                order.trackingToken,
+                                                0.0,
+                                                0.0,
+                                                order.deliveryAgent?.name,
+                                                order.deliveryAgent?.phone
+                                            )
                                         }
                                     }
                                 )
@@ -245,7 +251,7 @@ fun OrderHistoryScreen(
 private fun ActiveOrderTrackingView(
     order: MedicineOrderDto,
     onViewHistory: () -> Unit,
-    onNavigateToTracking: (String, Double, Double) -> Unit
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val trackingVm: OrderTrackingViewModel = hiltViewModel()
@@ -457,7 +463,7 @@ private fun ActiveOrderTrackingView(
                     }
                     if (!order.trackingToken.isNullOrEmpty() && order.status in listOf("dispatched", "out_for_delivery")) {
                         IconButton(
-                            onClick = { onNavigateToTracking(order.trackingToken, 0.0, 0.0) },
+                            onClick = { onNavigateToTracking(order.trackingToken, destLat, destLng, order.deliveryAgent?.name, order.deliveryAgent?.phone) },
                             modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
                         ) {
                             Icon(Icons.Default.Fullscreen, contentDescription = "Full map", tint = MaterialTheme.colorScheme.onSecondaryContainer)

@@ -935,7 +935,41 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) {
             AuthGuard(navController, tokenManager) {
                 BookingHistoryScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToTracking = { token, lat, lng, agentName, agentPhone ->
+                        val urlName = agentName?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: "Unknown"
+                        val urlPhone = agentPhone ?: "Unknown"
+                        navController.navigate("order_tracking/$token/$lat/$lng/$urlName/$urlPhone")
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = "order_tracking/{trackingToken}/{destLat}/{destLng}/{agentName}/{agentPhone}",
+            arguments = listOf(
+                navArgument("trackingToken") { type = NavType.StringType },
+                navArgument("destLat") { type = NavType.FloatType },
+                navArgument("destLng") { type = NavType.FloatType },
+                navArgument("agentName") { type = NavType.StringType },
+                navArgument("agentPhone") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            AuthGuard(navController, tokenManager) {
+                val token = backStackEntry.arguments?.getString("trackingToken") ?: ""
+                val lat = backStackEntry.arguments?.getFloat("destLat")?.toDouble() ?: 0.0
+                val lng = backStackEntry.arguments?.getFloat("destLng")?.toDouble() ?: 0.0
+                val agentNameUrl = backStackEntry.arguments?.getString("agentName")
+                val agentPhone = backStackEntry.arguments?.getString("agentPhone")?.takeIf { it != "Unknown" }
+                val agentName = agentNameUrl?.takeIf { it != "Unknown" }?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+
+                com.example.swastik.ui.screens.patient.OrderTrackingScreen(
+                    trackingToken = token,
+                    destLat = lat,
+                    destLng = lng,
+                    agentName = agentName,
+                    agentPhone = agentPhone,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

@@ -42,7 +42,7 @@ import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
 @Composable
 fun BookingHistoryScreen(
     onBackClick: () -> Unit,
-    onNavigateToTracking: (String, Double, Double) -> Unit = { _, _, _ -> },
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
     viewModel: DiagnosticViewModel = hiltViewModel()
 ) {
     val historyState by viewModel.bookingHistoryState.collectAsState()
@@ -198,7 +198,13 @@ fun BookingHistoryScreen(
                                     onCancel = { viewModel.cancelBooking(booking.id) },
                                     onTrack = {
                                         if (!booking.trackingToken.isNullOrEmpty()) {
-                                            onNavigateToTracking(booking.trackingToken, 0.0, 0.0)
+                                            onNavigateToTracking(
+                                                booking.trackingToken,
+                                                0.0,
+                                                0.0,
+                                                booking.deliveryAgent?.name,
+                                                booking.deliveryAgent?.phone
+                                            )
                                         }
                                     }
                                 )
@@ -215,7 +221,7 @@ fun BookingHistoryScreen(
 private fun ActiveBookingTrackingView(
     booking: DiagnosticBookingDto,
     onViewHistory: () -> Unit,
-    onNavigateToTracking: (String, Double, Double) -> Unit
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val trackingVm: OrderTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
@@ -404,7 +410,15 @@ private fun ActiveBookingTrackingView(
                     }
                     if (!booking.trackingToken.isNullOrEmpty() && booking.status in listOf("dispatched", "out_for_delivery")) {
                         IconButton(
-                            onClick = { onNavigateToTracking(booking.trackingToken, 0.0, 0.0) },
+                            onClick = { 
+                                onNavigateToTracking(
+                                    booking.trackingToken,
+                                    0.0,
+                                    0.0,
+                                    booking.deliveryAgent?.name,
+                                    booking.deliveryAgent?.phone
+                                ) 
+                            },
                             modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
                         ) {
                             Icon(Icons.Default.Fullscreen, contentDescription = "Full map", tint = MaterialTheme.colorScheme.onSecondaryContainer)

@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeliveryDining
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,8 @@ fun OrderTrackingScreen(
     trackingToken: String,
     destLat: Double,
     destLng: Double,
+    agentName: String? = null,
+    agentPhone: String? = null,
     onNavigateBack: () -> Unit,
     viewModel: OrderTrackingViewModel = viewModel()
 ) {
@@ -141,21 +144,52 @@ fun OrderTrackingScreen(
                             
                             Spacer(modifier = Modifier.width(16.dp))
                             
-                            Column {
-                                Text(
-                                    "Agent is on the way",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Live tracking is active",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column {
+                                    Text(
+                                        agentName ?: "Agent is on the way",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (agentPhone != null) {
+                                        Text(
+                                            "Phone: $agentPhone",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Text(
+                                            "Live tracking is active",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.weight(1f))
+                                
+                                if (agentPhone != null) {
+                                    val context = androidx.compose.ui.platform.LocalContext.current
+                                    IconButton(
+                                        onClick = {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                                data = android.net.Uri.parse("tel:$agentPhone")
+                                            }
+                                            context.startActivity(intent)
+                                        },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp))
+                                    ) {
+                                        Icon(
+                                            androidx.compose.material.icons.Icons.Default.Phone,
+                                            contentDescription = "Call Agent",
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
-                } else {
+                    } else {
                     Card(
                         modifier = Modifier
                             .padding(16.dp)
