@@ -32,6 +32,7 @@ export default function PharmacyInventoryPage() {
     const deferredSearchQuery = useDeferredValue(searchQuery.trim());
     const [tab, setTab] = useState<'all' | 'low'>('all');
     const [showAdd, setShowAdd] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [form, setForm] = useState({
         name: '',
@@ -73,6 +74,7 @@ export default function PharmacyInventoryPage() {
             requiresPrescription: false 
         });
         setShowAdd(false);
+        setShowAdvanced(false);
         setEditId(null);
     };
 
@@ -243,18 +245,9 @@ export default function PharmacyInventoryPage() {
                         variant="outline"
                         onClick={() => downloadCSV(inventory, [
                             { key: 'name', label: 'Medicine' },
-                            { key: 'genericName', label: 'Generic Name' },
                             { key: 'category', label: 'Category' },
-                            { key: 'quantity', label: 'Quantity' },
-                            { key: 'packSize', label: 'Pack Size' },
-                            { key: 'unitType', label: 'Unit Type' },
-                            { key: 'minQuantity', label: 'Minimum Stock' },
-                            { key: 'price', label: 'Price' },
-                            { key: 'mrp', label: 'MRP' },
-                            { key: 'batchNumber', label: 'Batch Number' },
-                            { key: 'manufacturer', label: 'Manufacturer' },
-                            { key: 'expiryDate', label: 'Expiry Date' },
-                            { key: 'requiresPrescription', label: 'Requires Prescription' },
+                            { key: 'quantity', label: 'Total Stock' },
+                            { key: 'price', label: 'Selling Price' },
                         ], 'inventory')}
                         leftIcon={<Download className="h-4 w-4" />}
                     >
@@ -264,18 +257,9 @@ export default function PharmacyInventoryPage() {
                         variant="outline"
                         onClick={() => downloadCSV([], [
                             { key: 'name', label: 'name' },
-                            { key: 'genericName', label: 'genericName' },
                             { key: 'category', label: 'category' },
                             { key: 'quantity', label: 'quantity' },
-                            { key: 'packSize', label: 'packSize' },
-                            { key: 'unitType', label: 'unitType' },
                             { key: 'price', label: 'price' },
-                            { key: 'mrp', label: 'mrp' },
-                            { key: 'minQuantity', label: 'minQuantity' },
-                            { key: 'batchNumber', label: 'batchNumber' },
-                            { key: 'manufacturer', label: 'manufacturer' },
-                            { key: 'expiryDate', label: 'expiryDate' },
-                            { key: 'requiresPrescription', label: 'requiresPrescription' },
                         ], 'inventory_template')}
                         leftIcon={<Download className="h-4 w-4" />}
                     >
@@ -294,32 +278,9 @@ export default function PharmacyInventoryPage() {
                             <h2 className="text-lg font-semibold">{editId ? 'Edit Item' : 'Add Inventory Item'}</h2>
                             <button onClick={resetForm}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter medicine name" />
-                                <Input label="Generic Name" value={form.genericName} onChange={(e) => setForm((current) => ({ ...current, genericName: e.target.value }))} placeholder="e.g. Paracetamol" />
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <Input label="Total Loose Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="Total units" />
-                                <Input label="Min Stock" type="number" value={form.minQuantity} onChange={(e) => setForm((current) => ({ ...current, minQuantity: e.target.value }))} />
-                                <Input label="Price (Selling)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} />
-                                <Input label="MRP (Max Price)" type="number" value={form.mrp} onChange={(e) => setForm((current) => ({ ...current, mrp: e.target.value }))} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <Input label="Pack Size (e.g. 15)" type="number" value={form.packSize} onChange={(e) => setForm((current) => ({ ...current, packSize: e.target.value }))} placeholder="Items per pack" />
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Type</label>
-                                    <select
-                                        value={form.unitType}
-                                        onChange={(e) => setForm((current) => ({ ...current, unitType: e.target.value }))}
-                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                                    >
-                                        <option value="unit">Unit</option>
-                                        <option value="strip">Strip</option>
-                                        <option value="bottle">Bottle</option>
-                                        <option value="tube">Tube</option>
-                                    </select>
-                                </div>
                                 <div className="space-y-1">
                                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
                                     <select
@@ -337,23 +298,65 @@ export default function PharmacyInventoryPage() {
                                     </select>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <Input label="Batch Number" value={form.batchNumber} onChange={(e) => setForm((current) => ({ ...current, batchNumber: e.target.value }))} />
-                                <Input label="Expiry Date" type="date" value={form.expiryDate} onChange={(e) => setForm((current) => ({ ...current, expiryDate: e.target.value }))} />
-                                <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => setForm((current) => ({ ...current, manufacturer: e.target.value }))} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input label="Total Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="e.g. 50" />
+                                <Input label="Selling Price (₹)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} placeholder="e.g. 150" />
                             </div>
-                            <div className="flex items-center gap-2 pt-2">
-                                <input
-                                    type="checkbox"
-                                    id="requiresPrescription"
-                                    checked={form.requiresPrescription}
-                                    onChange={(e) => setForm((current) => ({ ...current, requiresPrescription: e.target.checked }))}
-                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <label htmlFor="requiresPrescription" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Requires Prescription
-                                </label>
+
+                            <div className="pt-2">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    * Note: Only the above fields are required. All other fields are optional.
+                                </p>
+                                <button
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    className="text-sm font-medium text-orange-600 hover:text-orange-700 dark:text-orange-500"
+                                >
+                                    {showAdvanced ? '- Hide Optional Details' : '+ Show Optional Details (MRP, Batch, Expiry...)'}
+                                </button>
                             </div>
+
+                            {showAdvanced && (
+                                <div className="space-y-4 border-t border-gray-100 pt-4 dark:border-gray-800 animate-in fade-in slide-in-from-top-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input label="Generic Name" value={form.genericName} onChange={(e) => setForm((current) => ({ ...current, genericName: e.target.value }))} placeholder="e.g. Paracetamol" />
+                                        <Input label="Manufacturer" value={form.manufacturer} onChange={(e) => setForm((current) => ({ ...current, manufacturer: e.target.value }))} placeholder="e.g. Cipla" />
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <Input label="MRP (₹)" type="number" value={form.mrp} onChange={(e) => setForm((current) => ({ ...current, mrp: e.target.value }))} />
+                                        <Input label="Min Stock Alert" type="number" value={form.minQuantity} onChange={(e) => setForm((current) => ({ ...current, minQuantity: e.target.value }))} />
+                                        <Input label="Pack Size" type="number" value={form.packSize} onChange={(e) => setForm((current) => ({ ...current, packSize: e.target.value }))} />
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Type</label>
+                                            <select
+                                                value={form.unitType}
+                                                onChange={(e) => setForm((current) => ({ ...current, unitType: e.target.value }))}
+                                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                            >
+                                                <option value="unit">Unit</option>
+                                                <option value="strip">Strip</option>
+                                                <option value="bottle">Bottle</option>
+                                                <option value="tube">Tube</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input label="Batch Number" value={form.batchNumber} onChange={(e) => setForm((current) => ({ ...current, batchNumber: e.target.value }))} />
+                                        <Input label="Expiry Date" type="date" value={form.expiryDate} onChange={(e) => setForm((current) => ({ ...current, expiryDate: e.target.value }))} />
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <input
+                                            type="checkbox"
+                                            id="requiresPrescription"
+                                            checked={form.requiresPrescription}
+                                            onChange={(e) => setForm((current) => ({ ...current, requiresPrescription: e.target.checked }))}
+                                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                        />
+                                        <label htmlFor="requiresPrescription" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Requires Prescription for Purchase
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="mt-4 flex justify-end gap-2">
                             <Button variant="outline" onClick={resetForm}>Cancel</Button>
