@@ -168,7 +168,7 @@ router.post('/complete', async (req, res) => {
 // 6. Update Agent Location (Public endpoint for Agent Web App)
 router.post('/location', async (req, res) => {
     try {
-        const { agent_id, latitude, longitude } = req.body;
+        const { agent_id, latitude, longitude, token } = req.body;
         
         const { data, error } = await supabaseAdmin
             .from('delivery_agents')
@@ -186,30 +186,33 @@ router.post('/location', async (req, res) => {
         // Broadcast location update via Socket.IO
         const io = req.app.get('io');
         if (io) {
-            // We need the tracking token to broadcast to the specific room
-            // Find any active order for this agent to get the tracking token
-            const { data: activeOrder } = await supabaseAdmin
-                .from('pharmacy_orders')
-                .select('tracking_token')
-                .eq('agent_id', agent_id)
-                .in('status', ['out_for_delivery'])
-                .limit(1)
-                .maybeSingle();
-                
-            const trackingToken = activeOrder?.tracking_token;
-            if (!trackingToken) {
-                const { data: diagBooking } = await supabaseAdmin
-                    .from('diagnostic_bookings')
+            if (token) {
+                io.to(`tracking_${token}`).emit('agent:location-update', { latitude, longitude });
+            } else {
+                // Fallback if token not provided by older client
+                const { data: activeOrder } = await supabaseAdmin
+                    .from('pharmacy_orders')
                     .select('tracking_token')
                     .eq('agent_id', agent_id)
-                    .in('status', ['dispatched'])
+                    .in('status', ['out_for_delivery'])
                     .limit(1)
                     .maybeSingle();
-                if (diagBooking) {
-                    io.to(`tracking_${diagBooking.tracking_token}`).emit('agent:location-update', { latitude, longitude });
+                    
+                const trackingToken = activeOrder?.tracking_token;
+                if (!trackingToken) {
+                    const { data: diagBooking } = await supabaseAdmin
+                        .from('diagnostic_bookings')
+                        .select('tracking_token')
+                        .eq('agent_id', agent_id)
+                        .in('status', ['dispatched'])
+                        .limit(1)
+                        .maybeSingle();
+                    if (diagBooking) {
+                        io.to(`tracking_${diagBooking.tracking_token}`).emit('agent:location-update', { latitude, longitude });
+                    }
+                } else {
+                    io.to(`tracking_${trackingToken}`).emit('agent:location-update', { latitude, longitude });
                 }
-            } else {
-                io.to(`tracking_${trackingToken}`).emit('agent:location-update', { latitude, longitude });
             }
         }
         

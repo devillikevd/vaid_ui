@@ -54,7 +54,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
                     await fetch(`${PUBLIC_API_URL}/delivery-agents/location`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ agent_id: order.agent_id, latitude, longitude })
+                        body: JSON.stringify({ agent_id: order.agent_id, latitude, longitude, token })
                     });
                 }
             },
@@ -97,9 +97,10 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
 
     const openGoogleMaps = () => {
         if (!order) return;
-        const address = type === 'pharmacy' ? order.delivery_address?.address : order.collection_address?.address;
-        if (address) {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank');
+        const rawAddr = type === 'pharmacy' ? order.delivery_address : order.collection_address;
+        const addrStr = typeof rawAddr === 'string' ? rawAddr : rawAddr?.address;
+        if (addrStr) {
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addrStr)}`, '_blank');
         }
     };
 
@@ -124,7 +125,9 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
     }
 
     const isCompleted = type === 'pharmacy' ? order.status === 'delivered' : order.status === 'sample_collected';
-    const address = type === 'pharmacy' ? order.delivery_address : order.collection_address;
+    const rawAddress = type === 'pharmacy' ? order.delivery_address : order.collection_address;
+    const addressStr = typeof rawAddress === 'string' ? rawAddress : rawAddress?.address;
+    const addressPhone = typeof rawAddress === 'string' ? '' : rawAddress?.phone;
     const isCancelled = order.status === 'cancelled';
 
     if (isCompleted || isCancelled) {
@@ -162,8 +165,8 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
                         <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
                         <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">Patient Address</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{address?.address}</p>
-                            {address?.phone && <p className="text-sm font-medium text-purple-600 mt-2">📞 {address.phone}</p>}
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{addressStr}</p>
+                            {addressPhone && <p className="text-sm font-medium text-purple-600 mt-2">📞 {addressPhone}</p>}
                         </div>
                     </div>
 
