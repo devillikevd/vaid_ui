@@ -11,7 +11,7 @@ const config = require('../config');
 const { cacheGet, cacheSet, cacheIncr } = require('../config/redis');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 5;
 
 // ==================== QUOTA MANAGEMENT ====================
 

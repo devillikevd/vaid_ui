@@ -60,7 +60,7 @@ class DietTrackerViewModel @Inject constructor(
                         _uiState.value = DietTrackerState.QuotaLoaded(it)
                     } ?: run {
                         _uiState.value = DietTrackerState.QuotaLoaded(
-                            DietQuotaResponse(used = 0, limit = 3, remaining = 3, exhausted = false)
+                            DietQuotaResponse(used = 0, limit = 5, remaining = 5, exhausted = false)
                         )
                     }
                 } else {
@@ -98,14 +98,46 @@ class DietTrackerViewModel @Inject constructor(
                     _uiState.value = DietTrackerState.AnalysisError("Failed to analyze image")
                 }
             } catch (e: Exception) {
+                android.util.Log.e("DietTrackerViewModel", "Error analyzing food image", e)
                 _uiState.value = DietTrackerState.AnalysisError(
                     when (e) {
                         is java.net.SocketTimeoutException -> "Network timeout. The AI is taking longer than expected. Please try again."
                         is retrofit2.HttpException -> "Server error: ${e.code()}. Please try again."
-                        else -> "Failed to parse response or unknown error occurred."
+                        else -> "Failed to parse response or unknown error occurred. (${e.message})"
                     }
                 )
             }
+        }
+    }
+
+    fun updateIdentifiedItem(index: Int, updatedItem: IdentifiedFoodItem) {
+        val currentState = _uiState.value
+        if (currentState is DietTrackerState.AnalysisSuccess) {
+            val newList = currentState.items.toMutableList()
+            if (index in newList.indices) {
+                newList[index] = updatedItem
+                _uiState.value = currentState.copy(items = newList)
+            }
+        }
+    }
+
+    fun removeIdentifiedItem(index: Int) {
+        val currentState = _uiState.value
+        if (currentState is DietTrackerState.AnalysisSuccess) {
+            val newList = currentState.items.toMutableList()
+            if (index in newList.indices) {
+                newList.removeAt(index)
+                _uiState.value = currentState.copy(items = newList)
+            }
+        }
+    }
+
+    fun addIdentifiedItem() {
+        val currentState = _uiState.value
+        if (currentState is DietTrackerState.AnalysisSuccess) {
+            val newList = currentState.items.toMutableList()
+            newList.add(IdentifiedFoodItem(name = "", quantity = 1.0, unit = "portion"))
+            _uiState.value = currentState.copy(items = newList)
         }
     }
 

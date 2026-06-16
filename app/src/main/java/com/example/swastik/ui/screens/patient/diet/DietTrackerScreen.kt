@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -123,6 +124,9 @@ fun DietTrackerScreen(
                         imageUri = selectedImageUri,
                         items = state.items,
                         notes = additionalNotes,
+                        onItemChange = { index, item -> viewModel.updateIdentifiedItem(index, item) },
+                        onItemRemove = { index -> viewModel.removeIdentifiedItem(index) },
+                        onItemAdd = { viewModel.addIdentifiedItem() },
                         onNotesChange = { additionalNotes = it },
                         onCalculate = { viewModel.calculateNutrition(state.items, additionalNotes) },
                         onBack = { viewModel.checkQuota() }
@@ -249,7 +253,7 @@ fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraC
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Free scans remaining today: $remainingQuota/3",
+            text = "Free scans remaining today: $remainingQuota/5",
             fontSize = 14.sp,
             color = if (remainingQuota > 0) Color(0xFF2E7D32) else Color(0xFFD32F2F),
             fontWeight = FontWeight.Medium
@@ -262,6 +266,9 @@ fun EditDetectedItemsView(
     imageUri: Uri?,
     items: List<IdentifiedFoodItem>,
     notes: String,
+    onItemChange: (Int, IdentifiedFoodItem) -> Unit,
+    onItemRemove: (Int) -> Unit,
+    onItemAdd: () -> Unit,
     onNotesChange: (String) -> Unit,
     onCalculate: () -> Unit,
     onBack: () -> Unit
@@ -285,36 +292,86 @@ fun EditDetectedItemsView(
             }
             
             Text(
-                "AI Detected Items",
+                "Verify Detected Items",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "You can edit the items below if the AI made a mistake.",
+                fontSize = 14.sp,
+                color = Color.Gray,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        items(items) { item ->
+        itemsIndexed(items) { index, item ->
             Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(item.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        if (!item.hindi_name.isNullOrBlank()) {
-                            Text(item.hindi_name, color = Color.Gray, fontSize = 12.sp)
+                Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = item.name,
+                            onValueChange = { onItemChange(index, item.copy(name = it)) },
+                            label = { Text("Item Name", fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                        )
+                        IconButton(onClick = { onItemRemove(index) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.Gray)
                         }
                     }
-                    Text("${item.quantity} ${item.unit}", fontWeight = FontWeight.Medium, color = Color(0xFFE65100))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = item.quantity.toString(),
+                            onValueChange = { 
+                                val qty = it.toDoubleOrNull() ?: 1.0
+                                onItemChange(index, item.copy(quantity = qty)) 
+                            },
+                            label = { Text("Quantity", fontSize = 12.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                        )
+                        OutlinedTextField(
+                            value = item.unit,
+                            onValueChange = { onItemChange(index, item.copy(unit = it)) },
+                            label = { Text("Unit (e.g. piece, katori)", fontSize = 12.sp) },
+                            modifier = Modifier.weight(2f),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
+                        )
+                    }
                 }
             }
         }
 
         item {
+            TextButton(
+                onClick = onItemAdd,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Item")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Missing Item", fontWeight = FontWeight.Medium)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 "Missed Anything?",
@@ -333,22 +390,22 @@ fun EditDetectedItemsView(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedButton(
-                    onClick = onBack,
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Cancel")
-                }
-                
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = onCalculate,
-                    modifier = Modifier.weight(1f).height(50.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Calculate Nutrition")
+                    Text("Calculate Nutrition", fontSize = 16.sp)
+                }
+                
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Cancel", fontSize = 16.sp)
                 }
             }
         }

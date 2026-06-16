@@ -10,7 +10,7 @@ data class DietQuotaResponse(
 )
 
 data class DietAnalysisResponse(
-    @SerializedName("detected_items") val identified_items: List<IdentifiedFoodItem>,
+    @SerializedName("identified_items") val identified_items: List<IdentifiedFoodItem>,
     @SerializedName("quota") val quota: DietQuotaResponse? = null
 )
 
@@ -57,9 +57,9 @@ data class NutritionalTotals(
 )
 
 data class DietAdvice(
-    val general_assessment: String,
-    val health_warnings: List<String> = emptyList(),
-    val recommendations: List<String> = emptyList()
+    @SerializedName("health_assessment") val general_assessment: String,
+    @SerializedName("warnings") val health_warnings: List<String> = emptyList(),
+    @SerializedName("suggestion") val recommendation: String? = null
 )
 
 data class MealLogDto(
