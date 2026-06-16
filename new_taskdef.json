@@ -203,6 +203,10 @@
                 {
                     "name": "UPSTASH_REDIS_REST_URL",
                     "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/UPSTASH_REDIS_REST_URL"
+                },
+                {
+                    "name": "GEMINI_API_KEY",
+                    "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GEMINI_API_KEY"
                 }
             ],
             "logConfiguration": {
@@ -287,6 +291,10 @@
                 {
                     "name": "REDIS_URL",
                     "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/REDIS_URL"
+                },
+                {
+                    "name": "GEMINI_API_KEY",
+                    "valueFrom": "arn:aws:ssm:ap-south-1:725098487373:parameter/swastik/prod/GEMINI_API_KEY"
                 }
             ],
             "logConfiguration": {

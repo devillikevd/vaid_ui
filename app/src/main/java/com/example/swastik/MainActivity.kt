@@ -296,6 +296,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToVitals = { /* handled internally or unused */ },
                 onNavigateToHealthCard = { navController.navigateSafe(Screen.HealthCard.route) },
                 onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) },
+                onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
                 onNavigateToMedicineDetail = { medicineId ->
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                 },
@@ -898,6 +899,14 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateBack = { navController.popBackStack() },
                     dashboardViewModel = dashboardViewModel,
                     recordsViewModel = recordsViewModel
+                )
+            }
+        }
+
+        composable(Screen.DietTracker.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.diet.DietTrackerScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

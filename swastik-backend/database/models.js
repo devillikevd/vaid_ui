@@ -72,8 +72,38 @@ const searchLogSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now, index: true },
 });
 
+// Meal Log Schema - diet & nutrition tracker
+const mealLogSchema = new mongoose.Schema({
+    userId: { type: String, required: true, index: true },
+    items: [{
+        name: String,
+        hindi_name: String,
+        quantity: Number,
+        unit: String,
+        standard_weight_g: Number,
+        calories: Number,
+        protein_g: Number,
+        carbs_g: Number,
+        fat_g: Number,
+        fiber_g: Number,
+        source: { type: String, enum: ['icmr_database', 'ai_estimated'], default: 'icmr_database' },
+    }],
+    totals: {
+        calories: Number,
+        protein_g: Number,
+        carbs_g: Number,
+        fat_g: Number,
+        fiber_g: Number,
+    },
+    advice: mongoose.Schema.Types.Mixed,
+    mealType: { type: String, enum: ['breakfast', 'lunch', 'dinner', 'snack', 'unknown'], default: 'unknown' },
+    medicalConditions: [String],
+    createdAt: { type: Date, default: Date.now, index: true },
+});
+
+
 // Create models only if mongoose is connected
-let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog;
+let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog;
 
 try {
     AuditLog = mongoose.model('AuditLog', auditLogSchema);
@@ -81,6 +111,7 @@ try {
     AnalyticsEvent = mongoose.model('AnalyticsEvent', analyticsEventSchema);
     AmbulanceLocation = mongoose.model('AmbulanceLocation', ambulanceLocationSchema);
     SearchLog = mongoose.model('SearchLog', searchLogSchema);
+    MealLog = mongoose.model('MealLog', mealLogSchema);
 } catch (error) {
     // Models might already exist
     AuditLog = mongoose.models.AuditLog;
@@ -88,6 +119,7 @@ try {
     AnalyticsEvent = mongoose.models.AnalyticsEvent;
     AmbulanceLocation = mongoose.models.AmbulanceLocation;
     SearchLog = mongoose.models.SearchLog;
+    MealLog = mongoose.models.MealLog;
 }
 
 module.exports = {
@@ -96,4 +128,5 @@ module.exports = {
     AnalyticsEvent,
     AmbulanceLocation,
     SearchLog,
+    MealLog,
 };

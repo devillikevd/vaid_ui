@@ -50,6 +50,8 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MONGODB_URI = os.getenv("MONGODB_URI", "")
 MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "swastik_healthcare")
 # Prefer access-token secret for cross-service compatibility with backend.
@@ -63,6 +65,7 @@ AI_INGEST_CONSUMER = os.getenv("AI_INGEST_CONSUMER", f"worker-{os.getpid()}")
 AI_INGEST_MAXLEN = int(os.getenv("AI_INGEST_MAXLEN", "20000"))
 AI_PENDING_MIN_IDLE_MS = int(os.getenv("AI_PENDING_MIN_IDLE_MS", "60000"))
 AI_AUTOCLAIM_BATCH = int(os.getenv("AI_AUTOCLAIM_BATCH", "100"))
+ICMR_FOOD_DB_PATH = os.path.join(os.path.dirname(__file__), "data", "icmr_food_db.json")
 
 # Initialize Redis client globally
 redis_client = aioredis.from_url(REDIS_URL)
@@ -81,6 +84,8 @@ async def lifespan(app: FastAPI):
             client = AsyncIOMotorClient(MONGODB_URI)
             db = client[MONGODB_DB_NAME]
             print("✅ MongoDB connected (AI Service)")
+            # Seed ICMR-NIN Indian Food Database if collection is empty
+            await _seed_food_database(db)
         except Exception as e:
             print(f"⚠️  MongoDB connection failed: {e}")
 
@@ -1408,6 +1413,411 @@ Respond with JSON:
         "data": {
             "summary": parsed,
             "provider": ai_result["provider"],
+            "latencyMs": latency_ms,
+        },
+    }
+
+
+# ══════════════════════════════════════════════════════════════════
+#  DIET & NUTRITION TRACKER — Vision AI + ICMR Database
+# ══════════════════════════════════════════════════════════════════
+
+async def _seed_food_database(database):
+    """Seed ICMR-NIN Indian Food Database into MongoDB if collection is empty."""
+    try:
+        count = await database.food_database.count_documents({})
+        if count > 0:
+            print(f"✅ Food database already seeded ({count} items)")
+            return
+        if not os.path.exists(ICMR_FOOD_DB_PATH):
+            print("⚠️  ICMR food DB JSON not found, skipping seed")
+            return
+        with open(ICMR_FOOD_DB_PATH, "r", encoding="utf-8") as f:
+            foods = json.load(f)
+        # Add search-friendly lowercase name field
+        for food in foods:
+            food["name_lower"] = food["name"].lower()
+        await database.food_database.insert_many(foods)
+        # Create text index for fuzzy search
+        await database.food_database.create_index([("name_lower", 1)])
+        await database.food_database.create_index([("hindi_name", 1)])
+        await database.food_database.create_index([("category", 1)])
+        print(f"✅ Seeded {len(foods)} items into food_database collection")
+    except Exception as e:
+        print(f"⚠️  Food database seeding failed: {e}")
+
+
+class DietVisionRequest(BaseModel):
+    image: str = Field(..., description="Base64-encoded image data")
+    mime_type: str = Field(default="image/jpeg", description="Image MIME type")
+
+
+class FoodItemVerified(BaseModel):
+    name: str
+    quantity: float
+    unit: str
+
+
+class DietCalculateRequest(BaseModel):
+    items: List[FoodItemVerified]
+    additional_notes: Optional[str] = Field(None, description="User notes about items AI missed")
+    medical_conditions: List[str] = Field(default=[], description="Patient conditions like Diabetes, Hypertension")
+    language: str = Field(default="en", description="Response language: en or hi")
+
+
+async def verify_any_token(authorization: str = Header(None)):
+    """Verify JWT for any authenticated user (patient or doctor)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization token")
+    token = authorization.split(" ")[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.post("/api/diet/vision")
+async def diet_vision_analyze(req: DietVisionRequest, user: dict = Depends(verify_any_token)):
+    """
+    Analyze a food image using Gemini 1.5 Flash to detect food items.
+    Returns structured JSON with detected items and estimated portions.
+    """
+    start_time = time.time()
+
+    if not req.image or len(req.image) < 100:
+        raise HTTPException(status_code=400, detail="Invalid or empty image data")
+
+    # Validate base64 image size (max 4MB)
+    if len(req.image) > 4 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image too large. Max 4MB allowed.")
+
+    data_url = f"data:{req.mime_type};base64,{req.image}"
+
+    vision_prompt = """Analyze this food image carefully. Identify every food item visible on the plate/table.
+
+For each item, estimate the quantity in standard Indian measurements (pieces for roti/idli, katori for dal/sabzi/rice, glass for drinks, plate for rice/biryani).
+
+Respond ONLY with this JSON format — no extra text:
+{
+  "detected_items": [
+    {"name": "Roti", "quantity": 3, "unit": "pieces"},
+    {"name": "Dal Tadka", "quantity": 1, "unit": "katori"},
+    {"name": "Cooked Rice", "quantity": 1, "unit": "katori"}
+  ],
+  "meal_type": "lunch",
+  "confidence": 0.85
+}
+
+Rules:
+- Use standard Indian food names (Roti, not Chapati/Flatbread; Dal, not Lentil Soup)
+- For mixed items, identify the main components separately
+- Estimate portions as realistically as possible from the image
+- If unsure about an item, include it with lower confidence
+- Always respond with valid JSON only"""
+
+    try:
+        # 1. Primary: Use Gemini 1.5 Flash (Generous Free Tier & Excellent Accuracy)
+        if GEMINI_API_KEY:
+            import google.generativeai as genai
+            import base64
+            
+            try:
+                genai.configure(api_key=GEMINI_API_KEY)
+                # Ensure we have base64 data to decode
+                if "," in data_url:
+                    header, encoded = data_url.split(",", 1)
+                    mime_type = header.split(":")[1].split(";")[0]
+                else:
+                    encoded = data_url
+                    mime_type = "image/jpeg"
+                    
+                image_data = base64.b64decode(encoded + '=' * (-len(encoded) % 4))
+                image_part = {"mime_type": mime_type, "data": image_data}
+                
+                model = genai.GenerativeModel('gemini-2.5-flash')
+                response = await asyncio.to_thread(
+                    model.generate_content,
+                    [vision_prompt, image_part],
+                    generation_config={"temperature": 0.2, "response_mime_type": "application/json"}
+                )
+                
+                parsed = parse_json_response(response.text)
+                latency_ms = int((time.time() - start_time) * 1000)
+                return {
+                    "success": True,
+                    "data": {
+                        "detected_items": parsed.get("detected_items", []),
+                        "meal_type": parsed.get("meal_type", "unknown"),
+                        "confidence": parsed.get("confidence", 0.85),
+                        "provider": "gemini_1_5_flash",
+                        "latencyMs": latency_ms,
+                    },
+                }
+            except Exception as e:
+                print(f"[Diet Vision] Gemini error: {e}")
+
+        # Fallback: Use Groq with vision model
+        if GROQ_API_KEY:
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "llama-3.2-11b-vision-preview",
+                        "messages": [
+                            {"role": "system", "content": "You are a food identification AI. Respond only with valid JSON."},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": vision_prompt},
+                                    {"type": "image_url", "image_url": {"url": data_url}},
+                                ],
+                            },
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 1024,
+                    },
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    parsed = parse_json_response(content)
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    return {
+                        "success": True,
+                        "data": {
+                            "detected_items": parsed.get("detected_items", []),
+                            "meal_type": parsed.get("meal_type", "unknown"),
+                            "confidence": parsed.get("confidence", 0.7),
+                            "provider": "groq_vision_fallback",
+                            "latencyMs": latency_ms,
+                        },
+                    }
+                else:
+                    print(f"[Diet Vision] Groq fallback error {response.status_code}: {response.text[:200]}")
+
+        raise HTTPException(status_code=503, detail="No vision provider available")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Diet Vision] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Vision analysis failed: {str(e)}")
+
+
+@app.post("/api/diet/calculate")
+async def diet_calculate(req: DietCalculateRequest, user: dict = Depends(verify_any_token)):
+    """
+    Calculate nutritional breakdown from verified food items.
+    Uses ICMR-NIN database for Indian foods + Llama 70B for advice.
+    """
+    start_time = time.time()
+
+    if not req.items:
+        raise HTTPException(status_code=400, detail="No food items provided")
+
+    # Step 1: Look up each item in ICMR food database
+    nutrition_breakdown = []
+    unmatched_items = []
+    total_calories = 0
+    total_protein = 0
+    total_carbs = 0
+    total_fat = 0
+    total_fiber = 0
+
+    if db is not None:
+        for item in req.items:
+            # Try exact and fuzzy match in ICMR database
+            food_entry = await db.food_database.find_one(
+                {"name_lower": {"$regex": item.name.lower().strip(), "$options": "i"}}
+            )
+            if not food_entry:
+                # Try partial match
+                food_entry = await db.food_database.find_one(
+                    {"name_lower": {"$regex": item.name.lower().split("(")[0].strip(), "$options": "i"}}
+                )
+
+            if food_entry:
+                # Calculate based on quantity and standard weight
+                standard_weight = food_entry.get("standard_weight_g", 100)
+                multiplier = item.quantity
+
+                item_calories = round(food_entry["calories"] * multiplier, 1)
+                item_protein = round(food_entry["protein_g"] * multiplier, 1)
+                item_carbs = round(food_entry["carbs_g"] * multiplier, 1)
+                item_fat = round(food_entry["fat_g"] * multiplier, 1)
+                item_fiber = round(food_entry.get("fiber_g", 0) * multiplier, 1)
+
+                nutrition_breakdown.append({
+                    "name": food_entry["name"],
+                    "hindi_name": food_entry.get("hindi_name", ""),
+                    "quantity": item.quantity,
+                    "unit": item.unit,
+                    "standard_weight_g": standard_weight,
+                    "calories": item_calories,
+                    "protein_g": item_protein,
+                    "carbs_g": item_carbs,
+                    "fat_g": item_fat,
+                    "fiber_g": item_fiber,
+                    "source": "icmr_database",
+                })
+
+                total_calories += item_calories
+                total_protein += item_protein
+                total_carbs += item_carbs
+                total_fat += item_fat
+                total_fiber += item_fiber
+            else:
+                unmatched_items.append(item)
+
+    # Step 2: For unmatched items + additional notes, use Llama 70B
+    llm_items_text = ""
+    if unmatched_items or req.additional_notes:
+        parts = []
+        for item in unmatched_items:
+            parts.append(f"{item.quantity} {item.unit} {item.name}")
+        if req.additional_notes:
+            parts.append(f"Additional: {req.additional_notes}")
+        llm_items_text = ", ".join(parts)
+
+        llm_prompt = f"""Calculate nutritional values for these Indian food items:
+{llm_items_text}
+
+Respond ONLY with valid JSON:
+{{
+  "items": [
+    {{
+      "name": "Item Name",
+      "quantity": 1,
+      "unit": "katori",
+      "calories": 150,
+      "protein_g": 5,
+      "carbs_g": 20,
+      "fat_g": 4,
+      "fiber_g": 2
+    }}
+  ]
+}}
+
+Use standard Indian nutritional values. Be as accurate as possible."""
+
+        try:
+            llm_result = await call_ai(
+                [{"role": "system", "content": "You are an expert Indian nutritionist. Calculate accurate nutritional values. Respond only with valid JSON."},
+                 {"role": "user", "content": llm_prompt}],
+                max_tokens=800,
+            )
+            parsed_llm = parse_json_response(llm_result["content"])
+            for llm_item in parsed_llm.get("items", []):
+                item_cals = llm_item.get("calories", 0)
+                item_pro = llm_item.get("protein_g", 0)
+                item_carb = llm_item.get("carbs_g", 0)
+                item_f = llm_item.get("fat_g", 0)
+                item_fib = llm_item.get("fiber_g", 0)
+
+                nutrition_breakdown.append({
+                    **llm_item,
+                    "source": "ai_estimated",
+                })
+                total_calories += item_cals
+                total_protein += item_pro
+                total_carbs += item_carb
+                total_fat += item_f
+                total_fiber += item_fib
+        except Exception as e:
+            print(f"[Diet Calc] LLM estimation failed: {e}")
+
+    # Step 3: Generate personalized medical advice via Llama 70B
+    conditions_text = ", ".join(req.medical_conditions) if req.medical_conditions else "None reported"
+    food_summary = ", ".join(
+        f"{item['quantity']} {item.get('unit', '')} {item['name']}" for item in nutrition_breakdown
+    )
+    lang_instruction = "Respond in Hindi (Hinglish is fine)" if req.language == "hi" else "Respond in English"
+
+    advice_prompt = f"""You are a clinical dietician for the Swastik Healthcare Platform.
+
+Patient's Medical Conditions: {conditions_text}
+
+Meal consumed:
+{food_summary}
+
+Total: {round(total_calories)} kcal | Protein: {round(total_protein)}g | Carbs: {round(total_carbs)}g | Fat: {round(total_fat)}g | Fiber: {round(total_fiber)}g
+
+{lang_instruction}. Provide:
+1. A brief health assessment of this meal (2-3 sentences)
+2. Specific warnings if meal conflicts with patient's conditions
+3. One practical suggestion to improve the meal
+4. A meal health score out of 10
+
+Respond ONLY with valid JSON:
+{{
+  "health_assessment": "Brief assessment",
+  "warnings": ["warning1"],
+  "suggestion": "One practical tip",
+  "meal_score": 7,
+  "meal_rating": "Good"
+}}"""
+
+    advice_data = {}
+    try:
+        advice_result = await call_ai(
+            [{"role": "system", "content": "You are a clinical dietician. Give actionable, empathetic dietary advice. Respond only with valid JSON."},
+             {"role": "user", "content": advice_prompt}],
+            max_tokens=600,
+        )
+        advice_data = parse_json_response(advice_result["content"])
+    except Exception as e:
+        print(f"[Diet Calc] Advice generation failed: {e}")
+        advice_data = {
+            "health_assessment": "Unable to generate advice at this time.",
+            "warnings": [],
+            "suggestion": "Maintain a balanced diet with adequate protein and vegetables.",
+            "meal_score": 5,
+            "meal_rating": "N/A",
+        }
+
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    # Save meal log to MongoDB
+    if db is not None:
+        try:
+            await db.meal_logs.insert_one({
+                "userId": user.get("userId") or user.get("id"),
+                "items": nutrition_breakdown,
+                "totals": {
+                    "calories": round(total_calories),
+                    "protein_g": round(total_protein, 1),
+                    "carbs_g": round(total_carbs, 1),
+                    "fat_g": round(total_fat, 1),
+                    "fiber_g": round(total_fiber, 1),
+                },
+                "advice": advice_data,
+                "medical_conditions": req.medical_conditions,
+                "latencyMs": latency_ms,
+                "timestamp": datetime.utcnow(),
+            })
+        except Exception as e:
+            print(f"[Diet Calc] Meal log save failed: {e}")
+
+    return {
+        "success": True,
+        "data": {
+            "items": nutrition_breakdown,
+            "totals": {
+                "calories": round(total_calories),
+                "protein_g": round(total_protein, 1),
+                "carbs_g": round(total_carbs, 1),
+                "fat_g": round(total_fat, 1),
+                "fiber_g": round(total_fiber, 1),
+            },
+            "advice": advice_data,
             "latencyMs": latency_ms,
         },
     }

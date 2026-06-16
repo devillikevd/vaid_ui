@@ -303,6 +303,67 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
 }
 
 @Composable
+fun DietTrackerCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)), // Warm amber/orange tint
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(Color.White, RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.CameraAlt,
+                    contentDescription = "Diet Tracker",
+                    tint = Color(0xFFE65100),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Snap & Track Meal",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Text(
+                    text = "AI-powered diet & nutrition analysis",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Scan Food",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE65100)
+                )
+                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFFE65100), modifier = Modifier.size(14.dp))
+            }
+        }
+    }
+}
+
+
+@Composable
 fun PrimaryActionsGrid(
     onClinicClick: () -> Unit,
     onVideoClick: () -> Unit,

@@ -6,3 +6,5 @@ redis==5.2.0
 motor==3.7.0
 python-dotenv==1.0.1
 PyJWT>=2.8.0
+replicate>=0.25.0
+google-generativeai

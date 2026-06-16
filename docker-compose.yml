@@ -64,6 +64,8 @@ services:
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-}
       - JWT_SECRET=${JWT_SECRET:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY:-}
       - MONGODB_URI=${MONGODB_URI:-}
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-swastik_healthcare}

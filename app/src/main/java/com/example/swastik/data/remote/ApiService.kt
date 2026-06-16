@@ -707,4 +707,25 @@ interface ApiService {
     suspend fun deleteAnswer(
         @Path("id") answerId: String
     ): Response<ApiResponse<Unit>>
+
+    // ==================== DIET & NUTRITION ====================
+
+    @GET("diet/quota")
+    suspend fun getDietQuota(): Response<ApiResponse<DietQuotaResponse>>
+
+    @Multipart
+    @POST("diet/analyze")
+    suspend fun analyzeFood(
+        @Part image: MultipartBody.Part
+    ): Response<ApiResponse<DietAnalysisResponse>>
+
+    @POST("diet/calculate")
+    suspend fun calculateNutrition(
+        @Body request: DietCalculateRequest
+    ): Response<ApiResponse<DietCalculationResponse>>
+
+    @GET("diet/history")
+    suspend fun getDietHistory(
+        @Query("limit") limit: Int = 10
+    ): Response<ApiResponse<List<MealLogDto>>>
 }

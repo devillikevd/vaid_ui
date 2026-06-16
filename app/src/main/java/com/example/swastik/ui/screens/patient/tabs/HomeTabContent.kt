@@ -60,7 +60,8 @@ fun HomeTabContent(
     onNavigateToCommunityQA: () -> Unit = {},
     onDoctorClick: (String) -> Unit = {},
     onNavigateToAllRecommendedDoctors: () -> Unit = {},
-    onNavigateToAISettings: () -> Unit = {}
+    onNavigateToAISettings: () -> Unit = {},
+    onNavigateToDietTracker: () -> Unit = {}
 ) {
     val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
         MaterialTheme.colorScheme.background
@@ -161,6 +162,9 @@ fun HomeTabContent(
 
                 // Digital Health ID Card
                 CompactHealthIdCard(onClick = onNavigateToHealthCard)
+
+                // Diet & Nutrition Tracker Card
+                DietTrackerCard(onClick = onNavigateToDietTracker)
 
 
 

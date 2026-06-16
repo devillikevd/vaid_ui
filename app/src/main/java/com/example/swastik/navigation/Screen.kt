@@ -113,6 +113,7 @@ sealed class Screen(val route: String) {
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")
     object BookingHistory : Screen("booking_history")
+    object DietTracker : Screen("diet_tracker")
     
     // AI Diagnostics
 
