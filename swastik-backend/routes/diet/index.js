@@ -8,10 +8,10 @@
  */
 const express = require('express');
 const multer = require('multer');
-const { authenticate } = require('../middleware/auth');
-const { requireRole, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../middleware/errorHandler');
-const dietService = require('../services/dietService');
+const { authenticate } = require('../../middleware/auth');
+const { requireRole, ROLES } = require('../../middleware/rbac');
+const { asyncHandler } = require('../../middleware/errorHandler');
+const dietService = require('../../services/dietService');
 
 const router = express.Router();
 
