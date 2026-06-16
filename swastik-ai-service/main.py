@@ -1549,7 +1549,7 @@ Rules:
                 return {
                     "success": True,
                     "data": {
-                        "detected_items": parsed.get("detected_items", []),
+                        "identified_items": parsed.get("detected_items", []),
                         "meal_type": parsed.get("meal_type", "unknown"),
                         "confidence": parsed.get("confidence", 0.85),
                         "provider": "gemini_1_5_flash",

@@ -10,7 +10,7 @@ data class DietQuotaResponse(
 )
 
 data class DietAnalysisResponse(
-    val identified_items: List<IdentifiedFoodItem>,
+    @SerializedName("detected_items") val identified_items: List<IdentifiedFoodItem>,
     @SerializedName("quota") val quota: DietQuotaResponse? = null
 )
 

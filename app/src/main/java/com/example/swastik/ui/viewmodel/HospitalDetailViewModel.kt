@@ -28,7 +28,7 @@ data class HospitalDetailUiState(
     val reviewSubmitting: Boolean = false,
     val reviewSuccess: Boolean = false,
     val reviewError: String? = null,
-    val reviews: List<HospitalReviewDto> = emptyList(),
+    val reviews: List<com.example.swastik.data.model.Review> = emptyList(),
     val reviewsLoading: Boolean = false,
     val sosRequesting: Boolean = false,
     val sosSuccess: Boolean = false,
@@ -73,16 +73,11 @@ class HospitalDetailViewModel @Inject constructor(
                         facility = facility,
                         isLoading = false
                     )
-                    if (facilityType == FacilityType.HOSPITAL) {
-                        loadReviews(facilityId)
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            reviews = emptyList(),
-                            reviewsLoading = false,
-                            reviewSuccess = false,
-                            reviewError = null
-                        )
+                    val typeStr = when (facilityType) {
+                        FacilityType.CLINIC -> "clinic"
+                        else -> "hospital"
                     }
+                    loadReviews(typeStr, facilityId)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -104,10 +99,10 @@ class HospitalDetailViewModel @Inject constructor(
         }
     }
 
-    fun loadReviews(hospitalId: String) {
+    fun loadReviews(facilityType: String, facilityId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(reviewsLoading = true)
-            val reviews = hospitalRepository.getHospitalReviews(hospitalId)
+            val reviews = hospitalRepository.getFacilityReviews(facilityType, facilityId)
             _uiState.value = _uiState.value.copy(
                 reviews = reviews,
                 reviewsLoading = false
@@ -115,22 +110,27 @@ class HospitalDetailViewModel @Inject constructor(
         }
     }
 
-    fun submitHospitalReview(hospitalId: String, rating: Int, comment: String?) {
+    fun submitFacilityReview(facilityType: String, facilityId: String, rating: Int, comment: String?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 reviewSubmitting = true,
                 reviewError = null,
                 reviewSuccess = false
             )
-            val success = hospitalRepository.submitHospitalReview(hospitalId, rating, comment)
+            val success = hospitalRepository.submitFacilityReview(facilityType, facilityId, rating, comment)
             _uiState.value = _uiState.value.copy(
                 reviewSubmitting = false,
                 reviewSuccess = success,
                 reviewError = if (!success) "Failed to submit review. You may have already reviewed this hospital." else null
             )
-            // Reload hospital to show updated rating + reload reviews list
+            // Reload facility to show updated rating + reload reviews list
             if (success) {
-                loadHospitalDetails(hospitalId)
+                // Determine FacilityType enum from string to re-load
+                val enumType = when(facilityType) {
+                    "clinic" -> FacilityType.CLINIC
+                    else -> FacilityType.HOSPITAL
+                }
+                loadFacilityDetails(facilityId, enumType)
             }
         }
     }

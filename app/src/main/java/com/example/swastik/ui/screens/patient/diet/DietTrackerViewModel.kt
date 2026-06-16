@@ -98,7 +98,13 @@ class DietTrackerViewModel @Inject constructor(
                     _uiState.value = DietTrackerState.AnalysisError("Failed to analyze image")
                 }
             } catch (e: Exception) {
-                _uiState.value = DietTrackerState.AnalysisError("Network timeout. The AI is taking longer than expected. Please try again.")
+                _uiState.value = DietTrackerState.AnalysisError(
+                    when (e) {
+                        is java.net.SocketTimeoutException -> "Network timeout. The AI is taking longer than expected. Please try again."
+                        is retrofit2.HttpException -> "Server error: ${e.code()}. Please try again."
+                        else -> "Failed to parse response or unknown error occurred."
+                    }
+                )
             }
         }
     }

@@ -423,6 +423,7 @@ fun HospitalDetailScreen(
                         item {
                             HospitalReviewSection(
                                 hospitalId = facility.id,
+                                facilityType = facility.type,
                                 rating = facility.rating,
                                 reviewCount = facility.reviewCount,
                                 viewModel = viewModel,
@@ -479,6 +480,7 @@ fun HospitalDetailScreen(
 @Composable
 private fun HospitalReviewSection(
     hospitalId: String,
+    facilityType: FacilityType,
     rating: Float,
     reviewCount: Int,
     viewModel: HospitalDetailViewModel,
@@ -605,7 +607,14 @@ private fun HospitalReviewSection(
                         Button(
                             onClick = {
                                 if (userRating > 0) {
-                                    viewModel.submitHospitalReview(
+                                    val typeStr = when (facilityType) {
+                                        FacilityType.CLINIC -> "clinic"
+                                        FacilityType.MEDICAL_STORE -> "pharmacy"
+                                        FacilityType.DIAGNOSTIC_CENTER -> "diagnostic_center"
+                                        else -> "hospital"
+                                    }
+                                    viewModel.submitFacilityReview(
+                                        typeStr,
                                         hospitalId,
                                         userRating,
                                         userComment.ifBlank { null }
@@ -659,7 +668,7 @@ private fun HospitalReviewSection(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    (review.patientName?.firstOrNull() ?: 'A').uppercase(),
+                                    (review.patient?.name?.firstOrNull() ?: 'A').uppercase(),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = SwastikPrimary
@@ -673,9 +682,9 @@ private fun HospitalReviewSection(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        review.patientName ?: "Anonymous",
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 13.sp
+                                        text = review.patient?.name ?: "Anonymous Patient",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
                                     )
                                     // Star rating
                                     Row {
@@ -689,6 +698,7 @@ private fun HospitalReviewSection(
                                         }
                                     }
                                 }
+                                // No async image imported yet
                                 if (!review.comment.isNullOrBlank()) {
                                     Text(
                                         review.comment,

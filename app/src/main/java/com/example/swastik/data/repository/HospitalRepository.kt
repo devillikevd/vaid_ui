@@ -235,44 +235,126 @@ class HospitalRepository @Inject constructor(
         } catch (e: Exception) { emptyList() }
     }
 
-    /**
-     * Submit a review for a hospital.
-     */
-    suspend fun submitHospitalReview(
-        hospitalId: String,
+    suspend fun submitFacilityReview(
+        facilityType: String,
+        facilityId: String,
         rating: Int,
         comment: String?
     ): Boolean {
         return try {
-            val request = com.example.swastik.data.remote.dto.ReviewRequest(
-                doctorId = null,
-                hospitalId = hospitalId,
+            val request = com.example.swastik.data.model.ReviewRequest(
+                reviewableType = facilityType,
+                reviewableId = facilityId,
+                consultationId = null,
+                rating = rating,
+                comment = comment,
+                isAnonymous = false
+            )
+            val response = apiService.submitReview(request)
+            response.isSuccessful && response.body()?.success == true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to submit facility review: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun getFacilityReviews(
+        facilityType: String,
+        facilityId: String,
+        page: Int = 1,
+        limit: Int = 20
+    ): List<com.example.swastik.data.model.Review> {
+        return try {
+            val response = apiService.getEntityReviews(facilityType, facilityId, page, limit)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data ?: emptyList()
+            } else emptyList()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch facility reviews: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Submit a review for a pharmacy.
+     */
+    suspend fun submitPharmacyReview(
+        pharmacyId: String,
+        rating: Int,
+        comment: String?
+    ): Boolean {
+        return try {
+            val request = com.example.swastik.data.model.ReviewRequest(
+                reviewableType = "pharmacy",
+                reviewableId = pharmacyId,
+                consultationId = null,
                 rating = rating,
                 comment = comment
             )
-            val response = apiService.submitHospitalReview(hospitalId, request)
+            val response = apiService.submitReview(request)
             response.isSuccessful && response.body()?.success == true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to submit hospital review: ${e.message}")
+            Log.e(TAG, "Failed to submit pharmacy review: ${e.message}")
             false
         }
     }
 
     /**
-     * Fetch reviews for a hospital.
+     * Fetch reviews for a pharmacy.
      */
-    suspend fun getHospitalReviews(
-        hospitalId: String,
+    suspend fun getPharmacyReviews(
+        pharmacyId: String,
         page: Int = 1,
         limit: Int = 20
-    ): List<com.example.swastik.data.remote.dto.HospitalReviewDto> {
+    ): List<com.example.swastik.data.model.Review> {
         return try {
-            val response = apiService.getHospitalReviews(hospitalId, page, limit)
+            val response = apiService.getEntityReviews("pharmacy", pharmacyId, page, limit)
             if (response.isSuccessful && response.body()?.success == true) {
                 response.body()?.data ?: emptyList()
             } else emptyList()
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to fetch hospital reviews: ${e.message}")
+            Log.w(TAG, "Failed to fetch pharmacy reviews: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun submitDiagnosticCenterReview(
+        centerId: String,
+        rating: Int,
+        comment: String?
+    ): Boolean {
+        return try {
+            val request = com.example.swastik.data.model.ReviewRequest(
+                reviewableType = "diagnostic_center",
+                reviewableId = centerId,
+                consultationId = null,
+                rating = rating,
+                comment = comment,
+                isAnonymous = false
+            )
+            val response = apiService.submitReview(request)
+            response.isSuccessful && response.body()?.success == true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to submit diagnostic center review: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Fetch reviews for a diagnostic center.
+     */
+    suspend fun getDiagnosticCenterReviews(
+        centerId: String,
+        page: Int = 1,
+        limit: Int = 20
+    ): List<com.example.swastik.data.model.Review> {
+        return try {
+            val response = apiService.getEntityReviews("diagnostic_center", centerId, page, limit)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data ?: emptyList()
+            } else emptyList()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch diagnostic center reviews: ${e.message}")
             emptyList()
         }
     }

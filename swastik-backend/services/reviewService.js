@@ -183,6 +183,14 @@ class ReviewService {
       }
     }
 
+    // Update aggregate rating on the parent entity table
+    try {
+      await this.updateAggregateRating(reviewableType, reviewableId);
+    } catch (aggErr) {
+      console.error('Failed to update aggregate rating:', aggErr);
+      // We don't fail the review submission if aggregate fails
+    }
+
     return result;
   }
 
@@ -225,6 +233,47 @@ class ReviewService {
         totalPages: Math.ceil((count || 0) / limit)
       }
     };
+  }
+
+  /**
+   * Helper to recalculate and update the aggregate rating and total_reviews
+   * for a given entity type and ID.
+   */
+  async updateAggregateRating(reviewableType, reviewableId) {
+    const { data: allReviews } = await supabaseAdmin
+      .from('reviews')
+      .select('rating')
+      .eq('reviewable_type', reviewableType)
+      .eq('reviewable_id', reviewableId)
+      .eq('is_visible', true);
+
+    if (!allReviews) return;
+
+    const totalReviews = allReviews.length;
+    const avgRating = totalReviews > 0
+      ? allReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
+      : 0;
+    
+    const roundedRating = Math.round(avgRating * 10) / 10;
+
+    let tableName;
+    switch (reviewableType) {
+      case 'doctor': tableName = 'doctors'; break;
+      case 'hospital': tableName = 'hospitals'; break;
+      case 'clinic': tableName = 'clinics'; break;
+      case 'pharmacy': tableName = 'pharmacies'; break;
+      case 'diagnostic_center': tableName = 'diagnostic_centers'; break;
+      default: return; // Unsupported entity type
+    }
+
+    await supabaseAdmin
+      .from(tableName)
+      .update({
+        rating: roundedRating,
+        total_reviews: totalReviews,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reviewableId);
   }
 }
 

@@ -10,33 +10,79 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.example.swastik.data.model.Review
+
+data class PharmacyDetailUiState(
+    val facility: MedicalFacility? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val reviews: List<Review> = emptyList(),
+    val reviewsLoading: Boolean = false,
+    val reviewSubmitting: Boolean = false,
+    val reviewSuccess: Boolean = false,
+    val reviewError: String? = null
+)
+
 @HiltViewModel
 class PharmacyDetailViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<PharmacyDetailUiState>(PharmacyDetailUiState.Loading)
+    private val _uiState = MutableStateFlow(PharmacyDetailUiState())
     val uiState: StateFlow<PharmacyDetailUiState> = _uiState
 
     fun loadPharmacyDetails(pharmacyId: String) {
         viewModelScope.launch {
-            _uiState.value = PharmacyDetailUiState.Loading
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, facility = null)
             try {
                 val facility = hospitalRepository.getPharmacyDetails(pharmacyId)
                 if (facility != null) {
-                    _uiState.value = PharmacyDetailUiState.Success(facility)
+                    _uiState.value = _uiState.value.copy(facility = facility, isLoading = false)
+                    loadReviews(pharmacyId)
                 } else {
-                    _uiState.value = PharmacyDetailUiState.Error("Pharmacy not found.")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Pharmacy not found.")
                 }
             } catch (e: Exception) {
-                _uiState.value = PharmacyDetailUiState.Error(e.message ?: "Failed to load pharmacy details.")
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Failed to load pharmacy details.")
             }
         }
     }
-}
 
-sealed class PharmacyDetailUiState {
-    object Loading : PharmacyDetailUiState()
-    data class Success(val facility: MedicalFacility) : PharmacyDetailUiState()
-    data class Error(val message: String) : PharmacyDetailUiState()
+    fun loadReviews(pharmacyId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(reviewsLoading = true)
+            val reviews = hospitalRepository.getPharmacyReviews(pharmacyId)
+            _uiState.value = _uiState.value.copy(
+                reviews = reviews,
+                reviewsLoading = false
+            )
+        }
+    }
+
+    fun submitPharmacyReview(pharmacyId: String, rating: Int, comment: String?) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                reviewSubmitting = true,
+                reviewError = null,
+                reviewSuccess = false
+            )
+            val success = hospitalRepository.submitPharmacyReview(pharmacyId, rating, comment)
+            _uiState.value = _uiState.value.copy(
+                reviewSubmitting = false,
+                reviewSuccess = success,
+                reviewError = if (!success) "Failed to submit review." else null
+            )
+            if (success) {
+                loadPharmacyDetails(pharmacyId)
+            }
+        }
+    }
+
+    fun clearReviewState() {
+        _uiState.value = _uiState.value.copy(
+            reviewSubmitting = false,
+            reviewSuccess = false,
+            reviewError = null
+        )
+    }
 }

@@ -391,7 +391,7 @@ class HospitalFinderViewModel @Inject constructor(
     fun submitHospitalReview(hospitalId: String, rating: Int, comment: String?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(reviewSubmitting = true, reviewError = null, reviewSuccess = false)
-            val success = hospitalRepository.submitHospitalReview(hospitalId, rating, comment)
+            val success = hospitalRepository.submitFacilityReview("hospital", hospitalId, rating, comment)
             _uiState.value = _uiState.value.copy(
                 reviewSubmitting = false,
                 reviewSuccess = success,

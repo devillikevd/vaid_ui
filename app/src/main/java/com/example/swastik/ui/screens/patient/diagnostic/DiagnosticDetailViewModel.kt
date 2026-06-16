@@ -10,33 +10,79 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.example.swastik.data.model.Review
+
+data class DiagnosticDetailUiState(
+    val facility: MedicalFacility? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val reviews: List<Review> = emptyList(),
+    val reviewsLoading: Boolean = false,
+    val reviewSubmitting: Boolean = false,
+    val reviewSuccess: Boolean = false,
+    val reviewError: String? = null
+)
+
 @HiltViewModel
 class DiagnosticDetailViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<DiagnosticDetailUiState>(DiagnosticDetailUiState.Loading)
+    private val _uiState = MutableStateFlow(DiagnosticDetailUiState())
     val uiState: StateFlow<DiagnosticDetailUiState> = _uiState
 
     fun loadDiagnosticDetails(centerId: String) {
         viewModelScope.launch {
-            _uiState.value = DiagnosticDetailUiState.Loading
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, facility = null)
             try {
                 val facility = hospitalRepository.getDiagnosticCenterDetails(centerId)
                 if (facility != null) {
-                    _uiState.value = DiagnosticDetailUiState.Success(facility)
+                    _uiState.value = _uiState.value.copy(facility = facility, isLoading = false)
+                    loadReviews(centerId)
                 } else {
-                    _uiState.value = DiagnosticDetailUiState.Error("Diagnostic Center not found.")
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = "Diagnostic Center not found.")
                 }
             } catch (e: Exception) {
-                _uiState.value = DiagnosticDetailUiState.Error(e.message ?: "Failed to load diagnostic center details.")
+                _uiState.value = _uiState.value.copy(isLoading = false, error = e.message ?: "Failed to load diagnostic center details.")
             }
         }
     }
-}
 
-sealed class DiagnosticDetailUiState {
-    object Loading : DiagnosticDetailUiState()
-    data class Success(val facility: MedicalFacility) : DiagnosticDetailUiState()
-    data class Error(val message: String) : DiagnosticDetailUiState()
+    fun loadReviews(centerId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(reviewsLoading = true)
+            val reviews = hospitalRepository.getDiagnosticCenterReviews(centerId)
+            _uiState.value = _uiState.value.copy(
+                reviews = reviews,
+                reviewsLoading = false
+            )
+        }
+    }
+
+    fun submitDiagnosticCenterReview(centerId: String, rating: Int, comment: String?) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                reviewSubmitting = true,
+                reviewError = null,
+                reviewSuccess = false
+            )
+            val success = hospitalRepository.submitDiagnosticCenterReview(centerId, rating, comment)
+            _uiState.value = _uiState.value.copy(
+                reviewSubmitting = false,
+                reviewSuccess = success,
+                reviewError = if (!success) "Failed to submit review." else null
+            )
+            if (success) {
+                loadDiagnosticDetails(centerId)
+            }
+        }
+    }
+
+    fun clearReviewState() {
+        _uiState.value = _uiState.value.copy(
+            reviewSubmitting = false,
+            reviewSuccess = false,
+            reviewError = null
+        )
+    }
 }

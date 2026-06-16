@@ -38,6 +38,7 @@ fun DietTrackerScreen(
     val context = LocalContext.current
     
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var additionalNotes by remember { mutableStateOf("") }
     
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -47,6 +48,26 @@ fun DietTrackerScreen(
             selectedImageUri = it
             viewModel.analyzeImage(context, it)
         }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            tempCameraUri?.let {
+                selectedImageUri = it
+                viewModel.analyzeImage(context, it)
+            }
+        }
+    }
+
+    fun createTempFileUri(): Uri {
+        val tempFile = java.io.File(context.cacheDir, "diet_camera_${System.currentTimeMillis()}.jpg")
+        return androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            tempFile
+        )
     }
 
     Scaffold(
@@ -73,7 +94,12 @@ fun DietTrackerScreen(
                     val remaining = if (state is DietTrackerState.QuotaLoaded) state.quota.remaining else 3
                     InitialUploadView(
                         remainingQuota = remaining,
-                        onUploadClick = { photoPickerLauncher.launch("image/*") }
+                        onGalleryClick = { photoPickerLauncher.launch("image/*") },
+                        onCameraClick = {
+                            val uri = createTempFileUri()
+                            tempCameraUri = uri
+                            cameraLauncher.launch(uri)
+                        }
                     )
                 }
                 
@@ -136,8 +162,9 @@ fun DietTrackerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InitialUploadView(remainingQuota: Int, onUploadClick: () -> Unit) {
+fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -171,7 +198,7 @@ fun InitialUploadView(remainingQuota: Int, onUploadClick: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Snap a photo of your meal and our Vision AI will detect the food items and calculate exact calories, protein, and macros for you.",
+            text = "Snap a photo of your meal or upload from gallery to calculate exact calories, protein, and macros.",
             fontSize = 16.sp,
             color = Color.Gray,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -180,20 +207,46 @@ fun InitialUploadView(remainingQuota: Int, onUploadClick: () -> Unit) {
         
         Spacer(modifier = Modifier.height(48.dp))
         
-        Button(
-            onClick = onUploadClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
-            shape = RoundedCornerShape(16.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(Icons.Default.CameraAlt, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Snap / Upload Meal", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Card(
+                onClick = onCameraClick,
+                modifier = Modifier.weight(1f).height(120.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE65100)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Snap Meal", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+            
+            Card(
+                onClick = onGalleryClick,
+                modifier = Modifier.weight(1f).height(120.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF00796B)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Upload Meal", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
         Text(
             text = "Free scans remaining today: $remainingQuota/3",

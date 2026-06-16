@@ -596,7 +596,7 @@ export const doctorApi = {
     getOutbreakStats: (days: number = 30) => fetchWithAuth(`/admin/outbreaks/public/stats?days=${days}`),
 
     getReviews: (doctorId: string, page: number = 1, limit: number = 10) =>
-        fetchWithAuth(`/patient/reviews/doctor/${doctorId}?page=${page}&limit=${limit}`),
+        fetchWithAuth(`/patients/reviews/doctor/${doctorId}?page=${page}&limit=${limit}`),
 };
 
 // ==================== HOSPITAL API ====================
