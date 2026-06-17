@@ -224,7 +224,7 @@ private fun ActiveBookingTrackingView(
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val trackingVm: OrderTrackingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val trackingVm: OrderTrackingViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val trackingState by trackingVm.state.collectAsState()
     
     LaunchedEffect(booking.trackingToken) {

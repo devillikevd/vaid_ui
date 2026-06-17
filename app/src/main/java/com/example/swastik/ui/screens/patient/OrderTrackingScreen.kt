@@ -29,7 +29,7 @@ fun OrderTrackingScreen(
     agentName: String? = null,
     agentPhone: String? = null,
     onNavigateBack: () -> Unit,
-    viewModel: OrderTrackingViewModel = viewModel()
+    viewModel: OrderTrackingViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
 
