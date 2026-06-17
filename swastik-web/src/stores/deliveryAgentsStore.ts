@@ -17,7 +17,7 @@ interface DeliveryAgentsState {
     error: string | null;
     fetchAgents: (facilityId: string) => Promise<void>;
     assignAgent: (orderId: string, orderType: 'pharmacy' | 'diagnostic', agentId: string) => Promise<{ success: boolean; trackingToken?: string }>;
-    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center', name: string, phoneNumber: string) => Promise<boolean>;
+    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic', name: string, phoneNumber: string) => Promise<boolean>;
     deleteAgent: (agentId: string) => Promise<boolean>;
     clearError: () => void;
 }

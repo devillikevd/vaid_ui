@@ -535,9 +535,9 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
     .eq('center_id', centerId)
     .single();
 
+  const nextStatus = normalizeDiagnosticBookingStatus(status);
   if (current) {
     const currentStatus = normalizeDiagnosticBookingStatus(current.status);
-    const nextStatus = normalizeDiagnosticBookingStatus(status);
     const allowed = VALID_STATUS_TRANSITIONS[currentStatus] || [];
     if (!allowed.includes(nextStatus)) {
       throw new ApiError(400, `Cannot transition from '${currentStatus}' to '${nextStatus}'`);

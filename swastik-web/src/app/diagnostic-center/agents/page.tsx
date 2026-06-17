@@ -29,7 +29,7 @@ export default function DiagnosticCenterAgentsPage() {
         if (!user?.id || !name || !phone) return;
         
         setIsAdding(true);
-        const success = await addAgent(user.id, 'diagnostic_center', name, phone);
+        const success = await addAgent(user.id, 'diagnostic', name, phone);
         setIsAdding(false);
         
         if (success) {
