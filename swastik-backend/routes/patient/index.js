@@ -1221,7 +1221,8 @@ router.get('/diagnostic-bookings',
       .select(`
         *,
         test:diagnostic_tests(id, name, category, price),
-        center:diagnostic_centers(id, name, phone, address, city, latitude, longitude)
+        center:diagnostic_centers(id, name, phone, address, city, latitude, longitude),
+        delivery_agents(*)
       `, { count: 'exact' })
       .eq('patient_id', patient.id);
 
@@ -1300,7 +1301,7 @@ router.patch('/diagnostic-bookings/:id/cancel',
 
     const { data: booking } = await supabaseAdmin
       .from('diagnostic_bookings')
-      .select('*')
+      .select('*, test:diagnostic_tests(id, name, category, price), center:diagnostic_centers(id, name, phone, address, city, latitude, longitude), delivery_agents(*)')
       .eq('id', req.params.id)
       .eq('patient_id', patient.id)
       .single();

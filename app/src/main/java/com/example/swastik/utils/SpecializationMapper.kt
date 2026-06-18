@@ -21,8 +21,9 @@ object SpecializationMapper {
             "Geriatrics", "Sports Medicine", "Pain Management", "Nutrition & Dietetics",
             "Ayurveda", "Homeopathy"
         )
-        if (specializations.any { it.equals(cleanName, ignoreCase = true) }) {
-            return Pair(cleanName, null)
+        val matchedSpec = specializations.find { it.equals(cleanName, ignoreCase = true) }
+        if (matchedSpec != null) {
+            return Pair(matchedSpec, null)
         }
 
         // 2. Map Symptoms & Conditions & Categories

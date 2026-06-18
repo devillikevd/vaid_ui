@@ -64,6 +64,10 @@ router.post('/assign', authenticate, async (req, res) => {
         // Update the order/booking
         const table = order_type === 'pharmacy' ? 'pharmacy_orders' : 'diagnostic_bookings';
         
+        const selectQuery = order_type === 'pharmacy' 
+            ? '*, pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)' 
+            : '*, test:diagnostic_tests(id, name, category, price), center:diagnostic_centers(id, name, phone, address, city, latitude, longitude), delivery_agents(*)';
+
         const { data, error } = await supabaseAdmin
             .from(table)
             .update({ 
@@ -72,7 +76,7 @@ router.post('/assign', authenticate, async (req, res) => {
                 status: order_type === 'pharmacy' ? 'out_for_delivery' : 'dispatched'
             })
             .eq('id', order_id)
-            .select()
+            .select(selectQuery)
             .single();
             
         if (error) throw error;
@@ -136,11 +140,15 @@ router.post('/complete', async (req, res) => {
         const table = type === 'pharmacy' ? 'pharmacy_orders' : 'diagnostic_bookings';
         const finalStatus = type === 'pharmacy' ? 'delivered' : 'sample_collected';
         
+        const selectQuery = type === 'pharmacy' 
+            ? '*, pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)' 
+            : '*, test:diagnostic_tests(id, name, category, price), center:diagnostic_centers(id, name, phone, address, city, latitude, longitude), delivery_agents(*)';
+
         const { data, error } = await supabaseAdmin
             .from(table)
             .update({ status: finalStatus })
             .eq('tracking_token', token)
-            .select()
+            .select(selectQuery)
             .single();
             
         if (error) throw error;

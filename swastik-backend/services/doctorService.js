@@ -417,6 +417,10 @@ class DoctorService {
       query = query.gte('rating', filters.minRating);
     }
 
+    if (filters.global) {
+      query = query.not('video_consultation_fee', 'is', null);
+    }
+
     if (filters.maxFee) {
       query = query.lte('consultation_fee', filters.maxFee);
     }

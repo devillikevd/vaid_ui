@@ -43,7 +43,8 @@ import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
 fun BookingHistoryScreen(
     onBackClick: () -> Unit,
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
-    viewModel: DiagnosticViewModel = hiltViewModel()
+    viewModel: DiagnosticViewModel = hiltViewModel(),
+    trackingVm: OrderTrackingViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val historyState by viewModel.bookingHistoryState.collectAsState()
     // Only show active tracking map if an agent is actually assigned and tracking
@@ -144,7 +145,8 @@ fun BookingHistoryScreen(
                     ActiveBookingTrackingView(
                         booking = activeBooking,
                         onViewHistory = { showHistoryOnly = true },
-                        onNavigateToTracking = onNavigateToTracking
+                        onNavigateToTracking = onNavigateToTracking,
+                        trackingVm = trackingVm
                     )
                 }
                 historyState.bookings.isEmpty() -> {
@@ -221,10 +223,10 @@ fun BookingHistoryScreen(
 private fun ActiveBookingTrackingView(
     booking: DiagnosticBookingDto,
     onViewHistory: () -> Unit,
-    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit,
+    trackingVm: OrderTrackingViewModel
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val trackingVm: OrderTrackingViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val trackingState by trackingVm.state.collectAsState()
     
     LaunchedEffect(booking.trackingToken) {

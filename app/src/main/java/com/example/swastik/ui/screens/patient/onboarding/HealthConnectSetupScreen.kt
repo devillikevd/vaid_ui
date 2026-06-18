@@ -50,6 +50,8 @@ fun HealthConnectSetupScreen(
         if (granted.containsAll(healthConnectManager.permissions)) {
             hasPermissions = true
             navController.popBackStack()
+        } else {
+            android.widget.Toast.makeText(context, "Permissions denied. Received: ${granted.size}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -198,11 +200,41 @@ fun HealthConnectSetupScreen(
                     }
                 } else {
                     Button(
-                        onClick = { permissionLauncher.launch(healthConnectManager.permissions) },
-                        modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
+                        onClick = { 
+                            try {
+                                permissionLauncher.launch(healthConnectManager.permissions)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                e.printStackTrace()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = isAvailable && !hasPermissions,
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text("Grant Permissions", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val intent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Cannot open settings: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = isAvailable,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Open Health Connect Settings", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

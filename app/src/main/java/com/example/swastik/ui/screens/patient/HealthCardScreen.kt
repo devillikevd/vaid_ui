@@ -104,6 +104,8 @@ fun HealthCardScreen(
         if (granted.containsAll(dashboardViewModel.healthConnectManager.permissions)) {
             hasPermissions = true
             dashboardViewModel.syncHealthConnectData()
+        } else {
+            android.widget.Toast.makeText(context, "Permissions denied. Received: ${granted.size}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -477,7 +479,14 @@ fun HealthCardScreen(
                                 }
                             }
                             Button(
-                                onClick = { permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions) },
+                                onClick = { 
+                                    try {
+                                        permissionsLauncher.launch(dashboardViewModel.healthConnectManager.permissions)
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                        e.printStackTrace()
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                                 shape = RoundedCornerShape(12.dp)

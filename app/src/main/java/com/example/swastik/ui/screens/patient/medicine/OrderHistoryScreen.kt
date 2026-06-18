@@ -43,7 +43,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun OrderHistoryScreen(
     onBackClick: () -> Unit,
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
-    viewModel: MedicineViewModel = hiltViewModel()
+    viewModel: MedicineViewModel = hiltViewModel(),
+    trackingVm: OrderTrackingViewModel = hiltViewModel()
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -175,7 +176,8 @@ fun OrderHistoryScreen(
                     ActiveOrderTrackingView(
                         order = activeOrder,
                         onViewHistory = { showHistoryOnly = true },
-                        onNavigateToTracking = onNavigateToTracking
+                        onNavigateToTracking = onNavigateToTracking,
+                        trackingVm = trackingVm
                     )
                 }
                 historyState.orders.isEmpty() -> {
@@ -251,10 +253,10 @@ fun OrderHistoryScreen(
 private fun ActiveOrderTrackingView(
     order: MedicineOrderDto,
     onViewHistory: () -> Unit,
-    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit
+    onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit,
+    trackingVm: OrderTrackingViewModel
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val trackingVm: OrderTrackingViewModel = hiltViewModel()
     val trackingState by trackingVm.state.collectAsState()
     
     var destLat by remember { mutableStateOf(0.0) }

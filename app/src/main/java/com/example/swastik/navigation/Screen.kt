@@ -49,9 +49,9 @@ sealed class Screen(val route: String) {
             if (doctorId != null) params.add("doctorId=$doctorId")
             if (hospitalId != null) params.add("hospitalId=$hospitalId")
             if (clinicId != null) params.add("clinicId=$clinicId")
-            if (specialization != null) params.add("specialization=${java.net.URLEncoder.encode(specialization, "UTF-8")}")
+            if (specialization != null) params.add("specialization=${java.net.URLEncoder.encode(specialization, "UTF-8").replace("+", "%20")}")
             if (consultationMode != null) params.add("consultationMode=$consultationMode")
-            if (search != null) params.add("search=${java.net.URLEncoder.encode(search, "UTF-8")}")
+            if (search != null) params.add("search=${java.net.URLEncoder.encode(search, "UTF-8").replace("+", "%20")}")
             return if (params.isEmpty()) "appointment_booking" else "appointment_booking?${params.joinToString("&")}"
         }
     }
@@ -69,7 +69,7 @@ sealed class Screen(val route: String) {
             if (type != null) params.add("type=${type.name}")
             if (!focusFacilityId.isNullOrBlank()) params.add("focusFacilityId=$focusFacilityId")
             if (!focusFacilityName.isNullOrBlank()) {
-                params.add("focusFacilityName=${java.net.URLEncoder.encode(focusFacilityName, "UTF-8")}")
+                params.add("focusFacilityName=${java.net.URLEncoder.encode(focusFacilityName, "UTF-8").replace("+", "%20")}")
             }
             return if (params.isEmpty()) "hospital_finder" else "hospital_finder?${params.joinToString("&")}"
         }
@@ -88,7 +88,7 @@ sealed class Screen(val route: String) {
     }
     object VideoConsultation : Screen("video_consultation/{appointmentId}/{doctorName}") {
         fun createRoute(appointmentId: String, doctorName: String): String {
-            return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8")}"
+            return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8").replace("+", "%20")}"
         }
     }
     object Reports : Screen("reports")
@@ -104,7 +104,7 @@ sealed class Screen(val route: String) {
             return if (centerId.isNullOrBlank()) {
                 "diagnostic_booking"
             } else {
-                "diagnostic_booking?centerId=${java.net.URLEncoder.encode(centerId, "UTF-8")}"
+                "diagnostic_booking?centerId=${java.net.URLEncoder.encode(centerId, "UTF-8").replace("+", "%20")}"
             }
         }
     }

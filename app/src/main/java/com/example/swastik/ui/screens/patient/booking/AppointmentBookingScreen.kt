@@ -116,10 +116,10 @@ fun AppointmentBookingScreen(
     val patientLng = filters.longitude
 
     LaunchedEffect(preselectedHospitalId, preselectedClinicId, preselectedSpecialization, consultationMode, preselectedSearch, patientProfile?.location) {
-        if (consultationMode == "in_person" || consultationMode == null) {
-            doctorSearchViewModel.setInPersonLocation(isGlobal = false)
-        } else if (consultationMode == "video" || consultationMode == "speciality" || !preselectedSpecialization.isNullOrBlank()) {
+        if (consultationMode == "video" || consultationMode == "speciality" || (!preselectedSpecialization.isNullOrBlank() && consultationMode == null)) {
             doctorSearchViewModel.setInPersonLocation(isGlobal = true)
+        } else {
+            doctorSearchViewModel.setInPersonLocation(isGlobal = false)
         }
         
         if (!preselectedHospitalId.isNullOrBlank() || !preselectedClinicId.isNullOrBlank() || !preselectedSpecialization.isNullOrBlank() || !preselectedSearch.isNullOrBlank()) {
