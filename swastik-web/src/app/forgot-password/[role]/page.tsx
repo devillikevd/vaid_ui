@@ -12,8 +12,19 @@ interface ForgotPasswordPageProps {
     params: Promise<{ role: string }>;
 }
 
+const ROLE_MAP: Record<string, string> = {
+    hospital: 'hospital_owner',
+    clinic: 'clinic_owner',
+    pharmacy: 'pharmacy_owner',
+    'diagnostic-center': 'diagnostic_center_owner',
+    admin: 'admin',
+    doctor: 'doctor',
+    patient: 'patient'
+};
+
 export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) {
     const { role } = use(params);
+    const backendRole = ROLE_MAP[role] || role;
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
     const [password, setPassword] = useState('');
@@ -30,7 +41,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
         setIsLoading(true);
 
         try {
-            const result = await authApi.forgotPassword(email.trim());
+            const result = await authApi.forgotPassword(email.trim(), backendRole);
             if (result.success) {
                 setCodeSent(true);
                 setSuccessMessage(result.message || 'If an account exists with this email, a reset code has been sent.');
@@ -67,7 +78,7 @@ export default function ForgotPasswordPage({ params }: ForgotPasswordPageProps) 
 
         setIsLoading(true);
         try {
-            const result = await authApi.resetPasswordWithOtp(email.trim(), otp.trim(), password);
+            const result = await authApi.resetPasswordWithOtp(email.trim(), otp.trim(), password, backendRole);
             if (result.success) {
                 setSuccess(true);
                 setSuccessMessage(result.message || 'Password reset successfully.');

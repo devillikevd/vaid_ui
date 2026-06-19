@@ -38,14 +38,16 @@ data class VerifyEmailOtpRequest(
 )
 
 data class ForgotPasswordRequest(
-    val email: String
+    val email: String,
+    val role: String? = null
 )
 
 data class ResetPasswordRequest(
     val token: String? = null,
     val email: String? = null,
     val otp: String? = null,
-    @SerializedName("password") val password: String
+    @SerializedName("password") val password: String,
+    val role: String? = null
 )
 
 data class RefreshTokenRequest(

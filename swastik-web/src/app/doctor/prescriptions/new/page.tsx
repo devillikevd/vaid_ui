@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { consultationsApi } from '@/lib/api';
+import { consultationsApi, uploadApi } from '@/lib/api';
 import {
     ArrowLeft,
     Plus,
@@ -13,6 +13,8 @@ import {
     CheckCircle,
     FileText,
     Pill,
+    UploadCloud,
+    FileImage
 } from 'lucide-react';
 
 interface PrescriptionItem {
@@ -81,6 +83,11 @@ export default function NewPrescriptionPage() {
     const [success, setSuccess] = useState(false);
     const [consultationData, setConsultationData] = useState<Record<string, unknown> | null>(null);
 
+    // Hybrid Mode States
+    const [entryMode, setEntryMode] = useState<'digital' | 'upload'>('digital');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploadingFile, setUploadingFile] = useState(false);
+
     useEffect(() => {
         if (consultationId) {
             consultationsApi.getDetails(consultationId).then((res) => {
@@ -107,12 +114,13 @@ export default function NewPrescriptionPage() {
     };
 
     const isValid = useCallback(() => {
+        if (!consultationId) return false;
+        if (entryMode === 'upload') return !!selectedFile;
         return (
-            consultationId &&
             items.length > 0 &&
             items.every((item) => item.medicineName.trim() && item.dosage.trim() && item.frequency && item.duration)
         );
-    }, [consultationId, items]);
+    }, [consultationId, items, entryMode, selectedFile]);
 
     const handleSubmit = async () => {
         if (!isValid()) return;
@@ -120,8 +128,21 @@ export default function NewPrescriptionPage() {
         setError(null);
 
         try {
+            let fileUrl = '';
+            if (entryMode === 'upload' && selectedFile) {
+                setUploadingFile(true);
+                const uploadRes = await uploadApi.uploadFile(selectedFile, 'prescription');
+                setUploadingFile(false);
+                const data = uploadRes.data as { url?: string } | undefined;
+                if (uploadRes.success && data?.url) {
+                    fileUrl = data.url;
+                } else {
+                    throw new Error('Failed to upload prescription file');
+                }
+            }
+
             const response = await consultationsApi.addPrescription(consultationId, {
-                items: items.map((item) => ({
+                items: entryMode === 'digital' ? items.map((item) => ({
                     medicineName: item.medicineName,
                     dosage: item.dosage,
                     frequency: item.frequency,
@@ -130,12 +151,13 @@ export default function NewPrescriptionPage() {
                     quantity: item.quantity,
                     beforeFood: item.beforeFood,
                     isCritical: item.isCritical,
-                })),
+                })) : [],
                 diagnosis: diagnosis || undefined,
                 notes: notes || undefined,
                 followUpDate: followUpDate || undefined,
                 dietaryAdvice: dietaryAdvice || undefined,
                 lifestyleAdvice: lifestyleAdvice || undefined,
+                fileUrl: fileUrl || undefined,
             });
 
             if (response.success) {
@@ -147,7 +169,8 @@ export default function NewPrescriptionPage() {
                 setError(response.error || 'Failed to create prescription');
             }
         } catch (err) {
-            setError('Failed to create prescription. Please try again.');
+            setUploadingFile(false);
+            setError(err instanceof Error ? err.message : 'Failed to create prescription. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -263,121 +286,164 @@ export default function NewPrescriptionPage() {
                 </div>
             </div>
 
-            {/* Medicine Items */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                        <Pill className="w-5 h-5 text-emerald-600" /> Medicines ({items.length})
-                    </h2>
-                    <button
-                        onClick={addItem}
-                        className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-                    >
-                        <Plus className="w-4 h-4" /> Add Medicine
-                    </button>
-                </div>
-
-                {items.map((item, index) => (
-                    <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 relative">
-                        {items.length > 1 && (
-                            <button
-                                onClick={() => removeItem(index)}
-                                className="absolute top-3 right-3 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Medicine Name *</label>
-                                <input
-                                    type="text"
-                                    value={item.medicineName}
-                                    onChange={(e) => updateItem(index, 'medicineName', e.target.value)}
-                                    placeholder="Enter medicine name"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Dosage *</label>
-                                <input
-                                    type="text"
-                                    value={item.dosage}
-                                    onChange={(e) => updateItem(index, 'dosage', e.target.value)}
-                                    placeholder="Enter dosage"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency *</label>
-                                <select
-                                    value={item.frequency}
-                                    onChange={(e) => updateItem(index, 'frequency', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                >
-                                    {FREQUENCY_OPTIONS.map((opt) => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Duration *</label>
-                                <select
-                                    value={item.duration}
-                                    onChange={(e) => updateItem(index, 'duration', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                >
-                                    {DURATION_OPTIONS.map((opt) => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={item.quantity}
-                                    onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Instructions</label>
-                                <input
-                                    type="text"
-                                    value={item.instructions}
-                                    onChange={(e) => updateItem(index, 'instructions', e.target.value)}
-                                    placeholder="Enter instructions"
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-6 pt-1">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={item.beforeFood}
-                                    onChange={(e) => updateItem(index, 'beforeFood', e.target.checked)}
-                                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                                />
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Take before food</span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={item.isCritical}
-                                    onChange={(e) => updateItem(index, 'isCritical', e.target.checked)}
-                                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                                />
-                                <span className="text-xs font-medium text-red-600 dark:text-red-400">Critical medicine</span>
-                            </label>
-                        </div>
-                    </div>
-                ))}
+            {/* Entry Mode Toggle */}
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-1 flex items-center">
+                <button
+                    onClick={() => setEntryMode('digital')}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${entryMode === 'digital' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                >
+                    Digital Form
+                </button>
+                <button
+                    onClick={() => setEntryMode('upload')}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${entryMode === 'upload' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                >
+                    Upload Paper Prescription
+                </button>
             </div>
+
+            {entryMode === 'upload' ? (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center space-y-4">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                        {selectedFile ? <FileImage className="w-8 h-8 text-emerald-500" /> : <UploadCloud className="w-8 h-8 text-gray-400" />}
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        {selectedFile ? selectedFile.name : 'Upload Handwritten Prescription'}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                        Write the prescription on your physical pad, take a photo, and upload it here.
+                    </p>
+                    
+                    <div className="mt-6 flex justify-center">
+                        <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-all">
+                            {selectedFile ? 'Change File' : 'Select Photo / PDF'}
+                            <input 
+                                type="file" 
+                                accept="image/*,application/pdf"
+                                className="hidden" 
+                                onChange={(e) => {
+                                    if (e.target.files?.[0]) setSelectedFile(e.target.files[0]);
+                                }} 
+                            />
+                        </label>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            <Pill className="w-5 h-5 text-emerald-600" /> Medicines ({items.length})
+                        </h2>
+                        <button
+                            onClick={addItem}
+                            className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                        >
+                            <Plus className="w-4 h-4" /> Add Medicine
+                        </button>
+                    </div>
+
+                    {items.map((item, index) => (
+                        <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 relative">
+                            {items.length > 1 && (
+                                <button
+                                    onClick={() => removeItem(index)}
+                                    className="absolute top-3 right-3 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Medicine Name *</label>
+                                    <input
+                                        type="text"
+                                        value={item.medicineName}
+                                        onChange={(e) => updateItem(index, 'medicineName', e.target.value)}
+                                        placeholder="Enter medicine name"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Dosage *</label>
+                                    <input
+                                        type="text"
+                                        value={item.dosage}
+                                        onChange={(e) => updateItem(index, 'dosage', e.target.value)}
+                                        placeholder="Enter dosage"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Frequency *</label>
+                                    <select
+                                        value={item.frequency}
+                                        onChange={(e) => updateItem(index, 'frequency', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    >
+                                        {FREQUENCY_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Duration *</label>
+                                    <select
+                                        value={item.duration}
+                                        onChange={(e) => updateItem(index, 'duration', e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    >
+                                        {DURATION_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        value={item.quantity}
+                                        onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Instructions</label>
+                                    <input
+                                        type="text"
+                                        value={item.instructions}
+                                        onChange={(e) => updateItem(index, 'instructions', e.target.value)}
+                                        placeholder="Enter instructions"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-6 pt-1">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={item.beforeFood}
+                                        onChange={(e) => updateItem(index, 'beforeFood', e.target.checked)}
+                                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                                    />
+                                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Take before food</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={item.isCritical}
+                                        onChange={(e) => updateItem(index, 'isCritical', e.target.checked)}
+                                        className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                    />
+                                    <span className="text-xs font-medium text-red-600 dark:text-red-400">Critical medicine</span>
+                                </label>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Submit */}
             <div className="flex items-center justify-end gap-3 pb-8">
@@ -389,15 +455,15 @@ export default function NewPrescriptionPage() {
                 </button>
                 <button
                     onClick={handleSubmit}
-                    disabled={!isValid() || isSubmitting}
+                    disabled={!isValid() || isSubmitting || uploadingFile}
                     className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                    {isSubmitting ? (
+                    {(isSubmitting || uploadingFile) ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                         <Send className="w-4 h-4" />
                     )}
-                    {isSubmitting ? 'Creating...' : 'Send Prescription'}
+                    {uploadingFile ? 'Uploading...' : isSubmitting ? 'Creating...' : 'Send Prescription'}
                 </button>
             </div>
         </div>

@@ -1313,10 +1313,10 @@ private fun EmergencyTypeCard(
         modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) item.color.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) item.color.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
         ),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else null,
-        elevation = CardDefaults.cardElevation(if (isSelected) 6.dp else 1.dp)
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, item.color) else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(
             modifier = Modifier

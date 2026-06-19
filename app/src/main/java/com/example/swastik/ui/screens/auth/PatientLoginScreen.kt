@@ -86,7 +86,6 @@ fun PatientLoginScreen(
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var showForgotPasswordDialog by rememberSaveable { mutableStateOf(false) }
     var forgotPasswordEmail by rememberSaveable { mutableStateOf("") }
-    var verificationOtp by rememberSaveable { mutableStateOf("") }
     var forgotPasswordStep by rememberSaveable { mutableStateOf(0) }
     var forgotPasswordOtp by rememberSaveable { mutableStateOf("") }
     var forgotPasswordNewPassword by rememberSaveable { mutableStateOf("") }
@@ -99,8 +98,6 @@ fun PatientLoginScreen(
         else -> null
     }
     val canSubmit = normalizedEmail.isNotBlank() && emailError == null && password.isNotBlank() && !uiState.isLoading
-    val showVerificationHelp = uiState.errorCode == "EMAIL_NOT_VERIFIED" ||
-        (uiState.errorMessage?.contains("verify your email", ignoreCase = true) == true)
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
@@ -249,67 +246,7 @@ fun PatientLoginScreen(
                     }
                 }
 
-                if (showVerificationHelp) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF4EEFF))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.MarkEmailRead,
-                                    contentDescription = null,
-                                    tint = SwastikPrimary
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = stringResource(R.string.verification_pending),
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF312E81)
-                                )
-                            }
-                            Text(
-                                text = stringResource(R.string.verification_instruction),
-                                color = Color(0xFF4B5563),
-                                fontSize = 13.sp
-                            )
-                            OutlinedTextField(
-                                value = verificationOtp,
-                                onValueChange = {
-                                    verificationOtp = it.filter(Char::isDigit).take(6)
-                                    viewModel.clearFeedback()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                placeholder = { Text("123456") },
-                                leadingIcon = { Icon(Icons.Default.MarkEmailRead, contentDescription = null) },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = ImeAction.Done
-                                ),
-                                colors = authOutlinedTextFieldColors(),
-                                shape = RoundedCornerShape(14.dp)
-                            )
-                            Button(
-                                onClick = { viewModel.verifyEmailOtp(normalizedEmail, verificationOtp) },
-                                enabled = normalizedEmail.isNotBlank() && verificationOtp.length == 6 && !uiState.isLoading,
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-                            ) {
-                                Text(stringResource(R.string.verify_email_otp))
-                            }
-                            OutlinedButton(
-                                onClick = { viewModel.resendVerification(normalizedEmail) },
-                                enabled = normalizedEmail.isNotBlank() && emailError == null && !uiState.isLoading,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
-                            ) {
-                                Text(stringResource(R.string.resend_verification_code))
-                            }
-                        }
-                    }
-                }
+
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.email_address_label), fontWeight = FontWeight.Medium)
@@ -320,7 +257,6 @@ fun PatientLoginScreen(
                             if (forgotPasswordEmail.isBlank()) {
                                 forgotPasswordEmail = it
                             }
-                            verificationOtp = ""
                             if (uiState.emailVerificationComplete) {
                                 viewModel.consumeEmailVerificationSuccess()
                             } else {

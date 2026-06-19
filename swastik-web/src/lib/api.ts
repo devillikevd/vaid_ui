@@ -313,11 +313,11 @@ export const authApi = {
             body: JSON.stringify({ currentPassword, newPassword }),
         }),
 
-    forgotPassword: async (email: string) => {
+    forgotPassword: async (email: string, role?: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({ email, role }),
         });
         return response.json();
     },
@@ -331,11 +331,11 @@ export const authApi = {
         return response.json();
     },
 
-    resetPasswordWithOtp: async (email: string, otp: string, password: string) => {
+    resetPasswordWithOtp: async (email: string, otp: string, password: string, role?: string) => {
         const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, otp, password }),
+            body: JSON.stringify({ email, otp, password, role }),
         });
         return response.json();
     },
@@ -1117,6 +1117,11 @@ export const consultationsApi = {
         fetchWithAuth(`/consultations/${consultationId}/ai-assist`, {
             method: 'POST',
             body: JSON.stringify({ query, symptoms }),
+        }),
+
+    generateSummary: (consultationId: string) =>
+        fetchWithAuth(`/consultations/${consultationId}/summarize`, {
+            method: 'POST',
         }),
 };
 

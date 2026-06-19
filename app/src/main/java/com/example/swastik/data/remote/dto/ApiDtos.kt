@@ -576,6 +576,10 @@ data class PrescriptionDto(
     val notes: String? = null,
     @SerializedName("created_at")
     val createdAt: String? = null,
+    @SerializedName("file_url")
+    val fileUrl: String? = null,
+    @SerializedName("pdf_url")
+    val pdfUrl: String? = null,
     // Backend returns as "medicines" from patient route and "prescription_medicines" from consultation detail
     val medicines: List<PrescriptionItemDto>? = null,
     @SerializedName("prescription_medicines")
@@ -729,7 +733,8 @@ data class TokenResponse(
 )
 
 data class ForgotPasswordRequest(
-    val email: String
+    val email: String,
+    val role: String? = null
 )
 
 data class ChangePasswordRequest(
@@ -741,7 +746,8 @@ data class ResetPasswordRequest(
     val token: String? = null,
     val email: String? = null,
     val otp: String? = null,
-    @SerializedName("password") val newPassword: String
+    @SerializedName("password") val newPassword: String,
+    val role: String? = null
 )
 
 data class UpdateStatusRequest(

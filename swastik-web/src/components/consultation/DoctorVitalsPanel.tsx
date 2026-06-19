@@ -234,6 +234,28 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
         setAiLoading(false);
     }, [aiLoading, aiQuery, consultationId]);
 
+    // Generate Clinical Summary handler
+    const handleGenerateSummary = useCallback(async () => {
+        if (aiLoading) return;
+        setAiLoading(true);
+        setAiError(null);
+        try {
+            const res = await consultationsApi.generateSummary(consultationId);
+            if (res.success && res.data) {
+                // Add the summary to the chat view
+                const summaryResp: AIConsultResponse = {
+                    answer: "Clinical Summary Generated:\n" + JSON.stringify(res.data, null, 2),
+                };
+                setAiHistory(prev => [...prev, { query: 'Generate Clinical Summary', response: summaryResp }]);
+            } else {
+                setAiError(res.error || 'Could not generate clinical summary at this time.');
+            }
+        } catch (error) {
+            setAiError(error instanceof Error ? error.message : 'Failed to generate clinical summary.');
+        }
+        setAiLoading(false);
+    }, [aiLoading, consultationId]);
+
     if (!isDoctor) return null;
 
     const activeAlerts = alerts.slice(0, 10);
@@ -580,6 +602,16 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
 
                         {/* AI Input */}
                         <div className="p-3 border-t border-gray-800 bg-gray-900">
+                            <div className="mb-2">
+                                <button
+                                    onClick={handleGenerateSummary}
+                                    disabled={aiLoading}
+                                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 hover:text-blue-300 rounded-xl border border-blue-500/30 transition-all text-xs font-medium disabled:opacity-50"
+                                >
+                                    <Brain className="w-3.5 h-3.5" />
+                                    Generate Clinical Summary
+                                </button>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <input type="text" value={aiQuery} onChange={e => setAiQuery(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleAIQuery()}

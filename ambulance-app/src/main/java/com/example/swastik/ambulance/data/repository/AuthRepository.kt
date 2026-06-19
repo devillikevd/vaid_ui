@@ -181,7 +181,7 @@ class AuthRepository @Inject constructor(
 
     suspend fun forgotPassword(email: String): Result<String> {
         return try {
-            val response = apiService.forgotPassword(ForgotPasswordRequest(email.trim()))
+            val response = apiService.forgotPassword(ForgotPasswordRequest(email.trim(), role = "ambulance_operator"))
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.success(response.body()?.message ?: "Reset code sent.")
             } else {
@@ -197,7 +197,7 @@ class AuthRepository @Inject constructor(
     suspend fun resetPasswordWithOtp(email: String, otp: String, password: String): Result<String> {
         return try {
             val response = apiService.resetPassword(
-                ResetPasswordRequest(email = email.trim(), otp = otp.trim(), password = password)
+                ResetPasswordRequest(email = email.trim(), otp = otp.trim(), password = password, role = "ambulance_operator")
             )
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.success(response.body()?.message ?: "Password reset successfully.")

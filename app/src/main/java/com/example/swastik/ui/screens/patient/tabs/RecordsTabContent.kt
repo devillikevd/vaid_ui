@@ -602,6 +602,33 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            val documentUrl = prescription.fileUrl ?: prescription.pdfUrl
+            if (!documentUrl.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                val context = LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build()
+                        try {
+                            if (documentUrl.endsWith(".pdf", ignoreCase = true)) {
+                                val viewerUrl = "https://docs.google.com/gview?embedded=true&url=${android.net.Uri.encode(documentUrl)}"
+                                customTabsIntent.launchUrl(context, android.net.Uri.parse(viewerUrl))
+                            } else {
+                                customTabsIntent.launchUrl(context, android.net.Uri.parse(documentUrl))
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Cannot open prescription", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
+                ) {
+                    Icon(Icons.Outlined.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("View Prescription File")
+                }
+            }
         }
     }
 }

@@ -150,7 +150,9 @@ const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) =>
 
   if (error) throw error;
 
-  await sender(email, name, otp);
+  sender(email, name, otp).catch(err => {
+    console.error('[OTP Sender Error]', err);
+  });
   return { expiresAt };
 };
 
@@ -351,18 +353,16 @@ const register = async (userData) => {
   }
 
   let verificationEmailSent = true;
-  try {
-    await issueEmailOtp({
-      userId: user.id,
-      email,
-      purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
-      sender: sendVerificationOtpEmail,
-      name,
-    });
-  } catch (emailError) {
-    verificationEmailSent = false;
+  // Send OTP email asynchronously to avoid blocking the API response
+  issueEmailOtp({
+    userId: user.id,
+    email,
+    purpose: OTP_PURPOSE_EMAIL_VERIFICATION,
+    sender: sendVerificationOtpEmail,
+    name,
+  }).catch((emailError) => {
     console.error('Failed to send verification OTP during registration:', emailError.message);
-  }
+  });
 
   const { password_hash: _, ...safeUser } = user;
 
@@ -727,7 +727,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
     .single();
 
   if (error || !user) {
-    throw new ApiError(401, 'Invalid email or password');
+    throw new ApiError(401, 'Account is not registered');
   }
 
   // Optional role enforcement (portal-specific login)
@@ -736,7 +736,8 @@ const login = async (rawEmail, password, expectedRole = null) => {
     const roleMatches =
       user.role === expectedRole ||
       (expectedRole === 'admin' && user.role === 'super_admin') ||
-      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager');
+      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
+      (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
     if (!roleMatches) {
       throw new ApiError(403, 'Invalid credentials for this portal role');
     }
@@ -920,16 +921,27 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 };
 
 // ==================== Forgot Password ====================
-const forgotPassword = async (rawEmail) => {
+const forgotPassword = async (rawEmail, expectedRole = null) => {
   const email = normalizeEmail(rawEmail);
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, name, email, is_active')
+    .select('id, name, email, role, is_active')
     .eq('email', email)
     .single();
 
   if (!user || !user.is_active) {
     return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
+  }
+
+  if (expectedRole) {
+    const roleMatches =
+      user.role === expectedRole ||
+      (expectedRole === 'admin' && user.role === 'super_admin') ||
+      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
+      (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
+    if (!roleMatches) {
+      return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
+    }
   }
 
   await issueEmailOtp({
@@ -944,7 +956,7 @@ const forgotPassword = async (rawEmail) => {
 };
 
 // ==================== Reset Password ====================
-const resetPassword = async ({ token = null, email: rawEmail = null, otp = null, password: newPassword }) => {
+const resetPassword = async ({ token = null, email: rawEmail = null, otp = null, password: newPassword, role: expectedRole = null }) => {
   // Enforce password complexity (matching register/changePassword)
   if (!newPassword || newPassword.length < 8) {
     throw new ApiError(400, 'Password must be at least 8 characters');
@@ -963,6 +975,20 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
       const storedUserId = await cacheGet(`reset:${token}`);
       if (!storedUserId) {
         throw new ApiError(400, 'Reset link has already been used or expired');
+      }
+
+      if (expectedRole) {
+        const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', storedUserId).single();
+        if (user) {
+          const roleMatches =
+            user.role === expectedRole ||
+            (expectedRole === 'admin' && user.role === 'super_admin') ||
+            (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
+            (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
+          if (!roleMatches) {
+            throw new ApiError(403, 'Invalid token for this portal role');
+          }
+        }
       }
 
       const password_hash = await bcrypt.hash(newPassword, 12);
@@ -1004,6 +1030,20 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
     purpose: OTP_PURPOSE_PASSWORD_RESET,
     otp,
   });
+
+  if (expectedRole) {
+    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', record.user_id).single();
+    if (user) {
+      const roleMatches =
+        user.role === expectedRole ||
+        (expectedRole === 'admin' && user.role === 'super_admin') ||
+        (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
+        (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
+      if (!roleMatches) {
+        throw new ApiError(403, 'Invalid reset code for this portal role');
+      }
+    }
+  }
 
   const password_hash = await bcrypt.hash(newPassword, 12);
 

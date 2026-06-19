@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSocket, useVideoConsultation, useConsultationChat, useConsultationEnded, useConsultationPatientLeft, useVitalsStream, type ConsultationVideoMode, type VitalsStreamData } from '@/hooks/useSocket';
 import { api } from '@/lib/api';
 import DoctorVitalsPanel from '@/components/consultation/DoctorVitalsPanel';
+import DoctorPatientHistoryDrawer from '@/components/consultation/DoctorPatientHistoryDrawer';
 
 import {
     Video,
@@ -301,6 +302,7 @@ export default function VideoConsultation() {
     const [isVideoOn, setIsVideoOn] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showChat, setShowChat] = useState(false);
+    const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
     const [consultationData, setConsultationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
@@ -1172,6 +1174,8 @@ export default function VideoConsultation() {
         }
     };
 
+
+
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -1516,6 +1520,8 @@ export default function VideoConsultation() {
                         )}
                     </button>
 
+
+
                     {/* Prescription (Doctor only) */}
                     {user?.role === 'doctor' && (
                         <button
@@ -1546,9 +1552,14 @@ export default function VideoConsultation() {
                         <Phone className="w-5 h-5 rotate-[135deg]" /> End Consultation
                     </button>
                     {user?.role === 'doctor' && (
-                        <button onClick={() => window.open(`/doctor/prescriptions/new?consultation=${consultationId}`, '_blank')} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-full text-white font-medium">
-                            <FileText className="w-5 h-5" /> Write Prescription
-                        </button>
+                        <>
+                            <button onClick={() => setShowHistoryDrawer(true)} className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-white font-medium">
+                                <FileText className="w-5 h-5" /> View Patient History
+                            </button>
+                            <button onClick={() => window.open(`/doctor/prescriptions/new?consultation=${consultationId}`, '_blank')} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-full text-white font-medium">
+                                <FileText className="w-5 h-5" /> Write Prescription
+                            </button>
+                        </>
                     )}
                     {user?.role === 'doctor' && (
                         <button onClick={() => setShowAIPanel(!showAIPanel)} className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium ${showAIPanel ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-white/10 hover:bg-white/15 text-white'}`}>
@@ -1556,6 +1567,15 @@ export default function VideoConsultation() {
                         </button>
                     )}
                 </div>
+            )}
+
+            {/* Doctor Tools */}
+            {user?.role === 'doctor' && consultationData?.patient_id && (
+                <DoctorPatientHistoryDrawer 
+                    isOpen={showHistoryDrawer} 
+                    onClose={() => setShowHistoryDrawer(false)} 
+                    patientId={consultationData.patient_id} 
+                />
             )}
         </div>
     );

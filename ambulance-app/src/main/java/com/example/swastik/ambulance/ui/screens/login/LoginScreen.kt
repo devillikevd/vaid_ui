@@ -39,15 +39,12 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var verificationOtp by remember { mutableStateOf("") }
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
     var forgotPasswordStep by remember { mutableStateOf(0) }
     var forgotPasswordEmail by remember { mutableStateOf("") }
     var forgotPasswordOtp by remember { mutableStateOf("") }
     var forgotPasswordNewPassword by remember { mutableStateOf("") }
     var forgotPasswordConfirmPassword by remember { mutableStateOf("") }
-    val showVerificationHelp = uiState.errorCode == "EMAIL_NOT_VERIFIED" ||
-        (uiState.error?.contains("verify your email", ignoreCase = true) == true)
 
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -210,58 +207,7 @@ fun LoginScreen(
                         )
                     }
 
-                    if (showVerificationHelp) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = "Verify your email to continue",
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF8D3D00)
-                                )
-                                Text(
-                                    text = "Enter the 6-digit code from your inbox or request another code below.",
-                                    color = Color(0xFF6D4C41),
-                                    fontSize = 13.sp
-                                )
-                                OutlinedTextField(
-                                    value = verificationOtp,
-                                    onValueChange = {
-                                        verificationOtp = it.filter(Char::isDigit).take(6)
-                                        if (uiState.error != null) viewModel.clearError()
-                                    },
-                                    label = { Text("Verification code") },
-                                    placeholder = { Text("123456") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                Button(
-                                    onClick = { viewModel.verifyEmailOtp(email.trim(), verificationOtp) },
-                                    enabled = verificationOtp.length == 6 && !uiState.isLoading && email.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                                ) {
-                                    Text("Verify email OTP")
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.resendVerification(email.trim()) },
-                                    enabled = email.isNotBlank() && !uiState.isLoading,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Resend verification code")
-                                }
-                            }
-                        }
-                    }
+
 
                     Spacer(modifier = Modifier.height(24.dp))
 

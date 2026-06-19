@@ -303,6 +303,8 @@ data class Prescription(
     @SerializedName("valid_until") val validUntil: String? = null,
     @SerializedName("is_dispensed") val isDispensed: Boolean? = null,
     val instructions: String? = null,
+    val fileUrl: String? = null,
+    val pdfUrl: String? = null,
     val doctor: Doctor?,
     val medicines: List<PrescriptionItem>?
 )

@@ -183,7 +183,7 @@ class AuthRepository @Inject constructor(
      */
     suspend fun forgotPassword(email: String): Result<String> {
         return try {
-            val response = apiService.forgotPassword(ForgotPasswordRequest(email = email.trim()))
+            val response = apiService.forgotPassword(ForgotPasswordRequest(email = email.trim(), role = "patient"))
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.Success(response.body()?.message ?: "Password reset code sent.")
             } else {
@@ -251,7 +251,7 @@ class AuthRepository @Inject constructor(
     suspend fun resetPassword(token: String, newPassword: String): Result<Boolean> {
         return try {
             val response = apiService.resetPassword(
-                com.example.swastik.data.remote.dto.ResetPasswordRequest(token = token, newPassword = newPassword)
+                com.example.swastik.data.remote.dto.ResetPasswordRequest(token = token, newPassword = newPassword, role = "patient")
             )
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.Success(true)
@@ -270,7 +270,8 @@ class AuthRepository @Inject constructor(
                 com.example.swastik.data.remote.dto.ResetPasswordRequest(
                     email = email.trim(),
                     otp = otp.trim(),
-                    newPassword = newPassword
+                    newPassword = newPassword,
+                    role = "patient"
                 )
             )
             if (response.isSuccessful && response.body()?.success == true) {

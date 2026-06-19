@@ -12,9 +12,10 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map((err) => err.msg).join(', ');
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
+      message: `Validation failed: ${errorMessages}`,
       errors: errors.array().map((err) => ({
         field: err.path,
         message: err.msg,

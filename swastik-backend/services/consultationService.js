@@ -913,6 +913,7 @@ const addPrescription = async (doctorUserId, consultationId, prescriptionData) =
       dietary_advice: prescriptionData.dietaryAdvice || null,
       lifestyle_advice: prescriptionData.lifestyleAdvice || null,
       instructions: prescriptionData.instructions || null,
+      file_url: prescriptionData.fileUrl || null,
     })
     .select('*')
     .single();
@@ -1127,6 +1128,104 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
   }
 };
 
+// Generate AI Clinical Summary at the end or during consultation
+const generateClinicalSummary = async (doctorUserId, consultationId) => {
+  const axios = require('axios');
+  const jwt = require('jsonwebtoken');
+
+  // 1. Verify doctor owns this consultation
+  const { data: doctor } = await supabaseAdmin
+    .from('doctors')
+    .select('id, user_id, name, specialization')
+    .eq('user_id', doctorUserId)
+    .single();
+
+  if (!doctor) throw new ApiError(403, 'Doctor profile not found');
+
+  const { data: consultation } = await supabaseAdmin
+    .from('consultations')
+    .select('id, status, diagnosis, notes, appointment_id, doctor_id, patient_id')
+    .eq('id', consultationId)
+    .eq('doctor_id', doctor.id)
+    .single();
+
+  if (!consultation) throw new ApiError(404, 'Consultation not found or unauthorized');
+
+  // 2. Fetch Vitals History
+  let vitalsHistory = [];
+  try {
+    const { data: vitalsRecords } = await supabaseAdmin
+      .from('vitals')
+      .select('vitals_data, created_at')
+      .eq('consultation_id', consultationId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (vitalsRecords) {
+      vitalsHistory = vitalsRecords.map(r => r.vitals_data);
+    }
+  } catch (err) {
+    console.warn('[ConsultationService] Could not fetch vitals history for summary:', err.message);
+  }
+
+  // 3. Fetch prescriptions if any exist
+  let prescriptions = [];
+  try {
+    const { data: rxRecords } = await supabaseAdmin
+      .from('prescriptions')
+      .select('id, diagnosis, notes, medicines, dietary_advice, lifestyle_advice')
+      .eq('consultation_id', consultationId);
+    if (rxRecords) prescriptions = rxRecords;
+  } catch (err) {}
+
+  // 4. Call FastAPI AI Service
+  const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+  
+  const requestPayload = {
+    consultation_id: consultationId,
+    doctor_name: doctor.name,
+    transcript: consultation.notes || '',
+    diagnosis: consultation.diagnosis || '',
+    prescriptions: prescriptions,
+    vitals_history: vitalsHistory
+  };
+
+  try {
+    const tempToken = jwt.sign(
+      { userId: doctorUserId, id: doctorUserId, role: 'doctor' },
+      config.jwt.accessSecret,
+      { expiresIn: '1m' }
+    );
+
+    const response = await axios.post(`${AI_SERVICE_URL}/api/ai/summarize`, requestPayload, {
+      headers: {
+        'Authorization': `Bearer ${tempToken}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+
+    if (response.data?.success) {
+      return response.data.data;
+    }
+    throw new Error('FastAPI summary endpoint failed');
+  } catch (err) {
+    console.warn('[ConsultationService] FastAPI AI summarize failed:', err.message);
+    
+    // Fallback if AI service is down
+    return {
+      summary: {
+        consultation_summary: "AI Service is temporarily unavailable. Summary could not be generated.",
+        key_findings: ["System unavailable"],
+        vitals_summary: "Not analyzed",
+        cv_signals_used: [],
+        treatment_plan: "Please rely on manual prescriptions.",
+        severity_assessment: "mild"
+      },
+      provider: "fallback"
+    };
+  }
+};
+
 module.exports = {
   getConsultationHistory,
   startConsultation,
@@ -1137,6 +1236,7 @@ module.exports = {
   leaveConsultation,
   addPrescription,
   aiAssistDoctor,
+  generateClinicalSummary,
   _internals: {
     buildTurnUrlVariants,
   },

@@ -171,7 +171,7 @@ class HealthCardService {
       supabaseAdmin
         .from('prescriptions')
         .select(`
-          id, notes, is_active, created_at,
+          id, notes, is_active, created_at, file_url,
           doctor:doctors(id, name, specialization),
           consultation:consultations(id, chief_complaint, notes),
           prescription_medicines(id, medicine_name, dosage, frequency, duration, instructions, quantity)
@@ -251,6 +251,7 @@ class HealthCardService {
         notes: rx.notes,
         isActive: rx.is_active,
         createdAt: rx.created_at,
+        fileUrl: rx.file_url,
         medications: rx.prescription_medicines || [],
         doctor: rx.doctor ? { name: rx.doctor.name, specialization: rx.doctor.specialization } : null,
         chiefComplaint: rx.consultation?.chief_complaint,
@@ -265,7 +266,7 @@ class HealthCardService {
         resultDate: r.result_date,
         status: r.status,
         doctorNotes: r.doctor_notes,
-        // Fix #36: Do NOT expose file_url in public health card — prevents unauthenticated file access
+        fileUrl: r.file_url, // Added to allow doctors to view actual reports securely via QR
         parameters: r.parameters,
       })),
       vitals: (vitalsResult.data || []).map(v => ({

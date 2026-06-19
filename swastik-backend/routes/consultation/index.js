@@ -179,4 +179,19 @@ router.post('/:id/ai-assist',
   })
 );
 
+// Generate Clinical Summary via AI (doctor only)
+router.post('/:id/summarize',
+  asyncHandler(async (req, res) => {
+    // Only doctors can generate summaries
+    if (!ensureRole(req, res, 'doctor', 'Only doctors can generate clinical summaries')) {
+      return;
+    }
+    const result = await consultationService.generateClinicalSummary(
+      req.user.id,
+      req.params.id
+    );
+    res.json({ success: true, data: result });
+  })
+);
+
 module.exports = router;

@@ -184,10 +184,23 @@ router.post('/forgot-password',
   authRateLimit(5, 900, 'forgot'), // 5 attempts per 15 minutes
   [
     body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('role').optional().isIn([
+      'patient',
+      'doctor',
+      'hospital_owner',
+      'hospital_manager',
+      'clinic_owner',
+      'pharmacy_owner',
+      'ambulance_operator',
+      'ambulance_driver',
+      'diagnostic_center_owner',
+      'admin',
+      'super_admin',
+    ]).withMessage('Invalid role'),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    const result = await authService.forgotPassword(req.body.email);
+    const result = await authService.forgotPassword(req.body.email, req.body.role);
     res.json({
       success: true,
       ...result,
@@ -203,6 +216,19 @@ router.post('/reset-password',
     body('email').optional().trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('otp').optional().trim().matches(/^\d{6}$/).withMessage('A valid 6-digit OTP is required'),
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+    body('role').optional().isIn([
+      'patient',
+      'doctor',
+      'hospital_owner',
+      'hospital_manager',
+      'clinic_owner',
+      'pharmacy_owner',
+      'ambulance_operator',
+      'ambulance_driver',
+      'diagnostic_center_owner',
+      'admin',
+      'super_admin',
+    ]).withMessage('Invalid role'),
     body().custom((value) => {
       if (value?.token) return true;
       if (value?.email && value?.otp) return true;

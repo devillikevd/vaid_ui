@@ -56,6 +56,7 @@ interface HealthPrescription {
   notes: string | null;
   isActive: boolean;
   createdAt: string;
+  fileUrl?: string | null;
   medications: PrescriptionMedication[];
   doctor: DoctorSummary | null;
   chiefComplaint: string | null;
@@ -77,6 +78,7 @@ interface HealthReport {
   resultDate: string | null;
   status: string | null;
   doctorNotes: string | null;
+  fileUrl?: string | null;
   parameters: ReportParameter[] | null;
 }
 
@@ -475,6 +477,19 @@ function HealthCardContent() {
                   {prescription.consultationNotes && (
                     <p className="mt-2 text-sm text-gray-600">{prescription.consultationNotes}</p>
                   )}
+                  {prescription.fileUrl && (
+                    <div className="mt-3">
+                      <a
+                        href={prescription.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Prescription File
+                      </a>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -517,6 +532,19 @@ function HealthCardContent() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {report.fileUrl && (
+                    <div className="mt-3 border-t pt-3">
+                      <a
+                        href={report.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Full Report
+                      </a>
                     </div>
                   )}
                 </div>
