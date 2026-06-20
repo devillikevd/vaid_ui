@@ -132,7 +132,7 @@ interface DiagnosticCenterState {
     fetchResults: (params?: { page?: number; limit?: number; resultStatus?: string; search?: string }) => Promise<void>;
     fetchBookingById: (bookingId: string) => Promise<void>;
     updateBookingStatus: (bookingId: string, status: string) => Promise<boolean>;
-    uploadResult: (bookingId: string, data: { result_url: string; result_notes?: string }) => Promise<boolean>;
+    uploadResult: (bookingId: string, data: FormData) => Promise<boolean>;
     fetchReviews: (page?: number) => Promise<void>;
     clearError: () => void;
     reset: () => void;

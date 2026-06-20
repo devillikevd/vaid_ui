@@ -1006,10 +1006,10 @@ export const diagnosticCenterApi = {
             body: JSON.stringify({ status }),
         }),
 
-    uploadResult: (bookingId: string, data: { result_url: string; result_notes?: string }) =>
+    uploadResult: (bookingId: string, data: FormData) =>
         fetchWithAuth(`/diagnostic-centers/owner/bookings/${bookingId}/result`, {
             method: 'PATCH',
-            body: JSON.stringify(data),
+            body: data,
         }),
 
     getAnalytics: () => fetchWithAuth('/diagnostic-centers/owner/analytics'),

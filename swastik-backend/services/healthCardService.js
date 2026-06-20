@@ -189,7 +189,7 @@ class HealthCardService {
           status, doctor_notes, file_url, file_size, parameters
         `)
         .eq('patient_id', patientId)
-        .order('report_date', { ascending: false })
+        .order('test_date', { ascending: false })
         .limit(20),
 
       // 4. Vitals (last 30 entries)

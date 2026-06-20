@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -41,6 +42,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -783,18 +786,40 @@ fun PrescriptionDetailScreen(
 
             if (prescription.medicines.isNullOrEmpty()) {
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            text = "No medicines were attached to this prescription.",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    val context = LocalContext.current
+                    val docUrl = prescription.fileUrl ?: prescription.pdfUrl
+                    if (!docUrl.isNullOrEmpty()) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build()
+                                    customTabsIntent.launchUrl(context, android.net.Uri.parse(docUrl))
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open prescription", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SwastikPrimary)
+                        ) {
+                            Icon(Icons.Outlined.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("View Prescription Document")
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "No medicines were attached to this prescription.",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             } else {

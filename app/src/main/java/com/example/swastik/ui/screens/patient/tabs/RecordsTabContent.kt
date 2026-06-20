@@ -611,12 +611,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                     onClick = {
                         val customTabsIntent = androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build()
                         try {
-                            if (documentUrl.endsWith(".pdf", ignoreCase = true)) {
-                                val viewerUrl = "https://docs.google.com/gview?embedded=true&url=${android.net.Uri.encode(documentUrl)}"
-                                customTabsIntent.launchUrl(context, android.net.Uri.parse(viewerUrl))
-                            } else {
-                                customTabsIntent.launchUrl(context, android.net.Uri.parse(documentUrl))
-                            }
+                            customTabsIntent.launchUrl(context, android.net.Uri.parse(documentUrl))
                         } catch (e: Exception) {
                             android.widget.Toast.makeText(context, "Cannot open prescription", android.widget.Toast.LENGTH_SHORT).show()
                         }
@@ -691,12 +686,7 @@ private fun DocumentItem(document: MedicalDocument) {
                     try {
                         val url = document.fileUrl
                         val customTabsIntent = CustomTabsIntent.Builder().setShowTitle(true).build()
-                        if (url.endsWith(".pdf", ignoreCase = true)) {
-                            val viewerUrl = "https://docs.google.com/gview?embedded=true&url=${Uri.encode(url)}"
-                            customTabsIntent.launchUrl(context, Uri.parse(viewerUrl))
-                        } else {
-                            customTabsIntent.launchUrl(context, Uri.parse(url))
-                        }
+                        customTabsIntent.launchUrl(context, Uri.parse(url))
                     } catch (e: Exception) {
                         Toast.makeText(context, context.getString(R.string.cannot_open_document), Toast.LENGTH_SHORT).show()
                     }

@@ -1,5 +1,5 @@
 const { supabaseAdmin } = require('../config/supabase');
-const { uploadProfileImage, deleteFile } = require('../config/minio');
+const { uploadProfileImage, deleteFile, signStorageUrlsInPayload } = require('../config/minio');
 const { ApiError } = require('../middleware/errorHandler');
 const { paginate, paginatedResponse } = require('../utils/helpers');
 const { sanitizeSearch } = require('../utils/sanitize');
@@ -1355,7 +1355,7 @@ class DoctorService {
       ? (fullHistoryReportsResult?.data || [])
       : explicitlySharedReports;
 
-    return {
+    const payload = {
       ...patient,
       age: calculateAge(patient?.date_of_birth),
       email: patient?.user?.email || null,
@@ -1375,6 +1375,8 @@ class DoctorService {
         guardianAnalytics: guardianAnalytics,
       },
     };
+
+    return await signStorageUrlsInPayload(payload);
   }
 }
 

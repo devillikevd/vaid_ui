@@ -85,7 +85,7 @@ export default function BookingsPage() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [uploadingId, setUploadingId] = useState<string | null>(null);
     const [assigningBookingId, setAssigningBookingId] = useState<string | null>(null);
-    const [resultForm, setResultForm] = useState({ result_url: '', result_notes: '' });
+    const [resultForm, setResultForm] = useState<{ file: File | null; result_notes: string }>({ file: null, result_notes: '' });
     const [newBookingAlert, setNewBookingAlert] = useState(false);
     const [page, setPage] = useState(1);
     const pageSize = 10;
@@ -127,15 +127,16 @@ export default function BookingsPage() {
     };
 
     const handleUploadResult = async (bookingId: string) => {
-        if (!resultForm.result_url) return;
+        if (!resultForm.file) return;
         clearError();
-        const success = await uploadResult(bookingId, {
-            result_url: resultForm.result_url,
-            result_notes: resultForm.result_notes || undefined,
-        });
+        const formData = new FormData();
+        formData.append('file', resultForm.file);
+        if (resultForm.result_notes) formData.append('result_notes', resultForm.result_notes);
+        
+        const success = await uploadResult(bookingId, formData);
         if (success) {
             setUploadingId(null);
-            setResultForm({ result_url: '', result_notes: '' });
+            setResultForm({ file: null, result_notes: '' });
         }
     };
 
@@ -296,7 +297,7 @@ export default function BookingsPage() {
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => { setUploadingId(booking.id); setResultForm({ result_url: '', result_notes: '' }); }}
+                                            onClick={() => { setUploadingId(booking.id); setResultForm({ file: null, result_notes: '' }); }}
                                             leftIcon={<Upload className="h-3 w-3" />}
                                         >
                                             Upload Result
@@ -308,12 +309,15 @@ export default function BookingsPage() {
                                 {uploadingId === booking.id && (
                                     <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-3">
                                         <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100">Upload Test Result</h4>
-                                        <Input
-                                            label="Result URL *"
-                                            value={resultForm.result_url}
-                                            onChange={e => setResultForm(f => ({ ...f, result_url: e.target.value }))}
-                                            placeholder="https://... or upload URL"
-                                        />
+                                        <div className="flex flex-col space-y-1.5">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Result Document (PDF/Image) *</label>
+                                            <input
+                                                type="file"
+                                                accept="application/pdf,image/*"
+                                                onChange={e => setResultForm(f => ({ ...f, file: e.target.files?.[0] || null }))}
+                                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-gray-700 dark:file:text-gray-200"
+                                            />
+                                        </div>
                                         <Input
                                             label="Notes (optional)"
                                             value={resultForm.result_notes}
@@ -321,7 +325,7 @@ export default function BookingsPage() {
                                             placeholder="Additional notes about the result"
                                         />
                                         <div className="flex gap-2">
-                                            <Button size="sm" onClick={() => handleUploadResult(booking.id)} disabled={!resultForm.result_url}>
+                                            <Button size="sm" onClick={() => handleUploadResult(booking.id)} disabled={!resultForm.file}>
                                                 Submit Result
                                             </Button>
                                             <Button size="sm" variant="outline" onClick={() => setUploadingId(null)}>Cancel</Button>

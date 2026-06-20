@@ -11,6 +11,8 @@ const { authenticate } = require('../middleware/auth');
 const { requireRole, requireApproval, ROLES } = require('../middleware/rbac');
 const { validate } = require('../middleware/validate');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { uploadMedicalDocument, handleUpload } = require('../middleware/upload');
+const { uploadReport } = require('../config/minio');
 
 // ==================== Public Routes ====================
 
@@ -292,12 +294,23 @@ router.patch('/owner/bookings/:bookingId/status',
   })
 );
 
-router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
+router.patch('/owner/bookings/:bookingId/result', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, handleUpload(uploadMedicalDocument.single('file')), asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
+    
+    let resultUrl = req.body.resultUrl || req.body.result_url;
+    let fileSize = null;
+    
+    if (req.file) {
+        // Upload to Minio
+        const uploadResult = await uploadReport(req.file, req.user.id);
+        resultUrl = uploadResult.url;
+        fileSize = uploadResult.size;
+    }
+
     const updated = await diagnosticCenterService.uploadResult(
         center.id,
         req.params.bookingId,
-        req.body,
+        { ...req.body, result_url: resultUrl, file_size: fileSize },
         req.user.id
     );
 

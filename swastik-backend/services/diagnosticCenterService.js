@@ -640,6 +640,7 @@ const uploadResult = async (centerId, bookingId, resultData, uploadedByUserId) =
         status: 'normal',
         doctor_notes: data.result_notes,
         file_url: data.result_url,
+        file_size: resultData.file_size || resultData.fileSize,
       });
 
       eventEmitter.emitDiagnosticResultUploaded({ ...data, patient_id: patient.user_id });
