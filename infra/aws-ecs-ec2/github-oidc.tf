@@ -32,7 +32,7 @@ data "aws_iam_policy_document" "github_deploy_assume_role" {
       variable = "token.actions.githubusercontent.com:sub"
       values = [
         "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}",
-        "repo:${var.github_repository}:environment:AWS_ROLE_TO_ASSUME"
+        "repo:${var.github_repository}:environment:*"
       ]
     }
   }
