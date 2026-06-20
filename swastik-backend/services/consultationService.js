@@ -1066,6 +1066,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
 
   // 5. Get patient history
   let patientHistory = '';
+  let patientName = '';
   try {
     const { data: patient } = await supabaseAdmin
       .from('patients')
@@ -1074,6 +1075,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
       .single();
 
     if (patient) {
+      patientName = patient.name;
       const parts = [];
       if (patient.blood_group) parts.push(`Blood Group: ${patient.blood_group}`);
       if (patient.allergies) parts.push(`Allergies: ${patient.allergies}`);
@@ -1090,7 +1092,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     consultation_id: consultationId,
     doctor_name: doctor.name,
     doctor_specialization: doctor.specialization || 'General Medicine',
-    patient_name: patient?.name || '',
+    patient_name: patientName || '',
     symptoms: (context.symptoms || '').slice(0, 500),
     vitals: vitalsData,
     history: patientHistory,
