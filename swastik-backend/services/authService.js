@@ -274,6 +274,10 @@ const register = async (userData) => {
   const { email: rawEmail, phone, password, name, role = 'patient', ...rest } = userData;
   const email = normalizeEmail(rawEmail);
 
+  if (role === 'admin' || role === 'super_admin') {
+    throw new ApiError(403, 'Self-registration for admin roles is not permitted.');
+  }
+
   const orFilters = [];
   if (email) orFilters.push(`email.eq.${email}`);
   if (phone) orFilters.push(`phone.eq.${phone}`);
@@ -328,6 +332,10 @@ const register = async (userData) => {
 
   const password_hash = await bcrypt.hash(password, 12);
 
+  const isProvider = role !== 'patient' && role !== 'admin' && role !== 'super_admin';
+  const finalRole = role === 'doctor' ? 'doctor_pending' : (isProvider ? 'patient' : role);
+  const requestedRole = isProvider ? role : null;
+
   const { data: user, error } = await supabaseAdmin
     .from('users')
     .insert({
@@ -335,7 +343,8 @@ const register = async (userData) => {
       phone: phone || null,
       password_hash,
       name,
-      role,
+      role: finalRole,
+      requested_role: requestedRole,
       is_active: true,
       is_verified: false,
     })
@@ -345,7 +354,18 @@ const register = async (userData) => {
   if (error) throw error;
 
   try {
+    // If the role was forced to patient, we still want to create the provider profile
+    // using the originally requested role.
     await createRoleProfile(user.id, role, { name, email, phone, ...rest });
+    
+    // Create patient profile as well if they were forced to patient
+    if (isProvider) {
+        try {
+            await createRoleProfile(user.id, 'patient', { name, email, phone, ...rest });
+        } catch (patientProfileError) {
+            console.error('Failed to create patient profile for provider registration', patientProfileError);
+        }
+    }
   } catch (profileError) {
     console.error(`Registration profile creation failed for ${role}:`, profileError.message);
     await supabaseAdmin.from('users').delete().eq('id', user.id);
@@ -735,6 +755,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
   if (expectedRole) {
     const roleMatches =
       user.role === expectedRole ||
+      (expectedRole === 'doctor' && user.role === 'doctor_pending') ||
       (expectedRole === 'admin' && user.role === 'super_admin') ||
       (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
       (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');

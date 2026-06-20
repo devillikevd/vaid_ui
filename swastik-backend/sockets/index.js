@@ -209,7 +209,7 @@ const initializeSocketIO = (io) => {
         // Check if token has expired
         if (socket.tokenExp && socket.tokenExp * 1000 < Date.now()) {
           console.log(`🔌 Token expired for user ${userId}, disconnecting`);
-          socket.emit('error', { message: 'Token expired', code: 'TOKEN_EXPIRED' });
+          socket.emit('auth:expired', { message: 'Token expired', code: 'TOKEN_EXPIRED' });
           socket.disconnect(true);
           return;
         }

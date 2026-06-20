@@ -59,6 +59,9 @@ JWT_SECRET = os.getenv("JWT_ACCESS_SECRET") or os.getenv("JWT_SECRET", "")
 AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1500"))
 AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.3"))
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+if REDIS_PASSWORD and "@" not in REDIS_URL:
+    REDIS_URL = REDIS_URL.replace("redis://", f"redis://:{REDIS_PASSWORD}@")
 AI_INGEST_STREAM = os.getenv("AI_INGEST_STREAM", "telemedicine:vitals:ingest")
 AI_INGEST_GROUP = os.getenv("AI_INGEST_GROUP", "ai-reasoning-workers")
 AI_INGEST_CONSUMER = os.getenv("AI_INGEST_CONSUMER", f"worker-{os.getpid()}")
@@ -751,7 +754,7 @@ async def call_groq(messages: list[dict], max_tokens: int = AI_MAX_TOKENS, tempe
         }
 
 
-async def call_huggingface(messages: list[dict], max_tokens: int = AI_MAX_TOKENS) -> dict:
+async def call_huggingface(messages: list[dict], max_tokens: int = AI_MAX_TOKENS, temperature: float = AI_TEMPERATURE) -> dict:
     """Call HuggingFace Inference API as fallback."""
     if not HUGGINGFACE_API_KEY:
         raise HTTPException(status_code=503, detail="HuggingFace API key not configured")
@@ -767,7 +770,7 @@ async def call_huggingface(messages: list[dict], max_tokens: int = AI_MAX_TOKENS
                 "model": "meta-llama/llama-3.3-70b-instruct",
                 "messages": messages,
                 "max_tokens": max_tokens,
-                "temperature": AI_TEMPERATURE,
+                "temperature": temperature,
             },
         )
 
@@ -784,14 +787,14 @@ async def call_huggingface(messages: list[dict], max_tokens: int = AI_MAX_TOKENS
         }
 
 
-async def call_ai(messages: list[dict], max_tokens: int = AI_MAX_TOKENS) -> dict:
+async def call_ai(messages: list[dict], max_tokens: int = AI_MAX_TOKENS, temperature: float = AI_TEMPERATURE) -> dict:
     """Route AI call with automatic fallback: Groq → HuggingFace."""
     try:
-        return await call_groq(messages, max_tokens)
+        return await call_groq(messages, max_tokens, temperature)
     except Exception as groq_err:
         print(f"[AI Service] Groq failed, falling back to HuggingFace: {groq_err}")
         try:
-            return await call_huggingface(messages, max_tokens)
+            return await call_huggingface(messages, max_tokens, temperature)
         except Exception as hf_err:
             print(f"[AI Service] All providers failed: {hf_err}")
             raise HTTPException(status_code=503, detail="AI service temporarily unavailable")
@@ -1713,6 +1716,7 @@ Use standard Indian nutritional values. Be as accurate as possible."""
                 [{"role": "system", "content": "You are an expert Indian nutritionist. Calculate accurate nutritional values. Respond only with valid JSON."},
                  {"role": "user", "content": llm_prompt}],
                 max_tokens=800,
+                temperature=0.0,
             )
             parsed_llm = parse_json_response(llm_result["content"])
             for llm_item in parsed_llm.get("items", []):

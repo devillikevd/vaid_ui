@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
+const { signStorageUrlsInPayload } = require('../config/minio');
 const config = require('../config');
 
 const HEALTH_CARD_PREFIX = 'health_card:';
@@ -44,11 +45,11 @@ class HealthCardService {
       await cacheDel(`${HEALTH_CARD_PREFIX}${existingToken}`);
     }
 
-    // Generate a secure 6-character alphanumeric token for easy manual entry
+    // Generate a secure 16-character alphanumeric token (VULN-BS-12: increased from 6)
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let token = '';
-    const randomBytesArray = crypto.randomBytes(6);
-    for (let i = 0; i < 6; i++) {
+    const randomBytesArray = crypto.randomBytes(16);
+    for (let i = 0; i < 16; i++) {
       token += chars[randomBytesArray[i] % chars.length];
     }
 
@@ -346,6 +347,9 @@ class HealthCardService {
       guardianAnalytics: guardianAnalytics || null,
       generatedAt: tokenData.generatedAt,
     };
+
+    // VULN-BS-13: Sign all file URLs so raw S3/MinIO paths are never exposed
+    return signStorageUrlsInPayload(result);
   }
 }
 

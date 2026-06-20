@@ -445,7 +445,7 @@ router.get('/track/:requestId', authenticate,
     { allowBroadcastAccess: true, action: 'track' }
   );
 
-  const data = await ambulanceService.getAmbulanceLocation(req.params.requestId);
+  const data = await ambulanceService.getAmbulanceLocation(req.params.requestId, req.user);
   res.json({ success: true, data });
 }));
 

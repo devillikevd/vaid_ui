@@ -52,6 +52,12 @@ variable "public_subnet_cidrs" {
   default     = ["10.42.1.0/24", "10.42.2.0/24"]
 }
 
+variable "private_subnet_cidrs" {
+  description = "Private subnet CIDRs."
+  type        = list(string)
+  default     = ["10.42.10.0/24", "10.42.11.0/24"]
+}
+
 variable "instance_type" {
   description = "EC2 instance type for ECS capacity. t4g.small keeps ARM images and fits AWS accounts restricted to Free Tier eligible instance types."
   type        = string

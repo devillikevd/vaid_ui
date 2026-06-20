@@ -74,8 +74,8 @@ router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
   });
 
   // Validate token format before hitting Redis
-  // HealthCardService generates a 6-character alphanumeric token
-  const tokenRegex = /^[A-Za-z0-9]{6}$/;
+  // VULN-BS-12: Token length increased to 16 chars; accept 6-16 for backward compat
+  const tokenRegex = /^[A-Za-z0-9]{6,16}$/;
   if (!tokenRegex.test(req.params.token)) {
     return res.status(400).json({ success: false, message: 'Invalid health card token format' });
   }

@@ -122,6 +122,35 @@ router.delete('/profile/image',
   })
 );
 
+// ABDM Mock routes for ABHA linking (VULN-BS-06)
+router.post('/abha/generate-otp',
+  [body('abhaNumber').notEmpty().withMessage('ABHA Number is required')],
+  validate,
+  asyncHandler(async (req, res) => {
+    // Mock OTP generation
+    res.json({ success: true, message: 'OTP sent to registered mobile number' });
+  })
+);
+
+router.post('/abha/verify-otp',
+  [
+    body('abhaNumber').notEmpty().withMessage('ABHA Number is required'),
+    body('otp').notEmpty().withMessage('OTP is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const { abhaNumber, otp } = req.body;
+    // Mock OTP verification - accept 123456
+    if (otp !== '123456') {
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+    
+    const profile = await patientService.updateProfile(req.user.id, { abhaNumber });
+    res.json({ success: true, message: 'ABHA number linked successfully', data: profile });
+  })
+);
+
+
 // Get dashboard
 router.get('/dashboard',
   asyncHandler(async (req, res) => {
@@ -189,9 +218,33 @@ router.get('/vitals',
 router.post('/vitals',
   [
     body('type').isIn(['blood_pressure', 'heart_rate', 'temperature', 'blood_sugar', 'oxygen_saturation', 'weight', 'height']).withMessage('Invalid vital type'),
-    body('value').notEmpty().withMessage('Value is required'),
-    body('unit').optional().isString(),
-    body('notes').optional().isString(),
+    body('value').notEmpty().withMessage('Value is required').custom((value, { req }) => {
+        if (req.body.type === 'blood_pressure') {
+            if (typeof value === 'string' && value.includes('/')) {
+                const [sys, dia] = value.split('/').map(Number);
+                if (isNaN(sys) || isNaN(dia) || sys < 0 || sys > 300 || dia < 0 || dia > 200) throw new Error('Invalid blood pressure values');
+            } else {
+                const val = parseFloat(value);
+                if (isNaN(val) || val < 0 || val > 300) throw new Error('Invalid blood pressure systolic value');
+                if (req.body.diastolic) {
+                    const dia = parseFloat(req.body.diastolic);
+                    if (isNaN(dia) || dia < 0 || dia > 200) throw new Error('Invalid blood pressure diastolic value');
+                }
+            }
+        } else {
+            const val = parseFloat(value);
+            if (isNaN(val)) throw new Error('Value must be a number');
+            if (req.body.type === 'heart_rate' && (val < 0 || val > 300)) throw new Error('Invalid heart rate value');
+            if (req.body.type === 'temperature' && (val < 30 || val > 45)) throw new Error('Invalid temperature value');
+            if (req.body.type === 'blood_sugar' && (val < 0 || val > 1000)) throw new Error('Invalid blood sugar value');
+            if (req.body.type === 'oxygen_saturation' && (val < 0 || val > 100)) throw new Error('Invalid oxygen saturation value');
+            if (req.body.type === 'weight' && (val < 0 || val > 500)) throw new Error('Invalid weight value');
+            if (req.body.type === 'height' && (val < 0 || val > 300)) throw new Error('Invalid height value');
+        }
+        return true;
+    }),
+    body('unit').optional().isString().trim().escape(),
+    body('notes').optional().isString().trim().escape(),
   ],
   validate,
   asyncHandler(async (req, res) => {
@@ -233,6 +286,12 @@ router.post('/vitals',
       case 'weight': vitalInsert.weight = val; break;
       case 'height': vitalInsert.height = val; break;
     }
+
+    const jwt = require('jsonwebtoken');
+    vitalInsert.crypto_signature = jwt.sign(
+      { type: req.body.type, value: req.body.value, patient_id: patient.id, recorded_at: vitalInsert.recorded_at },
+      process.env.JWT_SECRET || 'default-secret'
+    );
 
     const { data, error } = await supabaseAdmin
       .from('patient_vitals')
@@ -349,6 +408,16 @@ router.post('/vitals/sync',
       });
 
       if (safeInsert.length > 0) {
+        const jwt = require('jsonwebtoken');
+        const secret = process.env.JWT_SECRET || 'default-secret';
+        safeInsert.forEach(p => {
+          const type = p.heart_rate !== undefined ? 'heart_rate' : (p.temperature !== undefined ? 'temperature' : 'steps');
+          const value = p.heart_rate ?? p.temperature ?? p.steps;
+          p.crypto_signature = jwt.sign(
+            { type, value, patient_id: patient.id, recorded_at: p.recorded_at },
+            secret
+          );
+        });
         await supabaseAdmin.from('patient_vitals').insert(safeInsert);
       }
 

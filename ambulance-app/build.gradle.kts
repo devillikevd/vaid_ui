@@ -163,6 +163,10 @@ dependencies {
 
     // Security Crypto
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    
+    // SQLCipher integration for local database encryption
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite:2.4.0")
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.6")

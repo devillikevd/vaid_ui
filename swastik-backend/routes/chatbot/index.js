@@ -21,6 +21,20 @@ const chatbotService = require('../../services/chatbotServiceV2');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { uploadAny, handleUpload, validateMagicBytes, ALLOWED_IMAGE_MIMES } = require('../../middleware/upload');
 const { recordHealthEvent } = require('../../services/outbreakService');
+const { cacheGet, cacheSet, cacheIncr, getConnectionState } = require('../../config/redis');
+
+const aiRateLimiter = asyncHandler(async (req, res, next) => {
+  if (!getConnectionState()) {
+    return res.status(503).json({ success: false, message: 'Service unavailable due to high load. Please try again later.' });
+  }
+  const identifier = req.user?.id || req.ip;
+  const key = `ratelimit:ai:${identifier}`;
+  const current = await cacheIncr(key, 60);
+  if (current > 10) {
+    return res.status(429).json({ success: false, message: 'Too many requests to AI endpoints, please try again after a minute' });
+  }
+  next();
+});
 
 const router = express.Router();
 
@@ -68,6 +82,7 @@ router.post('/session/start',
 
 // Send message (supports text + voice messageType for provider routing)
 router.post('/message',
+  aiRateLimiter,
   [
     body('sessionId').notEmpty().withMessage('Session ID is required'),
     body('message').notEmpty().withMessage('Message is required'),
@@ -102,10 +117,11 @@ router.post('/message',
   })
 );
 
-// Analyze image (skin condition, wound, medical report, etc.)
-// Accepts multipart/form-data with image file OR JSON with base64 image
+// Analyze image with AI (Visual Context)
 router.post('/analyze-image',
-  handleUpload(uploadAny.single('image')),
+  aiRateLimiter,
+  uploadAny.single('image'),
+  handleUpload,
   validateMagicBytes(ALLOWED_IMAGE_MIMES),
   asyncHandler(async (req, res) => {
     let base64Image, mimeType, description, sessionId;
@@ -170,8 +186,9 @@ router.post('/session/:sessionId/end',
   })
 );
 
-// Quick symptom analysis (rate-limited via sendMessage to prevent abuse)
+// Quick symptom analysis (uses specialized medical classification flow)
 router.post('/analyze-symptoms',
+  aiRateLimiter,
   [
     body('symptoms').notEmpty().withMessage('Symptoms are required'),
   ],

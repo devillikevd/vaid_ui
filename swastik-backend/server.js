@@ -6,6 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
 const WebSocket = require('ws');
@@ -329,6 +330,9 @@ app.use('/api/auth/reset-password', authLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
 // Resolve private object-storage URLs into signed read URLs for normal API responses.
 app.use(signStorageUrlsMiddleware);
 
@@ -474,6 +478,8 @@ const startServer = async () => {
         startConsultationTimeoutCron();
         // Start patient reminder notification cron
         startReminderNotificationCron();
+        // Start appointment expire cron
+        startAppointmentExpireCron();
         // Start disease outbreak detection cron (runs every 6 hours)
         if (isEnvEnabled('OUTBREAK_CRON_ENABLED', true)) {
           startOutbreakCron(6);
@@ -524,6 +530,30 @@ const startServer = async () => {
 // I19: Consultation timeout cron — mark stale 'in_progress' consultations as 'timed_out'
 let consultationTimeoutInterval;
 let reminderNotificationInterval;
+let appointmentExpireInterval;
+
+const startAppointmentExpireCron = () => {
+  if (String(process.env.APPOINTMENT_EXPIRE_CRON_ENABLED || 'true').toLowerCase() === 'false') {
+    logger.info('[Cron] Appointment expire scheduler is disabled');
+    return;
+  }
+  const intervalMs = Number(process.env.APPOINTMENT_EXPIRE_CRON_INTERVAL_MS || 5 * 60 * 1000);
+  const lockTtlSec = Math.max(30, Math.ceil(intervalMs / 1000) - 5);
+  appointmentExpireInterval = setInterval(async () => {
+    try {
+      try {
+        const { cacheSetIfNotExists } = require('./config/redis');
+        const lockAcquired = await cacheSetIfNotExists('cron:appointment-expire:lock', process.pid, lockTtlSec);
+        if (!lockAcquired) return;
+      } catch (lockErr) {}
+      const expirePastAppointments = require('./cron/expireAppointments');
+      await expirePastAppointments();
+    } catch (err) {
+      logger.error('[Cron] Appointment expire error:', err.message);
+    }
+  }, intervalMs);
+};
+
 const startConsultationTimeoutCron = () => {
   if (isEnvEnabled('CONSULTATION_TIMEOUT_CRON_ENABLED', true) === false) {
     logger.info('[Cron] Consultation timeout scheduler is disabled by CONSULTATION_TIMEOUT_CRON_ENABLED=false');
@@ -592,6 +622,7 @@ process.on('unhandledRejection', (err) => {
   // Clear cron interval to prevent stale timers
   if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
   if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
+  if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
   server.close(() => {
     process.exit(1);
   });
@@ -618,6 +649,7 @@ const gracefulShutdown = async (signal) => {
       // Stop cron
       if (consultationTimeoutInterval) clearInterval(consultationTimeoutInterval);
       if (reminderNotificationInterval) clearInterval(reminderNotificationInterval);
+      if (appointmentExpireInterval) clearInterval(appointmentExpireInterval);
 
       // Close Socket.IO
       if (io) {

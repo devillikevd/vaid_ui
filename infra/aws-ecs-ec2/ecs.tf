@@ -23,6 +23,11 @@ resource "aws_launch_template" "ecs" {
 
   vpc_security_group_ids = [aws_security_group.ecs_instances.id]
 
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
   user_data = base64encode(<<-EOF
     #!/bin/bash
     echo "ECS_CLUSTER=${aws_ecs_cluster.main.name}" >> /etc/ecs/ecs.config
@@ -45,7 +50,7 @@ resource "aws_autoscaling_group" "ecs" {
   min_size                  = var.ec2_min_size
   desired_capacity          = var.ec2_desired_capacity
   max_size                  = var.ec2_max_size
-  vpc_zone_identifier       = aws_subnet.public[*].id
+  vpc_zone_identifier       = aws_subnet.private[*].id
   health_check_type         = "EC2"
   health_check_grace_period = 180
 
@@ -112,6 +117,12 @@ resource "aws_ecs_task_definition" "app" {
       essential         = true
       cpu               = 128
       memoryReservation = 128
+      readonlyRootFilesystem = true
+      entryPoint        = ["sh", "-c"]
+      command           = ["exec redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass \"$REDIS_PASSWORD\""]
+      secrets = [
+        { name = "REDIS_PASSWORD", valueFrom = "arn:${local.partition}:ssm:${var.aws_region}:${local.account_id}:parameter${local.ssm_prefix}/REDIS_PASSWORD" }
+      ]
       portMappings = [
         {
           containerPort = 6379
@@ -136,6 +147,7 @@ resource "aws_ecs_task_definition" "app" {
       memoryReservation = var.backend_memory_reservation
       environment       = local.backend_environment
       secrets           = local.backend_secrets
+      readonlyRootFilesystem = true
       links             = ["redis", "ai-service"]
       portMappings = [
         {
@@ -161,6 +173,7 @@ resource "aws_ecs_task_definition" "app" {
       memoryReservation = var.ai_memory_reservation
       environment       = local.ai_environment
       secrets           = local.ai_secrets
+      readonlyRootFilesystem = true
       links             = ["redis"]
       portMappings = [
         {
@@ -187,8 +200,8 @@ resource "aws_ecs_service" "app" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = var.app_desired_tasks
 
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
 
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.ec2.name

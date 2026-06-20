@@ -74,12 +74,12 @@ resource "aws_instance" "turn" {
   subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.turn[0].id]
   associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.ecs_instance.name
+  iam_instance_profile        = aws_iam_instance_profile.turn_instance.name
   user_data_replace_on_change = true
 
   metadata_options {
     http_endpoint = "enabled"
-    http_tokens   = "optional"
+    http_tokens   = "required"
   }
 
   user_data = templatefile("${path.module}/templates/coturn-user-data.sh.tftpl", {

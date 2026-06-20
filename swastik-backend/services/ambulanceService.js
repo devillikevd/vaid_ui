@@ -323,7 +323,12 @@ class AmbulanceService {
   }
 
   // Get ambulance location for tracking
-  async getAmbulanceLocation(requestId) {
+  async getAmbulanceLocation(requestId, user = null) {
+    if (user) {
+      const dispatchService = require('./dispatchService');
+      await dispatchService.assertEmergencyAccess(user, requestId, { allowBroadcastAccess: true, action: 'track' });
+    }
+
     const { data: request } = await supabaseAdmin
       .from('emergency_requests')
       .select(`

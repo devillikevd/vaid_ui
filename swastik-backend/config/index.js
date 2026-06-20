@@ -127,7 +127,13 @@ const config = {
     url: process.env.UPSTASH_REDIS_REST_URL,
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
     // I7: ioredis TCP URL for Socket.IO adapter & pub/sub (Upstash provides this)
-    ioredisUrl: process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL,
+    ioredisUrl: (() => {
+      let url = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
+      if (url && process.env.REDIS_PASSWORD && !url.includes('@')) {
+        url = url.replace('redis://', `redis://:${process.env.REDIS_PASSWORD}@`);
+      }
+      return url;
+    })(),
   },
 
   // Object storage (Amazon S3 in production, MinIO in local/dev by default)

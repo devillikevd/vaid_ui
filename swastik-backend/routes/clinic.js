@@ -51,7 +51,17 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.use(authenticate);
 
 // Register clinic (C9 Fix: restrict to clinic_owner role)
-router.post('/register', requireRole(ROLES.CLINIC_OWNER), asyncHandler(async (req, res) => {
+router.post('/register', requireRole(ROLES.CLINIC_OWNER), [
+    body('name').trim().notEmpty().withMessage('Clinic name is required'),
+    body('phone').trim().notEmpty().withMessage('Phone number is required'),
+    body('email').optional().isEmail().withMessage('Valid email is required'),
+    body('address').trim().notEmpty().withMessage('Address is required'),
+    body('city').trim().notEmpty().withMessage('City is required'),
+    body('latitude').isFloat().withMessage('Valid latitude is required'),
+    body('longitude').isFloat().withMessage('Valid longitude is required'),
+    ...require('../middleware/clinicValidator').validateClinicRegistration,
+    validate
+], asyncHandler(async (req, res) => {
     const clinic = await clinicService.registerClinic(req.user.id, req.body);
     res.status(201).json({ success: true, data: clinic });
 }));

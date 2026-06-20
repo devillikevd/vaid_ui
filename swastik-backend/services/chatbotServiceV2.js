@@ -23,6 +23,23 @@ const config = require('../config');
 const { cacheGet, cacheSet, cacheIncr } = require('../config/redis');
 const { HEALTH_TIPS } = require('../data/healthTips');
 
+// ==================== PII SCRUBBING ====================
+function scrubPII(text) {
+  if (typeof text !== 'string') return text;
+  
+  let scrubbed = text;
+  // Simple regex-based scrubbing for common PII
+  // Phone numbers (e.g. 123-456-7890, (123) 456-7890, +1 123 456 7890)
+  scrubbed = scrubbed.replace(/\+?\d{1,3}?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[PHONE]');
+  // Email addresses
+  scrubbed = scrubbed.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]');
+  // Social Security Numbers (SSN) / Aadhar
+  scrubbed = scrubbed.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]');
+  scrubbed = scrubbed.replace(/\b\d{4}\s?\d{4}\s?\d{4}\b/g, '[ID_NUMBER]');
+  
+  return scrubbed;
+}
+
 // ==================== CONSTANTS ====================
 
 const MEMORY_SIZE = config.ai?.conversationMemorySize || 6;
@@ -275,14 +292,19 @@ async function sendMessage(userId, sessionId, message, options = {}) {
     };
   }
 
-  // 3. Build conversation context
+  // 3. Build conversation context with PII scrubbing
   const history = await getConversationMemory(userId, sessionId);
+  const scrubbedHistory = history.map(msg => ({
+    role: msg.role,
+    content: scrubPII(msg.content)
+  }));
   const systemPrompt = getSystemPrompt(language);
+  const scrubbedMessage = scrubPII(message);
 
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...history,
-    { role: 'user', content: message },
+    ...scrubbedHistory,
+    { role: 'user', content: scrubbedMessage },
   ];
 
   // 4 & 5. Route to AI provider with JSON enforcement
@@ -457,8 +479,9 @@ async function analyzeImage(userId, sessionId, base64Image, mimeType = 'image/jp
     };
   }
 
-  const userPrompt = description
-    ? `The patient has shared an image and says: "${description}". Please analyze the image for any visible medical conditions.`
+  const scrubbedDescription = description ? scrubPII(description) : '';
+  const userPrompt = scrubbedDescription
+    ? `The patient has shared an image and says: "${scrubbedDescription}". Please analyze the image for any visible medical conditions.`
     : 'The patient has shared an image for medical analysis. Please analyze it for any visible medical conditions, skin issues, wounds, or abnormalities.';
 
   const systemPrompt = `You are VAIDIDEA Health Assistant, a medical image analysis AI. Analyze the provided image and respond ONLY with valid JSON in this exact format:
@@ -620,8 +643,9 @@ GUIDELINES:
  * Analyze symptoms with structured AI response.
  */
 async function analyzeSymptoms(symptoms, language = 'en') {
+  const scrubbedSymptoms = scrubPII(symptoms);
   const prompt = `Analyze these symptoms for a patient in India:
-${symptoms}
+${scrubbedSymptoms}
 
 Respond with this JSON structure:
 {

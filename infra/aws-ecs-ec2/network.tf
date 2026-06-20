@@ -49,6 +49,54 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# VULN-INF-04: Private Subnets and NAT Gateways
+resource "aws_eip" "nat" {
+  count  = length(var.public_subnet_cidrs)
+  domain = "vpc"
+}
+
+resource "aws_nat_gateway" "main" {
+  count         = length(var.public_subnet_cidrs)
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+
+  tags = {
+    Name = "${local.name}-nat-${count.index + 1}"
+  }
+}
+
+resource "aws_subnet" "private" {
+  count                   = length(var.private_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_cidrs[count.index]
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${local.name}-private-${count.index + 1}"
+  }
+}
+
+resource "aws_route_table" "private" {
+  count  = length(var.private_subnet_cidrs)
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
+  }
+
+  tags = {
+    Name = "${local.name}-private-rt-${count.index + 1}"
+  }
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
+}
+
 resource "aws_security_group" "alb" {
   name        = "${local.name}-alb-sg"
   description = "Public ALB access"
@@ -151,8 +199,13 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend.arn
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
@@ -170,38 +223,7 @@ resource "aws_lb_listener" "https" {
   }
 }
 
-resource "aws_lb_listener_rule" "ai_paths_http" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 10
 
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.ai.arn
-  }
-
-  condition {
-    path_pattern {
-      values = ["/ws/vitals/*", "/api/ai/*"]
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "ai_host_http" {
-  count        = length(var.ai_domain_names) > 0 ? 1 : 0
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 20
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.ai.arn
-  }
-
-  condition {
-    host_header {
-      values = var.ai_domain_names
-    }
-  }
-}
 
 resource "aws_lb_listener_rule" "ai_paths_https" {
   count        = var.certificate_arn == "" ? 0 : 1
@@ -235,4 +257,52 @@ resource "aws_lb_listener_rule" "ai_host_https" {
       values = var.ai_domain_names
     }
   }
+}
+
+# VULN-INF-17: VPC Flow Logs
+resource "aws_cloudwatch_log_group" "vpc_flow_log" {
+  name              = "/aws/vpc/${local.name}-flow-logs"
+  retention_in_days = var.log_retention_days
+}
+
+data "aws_iam_policy_document" "vpc_flow_log_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["vpc-flow-logs.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "vpc_flow_log" {
+  name               = "${local.name}-vpc-flow-log-role"
+  assume_role_policy = data.aws_iam_policy_document.vpc_flow_log_assume_role.json
+}
+
+data "aws_iam_policy_document" "vpc_flow_log" {
+  statement {
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "vpc_flow_log" {
+  name   = "${local.name}-vpc-flow-log-policy"
+  role   = aws_iam_role.vpc_flow_log.id
+  policy = data.aws_iam_policy_document.vpc_flow_log.json
+}
+
+resource "aws_flow_log" "main" {
+  iam_role_arn    = aws_iam_role.vpc_flow_log.arn
+  log_destination = aws_cloudwatch_log_group.vpc_flow_log.arn
+  traffic_type    = "ALL"
+  vpc_id          = aws_vpc.main.id
 }

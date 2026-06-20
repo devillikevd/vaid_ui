@@ -975,7 +975,20 @@ const approveProvider = async (type, id, adminId, notes) => {
   // Update user verification if applicable
   if (approvedProvider?.user_id || approvedProvider?.owner_id) {
     const userId = approvedProvider.user_id || approvedProvider.owner_id;
-    await supabaseAdmin.from('users').update({ is_verified: true }).eq('id', userId);
+    
+    // Fetch requested role to update if needed
+    const { data: userRecord } = await supabaseAdmin
+      .from('users')
+      .select('requested_role, role')
+      .eq('id', userId)
+      .single();
+
+    const updates = { is_verified: true };
+    if (userRecord && userRecord.requested_role && userRecord.role !== userRecord.requested_role) {
+      updates.role = userRecord.requested_role;
+    }
+    
+    await supabaseAdmin.from('users').update(updates).eq('id', userId);
   }
 
   await Promise.allSettled([

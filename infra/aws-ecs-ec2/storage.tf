@@ -25,3 +25,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "uploads" {
     }
   }
 }
+
+resource "aws_s3_bucket_policy" "uploads" {
+  count  = var.create_s3_bucket ? 1 : 0
+  bucket = aws_s3_bucket.uploads[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "EnforceHTTPS",
+        Effect    = "Deny",
+        Principal = "*",
+        Action    = "s3:*",
+        Resource = [
+          aws_s3_bucket.uploads[0].arn,
+          "${aws_s3_bucket.uploads[0].arn}/*"
+        ],
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" : "false"
+          }
+        }
+      }
+    ]
+  })
+}

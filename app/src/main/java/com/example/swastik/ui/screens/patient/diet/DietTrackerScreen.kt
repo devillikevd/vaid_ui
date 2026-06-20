@@ -97,9 +97,13 @@ fun DietTrackerScreen(
                         remainingQuota = remaining,
                         onGalleryClick = { photoPickerLauncher.launch("image/*") },
                         onCameraClick = {
-                            val uri = createTempFileUri()
-                            tempCameraUri = uri
-                            cameraLauncher.launch(uri)
+                            try {
+                                val uri = createTempFileUri()
+                                tempCameraUri = uri
+                                cameraLauncher.launch(uri)
+                            } catch (e: android.content.ActivityNotFoundException) {
+                                android.widget.Toast.makeText(context, "No camera app found on this device.", android.widget.Toast.LENGTH_LONG).show()
+                            }
                         }
                     )
                 }

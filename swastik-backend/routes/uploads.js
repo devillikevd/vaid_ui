@@ -446,7 +446,9 @@ router.post('/presigned-upload', authenticateToken, async (req, res, next) => {
         }
 
         // Fix #10: Sanitize fileName to prevent path traversal
-        const sanitizedFileName = fileName.replace(/[\/\\]/g, '_').replace(/\.\./g, '_');
+        const path = require('path');
+        const baseName = path.basename(fileName);
+        const sanitizedFileName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
 
         const folderPath = folder || STORAGE_FOLDERS.DOCUMENTS;
         const objectName = `${folderPath}/${req.user.id}/${Date.now()}-${sanitizedFileName}`;

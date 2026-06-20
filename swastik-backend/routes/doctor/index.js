@@ -462,6 +462,7 @@ router.get('/:id/slots',
 
 // Get doctor queue stats
 router.get('/:id/queue-stats',
+  authenticate,
   asyncHandler(async (req, res) => {
     const { supabaseAdmin } = require('../../config/supabase');
     const { id } = req.params;

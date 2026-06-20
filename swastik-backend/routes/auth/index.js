@@ -8,12 +8,19 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const router = express.Router();
 
 // Fix #19: Redis-backed rate limiter for sensitive auth routes
-const { cacheGet, cacheSet } = require('../../config/redis');
+const { cacheGet, cacheSet, getConnectionState } = require('../../config/redis');
 const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
   return asyncHandler(async (req, res, next) => {
+    if (!getConnectionState()) {
+      return res.status(503).json({ success: false, message: 'Service unavailable due to high load. Please try again later.' });
+    }
     const identifier = req.body.email || req.ip;
     const key = `ratelimit:${keyPrefix}:${identifier}`;
-    const current = parseInt(await cacheGet(key)) || 0;
+    const rawVal = await cacheGet(key);
+    if (rawVal === null && !getConnectionState()) {
+      return res.status(503).json({ success: false, message: 'Service unavailable due to high load. Please try again later.' });
+    }
+    const current = parseInt(rawVal) || 0;
     if (current >= maxAttempts) {
       return res.status(429).json({
         success: false,
@@ -45,6 +52,15 @@ router.post('/register',
   ],
   validate,
   asyncHandler(async (req, res) => {
+    // Prevent mass assignment of critical system fields
+    delete req.body.id;
+    delete req.body.user_id;
+    delete req.body.is_verified;
+    delete req.body.is_active;
+    delete req.body.is_approved;
+    delete req.body.approval_status;
+    delete req.body.created_at;
+    
     const result = await authService.register(req.body);
     res.status(201).json({
       success: true,

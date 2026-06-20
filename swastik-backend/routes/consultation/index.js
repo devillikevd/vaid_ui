@@ -6,19 +6,12 @@ const consultationService = require('../../services/consultationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { recordHealthEvent } = require('../../services/outbreakService');
 const { CONSULTATION_ROLE_POLICY } = require('../../config/accessPolicy');
+const { requireRole } = require('../../middleware/rbac');
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);
-
-const ensureRole = (req, res, role, message) => {
-  if (req.user.role !== role) {
-    res.status(403).json({ success: false, message });
-    return false;
-  }
-  return true;
-};
 
 // Get consultation history
 router.get('/',
@@ -36,10 +29,8 @@ router.get('/',
 
 // Start consultation (doctor only)
 router.post('/:appointmentId/start',
+  requireRole(CONSULTATION_ROLE_POLICY.START),
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.START, 'Only doctors can start consultations')) {
-      return;
-    }
     const result = await consultationService.startConsultation(req.user.id, req.params.appointmentId);
     res.status(201).json({ success: true, data: result });
   })
@@ -47,10 +38,8 @@ router.post('/:appointmentId/start',
 
 // Join consultation (patient only)
 router.post('/:id/join',
+  requireRole(CONSULTATION_ROLE_POLICY.JOIN),
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.JOIN, 'Only patients can join consultations')) {
-      return;
-    }
     const result = await consultationService.joinConsultation(req.user.id, req.params.id);
     res.json({ success: true, data: result });
   })
@@ -82,16 +71,14 @@ router.get('/:id/ice-servers',
 
 // End consultation (doctor only)
 router.put('/:id/end',
+  requireRole(CONSULTATION_ROLE_POLICY.END),
   [
-    body('diagnosis').optional().isString(),
-    body('notes').optional().isString(),
+    body('diagnosis').optional().isString().trim().escape(),
+    body('notes').optional().isString().trim().escape(),
     body('followUpDate').optional().isDate(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.END, 'Only doctors can end consultations')) {
-      return;
-    }
     const consultation = await consultationService.endConsultation(
       req.user.id,
       req.params.id,
@@ -103,10 +90,8 @@ router.put('/:id/end',
 
 // Leave consultation (patient only) — signal patient left the video call
 router.post('/:id/leave',
+  requireRole(CONSULTATION_ROLE_POLICY.LEAVE),
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.LEAVE, 'Only patients can leave (doctors should end)')) {
-      return;
-    }
     const result = await consultationService.leaveConsultation(req.user.id, req.params.id);
     res.json({ success: true, ...result });
   })
@@ -114,30 +99,28 @@ router.post('/:id/leave',
 
 // Add prescription (doctor only)
 router.post('/:id/prescription',
+  requireRole(CONSULTATION_ROLE_POLICY.ADD_PRESCRIPTION),
   [
     body('items').isArray().withMessage('Prescription items are required'),
-    body('items.*.medicineName').notEmpty().withMessage('Medicine name is required'),
-    body('items.*.dosage').notEmpty().withMessage('Dosage is required'),
-    body('items.*.frequency').notEmpty().withMessage('Frequency is required'),
-    body('items.*.duration').notEmpty().withMessage('Duration is required'),
-    body('items.*.instructions').optional().isString(),
+    body('items.*.medicineName').notEmpty().withMessage('Medicine name is required').trim().escape(),
+    body('items.*.dosage').notEmpty().withMessage('Dosage is required').trim().escape(),
+    body('items.*.frequency').notEmpty().withMessage('Frequency is required').trim().escape(),
+    body('items.*.duration').notEmpty().withMessage('Duration is required').trim().escape(),
+    body('items.*.instructions').optional().isString().trim().escape(),
     body('items.*.quantity').optional().isInt({ min: 1 }),
     body('items.*.beforeFood').optional().isBoolean(),
     body('items.*.isCritical').optional().isBoolean(),
-    body('diagnosis').optional().isString(),
-    body('notes').optional().isString(),
+    body('diagnosis').optional().isString().trim().escape(),
+    body('notes').optional().isString().trim().escape(),
     body('followUpDate').optional().isString(),
-    body('dietaryAdvice').optional().isString(),
-    body('lifestyleAdvice').optional().isString(),
-    body('instructions').optional().isString(),
+    body('dietaryAdvice').optional().isString().trim().escape(),
+    body('lifestyleAdvice').optional().isString().trim().escape(),
+    body('instructions').optional().isString().trim().escape(),
     body('validityDays').optional().isInt({ min: 1, max: 365 }),
     body('allowMultiplePrescriptions').optional().isBoolean(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.ADD_PRESCRIPTION, 'Only doctors can add prescriptions')) {
-      return;
-    }
     const prescription = await consultationService.addPrescription(
       req.user.id,
       req.params.id,
@@ -160,15 +143,13 @@ router.post('/:id/prescription',
 
 // AI-assisted clinical decision support (doctor only)
 router.post('/:id/ai-assist',
+  requireRole(CONSULTATION_ROLE_POLICY.AI_ASSIST),
   [
     body('query').notEmpty().withMessage('Query is required'),
     body('symptoms').optional().isString(),
   ],
   validate,
   asyncHandler(async (req, res) => {
-    if (!ensureRole(req, res, CONSULTATION_ROLE_POLICY.AI_ASSIST, 'Only doctors can use AI assistant')) {
-      return;
-    }
     const result = await consultationService.aiAssistDoctor(
       req.user.id,
       req.params.id,
@@ -181,11 +162,8 @@ router.post('/:id/ai-assist',
 
 // Generate Clinical Summary via AI (doctor only)
 router.post('/:id/summarize',
+  requireRole('doctor'),
   asyncHandler(async (req, res) => {
-    // Only doctors can generate summaries
-    if (!ensureRole(req, res, 'doctor', 'Only doctors can generate clinical summaries')) {
-      return;
-    }
     const result = await consultationService.generateClinicalSummary(
       req.user.id,
       req.params.id

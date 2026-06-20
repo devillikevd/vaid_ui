@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS patient_vitals (
     blood_sugar DECIMAL(6, 2),
     steps INTEGER,
     notes TEXT,
+    crypto_signature TEXT,
     recorded_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -115,8 +116,8 @@ CREATE TABLE IF NOT EXISTS patient_vitals (
 CREATE TABLE IF NOT EXISTS prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     prescription_number TEXT UNIQUE,
-    consultation_id UUID REFERENCES consultations(id),
-    patient_id UUID REFERENCES patients(id),
+    consultation_id UUID REFERENCES consultations(id) ON DELETE CASCADE,
+    patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
     doctor_id UUID REFERENCES doctors(id),
     diagnosis TEXT,
     instructions TEXT,

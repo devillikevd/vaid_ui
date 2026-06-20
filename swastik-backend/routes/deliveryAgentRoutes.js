@@ -2,13 +2,29 @@ const express = require('express');
 const router = express.Router();
 const eventEmitter = require('../services/eventEmitter');
 const { supabaseAdmin } = require('../config/supabase');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
+const { ROLES, requireRole } = require('../middleware/rbac');
 const { v4: uuidv4 } = require('uuid');
 
 // 1. Get all agents for a facility
-router.get('/facility/:facilityId', authenticate, async (req, res) => {
+router.get('/facility/:facilityId', authenticate, requireRole(ROLES.HOSPITAL_OWNER, ROLES.ADMIN, ROLES.PHARMACY_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER), async (req, res) => {
     try {
         const { facilityId } = req.params;
+        const { facility_type } = req.query; // Expect facility_type to know which table to check
+        
+        if (req.user.role !== 'admin') {
+            let table;
+            if (facility_type === 'pharmacy') table = 'pharmacies';
+            else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+            else if (facility_type === 'hospital') table = 'hospitals';
+            else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
+
+            const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', facilityId).single();
+            if (!facility || facility.owner_id !== req.user.id) {
+                return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
+            }
+        }
+
         const { data, error } = await supabaseAdmin
             .from('delivery_agents')
             .select('*')
@@ -22,10 +38,24 @@ router.get('/facility/:facilityId', authenticate, async (req, res) => {
 });
 
 // 2. Add new agent
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, requireRole(ROLES.HOSPITAL_OWNER, ROLES.ADMIN, ROLES.PHARMACY_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER), async (req, res) => {
     try {
         const { facility_id, facility_type, name, phone, vehicle_details } = req.body;
         
+        // Verify facility ownership
+        if (req.user.role !== 'admin') {
+            let table;
+            if (facility_type === 'pharmacy') table = 'pharmacies';
+            else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+            else if (facility_type === 'hospital') table = 'hospitals';
+            else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
+
+            const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', facility_id).single();
+            if (!facility || facility.owner_id !== req.user.id) {
+                return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
+            }
+        }
+
         const { data, error } = await supabaseAdmin
             .from('delivery_agents')
             .insert([{ facility_id, facility_type, name, phone, vehicle_details }])
@@ -40,9 +70,28 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // 3. Delete Agent
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, requireRole(ROLES.HOSPITAL_OWNER, ROLES.ADMIN, ROLES.PHARMACY_OWNER, ROLES.DIAGNOSTIC_CENTER_OWNER), async (req, res) => {
     try {
         const { id } = req.params;
+        
+        // Verify facility ownership
+        if (req.user.role !== 'admin') {
+            const { data: agent } = await supabaseAdmin.from('delivery_agents').select('facility_id, facility_type').eq('id', id).single();
+            if (!agent) {
+                return res.status(404).json({ success: false, message: 'Agent not found' });
+            }
+            let table;
+            if (agent.facility_type === 'pharmacy') table = 'pharmacies';
+            else if (agent.facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+            else if (agent.facility_type === 'hospital') table = 'hospitals';
+            else return res.status(400).json({ success: false, message: 'Invalid facility_type for agent' });
+
+            const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', agent.facility_id).single();
+            if (!facility || facility.owner_id !== req.user.id) {
+                return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
+            }
+        }
+
         const { error } = await supabaseAdmin
             .from('delivery_agents')
             .delete()
@@ -100,42 +149,58 @@ router.post('/assign', authenticate, async (req, res) => {
 });
 
 // 4. Get Order by Tracking Token (Public endpoint for the Agent Web App)
+// VULN-BR-09: Limit public tracking payloads to name, lat, lng, status, eta only
 router.get('/track/:token', async (req, res) => {
     try {
         const { token } = req.params;
         
+        const stripToPublic = (order, type) => {
+            if (!order) return null;
+            const agent = order.delivery_agents;
+            return {
+                status: order.status,
+                agent: agent ? {
+                    name: agent.name,
+                    latitude: agent.latitude,
+                    longitude: agent.longitude,
+                    lastUpdate: agent.last_location_update,
+                } : null,
+            };
+        };
+        
         // Check pharmacy orders
         let { data: pharmacyOrder } = await supabaseAdmin
             .from('pharmacy_orders')
-            .select('*, delivery_agents(*)')
+            .select('status, delivery_agents(name, latitude, longitude, last_location_update)')
             .eq('tracking_token', token)
             .single();
             
         if (pharmacyOrder) {
-            return res.json({ success: true, order: pharmacyOrder, type: 'pharmacy' });
+            return res.json({ success: true, order: stripToPublic(pharmacyOrder), type: 'pharmacy' });
         }
         
         // Check diagnostic bookings
         let { data: diagnosticBooking } = await supabaseAdmin
             .from('diagnostic_bookings')
-            .select('*, delivery_agents(*)')
+            .select('status, delivery_agents(name, latitude, longitude, last_location_update)')
             .eq('tracking_token', token)
             .single();
             
         if (diagnosticBooking) {
-            return res.json({ success: true, order: diagnosticBooking, type: 'diagnostic' });
+            return res.json({ success: true, order: stripToPublic(diagnosticBooking), type: 'diagnostic' });
         }
         
         res.status(404).json({ success: false, message: 'Invalid tracking token' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: 'Failed to fetch tracking information' });
     }
 });
 
 // 5. Mark Delivered / Collected (Public endpoint for Agent Web App)
-router.post('/complete', async (req, res) => {
+router.post('/complete', authenticate, async (req, res) => {
     try {
         const { token, type } = req.body;
+        const user = req.user;
         
         const table = type === 'pharmacy' ? 'pharmacy_orders' : 'diagnostic_bookings';
         const finalStatus = type === 'pharmacy' ? 'delivered' : 'sample_collected';
@@ -146,30 +211,48 @@ router.post('/complete', async (req, res) => {
 
         const { data, error } = await supabaseAdmin
             .from(table)
-            .update({ status: finalStatus })
-            .eq('tracking_token', token)
             .select(selectQuery)
+            .eq('tracking_token', token)
             .single();
             
         if (error) throw error;
         
+        // Check if the user is the assigned agent
+        if (!data.delivery_agents) {
+            return res.status(400).json({ success: false, message: 'No agent assigned to this order' });
+        }
+        
+        if (user.role !== 'admin' && data.delivery_agents.phone !== user.phone) {
+            return res.status(403).json({ success: false, message: 'Unauthorized: You are not the assigned agent for this order.' });
+        }
+
+        const { data: updatedData, error: updateError } = await supabaseAdmin
+            .from(table)
+            .update({ status: finalStatus })
+            .eq('tracking_token', token)
+            .select(selectQuery)
+            .single();
+
+        if (updateError) throw updateError;
+        const orderData = updatedData;
+        
         // Free up the agent
-        if (data.agent_id) {
-            await supabaseAdmin.from('delivery_agents').update({ status: 'available' }).eq('id', data.agent_id);
+        if (orderData.agent_id) {
+            await supabaseAdmin.from('delivery_agents').update({ status: 'available' }).eq('id', orderData.agent_id);
         }
         
         // Notify patient and manager that delivery/collection is complete
         if (type === 'pharmacy') {
-            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
-            const { data: pharmacy } = await supabaseAdmin.from('pharmacies').select('owner_id').eq('id', data.pharmacy_id).single();
-            if (patient) eventEmitter.emitOrderStatusUpdated({ ...data, patient_id: patient.user_id, pharmacy_owner_id: pharmacy?.owner_id });
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', orderData.patient_id).single();
+            const { data: pharmacy } = await supabaseAdmin.from('pharmacies').select('owner_id').eq('id', orderData.pharmacy_id).single();
+            if (patient) eventEmitter.emitOrderStatusUpdated({ ...orderData, patient_id: patient.user_id, pharmacy_owner_id: pharmacy?.owner_id });
         } else {
-            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', data.patient_id).single();
-            const { data: center } = await supabaseAdmin.from('diagnostic_centers').select('owner_id').eq('id', data.center_id).single();
-            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...data, patient_id: patient.user_id, center_owner_id: center?.owner_id });
+            const { data: patient } = await supabaseAdmin.from('patients').select('user_id').eq('id', orderData.patient_id).single();
+            const { data: center } = await supabaseAdmin.from('diagnostic_centers').select('owner_id').eq('id', orderData.center_id).single();
+            if (patient) eventEmitter.emitDiagnosticBookingStatusUpdated({ ...orderData, patient_id: patient.user_id, center_owner_id: center?.owner_id });
         }
         
-        res.json({ success: true, order: data });
+        res.json({ success: true, order: orderData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

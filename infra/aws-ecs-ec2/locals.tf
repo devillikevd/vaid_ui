@@ -44,7 +44,8 @@ locals {
     "GMAIL_USER",
     "GMAIL_APP_PASSWORD",
     "EMAIL_FROM_ADDRESS",
-    "FIREBASE_SERVICE_ACCOUNT_BASE64"
+    "FIREBASE_SERVICE_ACCOUNT_BASE64",
+    "REDIS_PASSWORD"
   ])
 
   ssm_secret_arns = {
@@ -89,7 +90,7 @@ locals {
     { name = "AI_SERVICE_PORT", value = "8000" },
     { name = "AI_SERVICE_WORKERS", value = tostring(var.ai_service_workers) },
     { name = "AI_SERVICE_RELOAD", value = "false" },
-    { name = "BACKEND_URL", value = "http://127.0.0.1:5001" },
+    { name = "BACKEND_URL", value = "http://backend:5001" },
     { name = "REDIS_URL", value = local.redis_url },
     { name = "MONGODB_DB_NAME", value = var.mongodb_db_name },
     { name = "PYTHONUNBUFFERED", value = "1" },
@@ -106,7 +107,8 @@ locals {
     "JWT_ACCESS_SECRET",
     "MONGODB_URI",
     "GROQ_API_KEY",
-    "HUGGINGFACE_API_KEY"
+    "HUGGINGFACE_API_KEY",
+    "REDIS_PASSWORD"
   ])
 
   ai_secrets = [

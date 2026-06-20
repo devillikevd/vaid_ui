@@ -6,6 +6,7 @@
 const ROLES = {
   PATIENT: 'patient',
   DOCTOR: 'doctor',
+  DOCTOR_PENDING: 'doctor_pending',
   ADMIN: 'admin',
   SUPER_ADMIN: 'super_admin',
   HOSPITAL_OWNER: 'hospital_owner',
@@ -48,6 +49,7 @@ const requireRole = (...allowedRoles) => {
 const ROLE_HIERARCHY = [
   ROLES.PATIENT,
   ROLES.AMBULANCE_DRIVER,
+  ROLES.DOCTOR_PENDING,
   ROLES.DOCTOR,
   ROLES.HOSPITAL_MANAGER,
   ROLES.HOSPITAL_OWNER,
@@ -90,6 +92,7 @@ const { supabaseAdmin } = require('../config/supabase');
 
 const ROLE_TO_TABLE = {
   [ROLES.DOCTOR]: 'doctors',
+  [ROLES.DOCTOR_PENDING]: 'doctors',
   [ROLES.HOSPITAL_OWNER]: 'hospitals',
   [ROLES.HOSPITAL_MANAGER]: 'hospitals',
   [ROLES.PHARMACY_OWNER]: 'pharmacies',
@@ -100,6 +103,7 @@ const ROLE_TO_TABLE = {
 
 const ROLE_TO_USER_FIELD = {
   [ROLES.DOCTOR]: 'user_id',
+  [ROLES.DOCTOR_PENDING]: 'user_id',
   [ROLES.HOSPITAL_OWNER]: 'owner_id',
   [ROLES.PHARMACY_OWNER]: 'owner_id',
   [ROLES.CLINIC_OWNER]: 'owner_id',

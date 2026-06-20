@@ -446,7 +446,7 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'license_number', 'drug_license_number', 'license_document_url',
-    'is_24_hours', 'delivery_available', 'description', 'opening_hours', 'profile_image_url'];
+    'is_24_hours', 'is_open', 'delivery_available', 'description', 'opening_hours', 'profile_image_url'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];

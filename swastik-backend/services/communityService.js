@@ -165,7 +165,14 @@ class CommunityService {
       .single();
 
     if (!question) throw new ApiError(404, 'Question not found');
-    if (question.patient_id !== patient.id) throw new ApiError(403, 'You can only delete your own questions');
+    
+    // Check if user is admin
+    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', userId).single();
+    const isAdmin = user && user.role === 'admin';
+    
+    if (!isAdmin && question.patient_id !== patient.id) {
+        throw new ApiError(403, 'You can only delete your own questions');
+    }
 
     const { error } = await supabaseAdmin
       .from('community_questions')
@@ -177,18 +184,12 @@ class CommunityService {
   }
 
   async deleteAnswer(userId, answerId) {
-    // A patient can delete an answer if they own the parent question.
-    const { data: patient } = await supabaseAdmin
-      .from('patients')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (!patient) throw new ApiError(403, 'Unauthorized');
+    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', userId).single();
+    const isAdmin = user && user.role === 'admin';
 
     const { data: answer } = await supabaseAdmin
       .from('community_answers')
-      .select('question_id')
+      .select('question_id, doctor_id, patient_id')
       .eq('id', answerId)
       .single();
 
@@ -201,7 +202,27 @@ class CommunityService {
       .single();
 
     if (!question) throw new ApiError(404, 'Question not found');
-    if (question.patient_id !== patient.id) throw new ApiError(403, 'You can only delete answers on your own question');
+
+    // Author of the answer
+    let isAnswerAuthor = false;
+    if (answer.doctor_id) {
+        const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).maybeSingle();
+        if (doctor && doctor.id === answer.doctor_id) isAnswerAuthor = true;
+    } else if (answer.patient_id) {
+        const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
+        if (patient && patient.id === answer.patient_id) isAnswerAuthor = true;
+    }
+
+    // Owner of the question
+    let isQuestionOwner = false;
+    const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
+    if (patient && question.patient_id === patient.id) {
+        isQuestionOwner = true;
+    }
+
+    if (!isAdmin && !isAnswerAuthor && !isQuestionOwner) {
+        throw new ApiError(403, 'You can only delete your own answers or answers to your questions');
+    }
 
     const { error } = await supabaseAdmin
       .from('community_answers')

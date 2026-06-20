@@ -1,3 +1,7 @@
+data "aws_kms_alias" "ssm" {
+  name = "alias/aws/ssm"
+}
+
 data "aws_iam_policy_document" "ec2_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -62,7 +66,7 @@ data "aws_iam_policy_document" "task_execution_ssm" {
 
   statement {
     actions   = ["kms:Decrypt"]
-    resources = ["*"]
+    resources = [data.aws_kms_alias.ssm.target_key_arn]
   }
 }
 
@@ -81,8 +85,7 @@ data "aws_iam_policy_document" "task_s3" {
   statement {
     actions = [
       "s3:ListBucket",
-      "s3:GetBucketLocation",
-      "s3:PutBucketPolicy"
+      "s3:GetBucketLocation"
     ]
 
     resources = [
@@ -109,4 +112,37 @@ resource "aws_iam_role_policy" "task_s3" {
   name   = "${local.name}-task-s3"
   role   = aws_iam_role.task.id
   policy = data.aws_iam_policy_document.task_s3.json
+}
+
+# VULN-INF-10: Dedicated minimal IAM role for TURN instance
+resource "aws_iam_role" "turn_instance" {
+  name               = "${local.name}-turn-instance-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "turn_instance_ssm" {
+  role       = aws_iam_role.turn_instance.name
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+data "aws_iam_policy_document" "turn_ssm_access" {
+  statement {
+    actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParameterHistory"]
+    resources = ["arn:${local.partition}:ssm:${var.aws_region}:${local.account_id}:parameter/swastik/turn/*"]
+  }
+  statement {
+    actions   = ["kms:Decrypt"]
+    resources = [data.aws_kms_alias.ssm.target_key_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "turn_ssm_access" {
+  name   = "${local.name}-turn-ssm-access"
+  role   = aws_iam_role.turn_instance.id
+  policy = data.aws_iam_policy_document.turn_ssm_access.json
+}
+
+resource "aws_iam_instance_profile" "turn_instance" {
+  name = "${local.name}-turn-instance-profile"
+  role = aws_iam_role.turn_instance.name
 }

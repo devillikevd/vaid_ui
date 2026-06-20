@@ -229,6 +229,22 @@ class DoctorService {
     if (updateData.certifications !== undefined) updatePayload.certifications = updateData.certifications;
     
     Object.assign(updatePayload, buildProviderResubmissionFields('doctor', doctor.approval_status));
+    
+    // VULN-BS-05: Reset approval if credential fields are modified
+    const credentialFieldsUpdated = [
+      'registrationNo', 'registration_number',
+      'licenseNumber', 'license_number',
+      'licenseDocumentUrl', 'license_document_url',
+      'degreeCertificateUrl', 'degree_certificate_url'
+    ].some(field => updateData[field] !== undefined);
+
+    if (credentialFieldsUpdated) {
+      updatePayload.approval_status = 'pending';
+      updatePayload.is_approved = false;
+      updatePayload.approval_notes = 'Credential fields updated by provider. Re-verification required.';
+      updatePayload.approved_by = null;
+      updatePayload.approved_at = null;
+    }
 
     const { data: updatedDoctor, error } = await supabaseAdmin
       .from('doctors')

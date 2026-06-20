@@ -167,24 +167,7 @@ const extractObjectNameFromUrl = (fileUrl) => {
 };
 
 const createPublicReadPolicy = () => {
-  const prefixes = Array.isArray(storageConfig.publicReadPrefixes)
-    ? storageConfig.publicReadPrefixes.filter(Boolean)
-    : [];
-
-  if (!prefixes.length) return null;
-
-  return JSON.stringify({
-    Version: '2012-10-17',
-    Statement: [
-      {
-        Sid: 'SwastikPublicRead',
-        Effect: 'Allow',
-        Principal: '*',
-        Action: ['s3:GetObject'],
-        Resource: prefixes.map((prefix) => `arn:aws:s3:::${storageConfig.bucketName}/${prefix}`),
-      },
-    ],
-  });
+  return null;
 };
 
 const isBucketNotFoundError = (error) => {
@@ -227,18 +210,8 @@ const ensureMinioBucket = async () => {
 };
 
 const applyPublicReadPolicy = async () => {
-  const policy = createPublicReadPolicy();
-  if (!policy) return;
-
-  if (storageProvider === 's3') {
-    await s3Client.send(new PutBucketPolicyCommand({
-      Bucket: storageConfig.bucketName,
-      Policy: policy,
-    }));
-    return;
-  }
-
-  await minioClient.setBucketPolicy(storageConfig.bucketName, policy);
+  // Fix FILE-02: Bucket should remain private. Signed URLs are used for all access.
+  console.log(`✅ ${storageLabel} bucket configured as private`);
 };
 
 // Initialize storage client
@@ -294,7 +267,6 @@ const initializeBucket = async () => {
 
     try {
       await applyPublicReadPolicy();
-      console.log(`✅ ${storageLabel} public-read policy ensured for configured prefixes`);
     } catch (policyError) {
       console.warn(`⚠️  ${storageLabel} bucket policy setup skipped:`, policyError.message);
     }
@@ -327,7 +299,9 @@ const isStorageAvailable = () => Boolean((minioClient || s3Client) && isBucketRe
 
 // Helper: generate unique object name
 const generateObjectName = (folder, userId, originalName) => {
-  const ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
+  let ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
+  ext = ext.replace(/[^a-zA-Z0-9]/g, '');
+  if (!ext) ext = 'bin';
   return `${folder}/${userId}/${uuidv4()}.${ext}`;
 };
 

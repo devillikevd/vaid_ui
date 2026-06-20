@@ -86,11 +86,17 @@ const errorHandler = (err, req, res, next) => {
   // Filter out PostgreSQL codes (numeric strings like '23505') and system error codes
   const isAppCode = err.code && typeof err.code === 'string' && /^[A-Z_]+$/.test(err.code);
 
+  // VULN-BR-14: Never expose raw internal/database error messages to clients
+  // For non-operational (unexpected) errors or 500s, use a generic message
+  const clientMessage = (statusCode >= 500 && !err.isOperational)
+    ? 'Internal Server Error'
+    : message;
+
   res.status(statusCode).json({
     success: false,
-    message,
+    message: clientMessage,
     ...(isAppCode && { code: err.code }),
-    ...(err.details && { details: err.details }),
+    ...(err.details && statusCode < 500 && { details: err.details }),
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 };

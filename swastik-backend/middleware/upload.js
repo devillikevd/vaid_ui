@@ -28,12 +28,12 @@ const detectFileType = async (buffer) => {
 // Memory storage (for MinIO upload)
 const memoryStorage = multer.memoryStorage();
 
-// File size limits
+// File size limits (VULN-BR-13: reduced to minimize abuse surface)
 const FILE_LIMITS = {
   profileImage: 5 * 1024 * 1024,     // 5MB
-  document: 25 * 1024 * 1024,        // 25MB
-  medicalDocument: 50 * 1024 * 1024,  // 50MB
-  video: 500 * 1024 * 1024,          // 500MB
+  document: 10 * 1024 * 1024,        // 10MB (was 25MB)
+  medicalDocument: 10 * 1024 * 1024,  // 10MB (was 50MB)
+  video: 50 * 1024 * 1024,           // 50MB (was 500MB)
 };
 
 /**

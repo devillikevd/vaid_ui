@@ -30,8 +30,12 @@ TURN_DOMAIN='${turn_domain_name}'
 CONFIG=/opt/coturn/turnserver.conf
 TMP="$CONFIG.tmp"
 
-PUBLIC_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
-PRIVATE_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/local-ipv4 || true)"
+TOKEN="$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")"
+PUBLIC_IP="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+PRIVATE_IP="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/local-ipv4 || true)"
+
+REGION="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/placement/region || true)"
+TURN_SECRET="$(aws ssm get-parameter --name "/swastik/turn/secret" --with-decryption --region "$REGION" --query "Parameter.Value" --output text || echo "default-secret")"
 
 cat > "$TMP" <<'CONF'
 listening-port=3478
@@ -41,7 +45,8 @@ fingerprint
 lt-cred-mech
 realm=${turn_realm}
 server-name=${turn_realm}
-user=${turn_username}:${turn_password}
+use-auth-secret
+static-auth-secret=$TURN_SECRET
 total-quota=${turn_total_quota}
 stale-nonce=600
 no-cli
@@ -113,7 +118,8 @@ if [ -z "$TURN_DOMAIN" ]; then
   exit 0
 fi
 
-PUBLIC_IP="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
+TOKEN="$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")"
+PUBLIC_IP="$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -fsS http://169.254.169.254/latest/meta-data/public-ipv4 || true)"
 RESOLVED_IP="$(getent ahostsv4 "$TURN_DOMAIN" | awk 'NR == 1 { print $1 }' || true)"
 
 if [ -n "$PUBLIC_IP" ] && [ -n "$RESOLVED_IP" ] && [ "$PUBLIC_IP" != "$RESOLVED_IP" ]; then

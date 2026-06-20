@@ -65,6 +65,8 @@ jobs:
           echo "registry=${registry}" >> "${GITHUB_OUTPUT}"
           echo "cluster=${cluster}" >> "${GITHUB_OUTPUT}"
           echo "service=${service}" >> "${GITHUB_OUTPUT}"
+          echo "backend_repo=${backend_repo}" >> "${GITHUB_OUTPUT}"
+          echo "ai_repo=${ai_repo}" >> "${GITHUB_OUTPUT}"
           echo "backend_image=${registry}/${backend_repo}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
           echo "backend_latest=${registry}/${backend_repo}:latest" >> "${GITHUB_OUTPUT}"
           echo "ai_image=${registry}/${ai_repo}:${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
@@ -116,6 +118,52 @@ jobs:
           tags: |
             ${{ steps.names.outputs.ai_image }}
             ${{ steps.names.outputs.ai_latest }}
+
+      - name: ECR Scan Gate (Backend)
+        shell: bash
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "${{ steps.names.outputs.backend_repo }}" \
+            --image-id imageTag="${GITHUB_SHA}" || true
+          
+          scan_findings=$(aws ecr describe-image-scan-findings \
+            --repository-name "${{ steps.names.outputs.backend_repo }}" \
+            --image-id imageTag="${GITHUB_SHA}" \
+            --query 'imageScanFindings.findingSeverityCounts' \
+            --output json 2>/dev/null || echo "{}")
+            
+          high=$(echo "$scan_findings" | jq -r '.HIGH // 0')
+          critical=$(echo "$scan_findings" | jq -r '.CRITICAL // 0')
+          
+          if [[ "$high" -gt 0 ]] || [[ "$critical" -gt 0 ]]; then
+            echo "::error::CRITICAL ($critical) or HIGH ($high) vulnerabilities found in backend image."
+            exit 1
+          else
+            echo "Backend image passed ECR vulnerability scan."
+          fi
+
+      - name: ECR Scan Gate (AI Service)
+        shell: bash
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "${{ steps.names.outputs.ai_repo }}" \
+            --image-id imageTag="${GITHUB_SHA}" || true
+          
+          scan_findings=$(aws ecr describe-image-scan-findings \
+            --repository-name "${{ steps.names.outputs.ai_repo }}" \
+            --image-id imageTag="${GITHUB_SHA}" \
+            --query 'imageScanFindings.findingSeverityCounts' \
+            --output json 2>/dev/null || echo "{}")
+            
+          high=$(echo "$scan_findings" | jq -r '.HIGH // 0')
+          critical=$(echo "$scan_findings" | jq -r '.CRITICAL // 0')
+          
+          if [[ "$high" -gt 0 ]] || [[ "$critical" -gt 0 ]]; then
+            echo "::error::CRITICAL ($critical) or HIGH ($high) vulnerabilities found in AI service image."
+            exit 1
+          else
+            echo "AI service image passed ECR vulnerability scan."
+          fi
 
       - name: Check ECS service
         id: service
