@@ -8,6 +8,7 @@ jest.mock('../config/supabase', () => ({
 jest.mock('../config/minio', () => ({
   uploadProfileImage: jest.fn(),
   deleteFile: jest.fn(),
+  signStorageUrlsInPayload: jest.fn((payload) => Promise.resolve(payload)),
 }));
 
 jest.mock('../config/redis', () => ({
