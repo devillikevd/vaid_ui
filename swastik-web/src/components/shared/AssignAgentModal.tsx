@@ -21,7 +21,7 @@ export function AssignAgentModal({ isOpen, onClose, orderId, orderType, onAssign
 
     useEffect(() => {
         if (isOpen && user?.id) {
-            fetchAgents(user.id);
+            fetchAgents(user.id, (user.role as string) === 'pharmacy' ? 'pharmacy' : 'diagnostic_center');
         }
     }, [isOpen, user?.id, fetchAgents]);
 

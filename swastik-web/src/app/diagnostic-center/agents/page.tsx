@@ -20,7 +20,7 @@ export default function DiagnosticCenterAgentsPage() {
 
     useEffect(() => {
         if (user?.id) {
-            fetchAgents(user.id);
+            fetchAgents(user.id, 'diagnostic_center');
         }
     }, [user?.id, fetchAgents]);
 
@@ -29,7 +29,7 @@ export default function DiagnosticCenterAgentsPage() {
         if (!user?.id || !name || !phone) return;
         
         setIsAdding(true);
-        const success = await addAgent(user.id, 'diagnostic', name, phone);
+        const success = await addAgent(user.id, 'diagnostic_center', name, phone);
         setIsAdding(false);
         
         if (success) {

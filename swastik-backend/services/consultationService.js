@@ -1090,6 +1090,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
     consultation_id: consultationId,
     doctor_name: doctor.name,
     doctor_specialization: doctor.specialization || 'General Medicine',
+    patient_name: patient?.name || '',
     symptoms: (context.symptoms || '').slice(0, 500),
     vitals: vitalsData,
     history: patientHistory,
@@ -1144,12 +1145,21 @@ const generateClinicalSummary = async (doctorUserId, consultationId) => {
 
   const { data: consultation } = await supabaseAdmin
     .from('consultations')
-    .select('id, status, diagnosis, notes, appointment_id, doctor_id, patient_id')
+    .select('id, status, diagnosis, notes, appointment_id, doctor_id, patient_id, appointment:appointments(symptoms), patient:patients(name, blood_group, allergies, chronic_conditions, emergency_contact)')
     .eq('id', consultationId)
     .eq('doctor_id', doctor.id)
     .single();
 
   if (!consultation) throw new ApiError(404, 'Consultation not found or unauthorized');
+
+  let patientHistory = '';
+  if (consultation.patient) {
+    const parts = [];
+    if (consultation.patient.blood_group) parts.push(`Blood Group: ${consultation.patient.blood_group}`);
+    if (consultation.patient.allergies) parts.push(`Allergies: ${consultation.patient.allergies}`);
+    if (consultation.patient.chronic_conditions) parts.push(`Chronic Conditions: ${consultation.patient.chronic_conditions}`);
+    patientHistory = parts.join(', ') || 'No medical history on file';
+  }
 
   // 2. Fetch Vitals History
   let vitalsHistory = [];
@@ -1183,6 +1193,9 @@ const generateClinicalSummary = async (doctorUserId, consultationId) => {
   const requestPayload = {
     consultation_id: consultationId,
     doctor_name: doctor.name,
+    patient_name: consultation.patient?.name || '',
+    symptoms: consultation.appointment?.symptoms || '',
+    history: patientHistory,
     transcript: consultation.notes || '',
     diagnosis: consultation.diagnosis || '',
     prescriptions: prescriptions,

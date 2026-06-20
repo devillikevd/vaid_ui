@@ -15,9 +15,9 @@ interface DeliveryAgentsState {
     agents: DeliveryAgent[];
     loading: boolean;
     error: string | null;
-    fetchAgents: (facilityId: string) => Promise<void>;
+    fetchAgents: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center') => Promise<void>;
     assignAgent: (orderId: string, orderType: 'pharmacy' | 'diagnostic', agentId: string) => Promise<{ success: boolean; trackingToken?: string }>;
-    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic', name: string, phoneNumber: string) => Promise<boolean>;
+    addAgent: (facilityId: string, facilityType: 'pharmacy' | 'diagnostic_center', name: string, phoneNumber: string) => Promise<boolean>;
     deleteAgent: (agentId: string) => Promise<boolean>;
     clearError: () => void;
 }
@@ -27,10 +27,10 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
     loading: false,
     error: null,
 
-    fetchAgents: async (facilityId) => {
+    fetchAgents: async (facilityId, facilityType) => {
         set({ loading: true, error: null });
         try {
-            const response = await fetchWithAuth<any>(`/delivery-agents/facility/${facilityId}`);
+            const response = await fetchWithAuth<any>(`/delivery-agents/facility/${facilityId}?facility_type=${facilityType}`);
             const responseData = response.data as any || {};
             const rawAgents = responseData.agents || (response as any).agents || [];
             const agents = rawAgents.map((a: any) => ({
@@ -53,7 +53,7 @@ export const useDeliveryAgentsStore = create<DeliveryAgentsState>((set, get) => 
             if (!response.success) {
                 throw new Error(response.error);
             }
-            await get().fetchAgents(facilityId);
+            await get().fetchAgents(facilityId, facilityType);
             return true;
         } catch (error: any) {
             set({ error: error.message || 'Failed to add agent', loading: false });

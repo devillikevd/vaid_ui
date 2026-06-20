@@ -20,7 +20,7 @@ export default function PharmacyAgentsPage() {
 
     useEffect(() => {
         if (user?.id) {
-            fetchAgents(user.id);
+            fetchAgents(user.id, 'pharmacy');
         }
     }, [user?.id, fetchAgents]);
 

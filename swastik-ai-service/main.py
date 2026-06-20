@@ -650,6 +650,7 @@ class VitalsData(BaseModel):
 
 class ConsultationContext(BaseModel):
     consultation_id: str
+    patient_name: Optional[str] = ""
     doctor_name: Optional[str] = "Doctor"
     doctor_specialization: Optional[str] = "General Medicine"
     symptoms: Optional[str] = ""
@@ -693,6 +694,9 @@ class AIConsultationResponse(BaseModel):
 
 class ConsultationSummaryRequest(BaseModel):
     consultation_id: str
+    patient_name: str = ""
+    symptoms: str = ""
+    history: str = ""
     transcript: str = ""
     vitals_history: list[dict] = []
     diagnosis: Optional[str] = ""
@@ -1187,6 +1191,7 @@ async def ai_consult(ctx: ConsultationContext, user: dict = Depends(verify_docto
 
 REAL-TIME CONTEXT:
 - Doctor: Dr. {ctx.doctor_name} ({ctx.doctor_specialization})
+- Patient Name: {ctx.patient_name or 'Not specified'}
 - Patient symptoms: {symptoms}
 - Patient medical history: {history}
 - Current diagnosis notes: {diagnosis}
@@ -1366,7 +1371,10 @@ async def summarize_consultation(req: ConsultationSummaryRequest, user: dict = D
 
     prompt = f"""Generate a comprehensive consultation summary based on:
 
-Transcript: {req.transcript[:2000] if req.transcript else 'Not available'}
+Patient Name: {req.patient_name or 'Not specified'}
+Symptoms: {req.symptoms or 'Not specified'}
+History: {req.history or 'Not specified'}
+Transcript/Notes: {req.transcript[:2000] if req.transcript else 'Not available'}
 Diagnosis: {req.diagnosis or 'Not specified'}
 Vitals during consultation (from 12 CV signals): {vitals_str or 'Not available'}
 Prescriptions given: {json.dumps(req.prescriptions[:5]) if req.prescriptions else 'None'}
