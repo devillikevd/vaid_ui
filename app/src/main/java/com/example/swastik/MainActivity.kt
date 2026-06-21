@@ -223,10 +223,14 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             } ?: ""
             EmailVerificationPendingScreen(
                 email = email,
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { 
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 onGoToLogin = {
-                    navController.navigateSafe(Screen.PatientLogin.route) {
-                        popUpTo(Screen.Home.route) { inclusive = false }
+                    navController.navigate(Screen.PatientLogin.route) {
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             )

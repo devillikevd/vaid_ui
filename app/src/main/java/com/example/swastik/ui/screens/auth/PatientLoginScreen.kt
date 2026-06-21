@@ -141,8 +141,7 @@ fun PatientLoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.34f)
-                .padding(horizontal = 24.dp),
+                .padding(start = 24.dp, end = 24.dp, top = 40.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Center
         ) {
@@ -195,9 +194,9 @@ fun PatientLoginScreen(
         }
 
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = MaterialTheme.colorScheme.onPrimary
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier

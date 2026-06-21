@@ -146,7 +146,7 @@ fun PatientRegisterScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 28.dp, start = 12.dp, end = 12.dp),
+                .padding(top = 28.dp, bottom = 16.dp, start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
@@ -166,9 +166,9 @@ fun PatientRegisterScreen(
         }
 
         Surface(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = MaterialTheme.colorScheme.onPrimary
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
