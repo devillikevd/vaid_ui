@@ -109,6 +109,7 @@ sealed class Screen(val route: String) {
         }
     }
     object HealthCard : Screen("health_card")
+    object GuardianDashboard : Screen("guardian_dashboard")
     object HealthConnectSetup : Screen("health_connect_setup")
     object MedicineCart : Screen("medicine_cart")
     object OrderHistory : Screen("order_history")

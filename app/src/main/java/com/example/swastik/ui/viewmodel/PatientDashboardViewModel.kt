@@ -99,6 +99,12 @@ class PatientDashboardViewModel @Inject constructor(
         .combine(MutableStateFlow(Unit)) { settings, _ -> settings.guardianEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val liveTelemetry = guardianRepository.telemetryFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.example.swastik.data.local.GuardianTelemetry())
+
+    val guardianEvents = guardianRepository.getAllEvents()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _uiState = MutableStateFlow(PatientDashboardUiState())
     val uiState: StateFlow<PatientDashboardUiState> = _uiState.asStateFlow()
 

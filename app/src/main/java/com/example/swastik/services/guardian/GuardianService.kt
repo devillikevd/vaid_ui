@@ -94,6 +94,7 @@ class GuardianService : Service(), SensorEventListener {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_ACTIVITY_UPDATE) {
                 currentActivityType = intent.getIntExtra(EXTRA_ACTIVITY_TYPE, DetectedActivity.UNKNOWN)
+                guardianRepository.updateTelemetry { it.copy(activityType = currentActivityType) }
                 if (ConsultationPerformanceState.isVideoConsultationActive) return
                 Log.d(TAG, "Current Activity Updated: $currentActivityType")
             }
@@ -107,6 +108,7 @@ class GuardianService : Service(), SensorEventListener {
                 lastKnownLocation = loc
                 if (loc.hasSpeed()) {
                     lastKnownSpeed = loc.speed // speed in m/s
+                    guardianRepository.updateTelemetry { it.copy(speedKmh = loc.speed * 3.6f) }
                     if (currentActivityType == DetectedActivity.IN_VEHICLE) {
                         maxVehicleSpeedMps = maxOf(maxVehicleSpeedMps * 0.92f, loc.speed)
                     } else {
@@ -327,16 +329,15 @@ class GuardianService : Service(), SensorEventListener {
         }
     }
 
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event == null || isVerificationPhase) return
-        if (ConsultationPerformanceState.isVideoConsultationActive) return
-
+    override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
             val x = event.values[0]
             val y = event.values[1]
             val z = event.values[2]
+            
+            // Push upright status (if Y > 5, phone is mostly upright)
+            guardianRepository.updateTelemetry { it.copy(isUpright = y > 5f) }
 
-            // Calculate magnitude of acceleration vector (G-Force)
             val magnitude = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
             val features = AppSettingsStore.settings.value.guardianFeatures
             if (features.mobilityAnalysis) {

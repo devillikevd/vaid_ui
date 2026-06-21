@@ -897,8 +897,19 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 val recordsViewModel: com.example.swastik.ui.viewmodel.RecordsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 com.example.swastik.ui.screens.patient.HealthCardScreen(
                     onNavigateBack = { navController.popBackStack() },
+                    onNavigateToGuardianDashboard = { navController.navigateSafe(Screen.GuardianDashboard.route) },
                     dashboardViewModel = dashboardViewModel,
                     recordsViewModel = recordsViewModel
+                )
+            }
+        }
+
+        composable(Screen.GuardianDashboard.route) {
+            AuthGuard(navController, tokenManager) {
+                val dashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.guardian.GuardianDashboardScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    viewModel = dashboardViewModel
                 )
             }
         }

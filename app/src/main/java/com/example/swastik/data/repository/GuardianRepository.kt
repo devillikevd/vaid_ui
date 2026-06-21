@@ -10,11 +10,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
+import com.example.swastik.data.local.GuardianTelemetry
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 @Singleton
 class GuardianRepository @Inject constructor(
     private val guardianDao: GuardianDao
 ) {
+
+    private val _telemetryFlow = MutableStateFlow(GuardianTelemetry())
+    val telemetryFlow = _telemetryFlow.asStateFlow()
+
+    fun updateTelemetry(update: (GuardianTelemetry) -> GuardianTelemetry) {
+        _telemetryFlow.value = update(_telemetryFlow.value)
+    }
 
     suspend fun logEvent(
         eventType: String,

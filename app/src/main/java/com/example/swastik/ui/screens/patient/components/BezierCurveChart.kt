@@ -29,7 +29,9 @@ fun BezierCurveChart(
     lineColor: Color = SwastikPrimary,
     title: String = "Health Chart",
     subtitle: String = "Recent Trend",
-    containerColor: Color = MaterialTheme.colorScheme.surface
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    yMin: Float? = null,
+    yMax: Float? = null
 ) {
     // Early return removed to allow rendering empty state
 
@@ -100,8 +102,8 @@ fun BezierCurveChart(
                 Canvas(modifier = Modifier.fillMaxWidth().height(120.dp)) {
                     val width = size.width
                     val height = size.height
-                    val maxData = dataPoints.maxOrNull() ?: 1f
-                    val minData = dataPoints.minOrNull() ?: 0f
+                    val maxData = yMax ?: (dataPoints.maxOrNull() ?: 1f)
+                    val minData = yMin ?: (dataPoints.minOrNull() ?: 0f)
                     val range = maxData - minData
                     val scaledRange = if (range == 0f) 1f else range
 

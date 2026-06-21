@@ -73,6 +73,7 @@ private val HealthCardMainBg = Color(0xFFE3F2FD) // Light bluish background for 
 @Composable
 fun HealthCardScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToGuardianDashboard: () -> Unit,
     dashboardViewModel: PatientDashboardViewModel,
     recordsViewModel: RecordsViewModel
 ) {
@@ -341,6 +342,23 @@ fun HealthCardScreen(
                         }
                     }
                 )
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onNavigateToGuardianDashboard,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("View Live Dashboard", fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                }
             }
 
             item {
