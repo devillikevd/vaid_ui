@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { vitalsApi } from '@/lib/api';
+import { vitalsApi, getTokens } from '@/lib/api';
 import { PUBLIC_AI_WS_URL, PUBLIC_SOCKET_URL } from '@/lib/env';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -1149,8 +1149,8 @@ export function useVitalsStream(
     const connect = useCallback(() => {
         if (!sessionId || isUnmountedRef.current) return;
 
-        // Read JWT from localStorage (written by authStore on login)
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+        // Read JWT from api.ts (memory/cookie)
+        const token = typeof window !== 'undefined' ? getTokens().accessToken : null;
 
         // Build WebSocket URL with auth token and optional stream replay ID
         const params = new URLSearchParams();

@@ -7,6 +7,7 @@ const config = require('../config');
 const { supabaseAdmin } = require('../config/supabase');
 const { cacheGet, cacheSet } = require('../config/redis');
 const { enrichAuthUser, requiresAuthUserEnrichment } = require('../utils/authUserEnrichment');
+const { asyncLocalStorage } = require('../utils/asyncContext');
 
 /**
  * Authenticate middleware - verifies JWT token and attaches user to request
@@ -89,7 +90,9 @@ const authenticate = async (req, res, next) => {
       license_expiry: user.license_expiry,
     };
 
-    next();
+    asyncLocalStorage.run({ user: req.user, token }, () => {
+      next();
+    });
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
@@ -120,7 +123,9 @@ const optionalAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       req.user = null;
-      return next();
+      return asyncLocalStorage.run({ user: null, token: null }, () => {
+        next();
+      });
     }
 
     const token = authHeader.split(' ')[1];
@@ -138,10 +143,14 @@ const optionalAuth = async (req, res, next) => {
 
     // Don't attach deactivated users even in optional auth
     req.user = (user && user.is_active) ? user : null;
-    next();
+    asyncLocalStorage.run({ user: req.user, token }, () => {
+      next();
+    });
   } catch {
     req.user = null;
-    next();
+    asyncLocalStorage.run({ user: null, token: null }, () => {
+      next();
+    });
   }
 };
 

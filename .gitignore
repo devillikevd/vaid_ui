@@ -65,3 +65,12 @@ Thumbs.db
 **/__pycache__/
 *.pyc
 *.apk
+
+# Terraform secrets
+*.tfvars
+!*.auto.tfvars.example
+
+# ECS secrets
+taskdef.json
+new_taskdef.json
+updated_taskdef.json

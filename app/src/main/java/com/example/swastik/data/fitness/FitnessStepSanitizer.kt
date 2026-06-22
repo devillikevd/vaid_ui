@@ -65,7 +65,14 @@ object FitnessStepSanitizer {
         val stepsToAdd = if (currentSensorSteps >= lastSensorSteps) {
             currentSensorSteps - lastSensorSteps
         } else {
-            currentSensorSteps
+            // Sensor value dropped. This can happen on reboot, or due to a sensor hardware glitch.
+            if (currentSensorSteps < 500 || (lastSensorSteps - currentSensorSteps) > 1000) {
+                // Significant drop: treat as device reboot
+                currentSensorSteps
+            } else {
+                // Slight drop: hardware glitch. Ignore it without updating the baseline!
+                return Decision(log, accepted = false, reason = "sensor_backward_glitch")
+            }
         }
 
         if (stepsToAdd <= 0) {

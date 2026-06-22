@@ -258,10 +258,33 @@ router.post('/complete', authenticate, async (req, res) => {
     }
 });
 
-// 6. Update Agent Location (Public endpoint for Agent Web App)
-router.post('/location', async (req, res) => {
+// 6. Update Agent Location (Requires Authentication)
+router.post('/location', authenticate, async (req, res) => {
     try {
         const { agent_id, latitude, longitude, token } = req.body;
+        
+        // Ensure the authenticated user owns this agent record or is an admin
+        // Note: In a real system, agents would have their own login, or the facility owner updates it.
+        // Assuming facility owner or admin or the agent themselves is making the request.
+        if (req.user.role !== 'admin') {
+            const { data: agent } = await supabaseAdmin.from('delivery_agents').select('*').eq('id', agent_id).single();
+            if (!agent) throw new Error('Agent not found');
+            
+            // Allow update if the user is the owner of the facility the agent belongs to
+            // OR if the agent has a user_id and it matches req.user.id
+            if (agent.user_id !== req.user.id) {
+                 let table;
+                 if (agent.facility_type === 'pharmacy') table = 'pharmacies';
+                 else if (agent.facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+                 else if (agent.facility_type === 'hospital') table = 'hospitals';
+                 else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
+
+                 const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', agent.facility_id).single();
+                 if (!facility || facility.owner_id !== req.user.id) {
+                     return res.status(403).json({ success: false, message: 'Unauthorized to update this agent location' });
+                 }
+            }
+        }
         
         const { data, error } = await supabaseAdmin
             .from('delivery_agents')

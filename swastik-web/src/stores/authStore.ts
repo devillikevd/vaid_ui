@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { API_BASE_URL, setTokens as syncTokens, clearTokens as syncClearTokens } from '@/lib/api';
 import { decodeJwtPayload } from '@/lib/jwt';
 import { useDoctorStore } from './doctorStore';
@@ -273,10 +273,9 @@ export const useAuthStore = create<AuthState>()(
         }),
         {
             name: 'swastik-auth-storage',
+            storage: createJSONStorage(() => sessionStorage),
             partialize: (state) => ({
                 user: state.user,
-                accessToken: state.accessToken,
-                refreshToken: state.refreshToken,
                 isAuthenticated: state.isAuthenticated,
             }),
             onRehydrateStorage: () => (state) => {

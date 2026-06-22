@@ -253,7 +253,6 @@ variable "turn_password" {
   description = "Static TURN credential. Set a strong value in terraform.tfvars."
   type        = string
   sensitive   = true
-  default     = "change-this-turn-password"
 }
 
 variable "turn_min_port" {

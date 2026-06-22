@@ -107,10 +107,28 @@ class GuardianService : Service(), SensorEventListener {
             result.lastLocation?.let { loc ->
                 lastKnownLocation = loc
                 if (loc.hasSpeed()) {
-                    lastKnownSpeed = loc.speed // speed in m/s
-                    guardianRepository.updateTelemetry { it.copy(speedKmh = loc.speed * 3.6f) }
+                    var finalSpeedMps = loc.speed
+                    
+                    // Fix for false positive GPS multipath drift (e.g., speed spikes indoors while stationary)
+                    val isPoorAccuracy = !loc.hasAccuracy() || loc.accuracy > 40f
+                    val isStill = currentActivityType == DetectedActivity.STILL
+                    val isVehicle = currentActivityType == DetectedActivity.IN_VEHICLE || currentActivityType == DetectedActivity.ON_BICYCLE
+
+                    if (isStill) {
+                        finalSpeedMps = 0f
+                    } else if (isPoorAccuracy && !isVehicle) {
+                        // Poor accuracy (indoors) + not driving = likely a GPS bounce. Clamp to 0.
+                        finalSpeedMps = 0f
+                    } else if (!isVehicle && finalSpeedMps > 10f) {
+                        // Not driving, but speed > 36 km/h. Unrealistic for walking/running. Clamp.
+                        finalSpeedMps = 0f
+                    }
+
+                    lastKnownSpeed = finalSpeedMps // speed in m/s
+                    guardianRepository.updateTelemetry { it.copy(speedKmh = finalSpeedMps * 3.6f) }
+                    
                     if (currentActivityType == DetectedActivity.IN_VEHICLE) {
-                        maxVehicleSpeedMps = maxOf(maxVehicleSpeedMps * 0.92f, loc.speed)
+                        maxVehicleSpeedMps = maxOf(maxVehicleSpeedMps * 0.92f, finalSpeedMps)
                     } else {
                         maxVehicleSpeedMps *= 0.75f
                     }
@@ -400,6 +418,11 @@ class GuardianService : Service(), SensorEventListener {
     }
 
     private fun triggerVerificationPhase() {
+        if (isVerificationPhase) {
+            Log.d(TAG, "Already verifying an impact, ignoring subsequent bounces...")
+            return
+        }
+
         if (isLikelyPhoneOnlyImpact()) {
             Log.d(TAG, "Impact rejected by table/pocket context filter")
             angularSpeedSum = 0f

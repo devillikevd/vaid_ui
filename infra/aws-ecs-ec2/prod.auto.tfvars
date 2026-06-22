@@ -24,8 +24,7 @@ supabase_url            = "https://fzbdticlmxbxeektckst.supabase.co"
 turn_enabled       = true
 turn_instance_type = "t4g.micro"
 turn_realm         = "vaididea.in"
-turn_username      = "vaididea-turn"
-turn_password      = "nBtjXDqewZKnpvTUwusC6jGdV/KQJyzebP2cY3bq010="
+# Set turn_username and turn_password in terraform.tfvars which is gitignored
 turn_total_quota   = 500
 
 # Enable after the first infra deploy when you are ready for GitHub Actions CI/CD.

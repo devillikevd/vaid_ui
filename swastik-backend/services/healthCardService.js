@@ -17,6 +17,7 @@ const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { signStorageUrlsInPayload } = require('../config/minio');
 const config = require('../config');
+const consentService = require('./consentService');
 
 const HEALTH_CARD_PREFIX = 'health_card:';
 const HEALTH_CARD_REVERSE = 'health_card_user:'; // maps userId → token for revocation
@@ -62,6 +63,16 @@ class HealthCardService {
       guardianAnalytics, // Store if provided
     }, TOKEN_EXPIRY_SECONDS);
 
+    // V-011 Fix: explicitly create a consent record for the health card
+    await consentService.grantConsent({
+      patientId: patient.id,
+      entityType: 'health_card_public',
+      entityId: 'public',
+      entityName: 'Public Health Card QR',
+      purpose: 'Emergency medical access',
+      durationDays: 1 // health card expires in 24 hours
+    });
+
     // Store: userId → token mapping (for revocation)
     await cacheSet(`${HEALTH_CARD_REVERSE}${userId}`, token, TOKEN_EXPIRY_SECONDS);
 
@@ -82,6 +93,23 @@ class HealthCardService {
       await cacheDel(`${HEALTH_CARD_PREFIX}${existingToken}`);
       await cacheDel(`${HEALTH_CARD_REVERSE}${userId}`);
     }
+
+    // V-011 Fix: revoke the active consent for health_card_public
+    const { data: patient } = await supabaseAdmin
+      .from('patients')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+    if (patient) {
+      await supabaseAdmin
+        .from('patient_consents')
+        .update({ status: 'revoked', revoked_at: new Date().toISOString(), revocation_reason: 'User revoked health card' })
+        .eq('patient_id', patient.id)
+        .eq('entity_type', 'health_card_public')
+        .eq('entity_id', 'public')
+        .eq('status', 'active');
+    }
+
     return { revoked: true };
   }
 
@@ -126,6 +154,12 @@ class HealthCardService {
     }
 
     const { patientId, userId, guardianAnalytics } = tokenData;
+
+    // V-011 Fix: Explicitly check that patient consent is still active
+    const hasConsent = await consentService.verifyConsent(patientId, 'health_card_public', 'public');
+    if (!hasConsent) {
+      throw new ApiError(403, 'Access denied: The patient has revoked consent for this health card.');
+    }
 
     // Audit log: record who accessed this health card
     try {
@@ -229,7 +263,7 @@ class HealthCardService {
     const dob = patient.date_of_birth ? new Date(patient.date_of_birth) : null;
     const computedAge = dob ? Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
 
-    return {
+    const result = {
       patient: {
         name: patient.name,
         age: computedAge,

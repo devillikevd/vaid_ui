@@ -232,9 +232,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF1F8E9).copy(alpha = 0.5f)
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF81C784).copy(alpha = 0.3f))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -249,7 +249,7 @@ fun HomeScreen(
                             Icon(
                                 Icons.Default.LocalHospital,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -261,12 +261,12 @@ fun HomeScreen(
                                 "Are you a Doctor, Hospital, Clinic or Lab?",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
                                 "Login to your portal on the website.",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                             )
                             
                             Spacer(modifier = Modifier.height(12.dp))
@@ -279,14 +279,14 @@ fun HomeScreen(
                                 modifier = Modifier.height(36.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSecondaryContainer)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Language, null, modifier = Modifier.size(16.dp), tint = Color(0xFF2E7D32))
+                                    Icon(Icons.Default.Language, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Login on Website", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                    Text("Login on Website", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(14.dp), tint = Color(0xFF2E7D32))
+                                    Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                 }
                             }
                         }

@@ -72,12 +72,6 @@ export const setTokens = (
     refreshToken = normalizeStoredToken(refresh);
 
     if (typeof window !== 'undefined') {
-        if (accessToken) localStorage.setItem('accessToken', accessToken);
-        else localStorage.removeItem('accessToken');
-
-        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        else localStorage.removeItem('refreshToken');
-
         syncCookie('swastik-token', accessToken, options.cookieMaxAge);
         if (options.role) {
             syncCookie('swastik-role', options.role, options.cookieMaxAge);
@@ -87,8 +81,12 @@ export const setTokens = (
 
 export const getTokens = () => {
     if (typeof window !== 'undefined') {
-        accessToken = normalizeStoredToken(accessToken) || normalizeStoredToken(localStorage.getItem('accessToken'));
-        refreshToken = normalizeStoredToken(refreshToken) || normalizeStoredToken(localStorage.getItem('refreshToken'));
+        if (!accessToken) {
+            const match = document.cookie.match(new RegExp('(^| )swastik-token=([^;]+)'));
+            if (match) accessToken = match[2];
+        }
+        accessToken = normalizeStoredToken(accessToken);
+        refreshToken = normalizeStoredToken(refreshToken);
     }
     return { accessToken, refreshToken };
 };
@@ -97,8 +95,6 @@ export const clearTokens = () => {
     accessToken = null;
     refreshToken = null;
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
         syncCookie('swastik-role', null);
         syncCookie('swastik-token', null);
     }
@@ -211,7 +207,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
     _refreshPromise = (async () => {
         try {
-            // Always read refreshToken from localStorage to avoid stale module-scoped variable
+            // Read refreshToken from getTokens
             const { refreshToken: currentRefreshToken } = getTokens();
             if (!currentRefreshToken) return false;
 

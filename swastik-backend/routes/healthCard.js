@@ -11,7 +11,7 @@
  */
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
 const healthCardService = require('../services/healthCardService');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -64,14 +64,18 @@ router.post('/revoke', authenticate,
   })
 );
 
-// ─── Public: Anyone with the token can view the clinical summary ─────
-
-router.get('/:token', healthCardLimiter, asyncHandler(async (req, res) => {
+// ─── Public/Authorized: Health Card access ─────
+// V-011 Fix: Require authentication to view PHI.
+router.get('/:token', healthCardLimiter, optionalAuth, asyncHandler(async (req, res) => {
   res.set({
     'Cache-Control': 'no-store, max-age=0',
     Pragma: 'no-cache',
     Expires: '0',
   });
+
+  if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required. First responders must log in to view portable medical records.' });
+  }
 
   // Validate token format before hitting Redis
   // VULN-BS-12: Token length increased to 16 chars; accept 6-16 for backward compat
