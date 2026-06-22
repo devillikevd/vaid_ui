@@ -43,9 +43,11 @@ class CommunityRepository @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error(response.message())
+                android.util.Log.e("CommunityRepo", "createQuestion failed: ${response.code()} ${response.message()} ${response.errorBody()?.string()}")
+                Result.Error("API Error: ${response.code()} ${response.message()}")
             }
         } catch (e: Exception) {
+            android.util.Log.e("CommunityRepo", "createQuestion exception", e)
             Result.Error(e.message ?: "Unknown error", e)
         }
     }

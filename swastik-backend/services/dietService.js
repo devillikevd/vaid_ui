@@ -8,7 +8,7 @@
  *   - Saves meal logs to MongoDB
  */
 const config = require('../config');
-const { cacheGet, cacheSet, cacheIncr } = require('../config/redis');
+const { cacheGet, cacheSet, cacheIncr, cacheDecr } = require('../config/redis');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 const FREE_DAILY_LIMIT = 5;
@@ -44,6 +44,15 @@ async function checkDietQuota(userId) {
     allowed: true,
     remaining: FREE_DAILY_LIMIT - count,
   };
+}
+
+/**
+ * Refund quota if an operation fails (decrement the daily count).
+ */
+async function refundDietQuota(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `diet:quota:${userId}:${today}`;
+  await cacheDecr(key);
 }
 
 /**
@@ -185,6 +194,7 @@ async function getMealHistory(userId, limit = 10) {
 
 module.exports = {
   checkDietQuota,
+  refundDietQuota,
   getQuotaStatus,
   analyzeFood,
   calculateNutrition,

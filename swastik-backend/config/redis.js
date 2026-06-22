@@ -33,6 +33,7 @@ const makeUpstashFacade = (client) => ({
   setnx: (key, value, opts = {}) => client.set(key, value, { ...opts, nx: true }),
   del: (key) => client.del(key),
   incr: (key) => client.incr(key),
+  decr: (key) => client.decr(key),
   expire: (key, seconds) => client.expire(key, seconds),
   xrevrange: (key, max, min, opts = {}) => client.xrevrange(key, max, min, opts),
 });
@@ -59,6 +60,7 @@ const makeIoredisFacade = (client) => ({
   },
   del: (key) => client.del(key),
   incr: (key) => client.incr(key),
+  decr: (key) => client.decr(key),
   expire: (key, seconds) => client.expire(key, seconds),
   xrevrange: async (key, max, min, opts = {}) => {
     if (opts.count) {
@@ -197,4 +199,17 @@ const cacheIncr = async (key, expirySeconds) => {
   }
 };
 
-module.exports = { connectRedis, getRedisClient, getConnectionState, cacheGet, cacheSet, cacheDel, cacheIncr, cacheSetIfNotExists };
+/**
+ * Atomic decrement — used to refund quota on failure
+ */
+const cacheDecr = async (key) => {
+  if (!redisClient) return null;
+  try {
+    return await redisClient.decr(key);
+  } catch (error) {
+    console.error('Redis DECR error:', error.message);
+    return null;
+  }
+};
+
+module.exports = { connectRedis, getRedisClient, getConnectionState, cacheGet, cacheSet, cacheDel, cacheIncr, cacheDecr, cacheSetIfNotExists };

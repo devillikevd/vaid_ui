@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -76,11 +78,17 @@ class DietTrackerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = DietTrackerState.AnalyzingImage
             try {
-                val file = createTempFileFromUri(context, imageUri)
+                android.util.Log.d("DietTrackerViewModel", "Starting image compression...")
+                val file = withContext(Dispatchers.IO) {
+                    createTempFileFromUri(context, imageUri)
+                }
+                android.util.Log.d("DietTrackerViewModel", "Image compression complete. File size: ${file.length()} bytes")
                 val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("image", file.name, requestFile)
-
+                
+                android.util.Log.d("DietTrackerViewModel", "Calling backend API...")
                 val response = apiService.analyzeFood(body)
+                android.util.Log.d("DietTrackerViewModel", "Backend response code: ${response.code()}")
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val data = response.body()?.data
@@ -95,6 +103,8 @@ class DietTrackerViewModel @Inject constructor(
                 } else if (response.code() == 429) {
                     _uiState.value = DietTrackerState.AnalysisError("Limit exhausted (quota available next day). We are working to increase the upload limits...", isQuotaExhausted = true)
                 } else {
+                    val errorBody = response.errorBody()?.string()
+                    android.util.Log.e("DietTrackerViewModel", "Failed to analyze image: code=${response.code()}, errorBody=$errorBody")
                     _uiState.value = DietTrackerState.AnalysisError("Failed to analyze image")
                 }
             } catch (e: Exception) {

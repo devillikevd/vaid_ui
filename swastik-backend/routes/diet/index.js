@@ -78,15 +78,21 @@ router.post(
 
     // Step 3: Forward to AI Service
     const authToken = req.headers.authorization?.split(' ')[1];
-    const result = await dietService.analyzeFood(base64Image, mimeType, authToken);
+    try {
+      const result = await dietService.analyzeFood(base64Image, mimeType, authToken);
 
-    res.json({
-      success: true,
-      data: {
-        ...result.data,
-        quota: { remaining: quota.remaining, limit: dietService.FREE_DAILY_LIMIT },
-      },
-    });
+      res.json({
+        success: true,
+        data: {
+          ...result.data,
+          quota: { remaining: quota.remaining, limit: dietService.FREE_DAILY_LIMIT },
+        },
+      });
+    } catch (error) {
+      // Refund the quota since AI analysis failed
+      await dietService.refundDietQuota(req.user.id);
+      throw error;
+    }
   })
 );
 

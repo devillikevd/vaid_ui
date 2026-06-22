@@ -1,9 +1,9 @@
-const { supabaseAdmin } = require('../config/supabase');
+const { supabaseAdmin, rawSupabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 
 class CommunityService {
   async getQuestions(limit = 20, offset = 0) {
-    const { data: questions, count, error } = await supabaseAdmin
+    const { data: questions, count, error } = await rawSupabaseAdmin
       .from('community_questions')
       .select(`
         *,
@@ -25,7 +25,7 @@ class CommunityService {
   }
 
   async getQuestionDetails(questionId) {
-    const { data: question, error } = await supabaseAdmin
+    const { data: question, error } = await rawSupabaseAdmin
       .from('community_questions')
       .select(`
         *,
@@ -53,7 +53,7 @@ class CommunityService {
   }
 
   async createQuestion(userId, title, content) {
-    const { data: patient } = await supabaseAdmin
+    const { data: patient } = await rawSupabaseAdmin
       .from('patients')
       .select('id')
       .eq('user_id', userId)
@@ -61,7 +61,7 @@ class CommunityService {
 
     if (!patient) throw new ApiError(403, 'Only patients can ask questions');
 
-    const { data: question, error } = await supabaseAdmin
+    const { data: question, error } = await rawSupabaseAdmin
       .from('community_questions')
       .insert({
         patient_id: patient.id,
@@ -71,13 +71,16 @@ class CommunityService {
       .select()
       .single();
 
-    if (error) throw new ApiError(400, 'Failed to post question');
+    if (error) {
+      console.error('[CommunityService] Failed to post question:', error);
+      throw new ApiError(400, `Failed to post question: ${error.message || JSON.stringify(error)}`);
+    }
 
     return question;
   }
 
   async addAnswer(userId, questionId, content) {
-    const { data: doctor } = await supabaseAdmin
+    const { data: doctor } = await rawSupabaseAdmin
       .from('doctors')
       .select('id')
       .eq('user_id', userId)
@@ -85,7 +88,7 @@ class CommunityService {
 
     if (!doctor) throw new ApiError(403, 'Only verified doctors can reply to community questions');
 
-    const { data: answer, error } = await supabaseAdmin
+    const { data: answer, error } = await rawSupabaseAdmin
       .from('community_answers')
       .insert({
         question_id: questionId,
@@ -101,25 +104,28 @@ class CommunityService {
       `)
       .single();
 
-    if (error) throw new ApiError(400, 'Failed to post answer');
+    if (error) {
+      console.error('[CommunityService] Failed to post answer:', error);
+      throw new ApiError(400, `Failed to post answer: ${error.message || JSON.stringify(error)}`);
+    }
 
     return answer;
   }
 
   async upvoteQuestion(questionId) {
-    const { data: question, error } = await supabaseAdmin
+    const { data: question, error } = await rawSupabaseAdmin
       .rpc('increment_question_upvotes', { q_id: questionId });
       
     if (error) {
       // Fallback if RPC doesn't exist
-      const { data: current } = await supabaseAdmin
+      const { data: current } = await rawSupabaseAdmin
         .from('community_questions')
         .select('upvotes')
         .eq('id', questionId)
         .single();
         
       if (current) {
-        await supabaseAdmin
+        await rawSupabaseAdmin
           .from('community_questions')
           .update({ upvotes: current.upvotes + 1 })
           .eq('id', questionId);
@@ -129,18 +135,18 @@ class CommunityService {
   }
 
   async upvoteAnswer(answerId) {
-    const { data: answer, error } = await supabaseAdmin
+    const { data: answer, error } = await rawSupabaseAdmin
       .rpc('increment_answer_upvotes', { a_id: answerId });
       
     if (error) {
-      const { data: current } = await supabaseAdmin
+      const { data: current } = await rawSupabaseAdmin
         .from('community_answers')
         .select('upvotes')
         .eq('id', answerId)
         .single();
         
       if (current) {
-        await supabaseAdmin
+        await rawSupabaseAdmin
           .from('community_answers')
           .update({ upvotes: current.upvotes + 1 })
           .eq('id', answerId);
@@ -150,7 +156,7 @@ class CommunityService {
   }
 
   async deleteQuestion(userId, questionId) {
-    const { data: patient } = await supabaseAdmin
+    const { data: patient } = await rawSupabaseAdmin
       .from('patients')
       .select('id')
       .eq('user_id', userId)
@@ -158,7 +164,7 @@ class CommunityService {
 
     if (!patient) throw new ApiError(403, 'Unauthorized');
 
-    const { data: question } = await supabaseAdmin
+    const { data: question } = await rawSupabaseAdmin
       .from('community_questions')
       .select('patient_id')
       .eq('id', questionId)
@@ -167,14 +173,14 @@ class CommunityService {
     if (!question) throw new ApiError(404, 'Question not found');
     
     // Check if user is admin
-    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', userId).single();
+    const { data: user } = await rawSupabaseAdmin.from('users').select('role').eq('id', userId).single();
     const isAdmin = user && user.role === 'admin';
     
     if (!isAdmin && question.patient_id !== patient.id) {
         throw new ApiError(403, 'You can only delete your own questions');
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await rawSupabaseAdmin
       .from('community_questions')
       .delete()
       .eq('id', questionId);
@@ -184,10 +190,10 @@ class CommunityService {
   }
 
   async deleteAnswer(userId, answerId) {
-    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', userId).single();
+    const { data: user } = await rawSupabaseAdmin.from('users').select('role').eq('id', userId).single();
     const isAdmin = user && user.role === 'admin';
 
-    const { data: answer } = await supabaseAdmin
+    const { data: answer } = await rawSupabaseAdmin
       .from('community_answers')
       .select('question_id, doctor_id, patient_id')
       .eq('id', answerId)
@@ -195,7 +201,7 @@ class CommunityService {
 
     if (!answer) throw new ApiError(404, 'Answer not found');
 
-    const { data: question } = await supabaseAdmin
+    const { data: question } = await rawSupabaseAdmin
       .from('community_questions')
       .select('patient_id')
       .eq('id', answer.question_id)
@@ -206,16 +212,16 @@ class CommunityService {
     // Author of the answer
     let isAnswerAuthor = false;
     if (answer.doctor_id) {
-        const { data: doctor } = await supabaseAdmin.from('doctors').select('id').eq('user_id', userId).maybeSingle();
+        const { data: doctor } = await rawSupabaseAdmin.from('doctors').select('id').eq('user_id', userId).maybeSingle();
         if (doctor && doctor.id === answer.doctor_id) isAnswerAuthor = true;
     } else if (answer.patient_id) {
-        const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
+        const { data: patient } = await rawSupabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
         if (patient && patient.id === answer.patient_id) isAnswerAuthor = true;
     }
 
     // Owner of the question
     let isQuestionOwner = false;
-    const { data: patient } = await supabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
+    const { data: patient } = await rawSupabaseAdmin.from('patients').select('id').eq('user_id', userId).maybeSingle();
     if (patient && question.patient_id === patient.id) {
         isQuestionOwner = true;
     }
@@ -224,7 +230,7 @@ class CommunityService {
         throw new ApiError(403, 'You can only delete your own answers or answers to your questions');
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await rawSupabaseAdmin
       .from('community_answers')
       .delete()
       .eq('id', answerId);
