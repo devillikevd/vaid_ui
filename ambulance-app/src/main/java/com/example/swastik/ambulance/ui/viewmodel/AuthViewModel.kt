@@ -269,7 +269,7 @@ class AuthViewModel @Inject constructor(
                 onSuccess = { message ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        infoMessage = message,
+                        infoMessage = "Email verified successfully.",
                         error = null,
                         errorCode = null,
                         emailVerificationComplete = true

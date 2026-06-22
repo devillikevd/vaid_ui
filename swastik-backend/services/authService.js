@@ -284,7 +284,7 @@ const register = async (userData) => {
   const { data: existing, error: existingLookupError } = orFilters.length > 0
     ? await supabaseAdmin
       .from('users')
-      .select('id, role, email, phone')
+      .select('id, role, email, phone, is_verified')
       .or(orFilters.join(','))
       .limit(1)
       .maybeSingle()
@@ -293,26 +293,32 @@ const register = async (userData) => {
   if (existingLookupError) throw existingLookupError;
 
   if (existing) {
-    const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, existing.role, existing.id);
-    const isSameRole = existing.role === role;
-    const approvalStatus = providerRecord?.approval_status;
-    const emailConflict = Boolean(email) && existing.email === email;
+    if (!existing.is_verified) {
+      // The user abandoned the previous registration before verifying their email
+      // Delete the ghost account and allow the new registration to proceed
+      await supabaseAdmin.from('users').delete().eq('id', existing.id);
+    } else {
+      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, existing.role, existing.id);
+      const isSameRole = existing.role === role;
+      const approvalStatus = providerRecord?.approval_status;
+      const emailConflict = Boolean(email) && existing.email === email;
 
-    let message = emailConflict
-      ? 'An account with this email already exists. Please sign in to that account or use a different email.'
-      : 'An account with this phone number already exists. Please sign in to that account or use a different phone number.';
+      let message = emailConflict
+        ? 'An account with this email already exists. Please sign in to that account or use a different email.'
+        : 'An account with this phone number already exists. Please sign in to that account or use a different phone number.';
 
-    if (isSameRole && approvalStatus === 'rejected') {
-      message = 'This account already exists and was rejected. Sign in with the same account, update your settings/documents, and save to resubmit for review.';
-    } else if (isSameRole && ['pending', 'review', 'under_review'].includes(approvalStatus)) {
-      message = 'This account already exists and is already under review. Sign in with the same account to check its approval status.';
-    } else if (isSameRole && approvalStatus === 'approved') {
-      message = 'This account already exists and has already been registered. Sign in with the same account instead of registering again.';
+      if (isSameRole && approvalStatus === 'rejected') {
+        message = 'This account already exists and was rejected. Sign in with the same account, update your settings/documents, and save to resubmit for review.';
+      } else if (isSameRole && ['pending', 'review', 'under_review'].includes(approvalStatus)) {
+        message = 'This account already exists and is already under review. Sign in with the same account to check its approval status.';
+      } else if (isSameRole && approvalStatus === 'approved') {
+        message = 'This account already exists and has already been registered. Sign in with the same account instead of registering again.';
+      }
+
+      const error = new Error(message);
+      error.statusCode = 409;
+      throw error;
     }
-
-    const error = new Error(message);
-    error.statusCode = 409;
-    throw error;
   }
 
   if (!password || password.length < 8) {
@@ -571,20 +577,24 @@ const assertRoleProfileExists = async (user) => {
     case 'doctor': {
       const { data: existing } = await supabaseAdmin
         .from('doctors')
-        .select('id')
+        .select('id, approval_status')
         .eq('user_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
     case 'hospital_owner': {
       const { data: existing } = await supabaseAdmin
         .from('hospitals')
-        .select('id')
+        .select('id, approval_status')
         .eq('owner_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
@@ -601,40 +611,48 @@ const assertRoleProfileExists = async (user) => {
     case 'clinic_owner': {
       const { data: existing } = await supabaseAdmin
         .from('clinics')
-        .select('id')
+        .select('id, approval_status')
         .eq('owner_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
     case 'pharmacy_owner': {
       const { data: existing } = await supabaseAdmin
         .from('pharmacies')
-        .select('id')
+        .select('id, approval_status')
         .eq('owner_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
     case 'diagnostic_center_owner': {
       const { data: existing } = await supabaseAdmin
         .from('diagnostic_centers')
-        .select('id')
+        .select('id, approval_status')
         .eq('owner_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
     case 'ambulance_operator': {
       const { data: existing } = await supabaseAdmin
         .from('ambulance_operators')
-        .select('id')
+        .select('id, approval_status')
         .eq('user_id', user.id)
         .maybeSingle();
       if (!existing) throw missingProfileError();
+      if (existing.approval_status === 'rejected') throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      if (existing.approval_status !== 'approved') throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       break;
     }
 
@@ -698,10 +716,41 @@ const verifyEmailOtp = async (rawEmail, otp) => {
     .from('users')
     .update({ is_verified: true })
     .eq('id', record.user_id)
-    .select('id, email, name, role, is_verified')
+    .select('*')
     .single();
 
   if (error) throw error;
+
+  // Determine if we should auto-login the user after email verification
+  // We only auto-login patients because web roles and ambulance operators need admin approval before logging in
+  const shouldAutoLogin = ['patient'].includes(user.role);
+
+  if (shouldAutoLogin) {
+    const tokens = generateTokens(user);
+
+    try {
+      await supabaseAdmin.from('refresh_tokens').insert({
+        user_id: user.id,
+        token: tokens.refreshToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    } catch (err) {
+      console.error('Error storing refresh token during email verification:', err);
+    }
+
+    // Sanitize user object before returning
+    delete user.password_hash;
+
+    return {
+      message: 'Email verified successfully. You are now logged in.',
+      user,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+    };
+  }
+
+  // Sanitize user object before returning
+  delete user.password_hash;
 
   return {
     message: 'Email verified successfully. You can now log in.',
@@ -750,6 +799,11 @@ const login = async (rawEmail, password, expectedRole = null) => {
     throw new ApiError(401, 'Account is not registered');
   }
 
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  if (!isValid) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
   // Optional role enforcement (portal-specific login)
   // Keep backward compatibility: admin portal accepts both admin and super_admin.
   if (expectedRole) {
@@ -760,7 +814,27 @@ const login = async (rawEmail, password, expectedRole = null) => {
       (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
       (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
     if (!roleMatches) {
+      if (user.requested_role === expectedRole) {
+        const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
+        if (providerRecord) {
+          if (providerRecord.approval_status === 'rejected') {
+            throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+          } else if (['pending', 'review', 'under_review'].includes(providerRecord.approval_status)) {
+            throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+          }
+        }
+        throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+      }
       throw new ApiError(403, 'Invalid credentials for this portal role');
+    }
+
+    if (expectedRole === 'doctor' && user.role === 'doctor_pending') {
+      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, 'doctor', user.id);
+      if (providerRecord && providerRecord.approval_status === 'rejected') {
+        throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      } else {
+        throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+      }
     }
   }
 
@@ -769,14 +843,7 @@ const login = async (rawEmail, password, expectedRole = null) => {
   }
 
   if (!user.is_verified) {
-    const err = new ApiError(403, 'Please verify your email before logging in. Enter the 6-digit verification code sent to your inbox.');
-    err.code = 'EMAIL_NOT_VERIFIED';
-    throw err;
-  }
-
-  const isValid = await bcrypt.compare(password, user.password_hash);
-  if (!isValid) {
-    throw new ApiError(401, 'Invalid email or password');
+    throw new ApiError(403, 'Your account is not verified. Please register again to complete verification.');
   }
 
   // Strict validation: login requires an actual profile row for the role.

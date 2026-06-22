@@ -26,7 +26,7 @@ interface ApiService {
     suspend fun resendVerification(@Body request: ResendVerificationRequest): Response<ApiResponse<Unit>>
 
     @POST("auth/verify-email-otp")
-    suspend fun verifyEmailOtp(@Body request: VerifyEmailOtpRequest): Response<ApiResponse<Unit>>
+    suspend fun verifyEmailOtp(@Body request: VerifyEmailOtpRequest): Response<AuthResponse>
 
     @POST("auth/refresh-token")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<TokenResponse>

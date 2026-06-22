@@ -208,8 +208,9 @@ class AuthViewModel @Inject constructor(
                         isLoading = false,
                         errorMessage = null,
                         errorCode = null,
-                        infoMessage = result.data,
-                        emailVerificationComplete = true
+                        infoMessage = "Email verified successfully.",
+                        emailVerificationComplete = true,
+                        isSuccess = true
                     )
                 }
                 is Result.Error -> {

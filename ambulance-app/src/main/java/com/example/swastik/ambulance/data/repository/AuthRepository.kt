@@ -164,11 +164,17 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun verifyEmailOtp(email: String, otp: String): Result<String> {
+    suspend fun verifyEmailOtp(email: String, otp: String): Result<Boolean> {
         return try {
             val response = apiService.verifyEmailOtp(VerifyEmailOtpRequest(email.trim(), otp.trim()))
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.success(response.body()?.message ?: "Email verified successfully.")
+            if (response.isSuccessful) {
+                val body = response.body()
+                val token = body?.resolvedAccessToken()
+                if (body?.success == true) {
+                    Result.success(true)
+                } else {
+                    Result.failure(Exception(body?.message ?: "Failed to verify email"))
+                }
             } else {
                 val failure = parseApiFailure(response.errorBody()?.string(), "Failed to verify email")
                 Result.failure(failure)

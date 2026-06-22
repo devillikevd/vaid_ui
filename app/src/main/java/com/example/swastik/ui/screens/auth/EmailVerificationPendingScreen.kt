@@ -30,7 +30,7 @@ import androidx.compose.material3.MaterialTheme
 fun EmailVerificationPendingScreen(
     email: String = "",
     onBackClick: () -> Unit,
-    onGoToLogin: () -> Unit
+    onLoginSuccess: () -> Unit
 ) {
     val viewModel: AuthViewModel = hiltViewModel()
     val uiState = viewModel.uiState
@@ -45,11 +45,11 @@ fun EmailVerificationPendingScreen(
         }
     }
 
-    // Auto-navigate to login after successful verification
-    LaunchedEffect(uiState.emailVerificationComplete) {
-        if (uiState.emailVerificationComplete) {
+    // Auto-navigate to dashboard after successful verification
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) {
             delay(1500) // Let the user see the success state briefly
-            onGoToLogin()
+            onLoginSuccess()
         }
     }
 
@@ -240,22 +240,23 @@ fun EmailVerificationPendingScreen(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
+            } else {
+                SwastikButton(
+                    text = "Go to Dashboard",
+                    onClick = onLoginSuccess
+                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            SwastikButton(
-                text = "Go to Login",
-                onClick = onGoToLogin
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "After verifying your email, you can log in with your credentials.",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
+            if (!uiState.emailVerificationComplete) {
+                Text(
+                    text = "After verifying your email, you will be automatically logged in.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }

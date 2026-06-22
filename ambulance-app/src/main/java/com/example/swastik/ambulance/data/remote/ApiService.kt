@@ -20,7 +20,7 @@ interface ApiService {
     suspend fun resendVerification(@Body request: ResendVerificationRequest): Response<ApiResponse<Any>>
 
     @POST("auth/verify-email-otp")
-    suspend fun verifyEmailOtp(@Body request: VerifyEmailOtpRequest): Response<ApiResponse<Any>>
+    suspend fun verifyEmailOtp(@Body request: VerifyEmailOtpRequest): Response<AuthResponse>
 
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<ApiResponse<Any>>

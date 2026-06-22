@@ -129,11 +129,35 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun verifyEmailOtp(email: String, otp: String): Result<String> {
+    suspend fun verifyEmailOtp(email: String, otp: String): Result<Boolean> {
         return try {
             val response = apiService.verifyEmailOtp(VerifyEmailOtpRequest(email = email.trim(), otp = otp.trim()))
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.Success(response.body()?.message ?: "Email verified successfully.")
+            if (response.isSuccessful) {
+                val body = response.body()
+                val token = body?.resolvedAccessToken()
+                if (body?.success == true && token != null) {
+                    // Save tokens
+                    tokenManager.saveTokens(
+                        accessToken = token,
+                        refreshToken = body.resolvedRefreshToken() ?: "",
+                        expiresInSeconds = body.resolvedExpiresIn()
+                    )
+                    // Save user info
+                    body.resolvedUser()?.let { user ->
+                        tokenManager.saveUserInfo(
+                            userId = user.id,
+                            role = user.role,
+                            name = user.name ?: "",
+                            phone = user.phone
+                        )
+                    }
+                    // Connect socket after login
+                    socketManager.connect()
+                    pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+                    Result.Success(true)
+                } else {
+                    Result.Error(body?.message ?: "Failed to verify email")
+                }
             } else {
                 val errorBody = response.errorBody()?.string()
                 val failure = parseApiFailure(errorBody)

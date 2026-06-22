@@ -228,8 +228,8 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onGoToLogin = {
-                    navController.navigate(Screen.PatientLogin.route) {
+                onLoginSuccess = {
+                    navController.navigateSafe(Screen.PatientDashboard.createRoute()) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
