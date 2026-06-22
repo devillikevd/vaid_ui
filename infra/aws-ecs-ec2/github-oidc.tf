@@ -45,6 +45,12 @@ resource "aws_iam_role" "github_deploy" {
   assume_role_policy = data.aws_iam_policy_document.github_deploy_assume_role[0].json
 }
 
+resource "aws_iam_role_policy_attachment" "github_deploy_admin" {
+  count      = var.github_oidc_enabled ? 1 : 0
+  role       = aws_iam_role.github_deploy[0].name
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AdministratorAccess"
+}
+
 data "aws_iam_policy_document" "github_deploy" {
   count = var.github_oidc_enabled ? 1 : 0
 
