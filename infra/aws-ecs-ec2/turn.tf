@@ -3,6 +3,10 @@ data "aws_ssm_parameter" "al2023_arm64" {
   name  = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
 }
 
+data "aws_ssm_parameter" "turn_password" {
+  name = "/${var.project_name}/${var.environment}/turn_password"
+}
+
 resource "aws_security_group" "turn" {
   count = var.turn_enabled ? 1 : 0
 
@@ -86,7 +90,7 @@ resource "aws_instance" "turn" {
     turn_realm       = var.turn_realm
     turn_domain_name = var.turn_domain_name
     turn_username    = var.turn_username
-    turn_password    = var.turn_password
+    turn_password    = data.aws_ssm_parameter.turn_password.value
     turn_min_port    = var.turn_min_port
     turn_max_port    = var.turn_max_port
     turn_total_quota = var.turn_total_quota

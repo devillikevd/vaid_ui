@@ -249,11 +249,6 @@ variable "turn_username" {
   default     = "vaididea-turn"
 }
 
-variable "turn_password" {
-  description = "Static TURN credential. Set a strong value in terraform.tfvars."
-  type        = string
-  sensitive   = true
-}
 
 variable "turn_min_port" {
   description = "Start of UDP relay port range. Smaller ranges control exposure/cost for MVP."

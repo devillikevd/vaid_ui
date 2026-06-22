@@ -82,7 +82,7 @@ locals {
       { name = "WEBRTC_TURN_TCP_SERVER", value = local.turn_tcp_url },
       { name = "WEBRTC_TURNS_SERVER", value = local.turns_url },
       { name = "WEBRTC_TURN_USERNAME", value = var.turn_username },
-      { name = "WEBRTC_TURN_CREDENTIAL", value = var.turn_password }
+      { name = "WEBRTC_TURN_CREDENTIAL", value = data.aws_ssm_parameter.turn_password.value }
     ] : []
   )
 

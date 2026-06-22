@@ -55,6 +55,6 @@ output "turn_username" {
 }
 
 output "turn_password" {
-  value     = var.turn_enabled ? var.turn_password : null
+  value     = var.turn_enabled ? data.aws_ssm_parameter.turn_password.value : null
   sensitive = true
 }
