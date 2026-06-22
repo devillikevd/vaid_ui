@@ -1,7 +1,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, formatDistance, calculateETA, sortByDistance, getBoundingBox } = require('../utils/geo');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const notificationService = require('./notificationService');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 
@@ -35,7 +35,7 @@ class AmbulanceService {
     const nearestAmbulance = nearbyAmbulances[0];
 
     // Create SOS request
-    const requestId = uuidv4();
+    const requestId = randomUUID();
     const { data: sosRequest, error } = await supabaseAdmin
       .from('emergency_requests')
       .insert({

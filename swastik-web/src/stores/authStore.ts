@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { API_BASE_URL, setTokens as syncTokens, clearTokens as syncClearTokens } from '@/lib/api';
+import {
+    API_BASE_URL,
+    setTokens as syncTokens,
+    clearTokens as syncClearTokens,
+    resolveAccessToken,
+    resolveRefreshToken,
+} from '@/lib/api';
 import { decodeJwtPayload } from '@/lib/jwt';
 import { useDoctorStore } from './doctorStore';
 import { useHospitalStore } from './hospitalStore';
@@ -132,6 +138,13 @@ export const useAuthStore = create<AuthState>()(
                     const user = data.data?.user || data.user;
                     const tokens = data.data?.tokens || data.tokens || data.data;
 
+                    if (!user?.role) {
+                        return {
+                            success: false,
+                            error: 'Login response did not include user details. Please try again.',
+                        };
+                    }
+
                     const roleMatches =
                         user.role === expectedRole ||
                         (expectedRole === 'admin' && user.role === 'super_admin') ||
@@ -144,8 +157,14 @@ export const useAuthStore = create<AuthState>()(
                         };
                     }
 
-                    const accessTk = tokens.accessToken || tokens.token;
-                    const refreshTk = tokens.refreshToken;
+                    const accessTk = resolveAccessToken(tokens);
+                    const refreshTk = resolveRefreshToken(tokens);
+                    if (!accessTk) {
+                        return {
+                            success: false,
+                            error: 'Login response did not include a usable access token. Please try again.',
+                        };
+                    }
                     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24; // 30 days vs 1 day
 
                     // Sync tokens/cookies to api.ts + localStorage for fetchWithAuth and route guards
@@ -241,8 +260,9 @@ export const useAuthStore = create<AuthState>()(
                             return false;
                         }
 
-                        const newAccessToken = data.data?.accessToken || data.accessToken;
-                        const newRefreshToken = data.data?.refreshToken || data.refreshToken || refreshToken;
+                        const tokenPayload = data.data || data;
+                        const newAccessToken = resolveAccessToken(tokenPayload);
+                        const newRefreshToken = resolveRefreshToken(tokenPayload) || refreshToken;
 
                         // Sync refreshed tokens to api.ts module + localStorage/cookies
                         if (newAccessToken) {

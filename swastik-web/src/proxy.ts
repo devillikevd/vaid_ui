@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
-import { decodeJwtPayload } from './lib/jwt';
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || ''
@@ -42,7 +41,7 @@ const ROUTE_TO_LOGIN_SLUG: Record<string, string> = {
     '/consultation': 'doctor',
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     const matchedPrefix = Object.keys(ROUTE_ROLES).find((prefix) =>

@@ -184,7 +184,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
                     <div className="space-y-2">
                         <h2 className="font-medium text-gray-900 dark:text-gray-100">Live GPS Tracking</h2>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            You must keep tracking active while traveling to the patient's location.
+                            You must keep tracking active while traveling to the patient&apos;s location.
                         </p>
                     </div>
 

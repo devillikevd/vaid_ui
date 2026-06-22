@@ -118,7 +118,7 @@ const getReports = async (userId, filters = {}, page = 1, limit = 20) => {
     .sort((left, right) => resolveSortableDate(right).localeCompare(resolveSortableDate(left)));
 
   return {
-    data: mergedReports.slice(offset, offset + limit),
+    data: await signStorageUrlsInPayload(mergedReports.slice(offset, offset + limit)),
     pagination: buildPagination(page, limit, mergedReports.length),
   };
 };
@@ -185,7 +185,7 @@ const uploadReport = async (userId, file, metadata) => {
     .single();
 
   if (error) throw error;
-  return report;
+  return signStorageUrlsInPayload(report);
 };
 
 // Get report by ID
@@ -211,7 +211,7 @@ const getReportById = async (userId, reportId) => {
     throw new ApiError(404, 'Report not found');
   }
 
-  return data;
+  return signStorageUrlsInPayload(data);
 };
 
 // Delete report
@@ -324,7 +324,7 @@ const getPrescriptions = async (userId, page = 1, limit = 20) => {
   if (error) throw error;
 
   return {
-    data: data || [],
+    data: await signStorageUrlsInPayload(data || []),
     pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
   };
 };
@@ -348,7 +348,7 @@ const getPrescriptionById = async (userId, prescriptionId) => {
     throw new ApiError(404, 'Prescription not found');
   }
 
-  return data;
+  return signStorageUrlsInPayload(data);
 };
 
 // Add report parameters (doctor)

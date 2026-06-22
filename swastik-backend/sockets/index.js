@@ -23,7 +23,7 @@ const RATE_LIMIT_PREFIX = 'socket:ratelimit:';
 const TRACKING_PREFIX = 'socket:tracking:';
 
 // Token revalidation interval (Bug 5 fix) — check every 5 minutes
-const TOKEN_REVALIDATION_INTERVAL_MS = 5 * 60 * 1000;
+const TOKEN_REVALIDATION_INTERVAL_MS = 60 * 1000;
 
 // Allowed roles for each action
 const AMBULANCE_ROLES = ['ambulance_operator', 'ambulance_driver', 'admin'];
@@ -165,12 +165,27 @@ const initializeSocketIO = (io) => {
       }
 
       const decoded = jwt.verify(token, config.jwt.accessSecret);
+      if (decoded.type && decoded.type !== 'access') {
+        return next(new Error('Invalid token type'));
+      }
       // I8 Fix: Enforce token expiry explicitly (belt-and-suspenders with jwt.verify)
       if (decoded.exp && decoded.exp * 1000 < Date.now()) {
         return next(new Error('Token expired'));
       }
-      socket.userId = decoded.userId || decoded.id;
-      socket.userRole = decoded.role;
+      const socketUserId = decoded.userId || decoded.id;
+      const { data: socketUser } = await supabaseAdmin
+        .from('users')
+        .select('id, role, is_active, is_verified, token_version')
+        .eq('id', socketUserId)
+        .maybeSingle();
+      const currentTokenVersion = Number(socketUser?.token_version || 0);
+      const presentedTokenVersion = Number(decoded.tokenVersion || 0);
+      if (!socketUser || !socketUser.is_active || !socketUser.is_verified || currentTokenVersion !== presentedTokenVersion) {
+        return next(new Error('Invalid or revoked token'));
+      }
+      socket.userId = socketUser.id;
+      socket.userRole = socketUser.role;
+      socket.tokenVersion = presentedTokenVersion;
       socket.tokenExp = decoded.exp; // Store for periodic checks
       next();
     } catch (error) {
@@ -196,9 +211,20 @@ const initializeSocketIO = (io) => {
       try {
         const trackedRooms = await cacheGet(`${TRACKING_PREFIX}${userId}`);
         if (trackedRooms && Array.isArray(trackedRooms)) {
-          trackedRooms.forEach((requestId) => {
-            socket.join(`ambulance:${requestId}`);
-          });
+          const stillAuthorized = [];
+          for (const requestId of trackedRooms) {
+            try {
+              await dispatchService.assertEmergencyAccess(
+                { id: userId, role: socket.userRole },
+                requestId,
+                { allowBroadcastAccess: true, action: 'track' }
+              );
+              socket.join(`ambulance:${requestId}`);
+              stillAuthorized.push(requestId);
+            } catch (_) { /* revoked/stale room: deliberately skipped */ }
+          }
+          if (stillAuthorized.length > 0) await cacheSet(`${TRACKING_PREFIX}${userId}`, stillAuthorized, 86400);
+          else await cacheDel(`${TRACKING_PREFIX}${userId}`);
         }
       } catch {}
     })();
@@ -216,13 +242,13 @@ const initializeSocketIO = (io) => {
         // Check if user still exists and hasn't been deactivated
         const { data: user } = await supabaseAdmin
           .from('users')
-          .select('id, is_active, is_verified')
+          .select('id, is_active, is_verified, role, token_version')
           .eq('id', userId)
           .single();
         if (!user) {
           socket.emit('error', { message: 'Account not found', code: 'ACCOUNT_REMOVED' });
           socket.disconnect(true);
-        } else if (!user.is_active) {
+        } else if (!user.is_active || !user.is_verified || user.role !== socket.userRole || Number(user.token_version || 0) !== socket.tokenVersion) {
           socket.emit('error', { message: 'Account deactivated', code: 'ACCOUNT_DEACTIVATED' });
           socket.disconnect(true);
         }
@@ -356,10 +382,29 @@ const initializeSocketIO = (io) => {
       // Allow location updates with or without requestId
       if (!validateData(data, ['latitude', 'longitude'])) return;
 
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+          !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+        return socket.emit('error', { message: 'Invalid location coordinates' });
+      }
+
+      if (data.requestId) {
+        try {
+          await dispatchService.assertEmergencyAccess(
+            { id: userId, role: socket.userRole },
+            data.requestId,
+            { allowBroadcastAccess: false, action: 'publish location for' }
+          );
+        } catch (err) {
+          return socket.emit('error', { message: err.message || 'Location update denied' });
+        }
+      }
+
       const locationPayload = {
         requestId: data.requestId || null,
-        latitude: parseFloat(data.latitude),
-        longitude: parseFloat(data.longitude),
+        latitude,
+        longitude,
         heading: data.heading || 0,
         speed: data.speed || 0,
         timestamp: new Date().toISOString(),

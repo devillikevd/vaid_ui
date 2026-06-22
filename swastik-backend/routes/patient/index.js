@@ -830,6 +830,8 @@ router.get('/prescriptions',
       valid_from: rx.valid_from,
       valid_until: rx.valid_until,
       is_dispensed: rx.is_dispensed,
+      file_url: rx.file_url,
+      pdf_url: rx.pdf_url,
       dietary_advice: rx.dietary_advice,
       lifestyle_advice: rx.lifestyle_advice,
       instructions: rx.instructions,
@@ -853,7 +855,7 @@ router.get('/prescriptions',
 
     res.json({
       success: true,
-      data: prescriptions,
+      data: await signStorageUrlsInPayload(prescriptions),
       pagination: { page: parseInt(page), limit: parseInt(limit), total: count || 0, totalPages: Math.ceil((count || 0) / parseInt(limit)) },
     });
   })
@@ -892,39 +894,43 @@ router.get('/prescriptions/:id',
       effectiveStatus = 'expired';
     }
 
+    const prescriptionPayload = {
+      id: rx.id,
+      prescription_number: rx.prescription_number || '',
+      diagnosis: rx.diagnosis || '',
+      notes: rx.notes,
+      follow_up_date: rx.follow_up_date,
+      created_at: rx.created_at,
+      status: effectiveStatus,
+      valid_from: rx.valid_from,
+      valid_until: rx.valid_until,
+      is_dispensed: rx.is_dispensed,
+      file_url: rx.file_url,
+      pdf_url: rx.pdf_url,
+      dietary_advice: rx.dietary_advice,
+      lifestyle_advice: rx.lifestyle_advice,
+      instructions: rx.instructions,
+      doctor: rx.doctors ? {
+        id: rx.doctors.id,
+        name: rx.doctors.name,
+        specialization: rx.doctors.specialization,
+        profile_image_url: rx.doctors.profile_image_url,
+      } : null,
+      medicines: (rx.prescription_medicines || []).map(m => ({
+        medicine_name: m.medicine_name,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        instructions: m.instructions,
+        quantity: m.quantity,
+        before_food: m.before_food || false,
+        is_critical: m.is_critical || false,
+      })),
+    };
+
     res.json({
       success: true,
-      data: {
-        id: rx.id,
-        prescription_number: rx.prescription_number || '',
-        diagnosis: rx.diagnosis || '',
-        notes: rx.notes,
-        follow_up_date: rx.follow_up_date,
-        created_at: rx.created_at,
-        status: effectiveStatus,
-        valid_from: rx.valid_from,
-        valid_until: rx.valid_until,
-        is_dispensed: rx.is_dispensed,
-        dietary_advice: rx.dietary_advice,
-        lifestyle_advice: rx.lifestyle_advice,
-        instructions: rx.instructions,
-        doctor: rx.doctors ? {
-          id: rx.doctors.id,
-          name: rx.doctors.name,
-          specialization: rx.doctors.specialization,
-          profile_image_url: rx.doctors.profile_image_url,
-        } : null,
-        medicines: (rx.prescription_medicines || []).map(m => ({
-          medicine_name: m.medicine_name,
-          dosage: m.dosage,
-          frequency: m.frequency,
-          duration: m.duration,
-          instructions: m.instructions,
-          quantity: m.quantity,
-          before_food: m.before_food || false,
-          is_critical: m.is_critical || false,
-        })),
-      },
+      data: await signStorageUrlsInPayload(prescriptionPayload),
     });
   })
 );

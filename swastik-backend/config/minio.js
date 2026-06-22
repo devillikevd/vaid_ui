@@ -17,7 +17,7 @@
  *   5. All image variants stored as WebP for ~30-50% size reduction
  */
 const Minio = require('minio');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const {
   S3Client,
   HeadBucketCommand,
@@ -302,7 +302,7 @@ const generateObjectName = (folder, userId, originalName) => {
   let ext = originalName.includes('.') ? originalName.split('.').pop() : 'bin';
   ext = ext.replace(/[^a-zA-Z0-9]/g, '');
   if (!ext) ext = 'bin';
-  return `${folder}/${userId}/${uuidv4()}.${ext}`;
+  return `${folder}/${userId}/${randomUUID()}.${ext}`;
 };
 
 // ==================== Image Optimization Pipeline ====================

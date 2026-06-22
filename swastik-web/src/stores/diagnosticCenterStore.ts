@@ -29,6 +29,7 @@ export interface DiagnosticBooking {
     patient_id: string;
     patient_name?: string;
     patient_email?: string;
+    center_id?: string;
     test_id: string;
     test_name?: string;
     booking_date: string;
@@ -46,6 +47,7 @@ export interface DiagnosticBooking {
     amount?: number;
     created_at: string;
     facility?: {
+        id?: string;
         latitude?: number;
         longitude?: number;
         name?: string;

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
     )),
     is_active BOOLEAN DEFAULT TRUE,
     is_verified BOOLEAN DEFAULT FALSE,
+    token_version INTEGER NOT NULL DEFAULT 0,
     last_login TIMESTAMPTZ,
     fcm_token TEXT,
     profile_image_url TEXT,

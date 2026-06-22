@@ -357,6 +357,8 @@ export default function BookingsPage() {
                 onClose={() => setAssigningBookingId(null)}
                 orderId={assigningBookingId!}
                 orderType="diagnostic"
+                facilityId={bookings.find((booking) => booking.id === assigningBookingId)?.center_id || bookings.find((booking) => booking.id === assigningBookingId)?.facility?.id || null}
+                facilityType="diagnostic_center"
                 onAssigned={() => {
                     fetchBookings({ status: statusFilter || undefined, search: debouncedSearch || undefined, page, limit: pageSize });
                 }}

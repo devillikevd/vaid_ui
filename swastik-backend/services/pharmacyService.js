@@ -6,7 +6,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const { cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { validate } = require('../middleware/validate');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const eventEmitter = require('./eventEmitter');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
 const { maybeGeocodeLocationUpdates } = require('../utils/geocoding');
@@ -132,7 +132,11 @@ const getDatabaseStatusesForFilter = (status) => {
 };
 
 const normalizeOrderRecord = (order) => (
-  order ? { ...order, status: normalizeOrderStatus(order.status) } : order
+  order ? {
+    ...order,
+    status: normalizeOrderStatus(order.status),
+    facility: order.facility || order.pharmacy || null,
+  } : order
 );
 
 const normalizeOrderRecords = (orders = []) => orders.map(normalizeOrderRecord);
@@ -682,7 +686,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
   const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
   const offset = (safePage - 1) * safeLimit;
   const search = sanitizeSearch(filters.search || '').toLowerCase();
-  const selectClause = '*, patient:patients(id, name)';
+  const selectClause = '*, patient:patients(id, name), pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)';
 
   let orders = [];
   let count = 0;
@@ -804,7 +808,7 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
     };
 
     if (candidateStatus === 'out_for_delivery' && !current.tracking_token) {
-      updatePayload.tracking_token = uuidv4();
+      updatePayload.tracking_token = randomUUID();
     }
 
     const response = await supabaseAdmin

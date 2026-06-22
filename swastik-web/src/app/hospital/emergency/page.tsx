@@ -65,6 +65,8 @@ const CANONICAL_STATUS_MAP: Record<string, string> = {
 
 const toCanonicalStatus = (status: string) => CANONICAL_STATUS_MAP[status] || status;
 
+const routeCoordKey = (value?: number) => Number.isFinite(value) ? Number(value).toFixed(4) : 'na';
+
 const canAssignEmergency = (emergency: DispatchEmergency) =>
     PENDING_STATUSES.includes(toCanonicalStatus(emergency.status)) && !emergency.ambulance;
 
@@ -290,20 +292,27 @@ export default function HospitalEmergencyPage() {
         );
 
         activeDispatches.forEach(async (e) => {
-            const routeId = `route-${e.id}-${toCanonicalStatus(e.status)}`;
-            // If we don't have the route yet, fetch it
-            if (!routes[routeId]) {
-                try {
-                    const isReturningToHospital = toCanonicalStatus(e.status) === 'en_route_hospital' || toCanonicalStatus(e.status) === 'arrived_hospital';
-                    let destLat = e.latitude;
-                    let destLng = e.longitude;
-                    
-                    if (isReturningToHospital && hospitalLocation) {
-                        destLat = hospitalLocation.lat;
-                        destLng = hospitalLocation.lng;
-                    }
-                    
-                    if (destLat && destLng) {
+            try {
+                const isReturningToHospital = toCanonicalStatus(e.status) === 'en_route_hospital' || toCanonicalStatus(e.status) === 'arrived_hospital';
+                let destLat = e.latitude;
+                let destLng = e.longitude;
+
+                if (isReturningToHospital && hospitalLocation) {
+                    destLat = hospitalLocation.lat;
+                    destLng = hospitalLocation.lng;
+                }
+
+                const routeId = [
+                    'route',
+                    e.id,
+                    toCanonicalStatus(e.status),
+                    routeCoordKey(e.ambulance?.latitude),
+                    routeCoordKey(e.ambulance?.longitude),
+                    routeCoordKey(destLat),
+                    routeCoordKey(destLng),
+                ].join('-');
+
+                if (!routes[routeId] && destLat && destLng) {
                         const { accessToken: token } = getTokens();
                         const res = await fetch(
                             `/api/maps/route?originLat=${e.ambulance!.latitude}&originLng=${e.ambulance!.longitude}&destLat=${destLat}&destLng=${destLng}`,
@@ -311,12 +320,16 @@ export default function HospitalEmergencyPage() {
                         );
                         const data = await res.json();
                         if (data.success && data.data?.coordinates) {
-                            setRoutes(prev => ({ ...prev, [routeId]: data.data.coordinates }));
+                            setRoutes(prev => {
+                                const withoutOldEmergencyRoutes = Object.fromEntries(
+                                    Object.entries(prev).filter(([key]) => !key.startsWith(`route-${e.id}-`))
+                                );
+                                return { ...withoutOldEmergencyRoutes, [routeId]: data.data.coordinates };
+                            });
                         }
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch route:', error);
                 }
+            } catch (error) {
+                console.error('Failed to fetch route:', error);
             }
         });
     }, [emergencies, routes, hospitalLocation]);

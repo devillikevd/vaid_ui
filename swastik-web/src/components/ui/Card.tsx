@@ -11,14 +11,14 @@ export function Card({ children, className, padding = 'md' }: CardProps) {
     const paddingStyles = {
         none: '',
         sm: 'p-4',
-        md: 'p-6',
-        lg: 'p-8',
+        md: 'p-4 sm:p-6',
+        lg: 'p-5 sm:p-8',
     };
 
     return (
         <div
             className={cn(
-                'bg-white rounded-xl border border-gray-200 shadow-sm',
+                'bg-white rounded-lg border border-gray-200 shadow-sm',
                 'dark:bg-gray-900 dark:border-gray-700/60 dark:shadow-gray-950/20',
                 paddingStyles[padding],
                 className

@@ -325,7 +325,7 @@ export function NotificationPanel({
             <div className="fixed inset-0 z-40" onClick={onClose} />
 
             {/* Panel */}
-            <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1.5rem)] max-w-96 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl z-50 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>

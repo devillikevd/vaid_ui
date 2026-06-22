@@ -435,6 +435,11 @@ class AppEventEmitter extends EventEmitter {
       message: 'Your diagnostic booking request has been sent to the center for confirmation',
       type: 'diagnostic_booking',
       timestamp: new Date().toISOString(),
+      data: {
+        bookingId: normalizedBooking.id,
+        diagnosticBookingId: normalizedBooking.id,
+        centerId: normalizedBooking.center_id,
+      },
     };
     this.notifyUser(patient_id, 'notification:new', patientNotif);
     try {
@@ -449,6 +454,11 @@ class AppEventEmitter extends EventEmitter {
         message: 'A new diagnostic booking request has been received',
         type: 'diagnostic_booking',
         timestamp: new Date().toISOString(),
+        data: {
+          bookingId: normalizedBooking.id,
+          diagnosticBookingId: normalizedBooking.id,
+          centerId: normalizedBooking.center_id,
+        },
       });
     }
     this.emitDistributed('diagnostic:booked', normalizedBooking);
@@ -478,6 +488,12 @@ class AppEventEmitter extends EventEmitter {
       title: normalizedStatus === 'confirmed' ? 'Booking Confirmed' : 'Booking Updated',
       message: statusMessages[normalizedStatus] || `Your diagnostic booking status changed to ${normalizedStatus}`,
       type: normalizedStatus === 'confirmed' ? 'diagnostic_booking' : 'diagnostic_update',
+      data: {
+        bookingId: normalizedBooking.id,
+        diagnosticBookingId: normalizedBooking.id,
+        centerId: normalizedBooking.center_id,
+        status: normalizedStatus,
+      },
     };
     this.notifyUser(patient_id, 'notification:new', patientNotif);
     try {
@@ -494,6 +510,12 @@ class AppEventEmitter extends EventEmitter {
       title: 'Results Ready',
       message: 'Your diagnostic test results are now available',
       type: 'diagnostic_result',
+      data: {
+        bookingId: booking.id,
+        diagnosticBookingId: booking.id,
+        centerId: booking.center_id,
+        resultUrl: booking.result_url,
+      },
     };
     this.notifyUser(patient_id, 'notification:new', patientNotif);
     try {

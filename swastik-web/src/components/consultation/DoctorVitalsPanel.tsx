@@ -371,6 +371,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                         </div>
                                         <div className="flex gap-3">
                                             <div className="w-16 h-16 rounded bg-gray-800 flex-shrink-0 border border-gray-700 overflow-hidden">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img src={latestProof.proofUrl} alt="AI Proof" className="w-full h-full object-cover" />
                                             </div>
                                             <div className="flex flex-col justify-center">

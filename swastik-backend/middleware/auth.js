@@ -39,7 +39,7 @@ const authenticate = async (req, res, next) => {
     if (!user) {
       const { data: dbUser, error } = await supabaseAdmin
         .from('users')
-        .select('id, email, name, phone, role, is_active, is_verified, profile_image_url')
+        .select('id, email, name, phone, role, is_active, is_verified, profile_image_url, token_version')
         .eq('id', decoded.userId || decoded.id)
         .single();
 
@@ -50,6 +50,15 @@ const authenticate = async (req, res, next) => {
         });
       }
       user = dbUser;
+    }
+
+    const tokenVersion = Number(decoded.tokenVersion || 0);
+    if (Number(user.token_version || 0) !== tokenVersion) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session has been revoked. Please log in again.',
+        code: 'TOKEN_REVOKED',
+      });
     }
 
     if (requiresAuthUserEnrichment(user.role) && user.approval_status === undefined) {
@@ -88,6 +97,7 @@ const authenticate = async (req, res, next) => {
       provider_email: user.provider_email,
       license_document_url: user.license_document_url,
       license_expiry: user.license_expiry,
+      token_version: Number(user.token_version || 0),
     };
 
     asyncLocalStorage.run({ user: req.user, token }, () => {
@@ -130,10 +140,14 @@ const optionalAuth = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, config.jwt.accessSecret);
+    if (decoded.type && decoded.type !== 'access') {
+      req.user = null;
+      return asyncLocalStorage.run({ user: null, token: null }, () => next());
+    }
 
     let { data: user } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, phone, role, is_active')
+      .select('id, email, name, phone, role, is_active, is_verified, token_version')
       .eq('id', decoded.userId || decoded.id)
       .single();
 
@@ -142,7 +156,8 @@ const optionalAuth = async (req, res, next) => {
     }
 
     // Don't attach deactivated users even in optional auth
-    req.user = (user && user.is_active) ? user : null;
+    const versionMatches = user && Number(user.token_version || 0) === Number(decoded.tokenVersion || 0);
+    req.user = (user && user.is_active && user.is_verified && versionMatches) ? user : null;
     asyncLocalStorage.run({ user: req.user, token }, () => {
       next();
     });

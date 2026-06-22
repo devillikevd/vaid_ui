@@ -18,7 +18,7 @@ import { NotificationBell, NotificationPanel } from '@/components/ui/Toast';
 import { ConnectionIndicator } from '@/components/shared/ConnectionIndicator';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import GlobalSocketToasts from '@/components/shared/GlobalSocketToasts';
-import { useNotifications } from '@/hooks/useSocket';
+import { type Notification, useNotifications } from '@/hooks/useSocket';
 
 // ----- Types -----
 
@@ -156,6 +156,77 @@ const SUBTITLE_CLASSES: Record<string, string> = {
     purple: 'text-purple-300',
 };
 
+function stringValue(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function resolveNotificationRoute(notification: Notification, role?: string): string | null {
+    const data = notification.data || {};
+    const explicitRoute = stringValue(data.route) || stringValue(data.href) || stringValue(data.url) || stringValue(data.actionRoute) || stringValue(data.action_route);
+    if (explicitRoute?.startsWith('/')) return explicitRoute;
+
+    const type = notification.type;
+    const appointmentId = stringValue(data.appointmentId) || stringValue(data.appointment_id) || stringValue(data.id);
+    const consultationId = stringValue(data.consultationId) || stringValue(data.consultation_id) || stringValue(data.roomId) || stringValue(data.room_id);
+    const prescriptionId = stringValue(data.prescriptionId) || stringValue(data.prescription_id);
+    const orderId = stringValue(data.orderId) || stringValue(data.order_id);
+    const bookingId = stringValue(data.bookingId) || stringValue(data.booking_id) || stringValue(data.diagnosticBookingId) || stringValue(data.diagnostic_booking_id);
+    const emergencyId = stringValue(data.requestId) || stringValue(data.request_id) || stringValue(data.emergencyId) || stringValue(data.emergency_id);
+    const providerType = stringValue(data.providerType) || stringValue(data.provider_type) || stringValue(data.type);
+    const providerId = stringValue(data.providerId) || stringValue(data.provider_id) || stringValue(data.reviewableId) || stringValue(data.reviewable_id);
+
+    if (type.includes('consultation') && consultationId) return `/consultation/${consultationId}`;
+
+    switch (role) {
+        case 'doctor':
+            if (appointmentId) return '/doctor/appointments';
+            if (prescriptionId) return '/doctor/prescriptions';
+            if (type.includes('review')) return '/doctor/reviews';
+            if (type.includes('outbreak') || type.includes('health')) return '/doctor/health-alerts';
+            return '/doctor';
+        case 'hospital_owner':
+        case 'hospital_manager':
+            if (emergencyId || type.includes('ambulance') || type.includes('emergency')) return '/hospital/emergency';
+            if (appointmentId) return '/hospital/appointments';
+            if (type.includes('doctor')) return '/hospital/doctors';
+            if (type.includes('pharmacy')) return '/hospital/pharmacies';
+            if (type.includes('diagnostic')) return '/hospital/diagnostic-centers';
+            if (type.includes('review')) return '/hospital/reviews';
+            if (type.includes('outbreak') || type.includes('health')) return '/hospital/health-alerts';
+            return '/hospital';
+        case 'clinic_owner':
+            if (appointmentId) return '/clinic/appointments';
+            if (type.includes('consultation')) return '/clinic/consultations';
+            if (type.includes('pharmacy')) return '/clinic/pharmacies';
+            if (type.includes('diagnostic')) return '/clinic/diagnostic-centers';
+            if (type.includes('review')) return '/clinic/reviews';
+            if (type.includes('outbreak') || type.includes('health')) return '/clinic/health-alerts';
+            return '/clinic';
+        case 'pharmacy_owner':
+            if (orderId || type.includes('order')) return '/pharmacy/orders';
+            if (prescriptionId || type.includes('prescription')) return '/pharmacy/prescriptions';
+            if (type.includes('inventory') || type.includes('medicine')) return '/pharmacy/inventory';
+            if (type.includes('review')) return '/pharmacy/reviews';
+            return '/pharmacy';
+        case 'diagnostic_center_owner':
+            if (bookingId || type.includes('booking')) return '/diagnostic-center/bookings';
+            if (type.includes('result')) return '/diagnostic-center/results';
+            if (type.includes('review')) return '/diagnostic-center/reviews';
+            return '/diagnostic-center';
+        case 'admin':
+        case 'super_admin':
+            if ((providerType && providerId) || providerType || type.includes('approval')) return '/admin/approvals';
+            if (emergencyId || type.includes('emergency')) return '/admin/emergencies';
+            if (type.includes('compliance')) return '/admin/compliance';
+            if (type.includes('audit')) return '/admin/audit';
+            if (type.includes('outbreak')) return '/admin/outbreaks';
+            return '/admin';
+        default:
+            if (type.includes('consultation') && consultationId) return `/consultation/${consultationId}`;
+            return null;
+    }
+}
+
 // ----- Component -----
 
 export default function DashboardLayout({
@@ -171,7 +242,7 @@ export default function DashboardLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
-    const { notifications, unreadCount, clearNotifications } = useNotifications();
+    const { notifications, unreadCount, clearNotifications, markRead } = useNotifications();
 
     const sidebarRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -277,6 +348,18 @@ export default function DashboardLayout({
     const handleLogout = () => {
         logout();
         router.push(config.loginPath);
+    };
+
+    const handleNotificationClick = (notification: Notification) => {
+        if (notification.id) {
+            markRead(notification.id);
+        }
+        setNotifOpen(false);
+
+        const route = resolveNotificationRoute(notification, user?.role);
+        if (route) {
+            router.push(route);
+        }
     };
 
     const PortalIcon = config.portalIcon;
@@ -395,26 +478,30 @@ export default function DashboardLayout({
             {/* Main content */}
             <div className="lg:pl-64">
                 {/* Header */}
-                <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-6">
-                    <div className="flex items-center gap-4">
+                <header className="sticky top-0 z-30 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+                    <div className="flex min-w-0 items-center gap-2 sm:gap-4">
                         <button
                             ref={menuButtonRef}
                             onClick={() => setSidebarOpen(true)}
-                            className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                            className="shrink-0 lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                             aria-label="Open sidebar"
                         >
                             <Menu className="h-5 w-5" />
                         </button>
-                        <div>
-                            <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                        <div className="min-w-0">
+                            <h2 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100 sm:text-base">
                                 {activeNavItem?.name || 'Dashboard'}
                             </h2>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <ThemeToggle />
-                        <ConnectionIndicator />
+                    <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-4">
+                        <div className="hidden sm:block">
+                            <ThemeToggle />
+                        </div>
+                        <div className="hidden sm:block">
+                            <ConnectionIndicator />
+                        </div>
 
                         {/* Notifications */}
                         <div className="relative">
@@ -433,6 +520,7 @@ export default function DashboardLayout({
                                 isOpen={notifOpen}
                                 onClose={() => setNotifOpen(false)}
                                 onClear={clearNotifications}
+                                onNotificationClick={handleNotificationClick}
                             />
                         </div>
 
@@ -440,7 +528,7 @@ export default function DashboardLayout({
                         <div className="relative">
                             <button
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                                className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                                className="flex items-center gap-1 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg sm:gap-2 sm:p-2"
                                 aria-label="User menu"
                                 aria-expanded={dropdownOpen}
                                 aria-haspopup="true"
@@ -456,7 +544,7 @@ export default function DashboardLayout({
                                         {displayName}
                                     </span>
                                 )}
-                                <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                                <ChevronDown className="hidden h-4 w-4 text-gray-500 dark:text-gray-400 sm:block" />
                             </button>
 
                             {dropdownOpen && (

@@ -69,7 +69,7 @@ sealed class Screen(val route: String) {
             if (type != null) params.add("type=${type.name}")
             if (!focusFacilityId.isNullOrBlank()) params.add("focusFacilityId=$focusFacilityId")
             if (!focusFacilityName.isNullOrBlank()) {
-                params.add("focusFacilityName=${java.net.URLEncoder.encode(focusFacilityName, "UTF-8").replace("+", "%20")}")
+                params.add("focusFacilityName=${java.net.URLEncoder.encode(focusFacilityName, "UTF-8")}")
             }
             return if (params.isEmpty()) "hospital_finder" else "hospital_finder?${params.joinToString("&")}"
         }
@@ -88,7 +88,7 @@ sealed class Screen(val route: String) {
     }
     object VideoConsultation : Screen("video_consultation/{appointmentId}/{doctorName}") {
         fun createRoute(appointmentId: String, doctorName: String): String {
-            return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8").replace("+", "%20")}"
+            return "video_consultation/${appointmentId}/${java.net.URLEncoder.encode(doctorName, "UTF-8")}"
         }
     }
     object Reports : Screen("reports")

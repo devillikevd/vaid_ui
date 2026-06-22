@@ -28,8 +28,6 @@ const {
     uploadEntityImage,
 
     getPresignedUrl,
-    getPresignedUploadUrl,
-    getPublicObjectUrl,
     signStorageUrl,
     deleteFile,
     listFiles,
@@ -262,16 +260,29 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
             diagnostic_center: { table: 'diagnostic_centers', ownerCol: 'owner_id' },
         };
         const entityConfig = entityTableMap[entityType];
-        if (entityConfig && !['admin', 'super_admin'].includes(req.user.role)) {
-            const { data: entity } = await supabaseAdmin
-                .from(entityConfig.table)
-                .select('id')
-                .eq('id', entityId)
-                .eq(entityConfig.ownerCol, req.user.id)
-                .single();
-            if (!entity) {
-                throw new ApiError(403, 'You do not own this entity');
+        if (!entityConfig) {
+            throw new ApiError(400, 'Invalid entity type');
+        }
+        if (!['admin', 'super_admin'].includes(req.user.role)) {
+            let ownsEntity = false;
+            if (req.user.role === ROLES.HOSPITAL_MANAGER && entityType === 'hospital') {
+                const { data: manager } = await supabaseAdmin
+                    .from('hospital_managers')
+                    .select('id')
+                    .eq('user_id', req.user.id)
+                    .eq('hospital_id', entityId)
+                    .maybeSingle();
+                ownsEntity = Boolean(manager);
+            } else {
+                const { data: entity } = await supabaseAdmin
+                    .from(entityConfig.table)
+                    .select('id')
+                    .eq('id', entityId)
+                    .eq(entityConfig.ownerCol, req.user.id)
+                    .maybeSingle();
+                ownsEntity = Boolean(entity);
             }
+            if (!ownsEntity) throw new ApiError(403, 'You do not manage this entity');
         }
 
         const result = await uploadEntityImage(req.file, entityId, entityType);
@@ -439,30 +450,10 @@ router.get('/presigned-download', authenticateToken, async (req, res, next) => {
  */
 router.post('/presigned-upload', authenticateToken, async (req, res, next) => {
     try {
-        const { fileName, folder, mimeType } = req.body;
-
-        if (!fileName) {
-            throw new ApiError(400, 'File name is required');
-        }
-
-        // Fix #10: Sanitize fileName to prevent path traversal
-        const path = require('path');
-        const baseName = path.basename(fileName);
-        const sanitizedFileName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-        const folderPath = folder || STORAGE_FOLDERS.DOCUMENTS;
-        const objectName = `${folderPath}/${req.user.id}/${Date.now()}-${sanitizedFileName}`;
-
-        const url = await getPresignedUploadUrl(objectName, undefined, mimeType);
-
-        res.json({
-            success: true,
-            data: {
-                uploadUrl: url,
-                objectName,
-                publicUrl: getPublicObjectUrl(objectName),
-            },
-        });
+        // A raw PUT presigned URL cannot enforce magic-byte validation or a
+        // reliable maximum body size. Keep uploads behind the validated,
+        // size-limited multipart endpoints above.
+        throw new ApiError(410, 'Direct uploads are disabled. Use the validated upload endpoint for this file type.');
     } catch (error) {
         next(error);
     }

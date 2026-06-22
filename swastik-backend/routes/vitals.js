@@ -18,6 +18,21 @@ router.use(authenticate);
 // Doctors, patients, hospital/clinic owners/managers, and admins can view session vitals
 const allowedRoles = VITALS_SESSION_ALLOWED_ROLES;
 
+// One-time ownership check used by the AI WebSocket service. The AI service
+// forwards the caller's bearer token, so it never needs database admin keys.
+router.get('/session/:sessionId/authorize',
+  [param('sessionId').isUUID().withMessage('Invalid session ID')],
+  validate,
+  asyncHandler(async (req, res) => {
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to access session vitals' });
+    }
+    await vitalsService.verifySessionAccess(req.user.id, req.user.role, req.params.sessionId);
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, data: { authorized: true, role: req.user.role } });
+  })
+);
+
 /**
  * @route GET /api/vitals/session/:sessionId/latest
  * @desc Get latest vitals for a consultation session

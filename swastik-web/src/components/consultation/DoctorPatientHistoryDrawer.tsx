@@ -245,7 +245,7 @@ export default function DoctorPatientHistoryDrawer({
                             {hasAccess && (
                                 <div className="space-y-3 pt-4 border-t border-slate-800">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Other Doctors' Consultations</h3>
+                                        <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Other Doctors&apos; Consultations</h3>
                                         <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
                                             {sharedConsultations.length} records
                                         </span>

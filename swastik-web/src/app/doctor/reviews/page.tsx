@@ -8,19 +8,20 @@ import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 export default function DoctorReviewsPage() {
     const { user } = useAuthStore();
+    const userId = user?.id;
     const { reviews, loadingReviews, error, fetchReviews } = useDoctorStore();
 
     const loadReviews = useCallback(async (page: number = 1) => {
-        if (user?.id) {
-            await fetchReviews(user.id, page);
+        if (userId) {
+            await fetchReviews(userId, page);
         }
-    }, [user?.id, fetchReviews]);
+    }, [userId, fetchReviews]);
 
     useEffect(() => {
-        if (user?.id) {
+        if (userId) {
             loadReviews();
         }
-    }, [user?.id, loadReviews]);
+    }, [userId, loadReviews]);
 
     if (!user) {
         return <DashboardSkeleton />;

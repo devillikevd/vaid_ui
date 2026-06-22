@@ -18,7 +18,7 @@
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, formatDistance, calculateETA, getBoundingBox } = require('../utils/geo');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const notificationService = require('./notificationService');
 const emergencyContactNotificationService = require('./emergencyContactNotificationService');
 const eventEmitter = require('./eventEmitter');
@@ -396,7 +396,7 @@ class DispatchService {
       };
     }
 
-    const requestId = uuidv4();
+    const requestId = randomUUID();
     const priority = derivePriority(emergencyType || 'medical');
 
     // Create the emergency request in PENDING state
@@ -540,7 +540,7 @@ class DispatchService {
       throw new ApiError(429, 'You recently cancelled an SOS to this hospital. Please wait 3 minutes before trying again to prevent spam.');
     }
 
-    const requestId = uuidv4();
+    const requestId = randomUUID();
     const priority = derivePriority(emergencyType || 'medical');
     const patientPhone = patient.user?.phone || '';
 
@@ -848,7 +848,7 @@ class DispatchService {
       throw new ApiError(403, 'You can only create ambulance requests for your own hospital');
     }
 
-    const requestId = uuidv4();
+    const requestId = randomUUID();
     const priority = derivePriority(emergencyType || 'medical');
 
     const { data: sosRequest, error } = await supabaseAdmin

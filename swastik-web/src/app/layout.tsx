@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "VAIDIDEA Healthcare Platform",
   description: "Multi-role healthcare management platform for doctors, hospitals, clinics, pharmacies, and emergency services.",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
   themeColor: "#0ea5e9",
 };
 

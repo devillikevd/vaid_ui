@@ -180,18 +180,24 @@ data class LogoutRequest(
 )
 
 data class AuthData(
+    @SerializedName(value = "accessToken", alternate = ["access_token"])
     val accessToken: String?,
+    @SerializedName(value = "refreshToken", alternate = ["refresh_token"])
     val refreshToken: String?,
     val user: UserDto?,
+    @SerializedName(value = "expiresIn", alternate = ["expires_in"])
     val expiresIn: Long? = null
 )
 
 data class AuthResponse(
     val success: Boolean,
     // Top-level fields (for direct responses)
+    @SerializedName(value = "accessToken", alternate = ["access_token"])
     val accessToken: String?,
+    @SerializedName(value = "refreshToken", alternate = ["refresh_token"])
     val refreshToken: String?,
     val user: UserDto?,
+    @SerializedName(value = "expiresIn", alternate = ["expires_in"])
     val expiresIn: Long? = null,
     // Nested data field (for login, register which wrap in data: {})
     val data: AuthData?,
@@ -728,9 +734,18 @@ data class NotificationDto(
 
 data class TokenResponse(
     val success: Boolean,
+    @SerializedName(value = "accessToken", alternate = ["access_token"])
     val accessToken: String?,
-    val refreshToken: String?
-)
+    @SerializedName(value = "refreshToken", alternate = ["refresh_token"])
+    val refreshToken: String?,
+    @SerializedName(value = "expiresIn", alternate = ["expires_in"])
+    val expiresIn: Long? = null,
+    val data: AuthData? = null
+) {
+    fun resolvedAccessToken(): String? = accessToken ?: data?.accessToken
+    fun resolvedRefreshToken(): String? = refreshToken ?: data?.refreshToken
+    fun resolvedExpiresIn(): Long = expiresIn ?: data?.expiresIn ?: 604800L
+}
 
 data class ForgotPasswordRequest(
     val email: String,

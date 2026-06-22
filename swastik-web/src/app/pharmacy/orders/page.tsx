@@ -302,6 +302,8 @@ export default function PharmacyOrdersPage() {
                 onClose={() => setAssigningOrderId(null)}
                 orderId={assigningOrderId!}
                 orderType="pharmacy"
+                facilityId={orders.find((order) => order.id === assigningOrderId)?.pharmacy_id || orders.find((order) => order.id === assigningOrderId)?.facility?.id || null}
+                facilityType="pharmacy"
                 onAssigned={() => {
                     loadOrders();
                 }}

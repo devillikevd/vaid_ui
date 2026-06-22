@@ -48,4 +48,5 @@
 \i 033_delivery_tracking.sql
 \i 034_pharmacy_inventory_pack_size.sql
 \i 035_diagnostic_booking_prescription.sql
+\i 041_token_version.sql
 SELECT '✅ SWASTIK PRODUCTION SCHEMA v4.1 DEPLOYED!' as status;

@@ -3,7 +3,7 @@
  * Registration, management, tests catalog, appointments, and results
  */
 const { supabaseAdmin } = require('../config/supabase');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { ApiError } = require('../middleware/errorHandler');
 const { calculateDistance, getBoundingBox, formatDistance } = require('../utils/geo');
@@ -25,7 +25,11 @@ const getDiagnosticBookingStatusesForFilter = (status) => {
 };
 
 const normalizeDiagnosticBookingRecord = (booking) => (
-  booking ? { ...booking, status: normalizeDiagnosticBookingStatus(booking.status) } : booking
+  booking ? {
+    ...booking,
+    status: normalizeDiagnosticBookingStatus(booking.status),
+    facility: booking.facility || booking.center || null,
+  } : booking
 );
 
 const normalizeDiagnosticBookingRecords = (bookings = []) => (
@@ -456,7 +460,7 @@ const deleteTest = async (centerId, testId) => {
 const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   let query = supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type), prescription:prescriptions(file_url)', {
+    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type), center:diagnostic_centers(id, name, phone, address, latitude, longitude), prescription:prescriptions(file_url), delivery_agents(*)', {
       count: 'exact',
     })
     .eq('center_id', centerId);
@@ -502,7 +506,7 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
 const getBookingById = async (centerId, bookingId) => {
   const { data, error } = await supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type, price)')
+    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type, price), center:diagnostic_centers(id, name, phone, address, latitude, longitude), delivery_agents(*)')
     .eq('id', bookingId)
     .eq('center_id', centerId)
     .single();
@@ -560,7 +564,7 @@ const updateBookingStatus = async (centerId, bookingId, status, meta = {}) => {
   }
 
   if (nextStatus === 'dispatched' && current && !current.tracking_token) {
-    updatePayload.tracking_token = uuidv4();
+    updatePayload.tracking_token = randomUUID();
   }
 
   const { data, error } = await supabaseAdmin

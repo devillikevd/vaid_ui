@@ -2,7 +2,7 @@
  * Enhanced Admin Service
  * Complete admin management with approval workflows for all provider types
  */
-const { supabaseAdmin } = require('../config/supabase');
+const { supabaseAdmin, rawSupabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { sanitizeSearch } = require('../utils/sanitize');
 const { cacheGet, cacheSet, cacheDel, cacheIncr } = require('../config/redis');
@@ -11,6 +11,27 @@ const { geocodeProvider } = require('../utils/geocoding');
 const notificationService = require('./notificationService');
 const { sendApprovalEmail } = require('./emailService');
 const eventEmitter = require('./eventEmitter');
+
+const revokeProviderAuthSessions = async (userId) => {
+  if (!userId) return;
+  try {
+    const { data: user, error: readError } = await rawSupabaseAdmin
+      .from('users')
+      .select('token_version')
+      .eq('id', userId)
+      .single();
+    if (readError || !user) throw readError || new ApiError(404, 'User not found');
+
+    const { error: updateError } = await rawSupabaseAdmin
+      .from('users')
+      .update({ token_version: Number(user.token_version || 0) + 1 })
+      .eq('id', userId);
+    if (updateError) throw updateError;
+    await cacheDel(`auth_user:${userId}`);
+  } catch (error) {
+    console.warn('[EnhancedAdminService] Failed to revoke provider auth sessions:', error.message);
+  }
+};
 
 // Provider type → Supabase table mapping
 const PROVIDER_TABLES = {
@@ -989,6 +1010,7 @@ const approveProvider = async (type, id, adminId, notes) => {
     }
     
     await supabaseAdmin.from('users').update(updates).eq('id', userId);
+    await revokeProviderAuthSessions(userId);
   }
 
   await Promise.allSettled([
@@ -1042,6 +1064,7 @@ const rejectProvider = async (type, id, adminId, reason) => {
     .single();
 
   if (error) throw error;
+  await revokeProviderAuthSessions(getProviderUserId(data));
 
   await Promise.allSettled([
     invalidateApprovalCaches(data),
@@ -1093,6 +1116,7 @@ const suspendProvider = async (type, id, adminId, reason) => {
     .single();
 
   if (error) throw error;
+  await revokeProviderAuthSessions(getProviderUserId(data));
   await Promise.allSettled([
     invalidateApprovalCaches(data),
     notifyProviderStatusChange({ provider: data, type, status: 'suspended', notes: reason }),
@@ -1142,6 +1166,7 @@ const reactivateProvider = async (type, id, adminId, notes) => {
   if (data?.user_id || data?.owner_id) {
     const userId = data.user_id || data.owner_id;
     await supabaseAdmin.from('users').update({ is_verified: true }).eq('id', userId);
+    await revokeProviderAuthSessions(userId);
   }
 
   await Promise.allSettled([

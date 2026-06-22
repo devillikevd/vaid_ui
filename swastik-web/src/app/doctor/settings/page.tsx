@@ -251,7 +251,11 @@ export default function DoctorSettingsPage() {
                                         checked={profile.consultationTypes.includes('In-Person')}
                                         onChange={(e) => {
                                             const set = new Set(profile.consultationTypes);
-                                            e.target.checked ? set.add('In-Person') : set.delete('In-Person');
+                                            if (e.target.checked) {
+                                                set.add('In-Person');
+                                            } else {
+                                                set.delete('In-Person');
+                                            }
                                             setProfile(p => ({ ...p, consultationTypes: Array.from(set) }));
                                         }}
                                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
@@ -264,7 +268,11 @@ export default function DoctorSettingsPage() {
                                         checked={profile.consultationTypes.includes('Video')}
                                         onChange={(e) => {
                                             const set = new Set(profile.consultationTypes);
-                                            e.target.checked ? set.add('Video') : set.delete('Video');
+                                            if (e.target.checked) {
+                                                set.add('Video');
+                                            } else {
+                                                set.delete('Video');
+                                            }
                                             setProfile(p => ({ ...p, consultationTypes: Array.from(set) }));
                                         }}
                                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"

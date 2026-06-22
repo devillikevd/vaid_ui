@@ -2,13 +2,23 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, getTokens } from '@/lib/api';
 import {
     ScanLine, Camera, ArrowLeft, Loader2, AlertTriangle,
     CheckCircle, Keyboard, ExternalLink
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+
+const HEALTH_CARD_TOKEN_PATTERN = '[A-Za-z0-9]{6,16}';
+const extractHealthCardToken = (value: string) => {
+    const decoded = (() => {
+        try { return decodeURIComponent(value); } catch { return value; }
+    })();
+    const urlMatch = decoded.match(new RegExp(`health-card\\/(${HEALTH_CARD_TOKEN_PATTERN})`, 'i'));
+    const rawMatch = decoded.match(new RegExp(`^${HEALTH_CARD_TOKEN_PATTERN}$`, 'i'));
+    return (urlMatch?.[1] || (rawMatch ? decoded : null))?.toUpperCase() || null;
+};
 
 export default function ScanPatientQRPage() {
     const router = useRouter();
@@ -89,14 +99,14 @@ export default function ScanPatientQRPage() {
                 if (barcodes.length > 0) {
                     const url = barcodes[0].rawValue;
                     // Extract token from URL like https://domain/health-card/TOKEN
-                    const tokenMatch = String(url || '').match(/health-card\/([A-Za-z0-9]{6})/i);
-                    if (tokenMatch) {
+                    const token = extractHealthCardToken(String(url || ''));
+                    if (token) {
                         // Stop scanning
                         if (streamRef.current) {
                             streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop());
                         }
                         setScanning(false);
-                        await validateAndNavigate(tokenMatch[1]);
+                        await validateAndNavigate(token);
                         return;
                     }
                 }
@@ -115,7 +125,11 @@ export default function ScanPatientQRPage() {
         setValidating(true);
         setResult(null);
         try {
-            const res = await fetch(`${API_BASE_URL}/health-card/${token}`, { cache: 'no-store' });
+            const { accessToken } = getTokens();
+            const res = await fetch(`${API_BASE_URL}/health-card/${token}`, {
+                cache: 'no-store',
+                headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+            });
             const data = await res.json();
             if (res.ok && data.success) {
                 setResult({ success: true, message: `Patient: ${data.data.patient.name}`, token });
@@ -133,18 +147,11 @@ export default function ScanPatientQRPage() {
     };
 
     const handleManualSubmit = () => {
-        const token = manualToken.trim();
-        // Try to extract token from a full URL or raw token
-        const decoded = (() => {
-            try { return decodeURIComponent(token); } catch { return token; }
-        })();
-        const urlMatch = decoded.match(/health-card\/([A-Za-z0-9]{6})/i);
-        const rawMatch = decoded.match(/^[A-Za-z0-9]{6}$/i);
-        const extracted = (urlMatch?.[1] || (rawMatch ? decoded : null))?.toUpperCase();
+        const extracted = extractHealthCardToken(manualToken.trim());
         if (extracted) {
             validateAndNavigate(extracted);
         } else {
-            setResult({ success: false, message: 'Invalid token. Paste the full URL or 6-character Link ID.' });
+            setResult({ success: false, message: 'Invalid token. Paste the full URL or 6-16 character Link ID.' });
         }
     };
 

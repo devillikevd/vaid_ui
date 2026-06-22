@@ -54,6 +54,7 @@ export interface OrderItem {
 
 export interface Order {
     id: string;
+    pharmacy_id?: string;
     patientName: string;
     patientId: string;
     items: OrderItem[];
@@ -67,6 +68,7 @@ export interface Order {
     tracking_token?: string;
     agent_id?: string;
     facility?: {
+        id?: string;
         latitude?: number;
         longitude?: number;
         name?: string;

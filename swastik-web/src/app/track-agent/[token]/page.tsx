@@ -74,7 +74,8 @@ export default function TrackAgentPage() {
             body: JSON.stringify({
                 agent_id: orderData.agent_id,
                 latitude,
-                longitude
+                longitude,
+                token,
             })
         }).catch(err => console.error('Failed to update location:', err));
     };
@@ -176,7 +177,7 @@ export default function TrackAgentPage() {
                                 <Navigation className="h-10 w-10 text-blue-500 mx-auto mb-3" />
                                 <h3 className="font-bold text-blue-900 mb-2">Share Your Live Location</h3>
                                 <p className="text-sm text-blue-700 mb-4">
-                                    You must share your GPS location so the patient can track your arrival. Please click the button below and "Allow" when prompted.
+                                    You must share your GPS location so the patient can track your arrival. Please click the button below and &quot;Allow&quot; when prompted.
                                 </p>
                                 <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={startTracking} size="lg">
                                     Start Sharing Location

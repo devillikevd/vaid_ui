@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { vitalsApi, getTokens } from '@/lib/api';
+import { notificationsApi, vitalsApi, getTokens } from '@/lib/api';
 import { PUBLIC_AI_WS_URL, PUBLIC_SOCKET_URL } from '@/lib/env';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -14,6 +14,7 @@ export interface Notification {
     message: string;
     timestamp: string;
     data?: Record<string, unknown>;
+    read?: boolean;
 }
 
 export interface AppointmentUpdate {
@@ -343,6 +344,16 @@ export function useNotifications(onNotification?: (notification: Notification) =
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
+    const normalizeNotification = useCallback((raw: Record<string, any>): Notification => ({
+        id: raw.id,
+        type: raw.type || 'info',
+        title: raw.title || 'Notification',
+        message: raw.message || '',
+        timestamp: raw.timestamp || raw.created_at || new Date().toISOString(),
+        data: raw.data || {},
+        read: Boolean(raw.read ?? raw.is_read),
+    }), []);
+
     // Hydrate notifications for current authenticated role/user only.
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -383,6 +394,33 @@ export function useNotifications(onNotification?: (notification: Notification) =
         }
     }, [isAuthenticated, storageKey]);
 
+    useEffect(() => {
+        if (!isAuthenticated || !storageKey) return;
+
+        let cancelled = false;
+        notificationsApi.getAll(1).then((response) => {
+            if (cancelled || !response.success) return;
+            const payload = response.data as any;
+            const rawNotifications = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.notifications)
+                    ? payload.notifications
+                    : Array.isArray(payload?.data)
+                        ? payload.data
+                        : [];
+
+            if (rawNotifications.length === 0) return;
+            const serverNotifications = rawNotifications.map(normalizeNotification);
+            setNotifications((prev) => dedupeNotifications([...serverNotifications, ...prev]));
+        }).catch(() => {
+            // Local/socket notifications still work if persisted fetch fails.
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [dedupeNotifications, isAuthenticated, normalizeNotification, storageKey]);
+
     // Persist to localStorage whenever notifications change
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -394,27 +432,32 @@ export function useNotifications(onNotification?: (notification: Notification) =
 
     useEffect(() => {
         const handleNotification = (notification: Notification) => {
+            const normalizedNotification = normalizeNotification(notification as unknown as Record<string, any>);
             // Optional role-target guard if payload contains role hint
-            const targetRole = (notification?.data?.role || notification?.data?.targetRole) as string | undefined;
+            const targetRole = (normalizedNotification?.data?.role || normalizedNotification?.data?.targetRole) as string | undefined;
             if (targetRole && user?.role && targetRole !== user.role) {
                 return;
             }
-            setNotifications((prev) => dedupeNotifications([notification, ...prev]));
-            onNotification?.(notification);
+            setNotifications((prev) => dedupeNotifications([normalizedNotification, ...prev]));
+            onNotification?.(normalizedNotification);
         };
 
         return on('notification:new', handleNotification);
-    }, [on, onNotification, dedupeNotifications, user?.role]);
+    }, [on, onNotification, dedupeNotifications, normalizeNotification, user?.role]);
 
     // BUG-14 Fix: Mark a notification as read
     const markRead = useCallback((notificationId: string) => {
         setNotifications((prev) =>
             prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
         );
+        notificationsApi.markAsRead(notificationId).catch(() => {
+            // Keep optimistic local read state; retry happens on future server hydration.
+        });
     }, []);
 
     const markAllRead = useCallback(() => {
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        notificationsApi.markAllAsRead().catch(() => {});
     }, []);
 
     const clearNotifications = useCallback(() => {

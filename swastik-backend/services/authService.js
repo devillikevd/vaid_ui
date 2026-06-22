@@ -13,7 +13,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { supabaseAdmin } = require('../config/supabase');
+const { supabaseAdmin, rawSupabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const { cacheGet, cacheSet, cacheDel } = require('../config/redis');
 const { logAudit } = require('../utils/auditLogger');
@@ -123,6 +123,22 @@ const createOtpError = (code, message, statusCode = 400) => {
   const error = new ApiError(statusCode, message);
   error.code = code;
   return error;
+};
+
+const createEmailNotVerifiedError = () => {
+  const error = new ApiError(403, 'Your account is not verified. Please complete email verification to continue.');
+  error.code = 'EMAIL_NOT_VERIFIED';
+  return error;
+};
+
+const authRoleMatches = (user, expectedRole) => {
+  if (!expectedRole) return true;
+  return user.role === expectedRole ||
+    user.requested_role === expectedRole ||
+    (expectedRole === 'doctor' && user.role === 'doctor_pending') ||
+    (expectedRole === 'admin' && user.role === 'super_admin') ||
+    (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
+    (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
 };
 
 const issueEmailOtp = async ({ userId = null, email, purpose, sender, name }) => {
@@ -255,7 +271,7 @@ const toUserFacingRegistrationError = (error, fallbackMessage = 'Failed to compl
 const generateTokens = (user) => {
   const expiresInStr = config.jwt.expiresIn || '7d';
   const accessToken = jwt.sign(
-    { userId: user.id, role: user.role, email: user.email },
+    { userId: user.id, role: user.role, email: user.email, type: 'access', tokenVersion: Number(user.token_version || 0) },
     config.jwt.accessSecret,
     { expiresIn: expiresInStr }
   );
@@ -267,6 +283,24 @@ const generateTokens = (user) => {
   );
 
   return { accessToken, refreshToken, expiresIn: parseExpiresIn(expiresInStr) };
+};
+
+const revokeAccessTokens = async (userId) => {
+  const { data: user, error: readError } = await rawSupabaseAdmin
+    .from('users')
+    .select('token_version')
+    .eq('id', userId)
+    .single();
+  if (readError || !user) throw readError || new ApiError(404, 'User not found');
+
+  const nextVersion = Number(user.token_version || 0) + 1;
+  const { error: updateError } = await rawSupabaseAdmin
+    .from('users')
+    .update({ token_version: nextVersion })
+    .eq('id', userId);
+  if (updateError) throw updateError;
+  await cacheDel(`auth_user:${userId}`);
+  return nextVersion;
 };
 
 // ==================== Register ====================
@@ -804,15 +838,25 @@ const login = async (rawEmail, password, expectedRole = null) => {
     throw new ApiError(401, 'Invalid email or password');
   }
 
+  if (!user.is_active) {
+    throw new ApiError(403, 'Your account has been deactivated. Please contact support.');
+  }
+
+  if (!user.is_verified) {
+    throw createEmailNotVerifiedError();
+  }
+
   // Optional role enforcement (portal-specific login)
   // Keep backward compatibility: admin portal accepts both admin and super_admin.
   if (expectedRole) {
-    const roleMatches =
-      user.role === expectedRole ||
-      (expectedRole === 'doctor' && user.role === 'doctor_pending') ||
-      (expectedRole === 'admin' && user.role === 'super_admin') ||
-      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
-      (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
+    const roleMatches = authRoleMatches(user, expectedRole);
+    if (user.requested_role === expectedRole && user.role !== expectedRole) {
+      const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
+      if (providerRecord?.approval_status === 'rejected') {
+        throw new ApiError(403, 'Your account application was rejected. Please contact support.');
+      }
+      throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
+    }
     if (!roleMatches) {
       if (user.requested_role === expectedRole) {
         const providerRecord = await getProviderApprovalRecordByUser(supabaseAdmin, expectedRole, user.id);
@@ -836,14 +880,6 @@ const login = async (rawEmail, password, expectedRole = null) => {
         throw new ApiError(403, 'Your account is currently under review by an administrator. You will be able to log in once your account is approved.');
       }
     }
-  }
-
-  if (!user.is_active) {
-    throw new ApiError(403, 'Your account has been deactivated. Please contact support.');
-  }
-
-  if (!user.is_verified) {
-    throw new ApiError(403, 'Your account is not verified. Please register again to complete verification.');
   }
 
   // Strict validation: login requires an actual profile row for the role.
@@ -963,6 +999,7 @@ const logout = async (userId, refreshTokenValue) => {
       .eq('is_revoked', false);
   }
   await cacheDel(`auth_user:${userId}`);
+  await revokeAccessTokens(userId);
   logAudit({ userId, userRole: 'unknown', action: 'user.logout', entityType: 'user', entityId: userId });
   return { message: 'Logged out successfully' };
 };
@@ -1005,6 +1042,8 @@ const changePassword = async (userId, currentPassword, newPassword) => {
     .eq('user_id', userId)
     .eq('is_revoked', false);
 
+  await revokeAccessTokens(userId);
+
   return { message: 'Password changed successfully' };
 };
 
@@ -1013,7 +1052,7 @@ const forgotPassword = async (rawEmail, expectedRole = null) => {
   const email = normalizeEmail(rawEmail);
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, name, email, role, is_active')
+    .select('id, name, email, role, requested_role, is_active')
     .eq('email', email)
     .single();
 
@@ -1022,12 +1061,7 @@ const forgotPassword = async (rawEmail, expectedRole = null) => {
   }
 
   if (expectedRole) {
-    const roleMatches =
-      user.role === expectedRole ||
-      (expectedRole === 'admin' && user.role === 'super_admin') ||
-      (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
-      (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
-    if (!roleMatches) {
+    if (!authRoleMatches(user, expectedRole)) {
       return { message: 'If an account exists with this email, a 6-digit reset code has been sent.' };
     }
   }
@@ -1066,14 +1100,9 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
       }
 
       if (expectedRole) {
-        const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', storedUserId).single();
+        const { data: user } = await supabaseAdmin.from('users').select('role, requested_role').eq('id', storedUserId).single();
         if (user) {
-          const roleMatches =
-            user.role === expectedRole ||
-            (expectedRole === 'admin' && user.role === 'super_admin') ||
-            (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
-            (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
-          if (!roleMatches) {
+          if (!authRoleMatches(user, expectedRole)) {
             throw new ApiError(403, 'Invalid token for this portal role');
           }
         }
@@ -1099,6 +1128,8 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
         .eq('user_id', decoded.userId)
         .eq('is_revoked', false);
 
+      await revokeAccessTokens(decoded.userId);
+
       return { message: 'Password reset successfully' };
     } catch (err) {
       if (err.statusCode) throw err;
@@ -1120,14 +1151,9 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
   });
 
   if (expectedRole) {
-    const { data: user } = await supabaseAdmin.from('users').select('role').eq('id', record.user_id).single();
+    const { data: user } = await supabaseAdmin.from('users').select('role, requested_role').eq('id', record.user_id).single();
     if (user) {
-      const roleMatches =
-        user.role === expectedRole ||
-        (expectedRole === 'admin' && user.role === 'super_admin') ||
-        (expectedRole === 'hospital_owner' && user.role === 'hospital_manager') ||
-        (expectedRole === 'ambulance_operator' && user.role === 'ambulance_driver');
-      if (!roleMatches) {
+      if (!authRoleMatches(user, expectedRole)) {
         throw new ApiError(403, 'Invalid reset code for this portal role');
       }
     }
@@ -1156,6 +1182,8 @@ const resetPassword = async ({ token = null, email: rawEmail = null, otp = null,
     .update({ is_revoked: true, revoked_at: new Date().toISOString() })
     .eq('user_id', record.user_id)
     .eq('is_revoked', false);
+
+  await revokeAccessTokens(record.user_id);
 
   return { message: 'Password reset successfully' };
 };

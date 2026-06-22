@@ -341,7 +341,7 @@ export default function LoginPage({ params }: LoginPageProps) {
                             autoComplete="current-password"
                         />
 
-                        <div className="flex items-center justify-between text-sm">
+                        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"

@@ -60,6 +60,7 @@ AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "1500"))
 AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.3"))
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5001").rstrip("/")
 if REDIS_PASSWORD and "@" not in REDIS_URL:
     REDIS_URL = REDIS_URL.replace("redis://", f"redis://:{REDIS_PASSWORD}@")
 AI_INGEST_STREAM = os.getenv("AI_INGEST_STREAM", "telemedicine:vitals:ingest")
@@ -402,6 +403,9 @@ async def vitals_websocket(
     await websocket.accept()
 
     jwt_payload = None
+    if not JWT_SECRET:
+        await websocket.close(code=1011, reason="WebSocket authentication is not configured")
+        return
     if JWT_SECRET:
         if not token:
             await websocket.close(code=4001, reason="Missing auth token")
@@ -416,12 +420,24 @@ async def vitals_websocket(
                 await websocket.close(code=4003, reason="Patient role required")
                 return
 
-            # Optional strict session binding if token carries consultation/session id
-            token_session = jwt_payload.get("session_id") or jwt_payload.get("consultationId")
-            if token_session and str(token_session) != str(session_id):
-                # Temporary fix: Don't disconnect if consultationId doesn't match the WebRTC sessionId
-                # The auth token itself was verified, so the user is legitimate.
-                pass
+            # Access JWTs are user-scoped, not consultation-scoped. Ask the
+            # backend to verify participant ownership before opening the stream.
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    auth_response = await client.get(
+                        f"{BACKEND_URL}/api/vitals/session/{session_id}/authorize",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                if auth_response.status_code != 200:
+                    await websocket.close(code=4003, reason="Session access denied")
+                    return
+                auth_data = auth_response.json().get("data", {})
+                if not auth_data.get("authorized") or auth_data.get("role") != user_role:
+                    await websocket.close(code=4003, reason="Session access denied")
+                    return
+            except (httpx.HTTPError, ValueError, TypeError):
+                await websocket.close(code=1013, reason="Authorization service unavailable")
+                return
         except jwt.ExpiredSignatureError:
             await websocket.close(code=4001, reason="Token expired")
             return

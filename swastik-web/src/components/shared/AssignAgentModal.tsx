@@ -11,19 +11,23 @@ interface AssignAgentModalProps {
     onClose: () => void;
     orderId: string;
     orderType: 'pharmacy' | 'diagnostic';
+    facilityId?: string | null;
+    facilityType?: 'pharmacy' | 'diagnostic_center';
     onAssigned: () => void;
 }
 
-export function AssignAgentModal({ isOpen, onClose, orderId, orderType, onAssigned }: AssignAgentModalProps) {
+export function AssignAgentModal({ isOpen, onClose, orderId, orderType, facilityId, facilityType, onAssigned }: AssignAgentModalProps) {
     const { user } = useAuthStore();
     const { agents, loading, error, fetchAgents, assignAgent } = useDeliveryAgentsStore();
     const [assigningId, setAssigningId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (isOpen && user?.id) {
-            fetchAgents(user.id, (user.role as string) === 'pharmacy' ? 'pharmacy' : 'diagnostic_center');
+        const resolvedFacilityId = facilityId || user?.id;
+        const resolvedFacilityType = facilityType || ((user?.role as string) === 'pharmacy' ? 'pharmacy' : 'diagnostic_center');
+        if (isOpen && resolvedFacilityId) {
+            fetchAgents(resolvedFacilityId, resolvedFacilityType);
         }
-    }, [isOpen, user?.id, fetchAgents]);
+    }, [facilityId, facilityType, isOpen, user?.id, user?.role, fetchAgents]);
 
     const handleAssign = async (agentId: string, phone: string) => {
         setAssigningId(agentId);

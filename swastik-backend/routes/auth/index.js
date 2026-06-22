@@ -170,6 +170,7 @@ router.post('/logout',
   asyncHandler(async (req, res) => {
     const { refreshToken } = req.body;
     const result = await authService.logout(req.user.id, refreshToken);
+    req.app.get('io')?.forceDisconnect?.(req.user.id);
     res.json({
       success: true,
       ...result,
@@ -188,6 +189,7 @@ router.post('/change-password',
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const result = await authService.changePassword(req.user.id, currentPassword, newPassword);
+    req.app.get('io')?.forceDisconnect?.(req.user.id);
     res.json({
       success: true,
       ...result,

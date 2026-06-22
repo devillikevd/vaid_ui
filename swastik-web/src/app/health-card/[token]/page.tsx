@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, getTokens } from '@/lib/api';
 import {
   Activity,
   AlertTriangle,
@@ -200,7 +200,11 @@ function HealthCardContent() {
       setError(null);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/health-card/${token}`, { cache: 'no-store' });
+        const { accessToken } = getTokens();
+        const response = await fetch(`${API_BASE_URL}/health-card/${token}`, {
+          cache: 'no-store',
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        });
         const payload = (await response.json()) as {
           success?: boolean;
           message?: string;

@@ -42,6 +42,22 @@ let refreshToken: string | null = null;
 
 const DEFAULT_AUTH_COOKIE_MAX_AGE = 60 * 60 * 24;
 
+type TokenLike = {
+    accessToken?: string | null;
+    access_token?: string | null;
+    token?: string | null;
+    refreshToken?: string | null;
+    refresh_token?: string | null;
+};
+
+export function resolveAccessToken(payload: TokenLike | null | undefined): string | null {
+    return normalizeStoredToken(payload?.accessToken || payload?.access_token || payload?.token || null);
+}
+
+export function resolveRefreshToken(payload: TokenLike | null | undefined): string | null {
+    return normalizeStoredToken(payload?.refreshToken || payload?.refresh_token || null);
+}
+
 function normalizeStoredToken(token: string | null | undefined): string | null {
     if (!token || token === 'undefined' || token === 'null') {
         return null;
@@ -219,8 +235,9 @@ async function refreshAccessToken(): Promise<boolean> {
 
             if (response.ok) {
                 const data = await response.json();
-                const newAccess = data.data?.accessToken || data.accessToken;
-                const newRefresh = data.data?.refreshToken || data.refreshToken || refreshToken;
+                const tokenPayload = data.data || data;
+                const newAccess = resolveAccessToken(tokenPayload);
+                const newRefresh = resolveRefreshToken(tokenPayload) || refreshToken;
                 if (newAccess) {
                     setTokens(newAccess, newRefresh!);
                     return true;
@@ -247,8 +264,9 @@ export const authApi = {
             body: JSON.stringify({ email, password, role }),
         });
         const data = await response.json();
-        const token = data.data?.accessToken || data.accessToken;
-        const rToken = data.data?.refreshToken || data.refreshToken;
+        const tokenPayload = data.data || data;
+        const token = resolveAccessToken(tokenPayload);
+        const rToken = resolveRefreshToken(tokenPayload);
         const userRole = data.data?.user?.role || data.user?.role || role || null;
         if (response.ok && token) {
             setTokens(token, rToken, { role: userRole });
