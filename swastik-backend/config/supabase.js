@@ -34,36 +34,8 @@ const userClientCache = new Map();
 
 const { createSupabasePHIProxy } = require('../utils/supabaseProxy');
 
-// The Proxy that acts as supabaseAdmin but injects the user's context
-const contextProxy = new Proxy(rawSupabaseAdmin, {
-  get(target, prop) {
-    if (prop === 'auth' || prop === 'realtime') {
-      return target[prop];
-    }
-    const context = asyncLocalStorage.getStore();
-    if (context && context.token) {
-      if (!userClientCache.has(context.token)) {
-        const scopedClient = createClient(config.supabase.url, config.supabase.anonKey, {
-          global: { headers: { Authorization: `Bearer ${context.token}` } },
-          auth: { autoRefreshToken: false, persistSession: false },
-          realtime: { transport: wsConstructor }
-        });
-        userClientCache.set(context.token, scopedClient);
-        setTimeout(() => userClientCache.delete(context.token), 1000 * 60 * 5);
-      }
-      const client = userClientCache.get(context.token);
-      const value = client[prop];
-      if (typeof value === 'function') return value.bind(client);
-      return value;
-    }
-    const value = target[prop];
-    if (typeof value === 'function') return value.bind(target);
-    return value;
-  }
-});
-
-// Combine the context proxy (RLS) with the PHI encryption proxy
-const supabaseAdminProxy = createSupabasePHIProxy(contextProxy);
+// Combine the raw admin client with the PHI encryption proxy
+const supabaseAdminProxy = createSupabasePHIProxy(rawSupabaseAdmin);
 
 // Public client (anon key - respects RLS)
 const supabase = createClient(
