@@ -334,7 +334,7 @@ private fun ActiveOrderTrackingView(
                 )
             )
         }
-        // Delivery agent marker (purple)
+        // Delivery agent marker (orange)
         if (trackingState.agentLocation != null) {
             add(
                 MapMarkerData(
@@ -343,24 +343,30 @@ private fun ActiveOrderTrackingView(
                     longitude = trackingState.agentLocation!!.longitude,
                     title = "Delivery Agent",
                     snippet = "Live Location",
-                    markerColor = android.graphics.Color.parseColor("#673AB7")
+                    markerColor = android.graphics.Color.parseColor("#F59E0B"),
+                    iconRes = com.example.swastik.R.drawable.ic_delivery_bike
                 )
             )
         }
     }
 
-    // Polyline: Pharmacy → Agent → Patient (full route when agent is live)
-    val mapRoute = buildList {
+    var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+
+    LaunchedEffect(trackingState.agentLocation, order.pharmacy?.latitude, order.pharmacy?.longitude, destLat, destLng) {
         val pharmLat = order.pharmacy?.latitude
         val pharmLng = order.pharmacy?.longitude
-        if (pharmLat != null && pharmLng != null && pharmLat != 0.0 && pharmLng != 0.0) {
-            add(GeoPoint(pharmLat, pharmLng))
-        }
-        if (trackingState.agentLocation != null) {
-            add(GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude))
-        }
-        if (hasDestination) {
-            add(GeoPoint(destLat, destLng))
+        val pharmPoint = if (pharmLat != null && pharmLng != null && pharmLat != 0.0 && pharmLng != 0.0) GeoPoint(pharmLat, pharmLng) else null
+        val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+        val destPoint = if (hasDestination) GeoPoint(destLat, destLng) else null
+
+        val startPoint = agentPoint ?: pharmPoint
+        if (startPoint != null && destPoint != null) {
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
+            if (route.isNotEmpty()) {
+                mapRoute = route
+            } else {
+                mapRoute = listOfNotNull(pharmPoint, agentPoint, destPoint).distinct()
+            }
         }
     }
 

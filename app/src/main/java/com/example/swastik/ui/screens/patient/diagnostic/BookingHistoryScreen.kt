@@ -300,7 +300,7 @@ private fun ActiveBookingTrackingView(
             )
         }
         
-        // Phlebotomist marker (purple)
+        // Phlebotomist marker (orange)
         if (!isWalkIn && trackingState.agentLocation != null) {
             add(
                 MapMarkerData(
@@ -309,23 +309,29 @@ private fun ActiveBookingTrackingView(
                     longitude = trackingState.agentLocation!!.longitude,
                     title = "Phlebotomist",
                     snippet = "Live Location",
-                    markerColor = android.graphics.Color.parseColor("#673AB7")
+                    markerColor = android.graphics.Color.parseColor("#F59E0B"),
+                    iconRes = com.example.swastik.R.drawable.ic_delivery_bike,
                 )
             )
         }
     }
 
-    // Polyline: Center → Agent → Patient
-    val mapRoute = buildList {
+    var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+
+    LaunchedEffect(trackingState.agentLocation, centerLat, centerLng, destLat, destLng, isWalkIn) {
         if (!isWalkIn) {
-            if (centerLat != 0.0 && centerLng != 0.0) {
-                add(GeoPoint(centerLat, centerLng))
-            }
-            if (trackingState.agentLocation != null) {
-                add(GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude))
-            }
-            if (destLat != 0.0) {
-                add(GeoPoint(destLat, destLng))
+            val centerPoint = if (centerLat != 0.0 && centerLng != 0.0) GeoPoint(centerLat, centerLng) else null
+            val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+            val destPoint = if (destLat != 0.0) GeoPoint(destLat, destLng) else null
+
+            val startPoint = agentPoint ?: centerPoint
+            if (startPoint != null && destPoint != null) {
+                val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
+                if (route.isNotEmpty()) {
+                    mapRoute = route
+                } else {
+                    mapRoute = listOfNotNull(centerPoint, agentPoint, destPoint).distinct()
+                }
             }
         }
     }

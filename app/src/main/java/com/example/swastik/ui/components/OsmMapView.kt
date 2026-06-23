@@ -132,7 +132,11 @@ fun OsmMapView(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = markerData.title
                     snippet = markerData.snippet
-                    icon = getTintedPinDrawable(context, markerData.markerColor)
+                    if (markerData.iconRes != null) {
+                        icon = androidx.core.content.ContextCompat.getDrawable(context, markerData.iconRes)
+                    } else {
+                        icon = getTintedPinDrawable(context, markerData.markerColor)
+                    }
                     if (markerData.onClick != null) {
                         setOnMarkerClickListener { _, _ ->
                             markerData.onClick.invoke()

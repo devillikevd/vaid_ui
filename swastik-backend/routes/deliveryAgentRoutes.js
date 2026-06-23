@@ -30,7 +30,7 @@ const normalizeAddress = (address) => {
 const getFacilityOwner = async (facilityType, facilityId) => {
     const table = facilityType === 'pharmacy'
         ? 'pharmacies'
-        : facilityType === 'diagnostic_center'
+        : facilityType === 'diagnostic'
             ? 'diagnostic_centers'
             : facilityType === 'hospital'
                 ? 'hospitals'
@@ -48,7 +48,7 @@ router.get('/facility/:facilityId', authenticate, requireRole(...DELIVERY_MANAGE
         
         let table;
         if (facility_type === 'pharmacy') table = 'pharmacies';
-        else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+        else if (facility_type === 'diagnostic_center' || facility_type === 'diagnostic') table = 'diagnostic_centers';
         else if (facility_type === 'hospital') table = 'hospitals';
         else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
 
@@ -66,7 +66,7 @@ router.get('/facility/:facilityId', authenticate, requireRole(...DELIVERY_MANAGE
         facilityId = facility.id; // use the real facility ID
 
         if (!ADMIN_ROLES.has(req.user.role)) {
-            if (facility.owner_id !== req.user.id) {
+            console.log("DEBUG ADD AGENT: facility.owner_id =", facility.owner_id, "req.user.id =", req.user.id); if (String(facility.owner_id).trim() !== String(req.user.id).trim()) { console.error("DEBUG 403: owner=", facility.owner_id, "user=", req.user.id, "facility_id=", facility_id);
                 return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
             }
         }
@@ -77,7 +77,14 @@ router.get('/facility/:facilityId', authenticate, requireRole(...DELIVERY_MANAGE
             .eq('facility_id', facilityId);
             
         if (error) throw error;
-        res.json({ success: true, agents: data });
+        
+        // Map 'diagnostic' back to 'diagnostic_center' for frontend compatibility
+        const mappedData = data.map(agent => ({
+            ...agent,
+            facility_type: agent.facility_type === 'diagnostic' ? 'diagnostic_center' : agent.facility_type
+        }));
+        
+        res.json({ success: true, agents: mappedData });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -90,7 +97,7 @@ router.post('/', authenticate, requireRole(...DELIVERY_MANAGER_ROLES), async (re
         
         let table;
         if (facility_type === 'pharmacy') table = 'pharmacies';
-        else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+        else if (facility_type === 'diagnostic_center' || facility_type === 'diagnostic') table = 'diagnostic_centers';
         else if (facility_type === 'hospital') table = 'hospitals';
         else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
 
@@ -109,18 +116,25 @@ router.post('/', authenticate, requireRole(...DELIVERY_MANAGER_ROLES), async (re
 
         // Verify facility ownership
         if (!ADMIN_ROLES.has(req.user.role)) {
-            if (facility.owner_id !== req.user.id) {
+            console.log("DEBUG ADD AGENT: facility.owner_id =", facility.owner_id, "req.user.id =", req.user.id); if (String(facility.owner_id).trim() !== String(req.user.id).trim()) { console.error("DEBUG 403: owner=", facility.owner_id, "user=", req.user.id, "facility_id=", facility_id);
                 return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
             }
         }
 
+        // The database check constraint requires 'diagnostic' not 'diagnostic_center'
+        const db_facility_type = facility_type === 'diagnostic_center' ? 'diagnostic' : facility_type;
+
         const { data, error } = await supabaseAdmin
             .from('delivery_agents')
-            .insert([{ facility_id, facility_type, name, phone, vehicle_details }])
+            .insert([{ facility_id, facility_type: db_facility_type, name, phone, vehicle_details }])
             .select()
             .single();
             
         if (error) throw error;
+        
+        if (data.facility_type === 'diagnostic') {
+            data.facility_type = 'diagnostic_center';
+        }
         res.json({ success: true, agent: data });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -140,7 +154,7 @@ router.delete('/:id', authenticate, requireRole(...DELIVERY_MANAGER_ROLES), asyn
             }
             let table;
             if (agent.facility_type === 'pharmacy') table = 'pharmacies';
-            else if (agent.facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+            else if (agent.facility_type === 'diagnostic_center' || agent.facility_type === 'diagnostic') table = 'diagnostic_centers';
             else if (agent.facility_type === 'hospital') table = 'hospitals';
             else return res.status(400).json({ success: false, message: 'Invalid facility_type for agent' });
 
@@ -173,7 +187,7 @@ router.post('/assign', authenticate, requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN,
         
         // Update the order/booking
         const table = order_type === 'pharmacy' ? 'pharmacy_orders' : 'diagnostic_bookings';
-        const facilityType = order_type === 'pharmacy' ? 'pharmacy' : 'diagnostic_center';
+        const facilityType = order_type === 'pharmacy' ? 'pharmacy' : 'diagnostic';
         const facilityColumn = order_type === 'pharmacy' ? 'pharmacy_id' : 'center_id';
         const requiredRole = order_type === 'pharmacy' ? ROLES.PHARMACY_OWNER : ROLES.DIAGNOSTIC_CENTER_OWNER;
 
@@ -280,7 +294,7 @@ router.get('/track/:token', async (req, res) => {
             .single();
             
         if (pharmacyOrder) {
-            return res.json({ success: true, order: stripToPublic(pharmacyOrder), type: 'pharmacy' });
+            return res.json({ success: true, order: stripToPublic(pharmacyOrder, 'pharmacy'), type: 'pharmacy' });
         }
         
         // Check diagnostic bookings
@@ -291,7 +305,7 @@ router.get('/track/:token', async (req, res) => {
             .single();
             
         if (diagnosticBooking) {
-            return res.json({ success: true, order: stripToPublic(diagnosticBooking), type: 'diagnostic' });
+            return res.json({ success: true, order: stripToPublic(diagnosticBooking, 'diagnostic'), type: 'diagnostic' });
         }
         
         res.status(404).json({ success: false, message: 'Invalid tracking token' });
@@ -414,7 +428,7 @@ router.post('/location', optionalAuth, async (req, res) => {
             if (agent.user_id !== req.user.id) {
                  let table;
                  if (agent.facility_type === 'pharmacy') table = 'pharmacies';
-                 else if (agent.facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+                 else if (agent.facility_type === 'diagnostic_center' || agent.facility_type === 'diagnostic') table = 'diagnostic_centers';
                  else if (agent.facility_type === 'hospital') table = 'hospitals';
                  else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
 

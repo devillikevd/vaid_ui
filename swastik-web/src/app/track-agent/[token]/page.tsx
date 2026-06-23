@@ -199,7 +199,7 @@ export default function TrackAgentPage() {
                                 <Button 
                                     className="w-full mt-4" 
                                     size="lg" 
-                                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`, '_blank')}
+                                    onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(typeof address === "string" ? address.split("|")[0].trim() : address?.address?.split("|")[0].trim() || address)}`, '_blank')}
                                 >
                                     Open in Google Maps
                                 </Button>

@@ -60,17 +60,26 @@ fun OrderTrackingScreen(
                     longitude = state.agentLocation!!.longitude,
                     title = "Delivery Agent",
                     snippet = "Live Location",
-                    markerColor = android.graphics.Color.parseColor("#673AB7") // Purple
+                    markerColor = android.graphics.Color.parseColor("#673AB7"),
+                    iconRes = com.example.swastik.R.drawable.ic_delivery_bike
                 )
             )
         }
     }
 
-    val mapRoute = buildList {
-        if (state.agentLocation != null) {
-            add(GeoPoint(state.agentLocation!!.latitude, state.agentLocation!!.longitude))
+    var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+
+    LaunchedEffect(state.agentLocation, destLat, destLng) {
+        val agentPoint = state.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+        val destPoint = GeoPoint(destLat, destLng)
+        if (agentPoint != null) {
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(agentPoint, destPoint)
+            if (route.isNotEmpty()) {
+                mapRoute = route
+            } else {
+                mapRoute = listOf(agentPoint, destPoint)
+            }
         }
-        add(GeoPoint(destLat, destLng))
     }
 
     Scaffold(

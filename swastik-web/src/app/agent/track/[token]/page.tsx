@@ -100,7 +100,7 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
         const rawAddr = type === 'pharmacy' ? order.delivery_address : order.collection_address;
         const addrStr = typeof rawAddr === 'string' ? rawAddr : rawAddr?.address;
         if (addrStr) {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addrStr)}`, '_blank');
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addrStr ? addrStr.split("|")[0].trim() : "")}`, '_blank');
         }
     };
 
