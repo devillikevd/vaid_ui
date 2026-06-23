@@ -43,18 +43,30 @@ const getFacilityOwner = async (facilityType, facilityId) => {
 // 1. Get all agents for a facility
 router.get('/facility/:facilityId', authenticate, requireRole(...DELIVERY_MANAGER_ROLES), async (req, res) => {
     try {
-        const { facilityId } = req.params;
+        let { facilityId } = req.params;
         const { facility_type } = req.query; // Expect facility_type to know which table to check
         
-        if (!ADMIN_ROLES.has(req.user.role)) {
-            let table;
-            if (facility_type === 'pharmacy') table = 'pharmacies';
-            else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
-            else if (facility_type === 'hospital') table = 'hospitals';
-            else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
+        let table;
+        if (facility_type === 'pharmacy') table = 'pharmacies';
+        else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+        else if (facility_type === 'hospital') table = 'hospitals';
+        else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
 
-            const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', facilityId).single();
-            if (!facility || facility.owner_id !== req.user.id) {
+        // Frontend often passes user.id instead of facility.id, so let's resolve it
+        let { data: facility } = await supabaseAdmin.from(table).select('id, owner_id').eq('id', facilityId).maybeSingle();
+        if (!facility) {
+            const { data: owned } = await supabaseAdmin.from(table).select('id, owner_id').eq('owner_id', facilityId).limit(1).maybeSingle();
+            if (owned) facility = owned;
+        }
+
+        if (!facility) {
+             return res.status(404).json({ success: false, message: 'Facility not found' });
+        }
+        
+        facilityId = facility.id; // use the real facility ID
+
+        if (!ADMIN_ROLES.has(req.user.role)) {
+            if (facility.owner_id !== req.user.id) {
                 return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
             }
         }
@@ -74,18 +86,30 @@ router.get('/facility/:facilityId', authenticate, requireRole(...DELIVERY_MANAGE
 // 2. Add new agent
 router.post('/', authenticate, requireRole(...DELIVERY_MANAGER_ROLES), async (req, res) => {
     try {
-        const { facility_id, facility_type, name, phone, vehicle_details } = req.body;
+        let { facility_id, facility_type, name, phone, vehicle_details } = req.body;
         
+        let table;
+        if (facility_type === 'pharmacy') table = 'pharmacies';
+        else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
+        else if (facility_type === 'hospital') table = 'hospitals';
+        else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
+
+        // Frontend often passes user.id instead of facility.id, so let's resolve it
+        let { data: facility } = await supabaseAdmin.from(table).select('id, owner_id').eq('id', facility_id).maybeSingle();
+        if (!facility) {
+            const { data: owned } = await supabaseAdmin.from(table).select('id, owner_id').eq('owner_id', facility_id).limit(1).maybeSingle();
+            if (owned) facility = owned;
+        }
+
+        if (!facility) {
+            return res.status(404).json({ success: false, message: 'Facility not found' });
+        }
+
+        facility_id = facility.id; // use the real facility ID
+
         // Verify facility ownership
         if (!ADMIN_ROLES.has(req.user.role)) {
-            let table;
-            if (facility_type === 'pharmacy') table = 'pharmacies';
-            else if (facility_type === 'diagnostic_center') table = 'diagnostic_centers';
-            else if (facility_type === 'hospital') table = 'hospitals';
-            else return res.status(400).json({ success: false, message: 'Invalid facility_type' });
-
-            const { data: facility } = await supabaseAdmin.from(table).select('owner_id').eq('id', facility_id).single();
-            if (!facility || facility.owner_id !== req.user.id) {
+            if (facility.owner_id !== req.user.id) {
                 return res.status(403).json({ success: false, message: 'Unauthorized: You do not own this facility' });
             }
         }
