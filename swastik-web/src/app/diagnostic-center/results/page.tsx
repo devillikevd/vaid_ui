@@ -48,7 +48,7 @@ export default function ResultsPage() {
         fetchResults({
             page,
             limit: pageSize,
-            resultStatus: resultStatusFilter || undefined,
+            resultStatus: resultStatusFilter || 'all',
             search: debouncedSearch || undefined,
         });
     }, [debouncedSearch, fetchResults, page, resultStatusFilter]);
@@ -67,7 +67,7 @@ export default function ResultsPage() {
             fetchResults({
                 page,
                 limit: pageSize,
-                resultStatus: resultStatusFilter || undefined,
+                resultStatus: resultStatusFilter || 'all',
                 search: debouncedSearch || undefined,
             });
         }

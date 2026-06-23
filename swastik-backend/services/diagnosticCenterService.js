@@ -471,7 +471,15 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
       ? query.in('status', statusFilters)
       : query.eq('status', statusFilters[0]);
   }
-  if (filters.resultStatus && filters.resultStatus !== 'all') query = query.eq('result_status', filters.resultStatus);
+  if (filters.resultStatus) {
+    if (filters.resultStatus !== 'all') {
+      query = query.eq('result_status', filters.resultStatus);
+    }
+    // If we're filtering results, don't show cancelled bookings (which stay result_status=pending)
+    if (filters.resultStatus === 'pending' || filters.resultStatus === 'processing' || filters.resultStatus === 'all') {
+      query = query.neq('status', 'cancelled');
+    }
+  }
   if (filters.date) query = query.eq('booking_date', filters.date);
 
   const { data, error } = await query.order('created_at', { ascending: false });
@@ -492,7 +500,9 @@ const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   const summary = filteredData.reduce((acc, booking) => {
     acc.total += 1;
     acc.status[booking.status] = (acc.status[booking.status] || 0) + 1;
-    acc.resultStatus[booking.result_status] = (acc.resultStatus[booking.result_status] || 0) + 1;
+    if (booking.status !== 'cancelled') {
+      acc.resultStatus[booking.result_status] = (acc.resultStatus[booking.result_status] || 0) + 1;
+    }
     return acc;
   }, { total: 0, status: {}, resultStatus: {} });
   return {
