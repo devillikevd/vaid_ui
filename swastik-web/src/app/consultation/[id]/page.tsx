@@ -613,25 +613,25 @@ export default function VideoConsultation() {
 
     // Handle incoming WebRTC signaling
     useEffect(() => {
-        if (offer) {
+        if (offer && isPeerReady && peerConnectionRef.current && !hasInitiatedOfferRef.current) {
             handleIncomingOffer(offer);
         }
-    }, [offer]);
+    }, [offer, isPeerReady]);
 
     useEffect(() => {
-        if (answer && peerConnectionRef.current) {
+        if (answer && isPeerReady && peerConnectionRef.current) {
             handleIncomingAnswer(answer);
         }
-    }, [answer]);
+    }, [answer, isPeerReady]);
 
     useEffect(() => {
-        if (iceCandidates && iceCandidates.length > 0 && peerConnectionRef.current) {
+        if (iceCandidates && iceCandidates.length > 0 && isPeerReady && peerConnectionRef.current) {
             iceCandidates.forEach((candidate) => {
                 handleIncomingIceCandidate(candidate);
             });
             consumeIceCandidates();
         }
-    }, [iceCandidates, consumeIceCandidates]);
+    }, [iceCandidates, consumeIceCandidates, isPeerReady]);
 
     // When remote user joins, initiate connection
     useEffect(() => {
@@ -979,7 +979,13 @@ export default function VideoConsultation() {
         };
 
         pc.oniceconnectionstatechange = () => {
-            if (pc.iceConnectionState === 'failed') restartMediaNegotiation();
+            const state = pc.iceConnectionState;
+            if (state === 'connected' || state === 'completed') {
+                setIsConnected(true);
+                setModeBannerSafe(null);
+            } else if (state === 'failed') {
+                restartMediaNegotiation();
+            }
         };
     };
 
@@ -1328,7 +1334,7 @@ export default function VideoConsultation() {
                         />
 
                         {/* Placeholder when no remote video */}
-                        {(!remoteStreamReady || !isConnected) && (
+                        {!remoteStreamReady && (
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center">
                                     <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400">
