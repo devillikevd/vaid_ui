@@ -764,7 +764,9 @@ class DoctorService {
 
     // Accept both backend-native slot shape and web UI shape.
     // Prevent invalid rows like slot_date = null
-    const slotsJson = slots.map((slot) => {
+    const slotsJson = [];
+    
+    slots.forEach((slot) => {
       const slot_date = slot.slot_date || slot.date || slot.slotDate;
       const start_time = normalizeTime24(slot.startTime ?? slot.start_time);
       const end_time = normalizeTime24(slot.endTime ?? slot.end_time);
@@ -776,11 +778,35 @@ class DoctorService {
 
       const startMinutes = toMinutes(start_time);
       const endMinutes = toMinutes(end_time);
-      if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
-        throw new ApiError(400, 'Invalid slot range. endTime must be after startTime.');
+      if (startMinutes === null || endMinutes === null) {
+        throw new ApiError(400, 'Invalid slot times provided.');
       }
 
-      return { slot_date, start_time, end_time, is_active };
+      if (startMinutes >= endMinutes) {
+        // Spans past midnight - Split into two slots
+        // 1. Current day slot (start_time to 23:59:00)
+        slotsJson.push({
+          slot_date,
+          start_time,
+          end_time: '23:59:00',
+          is_active
+        });
+
+        // Calculate next day date
+        const nextDate = new Date(slot_date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        const nextDateString = nextDate.toISOString().split('T')[0];
+
+        // 2. Next day slot (00:00:00 to end_time)
+        slotsJson.push({
+          slot_date: nextDateString,
+          start_time: '00:00:00',
+          end_time,
+          is_active
+        });
+      } else {
+        slotsJson.push({ slot_date, start_time, end_time, is_active });
+      }
     });
 
     const canUseRpc = slotsJson.every((slot) => slot.is_active === true);

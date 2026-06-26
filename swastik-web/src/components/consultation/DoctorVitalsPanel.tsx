@@ -376,7 +376,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                             </div>
                                             <div className="flex flex-col justify-center">
                                                 <div className="text-white font-semibold text-sm">
-                                                    {latestProof.modelType.toUpperCase()}: {latestProof.predictionResult}
+                                                    {latestProof.modelType?.toUpperCase()}: {latestProof.predictionResult}
                                                 </div>
                                                 <div className="text-emerald-400 text-xs mt-1 font-medium">
                                                     Confidence: {(latestProof.confidence * 100).toFixed(1)}%

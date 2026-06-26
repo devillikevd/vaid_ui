@@ -953,7 +953,6 @@ export default function VideoConsultation() {
                 resumeRemotePlayback();
                 setRemoteStreamReady(remoteStream.getVideoTracks().length > 0 || remoteStream.getAudioTracks().length > 0);
             }
-            setIsConnected(true);
         };
 
         // Handle ICE candidates
@@ -1329,7 +1328,7 @@ export default function VideoConsultation() {
                         />
 
                         {/* Placeholder when no remote video */}
-                        {!remoteStreamReady && (
+                        {(!remoteStreamReady || !isConnected) && (
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="text-center">
                                     <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-400">
