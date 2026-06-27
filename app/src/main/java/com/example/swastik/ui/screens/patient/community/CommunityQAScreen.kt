@@ -99,6 +99,7 @@ fun CommunityQAScreen(
                         QuestionCard(
                             question = question,
                             isOwner = isOwner,
+                            hasUpvoted = viewModel.hasUpvoted(question.id),
                             onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.CommunityQADetails.createRoute(question.id)) },
                             onUpvote = { viewModel.upvoteQuestion(question.id) },
                             onDelete = {
@@ -129,6 +130,7 @@ fun CommunityQAScreen(
 fun QuestionCard(
     question: CommunityQuestion,
     isOwner: Boolean = false,
+    hasUpvoted: Boolean = false,
     onClick: () -> Unit,
     onUpvote: () -> Unit,
     onDelete: () -> Unit = {}
@@ -222,15 +224,19 @@ fun QuestionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onUpvote, modifier = Modifier.size(24.dp)) {
+                    IconButton(
+                        onClick = onUpvote, 
+                        modifier = Modifier.size(24.dp),
+                        enabled = !hasUpvoted
+                    ) {
                         Icon(
                             Icons.Default.ThumbUp,
                             contentDescription = "Upvote",
-                            tint = MaterialTheme.colorScheme.outline
+                            tint = if (hasUpvoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${question.upvotes}", fontSize = 14.sp, color = MaterialTheme.colorScheme.outline)
+                    Text("${question.upvotes}", fontSize = 14.sp, color = if (hasUpvoted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(

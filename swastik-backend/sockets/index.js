@@ -804,6 +804,18 @@ const initializeSocketIO = (io) => {
 
     // ==================== DISCONNECT ====================
 
+    socket.on('disconnecting', () => {
+      for (const room of socket.rooms) {
+        if (room.startsWith('video:')) {
+          const roomId = room.split(':')[1];
+          socket.to(room).emit('video:user-left', {
+            userId: userId,
+          });
+          logSignalingEvent(roomId, userId, 'leave', { reason: 'abrupt_disconnect' });
+        }
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`🔌 User disconnected: ${userId} (${reason})`);
       // Clean up Redis connection tracking

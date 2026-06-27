@@ -97,6 +97,7 @@ fun CommunityQADetailsScreen(
                         AnswerCard(
                             answer = answer,
                             isQuestionOwner = isQuestionOwner,
+                            hasUpvoted = viewModel.hasUpvoted(answer.id),
                             onUpvote = { viewModel.upvoteAnswer(answer.id) },
                             onDelete = { viewModel.deleteAnswer(answer.id, q.id) }
                         )
@@ -190,7 +191,13 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
 }
 
 @Composable
-fun AnswerCard(answer: CommunityAnswer, isQuestionOwner: Boolean = false, onUpvote: () -> Unit = {}, onDelete: () -> Unit = {}) {
+fun AnswerCard(
+    answer: CommunityAnswer, 
+    isQuestionOwner: Boolean = false, 
+    hasUpvoted: Boolean = false,
+    onUpvote: () -> Unit = {}, 
+    onDelete: () -> Unit = {}
+) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -277,10 +284,18 @@ fun AnswerCard(answer: CommunityAnswer, isQuestionOwner: Boolean = false, onUpvo
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onUpvote) {
-                    Icon(Icons.Default.ThumbUp, contentDescription = "Upvote", modifier = Modifier.size(16.dp))
+                TextButton(onClick = onUpvote, enabled = !hasUpvoted) {
+                    Icon(
+                        Icons.Default.ThumbUp, 
+                        contentDescription = "Upvote", 
+                        modifier = Modifier.size(16.dp),
+                        tint = if (hasUpvoted) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Helpful (${answer.upvotes})")
+                    Text(
+                        text = if (hasUpvoted) "Upvoted (${answer.upvotes})" else "Helpful (${answer.upvotes})",
+                        color = if (hasUpvoted) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                    )
                 }
             }
         }

@@ -657,4 +657,6 @@
     <string name="video_consultation_desc">Video Consultation — Connect with doctors online</string>
     <string name="learn_how_to_book">Learn how to book an appointment</string>
     <string name="search_symptoms_specialities">Search Symptoms / Specialities</string>
+    <string name="resume_video_consultation">Resume Video Consultation</string>
+
 </resources>

@@ -187,4 +187,18 @@ class TokenManager @Inject constructor(
     fun getAccessTokenSync(): String? {
         return accessToken
     }
+
+    /**
+     * Local upvote tracking to prevent multiple likes from the same device
+     */
+    fun hasUpvoted(id: String): Boolean {
+        val upvoted = sharedPreferences.getStringSet("upvoted_items", mutableSetOf())
+        return upvoted?.contains(id) ?: false
+    }
+
+    fun addUpvoted(id: String) {
+        val upvoted = sharedPreferences.getStringSet("upvoted_items", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        upvoted.add(id)
+        sharedPreferences.edit().putStringSet("upvoted_items", upvoted).apply()
+    }
 }

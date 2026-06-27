@@ -8,7 +8,11 @@ class CommunityService {
       .select(`
         *,
         patient:patients(id, user_id, name, profile_image_url),
-        answers:community_answers(count)
+        answers:community_answers(
+          *,
+          doctor:doctors(id, user_id, name, specialization, profile_image_url),
+          patient:patients(id, name, profile_image_url)
+        )
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -18,7 +22,7 @@ class CommunityService {
     return {
       questions: questions.map(q => ({
         ...q,
-        answer_count: q.answers?.[0]?.count || 0
+        answer_count: q.answers?.length || 0
       })),
       total: count
     };
@@ -32,7 +36,7 @@ class CommunityService {
         patient:patients(id, user_id, name, profile_image_url),
         answers:community_answers(
           *,
-          doctor:doctors(id, name, specialization, profile_image_url),
+          doctor:doctors(id, user_id, name, specialization, profile_image_url),
           patient:patients(id, name, profile_image_url)
         )
       `)
@@ -99,7 +103,7 @@ class CommunityService {
       })
       .select(`
         *,
-        doctor:doctors(id, name, specialization, profile_image_url),
+        doctor:doctors(id, user_id, name, specialization, profile_image_url),
         patient:patients(id, name, profile_image_url)
       `)
       .single();
@@ -111,6 +115,40 @@ class CommunityService {
 
     return answer;
   }
+
+  async updateAnswer(userId, answerId, content) {
+    const { data: doctor } = await rawSupabaseAdmin
+      .from('doctors')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!doctor) throw new ApiError(403, 'Unauthorized');
+
+    const { data: currentAnswer } = await rawSupabaseAdmin
+      .from('community_answers')
+      .select('doctor_id')
+      .eq('id', answerId)
+      .single();
+
+    if (!currentAnswer) throw new ApiError(404, 'Answer not found');
+    if (currentAnswer.doctor_id !== doctor.id) throw new ApiError(403, 'You can only edit your own answers');
+
+    const { data: answer, error } = await rawSupabaseAdmin
+      .from('community_answers')
+      .update({ content })
+      .eq('id', answerId)
+      .select(`
+        *,
+        doctor:doctors(id, user_id, name, specialization, profile_image_url),
+        patient:patients(id, name, profile_image_url)
+      `)
+      .single();
+
+    if (error) throw new ApiError(400, 'Failed to update answer');
+    return answer;
+  }
+
 
   async upvoteQuestion(questionId) {
     const { data: question, error } = await rawSupabaseAdmin

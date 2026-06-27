@@ -26,6 +26,7 @@ export interface Appointment {
     type: 'In-Person' | 'Video' | 'video' | 'clinic';
     status: string;
     reason?: string;
+    consultation_id?: string;
     fee?: number;
     notes?: string;
     patient?: { id: string; name: string; phone?: string };

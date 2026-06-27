@@ -1304,6 +1304,14 @@ export const communityApi = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content })
+    }),
+    editAnswer: (answerId: string, content: string) => fetchWithAuth(`/community/answers/${answerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    }),
+    deleteAnswer: (answerId: string) => fetchWithAuth(`/community/answers/${answerId}`, {
+        method: 'DELETE'
     })
 };
 

@@ -23,12 +23,12 @@ const expirePastAppointments = async () => {
     });
     const currentTimeStr = istTimeFormatter.format(now);
 
-    // Find appointments that are still scheduled/confirmed but are in the past
+    // Find appointments that are still scheduled/confirmed/in_progress but are in the past
     // condition: date < today OR (date == today AND time < currentTime)
     const { data: pastAppointments, error: fetchError } = await supabaseAdmin
       .from('appointments')
       .select('id, appointment_date, time_slot')
-      .in('status', ['scheduled', 'confirmed'])
+      .in('status', ['scheduled', 'confirmed', 'in_progress'])
       .lte('appointment_date', todayStr);
 
     if (fetchError) throw fetchError;

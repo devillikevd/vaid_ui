@@ -24,6 +24,7 @@ import { useDoctorStore, type Appointment } from '@/stores/doctorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppointmentUpdates, type AppointmentUpdate } from '@/hooks/useSocket';
 import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/KeyboardShortcutHelp';
+import { api } from '@/lib/api';
 
 export default function DoctorDashboard() {
     const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, fetchReviews, reviews, loadingReviews } = useDoctorStore();
@@ -97,6 +98,21 @@ export default function DoctorDashboard() {
             setLaunchingAppointmentId(null);
         }
     }, [router, startConsultation]);
+
+    const handleEndConsultation = useCallback(async (appointment: Appointment) => {
+        if (!confirm('Are you sure you want to forcefully end this consultation? This will clear it from your active session.')) return;
+        try {
+            if (appointment.consultation_id) {
+                await api.consultations.end(appointment.consultation_id);
+            } else {
+                await api.appointments.updateStatus(appointment.id, 'completed');
+            }
+            fetchDashboardData();
+        } catch (error) {
+            console.error('Failed to end consultation', error);
+            alert('Failed to end consultation. Please try again.');
+        }
+    }, [fetchDashboardData]);
 
     // Stats configuration using real data
     const STATS = [
@@ -222,14 +238,25 @@ export default function DoctorDashboard() {
                                     <div className="flex items-center gap-3">
                                         <StatusBadge status={appointment.status} size="sm" />
                                         {consultationReady && (
-                                            <Button
-                                                size="sm"
-                                                className="bg-emerald-600 hover:bg-emerald-700"
-                                                disabled={isLaunching}
-                                                onClick={() => handleOpenConsultation(appointment)}
-                                            >
-                                                {isLaunching ? 'Opening...' : consultationLive ? 'Join Call' : 'Start Call'}
-                                            </Button>
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                                    disabled={isLaunching}
+                                                    onClick={() => handleOpenConsultation(appointment)}
+                                                >
+                                                    {isLaunching ? 'Opening...' : consultationLive ? 'Join Call' : 'Start Call'}
+                                                </Button>
+                                                {consultationLive && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="danger"
+                                                        onClick={() => handleEndConsultation(appointment)}
+                                                    >
+                                                        End Call
+                                                    </Button>
+                                                )}
+                                            </>
                                         )}
                                         {!consultationReady && ['scheduled', 'confirmed'].includes(appointment.status) && (
                                             <Button size="sm" variant="outline" onClick={() => router.push(`/doctor/appointments`)}>

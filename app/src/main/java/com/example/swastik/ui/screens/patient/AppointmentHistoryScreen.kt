@@ -370,7 +370,7 @@ private fun AppointmentCard(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val status = appointment.status.lowercase()
-    val isUpcoming = status == "scheduled" || status == "confirmed"
+    val isUpcoming = status == "scheduled" || status == "confirmed" || status == "in_progress"
     val isCompleted = status == "completed"
     val isCancelled = status == "cancelled"
     val doctorName = appointment.doctor?.name ?: "Doctor"
@@ -513,7 +513,8 @@ private fun AppointmentCard(
                     Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.start_video_consultation), fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val buttonText = if (status == "in_progress") stringResource(R.string.resume_video_consultation) else stringResource(R.string.start_video_consultation)
+                        Text(buttonText, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Surface(

@@ -47,6 +47,16 @@ exports.addAnswer = async (req, res, next) => {
   }
 };
 
+exports.updateAnswer = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    const result = await communityService.updateAnswer(req.user.id, req.params.id, content);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.upvoteQuestion = async (req, res, next) => {
   try {
     const result = await communityService.upvoteQuestion(req.params.id);

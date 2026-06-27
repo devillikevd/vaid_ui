@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { MessageCircleQuestion, Send, User, Loader2, ArrowUp, Calendar } from 'lucide-react';
+import { MessageCircleQuestion, Send, User, Loader2, ArrowUp, Calendar, Edit2, Trash2, X } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 import { Pagination, usePagination } from '@/components/ui/Pagination';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function DoctorCommunityPage() {
     const [questions, setQuestions] = useState<any[]>([]);
@@ -18,6 +19,11 @@ export default function DoctorCommunityPage() {
     const [answeringId, setAnsweringId] = useState<string | null>(null);
     const [answerContent, setAnswerContent] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // For editing/deleting
+    const { user } = useAuthStore();
+    const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
 
     const loadQuestions = useCallback(async () => {
         setLoading(true);
@@ -58,6 +64,39 @@ export default function DoctorCommunityPage() {
             alert(err.message || 'An error occurred');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleEditSubmit = async (answerId: string) => {
+        if (!editContent.trim()) return;
+        setSubmitting(true);
+        try {
+            const response = await api.community.editAnswer(answerId, editContent);
+            if (response.success) {
+                setEditingAnswerId(null);
+                setEditContent('');
+                loadQuestions();
+            } else {
+                alert(response.error || 'Failed to update answer');
+            }
+        } catch (err: any) {
+            alert(err.message || 'An error occurred');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteAnswer = async (answerId: string) => {
+        if (!confirm('Are you sure you want to delete this answer?')) return;
+        try {
+            const response = await api.community.deleteAnswer(answerId);
+            if (response.success) {
+                loadQuestions();
+            } else {
+                alert(response.error || 'Failed to delete answer');
+            }
+        } catch (err: any) {
+            alert(err.message || 'An error occurred');
         }
     };
 
@@ -106,11 +145,42 @@ export default function DoctorCommunityPage() {
                             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Answers ({q.answers.length})</h4>
                                 {q.answers.map((a: any) => (
-                                    <div key={a.id} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg text-sm">
-                                        <p className="text-gray-800 dark:text-gray-200">{a.content}</p>
-                                        <p className="text-gray-500 mt-1 text-xs font-medium">
-                                            Dr. {a.doctor?.name || 'Unknown Doctor'}
-                                        </p>
+                                    <div key={a.id} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg text-sm group relative">
+                                        {editingAnswerId === a.id ? (
+                                            <div className="flex flex-col gap-2">
+                                                <Input
+                                                    value={editContent}
+                                                    onChange={(e) => setEditContent(e.target.value)}
+                                                    className="w-full text-sm"
+                                                    autoFocus
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <Button size="sm" variant="ghost" onClick={() => setEditingAnswerId(null)}>Cancel</Button>
+                                                    <Button size="sm" onClick={() => handleEditSubmit(a.id)} disabled={!editContent.trim() || submitting}>
+                                                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p className="text-gray-800 dark:text-gray-200">{a.content}</p>
+                                                <div className="flex justify-between items-end mt-1">
+                                                    <p className="text-gray-500 text-xs font-medium">
+                                                        Dr. {a.doctor?.name || 'Unknown Doctor'}
+                                                    </p>
+                                                    {a.doctor?.user_id === user?.id && (
+                                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button onClick={() => { setEditingAnswerId(a.id); setEditContent(a.content); }} className="text-gray-400 hover:text-blue-600">
+                                                                <Edit2 className="h-3 w-3" />
+                                                            </button>
+                                                            <button onClick={() => handleDeleteAnswer(a.id)} className="text-gray-400 hover:text-red-600">
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))}
                             </div>

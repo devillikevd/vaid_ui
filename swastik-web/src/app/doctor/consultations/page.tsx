@@ -55,7 +55,8 @@ export default function DoctorConsultationsPage() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <StatusBadge status={c.status || 'scheduled'} size="sm" />
-                                    {['in_progress', 'active'].includes(c.status) && (
+                                    {['in_progress', 'active'].includes(c.status) && 
+                                     new Date(c.appointment?.appointment_date || c.created_at!).toDateString() === new Date().toDateString() && (
                                         <Link href={`/consultation/${c.id}`}>
                                             <Button size="sm" variant="primary">Join</Button>
                                         </Link>

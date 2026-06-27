@@ -11,6 +11,7 @@ router.get('/questions/:id', communityController.getQuestionDetails);
 router.use(auth.authenticate);
 router.post('/questions', communityController.createQuestion);
 router.post('/questions/:id/answers', communityController.addAnswer);
+router.put('/answers/:id', communityController.updateAnswer);
 router.post('/questions/:id/upvote', communityController.upvoteQuestion);
 router.post('/answers/:id/upvote', communityController.upvoteAnswer);
 router.delete('/questions/:id', communityController.deleteQuestion);

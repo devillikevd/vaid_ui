@@ -108,9 +108,15 @@ class CommunityViewModel @Inject constructor(
         }
     }
 
+    fun hasUpvoted(id: String): Boolean {
+        return tokenManager.hasUpvoted(id)
+    }
+
     fun upvoteQuestion(questionId: String) {
+        if (hasUpvoted(questionId)) return
         viewModelScope.launch {
             repository.upvoteQuestion(questionId)
+            tokenManager.addUpvoted(questionId)
             if (_selectedQuestion.value?.id == questionId) {
                 _selectedQuestion.value = _selectedQuestion.value?.let { it.copy(upvotes = it.upvotes + 1) }
             }
@@ -118,8 +124,10 @@ class CommunityViewModel @Inject constructor(
     }
 
     fun upvoteAnswer(answerId: String) {
+        if (hasUpvoted(answerId)) return
         viewModelScope.launch {
             repository.upvoteAnswer(answerId)
+            tokenManager.addUpvoted(answerId)
             _selectedQuestion.value = _selectedQuestion.value?.let { q ->
                 val newAnswers = q.answers?.map { a ->
                     if (a.id == answerId) a.copy(upvotes = a.upvotes + 1) else a

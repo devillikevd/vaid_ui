@@ -1287,10 +1287,7 @@ class VideoConsultationViewModel @Inject constructor(
                         break
                     }
                     diagnosticCounter++
-                    if (!_uiState.value.isConnected) {
-                        if (diagnosticCounter % 10 == 1) android.util.Log.d("VitalsStream", "⏸ Skip: not connected")
-                        continue
-                    }
+
                     // Stream CV vitals only while the consultation camera is actively enabled.
                     val cameraActivelyEnabled = _uiState.value.isCameraEnabled && _localVideoTrack.value != null
                     if (!cameraActivelyEnabled) {
@@ -1452,7 +1449,7 @@ class VideoConsultationViewModel @Inject constructor(
         attachCvAnalyzerIfPossible()
         webRTCManager?.refreshCameraAnalysis()
 
-        if (_uiState.value.isConnected && vitalsStreamJob?.isActive != true) {
+        if (vitalsStreamJob?.isActive != true) {
             startVitalsStreaming()
         }
     }
