@@ -111,8 +111,6 @@ function normalizeIceServers(payload: any): RTCConfiguration {
 // ── Network quality classification ─────────────────────────────────
 type ConnectionMode = ConsultationVideoMode;
 interface NetworkStats { rtt: number; packetsLost: number; bitrate: number; quality: 'excellent' | 'good' | 'poor' | 'critical'; }
-interface BrowserSignalSample { timeMs: number; value: number; }
-interface RgbStats { red: number; green: number; blue: number; luminance: number; saturation: number; }
 
 function classifyQuality(
     rtt: number,
@@ -153,76 +151,7 @@ function mostRestrictiveMode(...modes: ConnectionMode[]): ConnectionMode {
     return modes.reduce((current, next) => (modeRank(next) < modeRank(current) ? next : current), 'video');
 }
 
-function estimateDominantFrequency(
-    samples: BrowserSignalSample[],
-    minHz: number,
-    maxHz: number,
-    minDurationMs: number,
-    minSamples: number
-): number | null {
-    if (samples.length < minSamples) return null;
-    const durationMs = samples[samples.length - 1].timeMs - samples[0].timeMs;
-    if (durationMs < minDurationMs) return null;
 
-    const mean = samples.reduce((sum, sample) => sum + sample.value, 0) / samples.length;
-    let bestHz = 0;
-    let bestPower = 0;
-    let totalPower = 0;
-
-    for (let hz = minHz; hz <= maxHz; hz += 0.03) {
-        let real = 0;
-        let imag = 0;
-        for (const sample of samples) {
-            const t = (sample.timeMs - samples[0].timeMs) / 1000;
-            const centered = sample.value - mean;
-            const angle = 2 * Math.PI * hz * t;
-            real += centered * Math.cos(angle);
-            imag -= centered * Math.sin(angle);
-        }
-        const power = Math.sqrt(real * real + imag * imag);
-        totalPower += power;
-        if (power > bestPower) {
-            bestPower = power;
-            bestHz = hz;
-        }
-    }
-
-    const confidence = totalPower > 0 ? bestPower / totalPower : 0;
-    return confidence >= 0.05 ? bestHz : null;
-}
-
-function readPatchStats(
-    context: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number
-): RgbStats | null {
-    const image = context.getImageData(x, y, Math.max(1, width), Math.max(1, height));
-    const { data } = image;
-    if (data.length === 0) return null;
-
-    let red = 0;
-    let green = 0;
-    let blue = 0;
-    let count = 0;
-    for (let index = 0; index < data.length; index += 16) {
-        red += data[index] || 0;
-        green += data[index + 1] || 0;
-        blue += data[index + 2] || 0;
-        count += 1;
-    }
-    if (count === 0) return null;
-
-    red /= count * 255;
-    green /= count * 255;
-    blue /= count * 255;
-    const maxChannel = Math.max(red, green, blue);
-    const minChannel = Math.min(red, green, blue);
-    const luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
-    const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
-    return { red, green, blue, luminance, saturation };
-}
 
 export default function VideoConsultation() {
     const router = useRouter();
@@ -292,8 +221,6 @@ export default function VideoConsultation() {
     const rtcConfigRef = useRef<RTCConfiguration>(ICE_SERVERS);
     const recoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
     const browserVitalsCanvasRef = useRef<HTMLCanvasElement | null>(null);
-    const browserPulseSamplesRef = useRef<BrowserSignalSample[]>([]);
-    const browserRespirationSamplesRef = useRef<BrowserSignalSample[]>([]);
 
     // State
     const [isConnected, setIsConnected] = useState(false);
@@ -305,7 +232,7 @@ export default function VideoConsultation() {
     const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
     const [consultationData, setConsultationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
-    const [callDuration, setCallDuration] = useState(0);
+    const callDurationRef = useRef(0);
     const [isPeerReady, setIsPeerReady] = useState(false);
     const [remoteStreamReady, setRemoteStreamReady] = useState(false);
     const [remotePlaybackBlocked, setRemotePlaybackBlocked] = useState(false);
@@ -427,101 +354,7 @@ export default function VideoConsultation() {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages.length]);
 
-    useEffect(() => {
-        if (user?.role !== 'patient' || !isConnected || !isVideoOn || connectionMode !== 'video') return;
 
-        const trimSamples = (samples: BrowserSignalSample[], windowMs: number, now: number) => {
-            while (samples.length > 0 && now - samples[0].timeMs > windowMs) {
-                samples.shift();
-            }
-        };
-
-        const publishBrowserVitals = () => {
-            // Skip processing during network degradation
-            if (pendingQualityRef.current === 'poor' || pendingQualityRef.current === 'critical') return;
-
-            const video = localVideoRef.current;
-            if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
-                return;
-            }
-
-            const processVitals = () => {
-                const canvas = browserVitalsCanvasRef.current || document.createElement('canvas');
-                browserVitalsCanvasRef.current = canvas;
-                canvas.width = 96; // Reduced from original if it was higher, or keep it same
-                canvas.height = 72;
-                const context = canvas.getContext('2d', { willReadFrequently: true });
-                if (!context) return;
-
-                try {
-                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const now = Date.now();
-                    const facePatch = readPatchStats(context, 28, 12, 40, 34);
-                    const chestPatch = readPatchStats(context, 24, 42, 48, 22);
-                    if (!facePatch) return;
-
-                    const brightnessQuality = 1 - Math.min(1, Math.abs(facePatch.luminance - 0.55) / 0.55);
-                    const saturationQuality = Math.min(1, facePatch.saturation / 0.32);
-                    const signalQuality = Math.max(0, Math.min(1, (brightnessQuality * 0.65) + (saturationQuality * 0.35)));
-
-                    const pulseSamples = browserPulseSamplesRef.current;
-                    pulseSamples.push({
-                        timeMs: now,
-                        value: facePatch.green - ((facePatch.red + facePatch.blue) * 0.5),
-                    });
-                    trimSamples(pulseSamples, 15_000, now);
-
-                    const respirationSamples = browserRespirationSamplesRef.current;
-                    if (chestPatch) {
-                        respirationSamples.push({
-                            timeMs: now,
-                            value: chestPatch.luminance,
-                        });
-                        trimSamples(respirationSamples, 20_000, now);
-                    }
-
-                    const heartHz = signalQuality >= 0.3
-                        ? estimateDominantFrequency(pulseSamples, 0.8, 2.4, 8_000, 6)
-                        : null;
-                    const respirationHz = estimateDominantFrequency(respirationSamples, 0.10, 0.60, 10_000, 7);
-                    const redRatio = facePatch.red / Math.max(facePatch.green + facePatch.blue, 0.001);
-                    const pallorScore = Math.max(0, Math.min(1, (((0.42 - facePatch.saturation) / 0.42) * 0.65) + (((0.9 - redRatio) / 0.9) * 0.35)));
-
-                    const payload: Partial<VitalsStreamData> & Record<string, unknown> = {
-                        session_id: consultationId,
-                        processed_at: new Date(now).toISOString(),
-                        source: 'web-browser-cv',
-                        signal_quality: Number(signalQuality.toFixed(3)),
-                        skin_condition: 'normal',
-                        fall_detected: false,
-                        tremor_detected: false,
-                    };
-
-                    if (heartHz) payload.heart_rate = Number(Math.max(45, Math.min(160, heartHz * 60)).toFixed(1));
-                    if (respirationHz) payload.respiration_rate = Number(Math.max(6, Math.min(32, respirationHz * 60)).toFixed(1));
-                    if (Number.isFinite(pallorScore)) payload.pallor_score = Number(pallorScore.toFixed(3));
-
-                    payload.active_signals = Object.keys(payload).filter((key) => !['session_id', 'processed_at', 'source', 'signal_quality', 'confidence', 'is_face_detected', 'active_signals', 'total_signals'].includes(key));
-                    payload.total_signals = (payload.active_signals as string[]).length;
-
-                    sendPatientVitals(payload);
-                } catch (error) {
-                    console.warn('Browser CV vitals sample skipped:', error);
-                }
-            };
-
-            if ('requestIdleCallback' in window) {
-                (window as any).requestIdleCallback(processVitals, { timeout: 1000 });
-            } else {
-                setTimeout(processVitals, 0);
-            }
-        };
-
-        publishBrowserVitals();
-        // Throttled to 3 seconds to reduce CPU overload
-        const interval = window.setInterval(publishBrowserVitals, 3000);
-        return () => window.clearInterval(interval);
-    }, [consultationId, connectionMode, isConnected, isVideoOn, sendPatientVitals, user?.role]);
 
     // BUG-A1: Wrap cleanup in useCallback for stable reference in useConsultationEnded
     const cleanup = useCallback(() => {
@@ -593,16 +426,18 @@ export default function VideoConsultation() {
         }, [applyLocalMediaState, consultationId, isDoctor, setLocalBandwidthMode, setModeBannerSafe])
     );
 
-    // Timer for call duration
+
+    // Ensure media streams are re-attached to video elements when switching back from chat mode
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isConnected) {
-            interval = setInterval(() => {
-                setCallDuration((prev) => prev + 1);
-            }, 1000);
+        if (connectionMode === 'video') {
+            if (localVideoRef.current && localStreamRef.current && localVideoRef.current.srcObject !== localStreamRef.current) {
+                localVideoRef.current.srcObject = localStreamRef.current;
+            }
+            if (remoteVideoRef.current && remoteStreamRef.current && remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+                remoteVideoRef.current.srcObject = remoteStreamRef.current;
+            }
         }
-        return () => clearInterval(interval);
-    }, [isConnected]);
+    }, [connectionMode]);
 
     // Initialize media and peer connection — calls join API first
     useEffect(() => {
@@ -1152,7 +987,7 @@ export default function VideoConsultation() {
         try {
             if (user?.role === 'doctor') {
                 await api.consultations.end(consultationId, {
-                    duration: callDuration,
+                    duration: callDurationRef.current,
                     notes: '',
                 });
             } else {
@@ -1225,7 +1060,7 @@ export default function VideoConsultation() {
                     {isConnected && (
                         <>
                             <span className="rounded-full bg-white/6 px-3 py-1 text-sm text-slate-200">
-                                {formatDuration(callDuration)}
+                                <CallTimer isConnected={isConnected} onTick={(d) => { callDurationRef.current = d; }} />
                             </span>
                             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${connectionMode === 'video' ? 'bg-emerald-500/15 text-emerald-300' : connectionMode === 'audio' ? 'bg-amber-500/15 text-amber-300' : 'bg-blue-500/15 text-blue-300'}`}>
                                 {connectionMode === 'video' ? 'Video' : connectionMode === 'audio' ? 'Voice' : 'Chat'}
@@ -1277,10 +1112,18 @@ export default function VideoConsultation() {
                 ) : connectionMode === 'chat' ? (
                     /* ── Full-screen Chat Mode ─────────────────────── */
                     <div className="flex flex-col h-full bg-gray-800">
-                        <div className="p-4 border-b border-gray-700 flex items-center gap-3">
-                            <MessageCircle className="w-5 h-5 text-blue-400" />
-                            <h3 className="font-semibold text-white">Chat Consultation</h3>
-                            <span className="text-xs text-gray-400">(Poor network — media disabled)</span>
+                        <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <MessageCircle className="w-5 h-5 text-blue-400" />
+                                <h3 className="font-semibold text-white">Chat Consultation</h3>
+                                <span className="text-xs text-gray-400 hidden sm:inline">(Poor network — media disabled)</span>
+                            </div>
+                            <button
+                                onClick={endCall}
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-white text-sm font-medium transition-colors flex items-center gap-2"
+                            >
+                                <Phone className="w-4 h-4 rotate-[135deg]" /> End Call
+                            </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {messages.length === 0 && <p className="text-center text-gray-500 mt-8">Send a message to continue the consultation</p>}
@@ -1318,7 +1161,7 @@ export default function VideoConsultation() {
                                     </div>
                                     <h2 className="text-xl font-semibold text-white mb-1">Audio Consultation</h2>
                                     <p className="text-slate-300 text-sm">Low bandwidth, video paused to keep the call stable.</p>
-                                    {isConnected && <p className="text-emerald-400 text-sm mt-2">{formatDuration(callDuration)}</p>}
+                                    {isConnected && <p className="text-emerald-400 text-sm mt-2"><CallTimer isConnected={isConnected} onTick={(d) => { callDurationRef.current = d; }} /></p>}
                                 </div>
                             </div>
                         ) : (
@@ -1584,4 +1427,31 @@ export default function VideoConsultation() {
             )}
         </div>
     );
+}
+
+
+function CallTimer({ isConnected, onTick }: { isConnected: boolean; onTick: (duration: number) => void }) {
+    const [duration, setDuration] = useState(0);
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isConnected) {
+            interval = setInterval(() => {
+                setDuration(prev => {
+                    const next = prev + 1;
+                    onTick(next);
+                    return next;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isConnected, onTick]);
+
+    const format = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    return <>{format(duration)}</>;
 }

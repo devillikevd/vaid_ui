@@ -294,6 +294,7 @@ data class Appointment(
 
 data class Prescription(
     val id: String,
+    val appointmentId: String? = null,
     @SerializedName("prescription_number") val prescriptionNumber: String? = null,
     val diagnosis: String,
     val notes: String?,

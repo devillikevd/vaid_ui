@@ -61,6 +61,7 @@ data class CachedNotification(
 @Entity(tableName = "cached_prescriptions")
 data class CachedPrescription(
     @PrimaryKey val id: String,
+    val appointmentId: String? = null,
     val prescriptionNumber: String?,
     val diagnosis: String,
     val doctorName: String?,

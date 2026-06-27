@@ -237,7 +237,7 @@ fun AppointmentHistoryScreen(
                                             appointment = appointment,
                                             onClick = { onAppointmentClick(appointment) },
                                             onStartConsultation = { onStartConsultation(appointment) },
-                                            onPrescriptionClick = { onNavigateToPrescriptions(appointment.doctor?.id ?: appointment.doctorId) },
+                                            onPrescriptionClick = { onNavigateToPrescriptions(appointment.id) },
                                             onBookAgainClick = { onNavigateToBooking(appointment.doctor?.id ?: appointment.doctorId) },
                                             onCancelClick = { showCancelDialog = appointment },
                                             onRateDoctorClick = { showReviewDialog = appointment },

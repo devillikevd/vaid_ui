@@ -799,7 +799,8 @@ router.get('/prescriptions',
       .select(`
         *,
         prescription_medicines (*),
-        doctors!prescriptions_doctor_id_fkey (id, name, specialization, profile_image_url)
+        doctors!prescriptions_doctor_id_fkey (id, name, specialization, profile_image_url),
+        consultations!prescriptions_consultation_id_fkey (id, appointment_id)
       `, { count: 'exact' })
       .eq('patient_id', patient.id)
       .order('created_at', { ascending: false })
@@ -835,6 +836,7 @@ router.get('/prescriptions',
       dietary_advice: rx.dietary_advice,
       lifestyle_advice: rx.lifestyle_advice,
       instructions: rx.instructions,
+      appointment_id: rx.consultations?.appointment_id || null,
       doctor: rx.doctors ? {
         id: rx.doctors.id,
         name: rx.doctors.name,

@@ -123,7 +123,7 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
   if (filters.fromDate) query = query.gte('appointment_date', filters.fromDate);
   if (filters.toDate) query = query.lte('appointment_date', filters.toDate);
   if (filters.upcoming) {
-    query = query.gte('appointment_date', new Date().toISOString().split('T')[0]).in('status', ['scheduled', 'confirmed']);
+    query = query.gte('appointment_date', new Date().toISOString().split('T')[0]).in('status', ['scheduled', 'confirmed', 'in_progress']);
   }
   // Incremental sync: only return records modified after a given timestamp
   if (filters.since) {

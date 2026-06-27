@@ -1067,6 +1067,7 @@ class PatientRepository @Inject constructor(
 
     private fun Prescription.toCachedPrescription() = CachedPrescription(
         id = id,
+        appointmentId = appointmentId,
         prescriptionNumber = prescriptionNumber,
         diagnosis = diagnosis,
         doctorName = doctor?.name,
@@ -1077,6 +1078,7 @@ class PatientRepository @Inject constructor(
 
     private fun CachedPrescription.toDomainPrescription() = Prescription(
         id = id,
+        appointmentId = appointmentId,
         prescriptionNumber = prescriptionNumber ?: "",
         diagnosis = diagnosis,
         notes = notes,

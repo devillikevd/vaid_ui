@@ -815,9 +815,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
 
 
         composable(
-            route = Screen.Prescriptions.route,
+            route = "prescriptions?appointmentId={appointmentId}",
             arguments = listOf(
-                androidx.navigation.navArgument("doctorId") {
+                androidx.navigation.navArgument("appointmentId") {
                     type = androidx.navigation.NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -829,9 +829,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             )
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
-            val doctorId = backStackEntry.arguments?.getString("doctorId")
+            val appointmentId = backStackEntry.arguments?.getString("appointmentId")
             PrescriptionsScreen(
-                initialDoctorId = doctorId,
+                initialAppointmentId = appointmentId,
                 onBackClick = { navController.popBackStack() },
                 onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
             )

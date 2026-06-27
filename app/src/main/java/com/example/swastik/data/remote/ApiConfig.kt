@@ -59,6 +59,7 @@ object ApiConfig {
         val wsScheme = if (apiUri.scheme.equals("https", ignoreCase = true)) "wss" else "ws"
         val derivedPort = when (apiUri.port) {
             80, 443, -1 -> null
+            5000, 5001 -> 8000 // Map node.js backend port to FastAPI port for local dev
             else -> apiUri.port
         }
         val portPart = derivedPort?.let { ":$it" } ?: ""

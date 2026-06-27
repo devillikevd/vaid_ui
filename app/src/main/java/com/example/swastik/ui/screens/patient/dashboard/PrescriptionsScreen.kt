@@ -82,7 +82,7 @@ import com.example.swastik.R
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PrescriptionsScreen(
-    initialDoctorId: String? = null,
+    initialAppointmentId: String? = null,
     onBackClick: () -> Unit = {},
     onPrescriptionClick: ((Prescription) -> Unit)? = null,
     onNavigateToOrderHistory: () -> Unit = {},
@@ -93,10 +93,10 @@ fun PrescriptionsScreen(
     var selectedFilter by remember { mutableStateOf("All") }
     var selectedPrescription by remember { mutableStateOf<Prescription?>(null) }
     val filters = listOf("All", "Active", "Completed")
-    val filteredPrescriptions = remember(prescriptions, selectedFilter, initialDoctorId) {
+    val filteredPrescriptions = remember(prescriptions, selectedFilter, initialAppointmentId) {
         val baseFiltered = prescriptions.filter { prescriptionMatchesFilter(it, selectedFilter) }
-        if (initialDoctorId != null) {
-            baseFiltered.filter { it.doctor?.id == initialDoctorId }
+        if (initialAppointmentId != null) {
+            baseFiltered.filter { it.appointmentId == initialAppointmentId }
         } else {
             baseFiltered
         }

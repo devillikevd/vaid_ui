@@ -92,9 +92,9 @@ sealed class Screen(val route: String) {
         }
     }
     object Reports : Screen("reports")
-    object Prescriptions : Screen("prescriptions?doctorId={doctorId}") {
-        fun createRoute(doctorId: String? = null): String {
-            return if (doctorId == null) "prescriptions" else "prescriptions?doctorId=$doctorId"
+    object Prescriptions : Screen("prescriptions?appointmentId={appointmentId}") {
+        fun createRoute(appointmentId: String? = null): String {
+            return if (appointmentId == null) "prescriptions" else "prescriptions?appointmentId=$appointmentId"
         }
     }
     object Chatbot : Screen("chatbot")
