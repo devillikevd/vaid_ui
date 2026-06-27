@@ -59,7 +59,7 @@ exports.updateAnswer = async (req, res, next) => {
 
 exports.upvoteQuestion = async (req, res, next) => {
   try {
-    const result = await communityService.upvoteQuestion(req.params.id);
+    const result = await communityService.upvoteQuestion(req.params.id, req.user?.id);
     res.json(result);
   } catch (error) {
     next(error);
@@ -68,7 +68,7 @@ exports.upvoteQuestion = async (req, res, next) => {
 
 exports.upvoteAnswer = async (req, res, next) => {
   try {
-    const result = await communityService.upvoteAnswer(req.params.id);
+    const result = await communityService.upvoteAnswer(req.params.id, req.user?.id);
     res.json(result);
   } catch (error) {
     next(error);

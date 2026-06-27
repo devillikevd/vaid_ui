@@ -1,5 +1,6 @@
 const { supabaseAdmin, rawSupabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
+const { cacheSetIfNotExists } = require('../config/redis');
 
 class CommunityService {
   async getQuestions(limit = 20, offset = 0) {
@@ -150,7 +151,13 @@ class CommunityService {
   }
 
 
-  async upvoteQuestion(questionId) {
+  async upvoteQuestion(questionId, userId) {
+    if (userId) {
+      const lockKey = `upvote:q:${questionId}:u:${userId}`;
+      const canUpvote = await cacheSetIfNotExists(lockKey, '1', 60 * 60 * 24 * 365); // 1 year lock
+      if (!canUpvote) throw new ApiError(400, 'You have already upvoted this question');
+    }
+
     const { data: question, error } = await rawSupabaseAdmin
       .rpc('increment_question_upvotes', { q_id: questionId });
       
@@ -172,7 +179,13 @@ class CommunityService {
     return { success: true };
   }
 
-  async upvoteAnswer(answerId) {
+  async upvoteAnswer(answerId, userId) {
+    if (userId) {
+      const lockKey = `upvote:a:${answerId}:u:${userId}`;
+      const canUpvote = await cacheSetIfNotExists(lockKey, '1', 60 * 60 * 24 * 365); // 1 year lock
+      if (!canUpvote) throw new ApiError(400, 'You have already upvoted this answer');
+    }
+
     const { data: answer, error } = await rawSupabaseAdmin
       .rpc('increment_answer_upvotes', { a_id: answerId });
       

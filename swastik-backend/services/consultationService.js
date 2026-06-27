@@ -6,12 +6,16 @@ const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
 const eventEmitter = require('./eventEmitter');
 const config = require('../config');
+const crypto = require('crypto');
 
-// Redis client for doctor AI rate limiting
-let cacheIncr;
+// Redis client for doctor AI rate limiting and cache invalidation
+let cacheIncr, cacheDel;
 try {
-  ({ cacheIncr } = require('../config/redis'));
-} catch { cacheIncr = null; }
+  ({ cacheIncr, cacheDel } = require('../config/redis'));
+} catch { 
+  cacheIncr = null; 
+  cacheDel = null; 
+}
 
 // MongoDB for doctor AI conversation memory + audit trail
 // Removed unused getDb
@@ -481,6 +485,14 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
     patient_id: patient?.user_id,
   });
 
+  // Invalidate dashboard caches to remove completed consultation immediately
+  if (cacheDel) {
+    await cacheDel(`doctor:dashboard:${doctorUserId}`);
+    if (patient?.user_id) {
+      await cacheDel(`patient:dashboard:${patient.user_id}`);
+    }
+  }
+
   return consultation;
 };
 
@@ -535,11 +547,19 @@ const getIceServers = async (userId, role, consultationId) => {
       .filter(Boolean)),
   ];
 
-  if (turnUrls.length > 0 && webrtc?.turnUsername && webrtc?.turnCredential) {
+  if (turnUrls.length > 0 && webrtc?.turnCredential) {
+    // Generate ephemeral TURN credentials using the TURN REST API mechanism
+    const expiry = Math.floor(Date.now() / 1000) + 24 * 3600; // 24 hours validity
+    const generatedUsername = `${expiry}:${userId}`;
+    const generatedPassword = crypto
+      .createHmac('sha1', webrtc.turnCredential)
+      .update(generatedUsername)
+      .digest('base64');
+
     iceServers.push({
       urls: turnUrls,
-      username: webrtc.turnUsername,
-      credential: webrtc.turnCredential,
+      username: generatedUsername,
+      credential: generatedPassword,
       credentialType: 'password',
     });
   }
