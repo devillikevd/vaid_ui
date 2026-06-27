@@ -4,7 +4,7 @@
  */
 const { supabaseAdmin } = require('../config/supabase');
 const { ApiError } = require('../middleware/errorHandler');
-const { deleteFile, isStorageAvailable, extractObjectNameFromUrl } = require('../config/minio');
+const { deleteFile, isStorageAvailable, extractObjectNameFromUrl, signStorageUrlsInPayload } = require('../config/minio');
 
 // Report types (sync)
 // Valid report types matching DB CHECK constraint:
