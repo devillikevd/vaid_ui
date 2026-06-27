@@ -159,6 +159,7 @@ interface DoctorState {
     recordVitals: (patientId: string, data: Record<string, unknown>) => Promise<boolean>;
     updateSchedule: (slots: Record<string, unknown>[]) => Promise<boolean>;
     startConsultation: (appointmentId: string) => Promise<string | false>;
+    endConsultation: (appointmentId: string, consultationId?: string) => Promise<boolean>;
     completeAppointment: (appointmentId: string) => Promise<boolean>;
     cancelAppointment: (appointmentId: string, reason?: string) => Promise<boolean>;
     updateAvailability: (isAvailable: boolean) => Promise<boolean>;
@@ -563,6 +564,46 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         } catch (error) {
             console.error('Error starting consultation:', error);
             set({ error: error instanceof Error ? error.message : 'Failed to start consultation.' });
+            return false;
+        }
+    },
+
+    endConsultation: async (appointmentId, consultationId) => {
+        // Optimistic UI update: instantly mark as completed in UI
+        set((state) => ({
+            todaysAppointments: state.todaysAppointments.map(a => 
+                a.id === appointmentId ? { ...a, status: 'completed' } : a
+            ),
+            consultations: state.consultations.map(c => 
+                c.appointment?.id === appointmentId || c.id === consultationId ? { ...c, status: 'completed' } : c
+            ),
+            appointments: state.appointments.map(a => 
+                a.id === appointmentId ? { ...a, status: 'completed' } : a
+            )
+        }));
+
+        try {
+            let success = false;
+            if (consultationId) {
+                const response = await consultationsApi.end(consultationId);
+                success = response.success;
+            } else {
+                const response = await appointmentsApi.updateStatus(appointmentId, 'completed');
+                success = response.success;
+            }
+            
+            if (success) {
+                get().fetchDashboardData();
+                get().fetchConsultations();
+                return true;
+            }
+            set({ error: 'Failed to end consultation' });
+            return false;
+        } catch (error) {
+            console.error('Error ending consultation:', error);
+            // Background re-sync
+            get().fetchDashboardData();
+            get().fetchConsultations();
             return false;
         }
     },

@@ -27,7 +27,7 @@ import { KeyboardShortcutHelp, usePageShortcuts } from '@/components/shared/Keyb
 import { api } from '@/lib/api';
 
 export default function DoctorDashboard() {
-    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, fetchReviews, reviews, loadingReviews } = useDoctorStore();
+    const { stats, todaysAppointments, upcomingAppointments, isLoading, fetchDashboardData, startConsultation, endConsultation, fetchReviews, reviews, loadingReviews } = useDoctorStore();
     const { user } = useAuthStore();
     const router = useRouter();
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
@@ -102,17 +102,12 @@ export default function DoctorDashboard() {
     const handleEndConsultation = useCallback(async (appointment: Appointment) => {
         if (!confirm('Are you sure you want to forcefully end this consultation? This will clear it from your active session.')) return;
         try {
-            if (appointment.consultation_id) {
-                await api.consultations.end(appointment.consultation_id);
-            } else {
-                await api.appointments.updateStatus(appointment.id, 'completed');
-            }
-            fetchDashboardData();
+            await endConsultation(appointment.id, appointment.consultation_id);
         } catch (error) {
             console.error('Failed to end consultation', error);
             alert('Failed to end consultation. Please try again.');
         }
-    }, [fetchDashboardData]);
+    }, [endConsultation]);
 
     // Stats configuration using real data
     const STATS = [

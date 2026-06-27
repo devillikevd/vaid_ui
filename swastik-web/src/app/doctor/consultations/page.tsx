@@ -9,7 +9,7 @@ import { useDoctorStore, type Consultation } from '@/stores/doctorStore';
 import Link from 'next/link';
 
 export default function DoctorConsultationsPage() {
-    const { consultations, loadingConsultations, error, fetchConsultations, clearError } = useDoctorStore();
+    const { consultations, loadingConsultations, error, fetchConsultations, clearError, endConsultation } = useDoctorStore();
 
     useEffect(() => { fetchConsultations(); }, []);
 
@@ -26,6 +26,15 @@ export default function DoctorConsultationsPage() {
             </div>
         );
     }
+
+    const handleEndCall = async (c: Consultation) => {
+        if (!confirm('Are you sure you want to forcefully end this consultation?')) return;
+        if (c.appointment?.id) {
+            await endConsultation(c.appointment.id, c.id);
+        } else {
+            console.error('No appointment ID found for consultation');
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -57,9 +66,12 @@ export default function DoctorConsultationsPage() {
                                     <StatusBadge status={c.status || 'scheduled'} size="sm" />
                                     {['in_progress', 'active'].includes(c.status) && 
                                      new Date(c.appointment?.appointment_date || c.created_at!).toDateString() === new Date().toDateString() && (
-                                        <Link href={`/consultation/${c.id}`}>
-                                            <Button size="sm" variant="primary">Join</Button>
-                                        </Link>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => handleEndCall(c)} className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300">End Call</Button>
+                                            <Link href={`/consultation/${c.id}`}>
+                                                <Button size="sm" variant="primary">Join</Button>
+                                            </Link>
+                                        </div>
                                     )}
                                 </div>
                             </div>
