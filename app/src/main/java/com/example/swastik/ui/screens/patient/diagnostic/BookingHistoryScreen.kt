@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.LoadState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,8 +49,11 @@ fun BookingHistoryScreen(
     trackingVm: OrderTrackingViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val historyState by viewModel.bookingHistoryState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val pagedBookings = viewModel.getPagedBookings().collectAsLazyPagingItems()
+    
     // Only show active tracking map if an agent is actually assigned and tracking
-    val activeBooking = historyState.bookings.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
+    val activeBooking = historyState.bookings.firstOrNull { it.status in listOf("assigned", "on_the_way") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -57,6 +62,7 @@ fun BookingHistoryScreen(
 
     LaunchedEffect(historyState.cancelSuccess) {
         if (historyState.cancelSuccess) {
+            pagedBookings.refresh()
             kotlinx.coroutines.delay(2000)
             viewModel.clearBookingHistoryError()
         }
@@ -74,7 +80,10 @@ fun BookingHistoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadBookingHistory() }) {
+                    IconButton(onClick = { 
+                        viewModel.loadBookingHistory() 
+                        pagedBookings.refresh()
+                    }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 },
@@ -194,22 +203,36 @@ fun BookingHistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            items(historyState.bookings, key = { it.id }) { booking ->
-                                BookingHistoryCard(
-                                    booking = booking,
-                                    onCancel = { viewModel.cancelBooking(booking.id) },
-                                    onTrack = {
-                                        if (!booking.trackingToken.isNullOrEmpty()) {
-                                            onNavigateToTracking(
-                                                booking.trackingToken,
-                                                0.0,
-                                                0.0,
-                                                booking.deliveryAgent?.name,
-                                                booking.deliveryAgent?.phone
-                                            )
+                            items(count = pagedBookings.itemCount, key = { pagedBookings[it]?.id ?: it }) { index ->
+                                val booking = pagedBookings[index]
+                                if (booking != null) {
+                                    BookingHistoryCard(
+                                        booking = booking,
+                                        onCancel = { viewModel.cancelBooking(booking.id) },
+                                        onTrack = {
+                                            if (!booking.trackingToken.isNullOrEmpty()) {
+                                                onNavigateToTracking(
+                                                    booking.trackingToken,
+                                                    0.0,
+                                                    0.0,
+                                                    booking.deliveryAgent?.name,
+                                                    booking.deliveryAgent?.phone
+                                                )
+                                            }
                                         }
+                                    )
+                                }
+                            }
+                            
+                            if (pagedBookings.loadState.append is LoadState.Loading) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
                                     }
-                                )
+                                }
                             }
                         }
                     }

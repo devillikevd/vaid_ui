@@ -7,17 +7,22 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.example.swastik.data.model.Appointment
 import com.example.swastik.data.model.TimeSlot
 import com.example.swastik.data.repository.AppointmentRepository
 import com.example.swastik.data.repository.Result
+import com.example.swastik.data.repository.paging.AppointmentPagingSource
+import com.example.swastik.data.remote.SocketManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-import com.example.swastik.data.remote.SocketManager
-import kotlinx.coroutines.flow.collectLatest
 
 data class NextAvailableSlotSuggestion(
     val date: String,
@@ -42,6 +47,13 @@ class AppointmentViewModel @Inject constructor(
     init {
         loadAppointments()
         listenForSlotUpdates()
+    }
+    
+    fun getPagedAppointments(status: String? = null): Flow<PagingData<Appointment>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            pagingSourceFactory = { AppointmentPagingSource(repository, status) }
+        ).flow.cachedIn(viewModelScope)
     }
     
     private fun listenForSlotUpdates() {

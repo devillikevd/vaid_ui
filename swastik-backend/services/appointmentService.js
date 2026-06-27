@@ -184,9 +184,16 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
     query = query.gte('updated_at', filters.since);
   }
 
+  let isAscending = true;
+  if (filters.status && ['completed', 'cancelled', 'no_show'].includes(String(filters.status).toLowerCase())) {
+    isAscending = false; // History should be most recent first
+  } else if (!filters.status && !filters.upcoming) {
+    isAscending = false; // ALL should show newest past/future appointments first
+  }
+
   const { data, error, count } = await query
-    .order('appointment_date', { ascending: true })
-    .order('time_slot', { ascending: true })
+    .order('appointment_date', { ascending: isAscending })
+    .order('time_slot', { ascending: isAscending })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;

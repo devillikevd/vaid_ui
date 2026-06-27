@@ -460,25 +460,29 @@ class PatientDashboardViewModel @Inject constructor(
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
-                    val geocoder = Geocoder(context, Locale.getDefault())
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                        geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
-                            val address = addresses.firstOrNull()
+                    try {
+                        val geocoder = Geocoder(context, Locale.getDefault())
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
+                                val address = addresses.firstOrNull()
+                                if (address != null) {
+                                    val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
+                                    val city = address.locality ?: address.subAdminArea ?: address.adminArea
+                                    handleLocationUpdate(locality, city)
+                                }
+                            }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                            val address = addresses?.firstOrNull()
                             if (address != null) {
                                 val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
                                 val city = address.locality ?: address.subAdminArea ?: address.adminArea
                                 handleLocationUpdate(locality, city)
                             }
                         }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
-                        val address = addresses?.firstOrNull()
-                        if (address != null) {
-                            val locality = address.locality ?: address.subAdminArea ?: address.adminArea ?: "Unknown"
-                            val city = address.locality ?: address.subAdminArea ?: address.adminArea
-                            handleLocationUpdate(locality, city)
-                        }
+                    } catch (e: Exception) {
+                        Log.e("LocationFetch", "Geocoder failed", e)
                     }
                 }
             }.addOnFailureListener { e ->

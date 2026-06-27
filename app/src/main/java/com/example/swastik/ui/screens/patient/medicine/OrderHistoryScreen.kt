@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.LoadState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
@@ -48,6 +50,7 @@ fun OrderHistoryScreen(
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val pagedOrders = viewModel.getPagedOrders().collectAsLazyPagingItems()
     
     // Only show active tracking map if an agent is actually assigned and tracking
     val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
@@ -60,6 +63,7 @@ fun OrderHistoryScreen(
     // Cancel success snackbar
     LaunchedEffect(historyState.cancelSuccess) {
         if (historyState.cancelSuccess) {
+            pagedOrders.refresh()
             kotlinx.coroutines.delay(2000)
             viewModel.clearOrderHistoryError()
         }
@@ -68,6 +72,7 @@ fun OrderHistoryScreen(
     // Real-time order status update notifications via Socket.IO
     LaunchedEffect(Unit) {
         viewModel.realtimeOrderEvent.collectLatest { update ->
+            pagedOrders.refresh()
             val statusEmoji = when (update.status) {
                 "confirmed" -> "🧾"
                 "processing" -> "🔄"
@@ -104,7 +109,10 @@ fun OrderHistoryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadOrderHistory() }) {
+                    IconButton(onClick = { 
+                        viewModel.loadOrderHistory() 
+                        pagedOrders.refresh()
+                    }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
                 },
@@ -224,22 +232,36 @@ fun OrderHistoryScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            items(historyState.orders, key = { it.id }) { order ->
-                                OrderHistoryCard(
-                                    order = order,
-                                    onCancel = { viewModel.cancelOrder(order.id) },
-                                    onTrack = {
-                                        if (!order.trackingToken.isNullOrEmpty()) {
-                                            onNavigateToTracking(
-                                                order.trackingToken,
-                                                0.0,
-                                                0.0,
-                                                order.deliveryAgent?.name,
-                                                order.deliveryAgent?.phone
-                                            )
+                            items(count = pagedOrders.itemCount, key = { pagedOrders[it]?.id ?: it }) { index ->
+                                val order = pagedOrders[index]
+                                if (order != null) {
+                                    OrderHistoryCard(
+                                        order = order,
+                                        onCancel = { viewModel.cancelOrder(order.id) },
+                                        onTrack = {
+                                            if (!order.trackingToken.isNullOrEmpty()) {
+                                                onNavigateToTracking(
+                                                    order.trackingToken,
+                                                    0.0,
+                                                    0.0,
+                                                    order.deliveryAgent?.name,
+                                                    order.deliveryAgent?.phone
+                                                )
+                                            }
                                         }
+                                    )
+                                }
+                            }
+                            
+                            if (pagedOrders.loadState.append is LoadState.Loading) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
                                     }
-                                )
+                                }
                             }
                         }
                     }

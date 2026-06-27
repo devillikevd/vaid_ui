@@ -147,26 +147,16 @@ class DiagnosticRepository @Inject constructor(
      */
     suspend fun getMyBookings(status: String? = null, page: Int = 1): Result<List<DiagnosticBookingDto>> {
         return try {
-            val bookings = mutableListOf<DiagnosticBookingDto>()
-            var currentPage = page
-
-            while (true) {
-                val response = apiService.getMyDiagnosticBookings(status = status, page = currentPage, limit = PAGE_SIZE)
-                if (!response.isSuccessful || response.body()?.success != true) {
-                    val message = parseApiErrorMessage(response.errorBody()) ?: "Failed to load bookings"
-                    return Result.Error(message)
-                }
-
-                val body = response.body()
-                val pageData = body?.data.orEmpty()
-                bookings += pageData
-
-                val totalPages = body?.pagination?.totalPages ?: currentPage
-                if (currentPage >= totalPages || pageData.isEmpty()) break
-                currentPage += 1
+            val response = apiService.getMyDiagnosticBookings(status = status, page = page, limit = 20)
+            if (!response.isSuccessful || response.body()?.success != true) {
+                val message = parseApiErrorMessage(response.errorBody()) ?: "Failed to load bookings"
+                return Result.Error(message)
             }
 
-            Result.Success(bookings)
+            val body = response.body()
+            val pageData = body?.data.orEmpty()
+            
+            Result.Success(pageData)
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")
         }

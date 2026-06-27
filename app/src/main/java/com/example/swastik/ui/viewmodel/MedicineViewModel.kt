@@ -2,6 +2,10 @@ package com.example.swastik.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.model.MedicineCategory
 import com.example.swastik.data.model.CartItem
@@ -15,8 +19,10 @@ import com.example.swastik.data.repository.MedicineRepository
 import com.example.swastik.data.remote.OrderUpdate
 import com.example.swastik.data.remote.SocketManager
 import com.example.swastik.utils.LocationHelper
+import com.example.swastik.data.repository.paging.OrderPagingSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -142,6 +148,13 @@ class MedicineViewModel @Inject constructor(
                 _realtimeOrderEvent.emit(update)
             }
         }
+    }
+
+    fun getPagedOrders(status: String? = null): Flow<PagingData<MedicineOrderDto>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            pagingSourceFactory = { OrderPagingSource(medicineRepository, status) }
+        ).flow.cachedIn(viewModelScope)
     }
 
     private fun collectProviderCatalogUpdates() {

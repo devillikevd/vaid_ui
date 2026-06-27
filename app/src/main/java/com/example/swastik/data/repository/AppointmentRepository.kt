@@ -56,12 +56,13 @@ class AppointmentRepository @Inject constructor(
      */
     suspend fun getAppointments(
         status: String? = null,
-        upcoming: Boolean? = null
+        upcoming: Boolean? = null,
+        page: Int = 1
     ): Result<List<Appointment>> {
         // Try network first
         try {
             val queryStatus = status
-            val response = apiService.getPatientAppointments(status = queryStatus)
+            val response = apiService.getPatientAppointments(status = queryStatus, page = page)
             
             if (response.isSuccessful && response.body()?.success == true) {
                 val appointments = response.body()?.data ?: emptyList()

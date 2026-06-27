@@ -3,6 +3,8 @@ package com.example.swastik.ui.screens.patient
 import androidx.compose.ui.draw.drawBehind
 
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.LoadState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -72,23 +74,37 @@ fun AppointmentHistoryScreen(
     val reviewUiState by reviewViewModel.uiState.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
 
+    // Load appointments whenever filter tab changes (fixes filter not fetching data)
+    val statusQuery = remember(selectedFilter) {
+        when (selectedFilter) {
+            AppointmentFilter.ALL -> null
+            AppointmentFilter.UPCOMING -> "active"
+            AppointmentFilter.COMPLETED -> "completed"
+            AppointmentFilter.CANCELLED -> "cancelled"
+        }
+    }
+    
+    val pagedAppointments = viewModel.getPagedAppointments(statusQuery).collectAsLazyPagingItems()
+
     // Refresh appointments when a review is submitted successfully
     LaunchedEffect(reviewUiState.submitSuccess) {
         if (reviewUiState.submitSuccess) {
-            val statusQuery = when (selectedFilter) {
-                AppointmentFilter.ALL -> null
-                AppointmentFilter.UPCOMING -> "active"
-                AppointmentFilter.COMPLETED -> "completed"
-                AppointmentFilter.CANCELLED -> "cancelled"
-            }
-            viewModel.loadAppointments(statusQuery)
+            pagedAppointments.refresh()
             reviewViewModel.resetSubmitState()
         }
     }
+    
+    // Refresh appointments when cancellation is successful
+    LaunchedEffect(uiState.cancelSuccess) {
+        if (uiState.cancelSuccess) {
+            pagedAppointments.refresh()
+            viewModel.loadAppointments(statusQuery) // update cache
+        }
+    }
 
-    // Fetch latest on resume
+    // Also refresh on resume (e.g. coming back from consultation activity)
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, selectedFilter) {
+    DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 val statusQuery = when (selectedFilter) {
@@ -98,6 +114,7 @@ fun AppointmentHistoryScreen(
                     AppointmentFilter.CANCELLED -> "cancelled"
                 }
                 viewModel.loadAppointments(statusQuery)
+                pagedAppointments.refresh()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -130,33 +147,34 @@ fun AppointmentHistoryScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             when {
-                uiState.isLoading -> {
+                pagedAppointments.loadState.refresh is LoadState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                uiState.error != null -> {
+                pagedAppointments.loadState.refresh is LoadState.Error -> {
                     Column(
                         modifier = Modifier.fillMaxSize().padding(32.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
+                        val error = (pagedAppointments.loadState.refresh as LoadState.Error).error
                         Text(
-                            uiState.error.orEmpty().ifBlank { stringResource(R.string.something_went_wrong) },
+                            error.message.orEmpty().ifBlank { stringResource(R.string.something_went_wrong) },
                             fontSize = 16.sp,
                             color = colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.loadAppointments() },
+                            onClick = { pagedAppointments.retry() },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
                             Text(stringResource(R.string.retry))
                         }
                     }
                 }
-                uiState.appointments.isEmpty() -> EmptyAppointmentsView(
+                pagedAppointments.itemCount == 0 && pagedAppointments.loadState.refresh !is LoadState.Loading -> EmptyAppointmentsView(
                     selectedFilter = selectedFilter,
                     onBookClick = { onNavigateToBooking(null) }
                 )
@@ -165,13 +183,15 @@ fun AppointmentHistoryScreen(
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp, start = 8.dp, end = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        itemsIndexed(uiState.appointments) { index, appointment ->
-                            val isLast = index == uiState.appointments.size - 1
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .drawBehind {
-                                        if (!isLast) {
+                        items(count = pagedAppointments.itemCount) { index ->
+                            val appointment = pagedAppointments[index]
+                            if (appointment != null) {
+                                val isLast = index == pagedAppointments.itemCount - 1
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .drawBehind {
+                                            if (!isLast) {
                                             val strokeWidth = 1.5.dp.toPx()
                                             val xOffset = 13.dp.toPx()
                                             val yStart = 24.dp.toPx()
@@ -244,6 +264,22 @@ fun AppointmentHistoryScreen(
                                             onViewCardClick = { selectedBookingStatusAppointment = appointment }
                                         )
                                     }
+                                }
+                            }
+                        }
+                    }
+                    if (pagedAppointments.loadState.append is LoadState.Loading) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(36.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }
@@ -371,6 +407,7 @@ private fun AppointmentCard(
     val colorScheme = MaterialTheme.colorScheme
     val status = appointment.status.lowercase()
     val isUpcoming = status == "scheduled" || status == "confirmed" || status == "in_progress"
+    val isInProgress = status == "in_progress"
     val isCompleted = status == "completed"
     val isCancelled = status == "cancelled"
     val doctorName = appointment.doctor?.name ?: "Doctor"
@@ -403,12 +440,24 @@ private fun AppointmentCard(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val (bgColor, txtColor, statusText) = when {
                     isCompleted -> Triple(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary, "Completed")
+                    isInProgress -> Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), "In Progress")
                     isUpcoming -> Triple(Color(0xFFE3F2FD), MaterialTheme.colorScheme.primary, "Upcoming")
                     isCancelled -> Triple(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.error, "Cancelled")
                     else -> Triple(colorScheme.surfaceVariant, colorScheme.onSurfaceVariant, appointment.status.replaceFirstChar { it.uppercase() })
                 }
                 Box(modifier = Modifier.background(bgColor, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                    Text(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isInProgress) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF4CAF50))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Icon(if (isVideo) Icons.Outlined.VideoCall else Icons.Outlined.Person, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
@@ -510,11 +559,17 @@ private fun AppointmentCard(
             if (isUpcoming) {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (isVideo) {
-                    Button(onClick = onStartConsultation, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                    val rejoinColor = if (isInProgress) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
+                    Button(
+                        onClick = onStartConsultation,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = rejoinColor)
+                    ) {
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        val buttonText = if (status == "in_progress") stringResource(R.string.resume_video_consultation) else stringResource(R.string.start_video_consultation)
-                        Text(buttonText, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val buttonText = if (isInProgress) stringResource(R.string.resume_video_consultation) else stringResource(R.string.start_video_consultation)
+                        Text(buttonText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Surface(
