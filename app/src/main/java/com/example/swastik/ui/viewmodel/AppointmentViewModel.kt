@@ -76,8 +76,8 @@ class AppointmentViewModel @Inject constructor(
                     val sortedAppointments = result.data.sortedWith { a, b ->
                         val aStatus = a.status.lowercase()
                         val bStatus = b.status.lowercase()
-                        val aIsUpcoming = aStatus == "scheduled" || aStatus == "confirmed"
-                        val bIsUpcoming = bStatus == "scheduled" || bStatus == "confirmed"
+                        val aIsUpcoming = aStatus == "scheduled" || aStatus == "confirmed" || aStatus == "in_progress"
+                        val bIsUpcoming = bStatus == "scheduled" || bStatus == "confirmed" || bStatus == "in_progress"
                         
                         when {
                             aIsUpcoming && bIsUpcoming -> {

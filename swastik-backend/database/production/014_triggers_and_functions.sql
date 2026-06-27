@@ -251,7 +251,9 @@ BEGIN
   IF v_consultation.appointment_id IS NOT NULL THEN
     UPDATE appointments
       SET status = 'completed', updated_at = now()
-      WHERE id = v_consultation.appointment_id;
+      WHERE id = v_consultation.appointment_id
+        AND doctor_id = p_doctor_id
+        AND status = 'in_progress';
   END IF;
 
   RETURN jsonb_build_object(

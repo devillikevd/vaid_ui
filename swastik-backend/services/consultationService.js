@@ -455,6 +455,14 @@ const endConsultation = async (doctorUserId, consultationId, data = {}) => {
   }
 
   let consultation = rpcResult.consultation;
+  if (consultation?.appointment_id) {
+    await supabaseAdmin
+      .from('appointments')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', consultation.appointment_id)
+      .eq('doctor_id', doctor.id)
+      .eq('status', 'in_progress');
+  }
 
   const requestedDurationSeconds = Number(data.duration);
   const requestedDurationMinutes = Number.isFinite(requestedDurationSeconds)
@@ -1183,18 +1191,11 @@ const generateClinicalSummary = async (doctorUserId, consultationId) => {
     patientHistory = parts.join(', ') || 'No medical history on file';
   }
 
-  // 2. Fetch Vitals History
+  // 2. Fetch live CV vitals history from the same source used by the doctor panel.
   let vitalsHistory = [];
   try {
-    const { data: vitalsRecords } = await supabaseAdmin
-      .from('vitals')
-      .select('vitals_data, created_at')
-      .eq('consultation_id', consultationId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-    if (vitalsRecords) {
-      vitalsHistory = vitalsRecords.map(r => r.vitals_data);
-    }
+    const vitalsService = require('./vitalsService');
+    vitalsHistory = await vitalsService.getHistory(consultationId, 30);
   } catch (err) {
     console.warn('[ConsultationService] Could not fetch vitals history for summary:', err.message);
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Calendar, Clock, User, Video, Search, RefreshCw, Loader2, AlertCircle, Play, XCircle as XCircleIcon, CheckCircle, Bell } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,19 +15,24 @@ export default function DoctorAppointmentsPage() {
     const router = useRouter();
     const { appointments, isLoading, error, fetchAppointments, startConsultation, completeAppointment, cancelAppointment, clearError } = useDoctorStore();
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('scheduled');
+    const [statusFilter, setStatusFilter] = useState('active');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [newApptAlert, setNewApptAlert] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [cancelAppointmentId, setCancelAppointmentId] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
+    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const selectedStatus = statusFilter === 'all' ? undefined : statusFilter;
+    const isActiveAppointment = useCallback((status?: string) => ['scheduled', 'confirmed', 'pending', 'in_progress'].includes((status || '').toLowerCase()), []);
 
     // Real-time Socket.IO — auto-refresh when patient books/cancels
     useAppointmentUpdates(
         useCallback((update: AppointmentUpdate) => {
-            fetchAppointments(selectedStatus, undefined, 1);
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+            refreshTimerRef.current = setTimeout(() => {
+                fetchAppointments(selectedStatus, undefined, 1);
+            }, 900);
             const msg = update.status === 'scheduled' ? 'New appointment booked by a patient!' :
                 update.status === 'cancelled' ? 'An appointment was cancelled' :
                 `Appointment status changed to ${update.status}`;
@@ -36,13 +41,18 @@ export default function DoctorAppointmentsPage() {
         }, [fetchAppointments, selectedStatus])
     );
 
+    useEffect(() => () => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    }, []);
+
     useEffect(() => {
         fetchAppointments(selectedStatus, undefined, 1);
     }, [fetchAppointments, selectedStatus]);
 
     const filtered = (appointments || []).filter(apt => {
         const matchesSearch = (apt.patientName || '').toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || apt.status === statusFilter;
+        const matchesStatus = statusFilter === 'all'
+            || (statusFilter === 'active' ? isActiveAppointment(apt.status) : apt.status === statusFilter);
         return matchesSearch && matchesStatus;
     });
 
@@ -118,8 +128,10 @@ export default function DoctorAppointmentsPage() {
                     <div className="flex-1"><Input placeholder="Search patients..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} leftIcon={<Search className="h-5 w-5" />} /></div>
                     <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200">
                         <option value="all">All Status</option>
-                        <option value="scheduled">Scheduled</option>
+                        <option value="active">Active</option>
+                        <option value="scheduled">Scheduled Only</option>
                         <option value="confirmed">Confirmed</option>
+                        <option value="in_progress">In Progress</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
@@ -131,8 +143,9 @@ export default function DoctorAppointmentsPage() {
                     {filtered.length === 0 ? (
                         <div className="p-8 text-center text-gray-500 dark:text-gray-400">No appointments found</div>
                     ) : paginatedItems.map((apt) => {
-                        const isActive = ['scheduled', 'confirmed', 'pending'].includes(apt.status);
+                        const isActive = isActiveAppointment(apt.status);
                         const isActing = actionLoading === apt.id;
+                        const consultationId = apt.consultation_id || apt.consultation_room_id;
                         return (
                             <div key={apt.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                 <div className="flex items-center justify-between">
@@ -153,12 +166,12 @@ export default function DoctorAppointmentsPage() {
                                             <div className="flex gap-1">
                                                 {(apt.type === 'video' || apt.type === 'Video') && (
                                                     <Button size="sm" variant="primary" onClick={() => handleStartConsultation(apt.id)} disabled={isActing} leftIcon={isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}>
-                                                        Start
+                                                        {apt.status === 'in_progress' || consultationId ? 'Rejoin' : 'Start'}
                                                     </Button>
                                                 )}
-                                                <Button size="sm" variant="outline" onClick={() => handleComplete(apt.id)} disabled={isActing} leftIcon={<CheckCircle className="h-3 w-3" />}>
+                                                {apt.status !== 'in_progress' && <Button size="sm" variant="outline" onClick={() => handleComplete(apt.id)} disabled={isActing} leftIcon={<CheckCircle className="h-3 w-3" />}>
                                                     Complete
-                                                </Button>
+                                                </Button>}
                                                 <Button size="sm" variant="outline" onClick={() => handleCancel(apt.id)} disabled={isActing}>
                                                     <XCircleIcon className="h-3 w-3 text-red-500" />
                                                 </Button>

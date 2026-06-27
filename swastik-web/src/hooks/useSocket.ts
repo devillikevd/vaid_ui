@@ -1137,6 +1137,11 @@ export function useVitalsStream(
     const reconnectAttemptsRef = useRef(0);
     const isUnmountedRef = useRef(false);
     const connectRef = useRef<(() => void) | null>(null);
+    const signalTogglesStr = useMemo(() => JSON.stringify(signalToggles || {}), [signalToggles]);
+    const stableSignalToggles = useMemo(
+        () => (signalTogglesStr === '{}' ? null : JSON.parse(signalTogglesStr) as VitalsSignalToggles),
+        [signalTogglesStr]
+    );
 
     const bootstrapFromBackend = useCallback(async () => {
         if (!sessionId || role !== 'doctor') return;
@@ -1149,7 +1154,7 @@ export function useVitalsStream(
             ]);
 
             const history = (Array.isArray(historyRes.data) ? historyRes.data : [])
-                .map((entry) => filterVitalsPayload(entry as VitalsStreamData & Record<string, unknown>, signalToggles))
+                .map((entry) => filterVitalsPayload(entry as VitalsStreamData & Record<string, unknown>, stableSignalToggles))
                 .filter(Boolean) as VitalsStreamData[];
 
             if (history.length > 0) {
@@ -1158,23 +1163,23 @@ export function useVitalsStream(
             } else {
                 const latest = filterVitalsPayload(
                     (latestRes.data as VitalsStreamData & Record<string, unknown>) || null,
-                    signalToggles
+                    stableSignalToggles
                 );
                 setLatestVitals(latest);
             }
 
             const filteredAlerts = filterAlertsByToggles(
                 Array.isArray(alertsRes.data) ? alertsRes.data as VitalsAlert[] : [],
-                signalToggles
+                stableSignalToggles
             );
             setAlerts(filteredAlerts.slice(0, 50));
         } catch (err) {
             console.error('Vitals REST bootstrap failed:', err);
         }
-    }, [role, sessionId, signalToggles]);
+    }, [role, sessionId, stableSignalToggles]);
 
     const applyIncomingVitals = useCallback((payload: VitalsStreamData & Record<string, unknown>) => {
-        const filtered = filterVitalsPayload(payload, signalToggles);
+        const filtered = filterVitalsPayload(payload, stableSignalToggles);
         if (!filtered) {
             setLatestVitals(null);
             return;
@@ -1187,7 +1192,7 @@ export function useVitalsStream(
         if (incomingAlerts.length > 0) {
             setAlerts((prev) => mergeAlerts(prev, incomingAlerts));
         }
-    }, [signalToggles]);
+    }, [stableSignalToggles]);
 
     const connect = useCallback(() => {
         if (!sessionId || isUnmountedRef.current) return;
@@ -1261,9 +1266,6 @@ export function useVitalsStream(
             ws.close();
         };
     }, [applyIncomingVitals, role, sessionId]);
-
-    // BUG-A8 Fix: stable dependency for signalToggles to avoid reconnection storms
-    const signalTogglesStr = useMemo(() => JSON.stringify(signalToggles || {}), [signalToggles]);
 
     useEffect(() => {
         isUnmountedRef.current = false;

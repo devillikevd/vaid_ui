@@ -87,8 +87,15 @@ class AppointmentRepository @Inject constructor(
                 appointmentDao.getAllAppointmentsSync()
             }
             if (cached.isNotEmpty()) {
+                val activeStatuses = setOf("scheduled", "confirmed", "in_progress")
                 val appointments = cached
-                    .let { list -> if (status != null) list.filter { it.status == status } else list }
+                    .let { list ->
+                        when (status) {
+                            "active", "upcoming" -> list.filter { it.status.lowercase() in activeStatuses }
+                            null -> list
+                            else -> list.filter { it.status == status }
+                        }
+                    }
                     .map { it.toDomainAppointment() }
                 Result.Success(appointments)
             } else {

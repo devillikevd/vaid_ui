@@ -77,7 +77,7 @@ fun AppointmentHistoryScreen(
         if (reviewUiState.submitSuccess) {
             val statusQuery = when (selectedFilter) {
                 AppointmentFilter.ALL -> null
-                AppointmentFilter.UPCOMING -> "scheduled"
+                AppointmentFilter.UPCOMING -> "active"
                 AppointmentFilter.COMPLETED -> "completed"
                 AppointmentFilter.CANCELLED -> "cancelled"
             }
@@ -93,7 +93,7 @@ fun AppointmentHistoryScreen(
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 val statusQuery = when (selectedFilter) {
                     AppointmentFilter.ALL -> null
-                    AppointmentFilter.UPCOMING -> "scheduled"
+                    AppointmentFilter.UPCOMING -> "active"
                     AppointmentFilter.COMPLETED -> "completed"
                     AppointmentFilter.CANCELLED -> "cancelled"
                 }

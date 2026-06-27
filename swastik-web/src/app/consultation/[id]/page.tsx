@@ -448,7 +448,7 @@ export default function VideoConsultation() {
 
     // Handle incoming WebRTC signaling
     useEffect(() => {
-        if (offer && isPeerReady && peerConnectionRef.current && !hasInitiatedOfferRef.current) {
+        if (offer && isPeerReady && peerConnectionRef.current) {
             handleIncomingOffer(offer);
         }
     }, [offer, isPeerReady]);
@@ -828,6 +828,10 @@ export default function VideoConsultation() {
         try {
             const pc = peerConnectionRef.current;
             if (!pc) return;
+            if (pc.signalingState !== 'stable') {
+                console.warn('Skipping offer because signaling state is', pc.signalingState);
+                return;
+            }
 
             hasInitiatedOfferRef.current = true;
             const offerDescription = await pc.createOffer({
@@ -847,6 +851,10 @@ export default function VideoConsultation() {
     async function restartMediaNegotiation() {
         const pc = peerConnectionRef.current;
         if (!pc || participantsCountRef.current === 0) return;
+        if (pc.signalingState !== 'stable') {
+            console.warn('Skipping ICE restart because signaling state is', pc.signalingState);
+            return;
+        }
 
         try {
             pc.restartIce();
@@ -888,6 +896,7 @@ export default function VideoConsultation() {
 
             await pc.setRemoteDescription(new RTCSessionDescription(offerData));
             hasRemoteDescriptionRef.current = true;
+            hasInitiatedOfferRef.current = false;
 
             // Drain buffered ICE candidates
             if (iceCandidateTimeoutRef.current) {
@@ -915,6 +924,7 @@ export default function VideoConsultation() {
 
             await pc.setRemoteDescription(new RTCSessionDescription(answerData));
             hasRemoteDescriptionRef.current = true;
+            hasInitiatedOfferRef.current = false;
 
             // Drain buffered ICE candidates
             if (iceCandidateTimeoutRef.current) {

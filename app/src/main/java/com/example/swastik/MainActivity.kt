@@ -541,9 +541,9 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         )
                     )
                 },
-                onNavigateToPrescriptions = { doctorId -> 
-                    if (doctorId != null) {
-                        navController.navigateSafe(Screen.Prescriptions.createRoute(doctorId = doctorId))
+                onNavigateToPrescriptions = { appointmentId -> 
+                    if (appointmentId != null) {
+                        navController.navigateSafe(Screen.Prescriptions.createRoute(appointmentId = appointmentId))
                     } else {
                         navController.navigateSafe(Screen.Prescriptions.createRoute()) 
                     }

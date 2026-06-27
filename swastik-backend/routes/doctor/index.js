@@ -424,6 +424,7 @@ router.get('/me/prescriptions',
         instructions: m.instructions,
       })),
       consultationId: rx.consultation_id,
+      appointmentId: rx.consultations?.appointment_id || null,
       status: rx.status || 'active',
     }));
 

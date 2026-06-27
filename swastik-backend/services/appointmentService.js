@@ -15,6 +15,54 @@ const APPOINTMENT_SELECT = `
   clinic:clinics(id, name, address, city)
 `;
 
+const ACTIVE_APPOINTMENT_STATUSES = ['scheduled', 'confirmed', 'in_progress'];
+
+const attachConsultationContext = async (appointments = []) => {
+  if (!appointments.length) return appointments;
+
+  const appointmentIds = appointments.map((appointment) => appointment.id).filter(Boolean);
+  if (appointmentIds.length === 0) return appointments;
+
+  const { data: consultations, error: consultationError } = await supabaseAdmin
+    .from('consultations')
+    .select('id, appointment_id, status, room_id, started_at, ended_at, created_at')
+    .in('appointment_id', appointmentIds)
+    .order('created_at', { ascending: false });
+
+  if (consultationError) throw consultationError;
+
+  const latestConsultationByAppointmentId = new Map();
+  const consultationIds = [];
+  for (const consultation of consultations || []) {
+    if (!consultation?.appointment_id) continue;
+    if (!latestConsultationByAppointmentId.has(consultation.appointment_id)) {
+      latestConsultationByAppointmentId.set(consultation.appointment_id, consultation);
+      consultationIds.push(consultation.id);
+    }
+  }
+
+  let prescriptionConsultationIds = new Set();
+  if (consultationIds.length > 0) {
+    const { data: rxRows, error: rxError } = await supabaseAdmin
+      .from('prescriptions')
+      .select('id, consultation_id')
+      .in('consultation_id', consultationIds);
+    if (rxError) throw rxError;
+    prescriptionConsultationIds = new Set((rxRows || []).map((row) => row.consultation_id).filter(Boolean));
+  }
+
+  return appointments.map((appointment) => {
+    const consultation = latestConsultationByAppointmentId.get(appointment.id) || null;
+    return {
+      ...appointment,
+      consultation_id: consultation?.id || null,
+      consultation_status: consultation?.status || null,
+      consultation_room_id: consultation?.room_id || consultation?.id || null,
+      has_prescription: consultation ? prescriptionConsultationIds.has(consultation.id) : false,
+    };
+  });
+};
+
 const getAccessibleHospitalIds = async (userId) => {
   const { data: ownedHospitals, error: ownedHospitalsError } = await supabaseAdmin
     .from('hospitals')
@@ -118,7 +166,13 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
   }
 
   // Apply filters
-  if (filters.status) query = query.eq('status', filters.status);
+  if (filters.status) {
+    if (['active', 'upcoming'].includes(String(filters.status).toLowerCase())) {
+      query = query.in('status', ACTIVE_APPOINTMENT_STATUSES);
+    } else {
+      query = query.eq('status', filters.status);
+    }
+  }
   if (filters.type) query = query.eq('type', filters.type);
   if (filters.fromDate) query = query.gte('appointment_date', filters.fromDate);
   if (filters.toDate) query = query.lte('appointment_date', filters.toDate);
@@ -137,7 +191,7 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
 
   if (error) throw error;
 
-  let appointments = data || [];
+  let appointments = await attachConsultationContext(data || []);
 
   // Check if each appointment has been reviewed
   if (appointments.length > 0) {
@@ -153,10 +207,16 @@ const getAppointments = async (userId, role, filters = {}, page = 1, limit = 10)
     const consultToAppt = new Map((consultations || []).map(c => [c.id, c.appointment_id]));
 
     // Find reviews linked to either the appointments directly or their consultations
-    const { data: reviews } = await supabaseAdmin
-      .from('reviews')
-      .select('consultation_id')
-      .or(`consultation_id.in.(${appointmentIds.join(',')}),consultation_id.in.(${consultIds.join(',')})`);
+    let reviews = [];
+    const reviewTargets = [...appointmentIds, ...consultIds].filter(Boolean);
+    if (reviewTargets.length > 0) {
+      const reviewsResult = await supabaseAdmin
+        .from('reviews')
+        .select('consultation_id')
+        .in('consultation_id', reviewTargets);
+      if (reviewsResult.error) throw reviewsResult.error;
+      reviews = reviewsResult.data || [];
+    }
 
     const reviewedAppointmentIds = new Set();
     (reviews || []).forEach(r => {
@@ -352,7 +412,7 @@ const bookAppointment = async (patientId, appointmentData) => {
     }),
   ]);
 
-  return appointment;
+  return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
 // Get appointment by ID
@@ -414,7 +474,7 @@ const getAppointmentById = async (userId, role, appointmentId) => {
     }
   }
 
-  return appointment;
+  return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
 // Valid appointment status transitions (state machine)
@@ -485,7 +545,7 @@ const updateAppointmentStatus = async (doctorUserId, appointmentId, status, reas
       data: { appointmentId: appointment.id, status },
     }) : Promise.resolve(),
   ]);
-  return appointment;
+  return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
 // Cancel appointment (patient)
@@ -540,7 +600,7 @@ const cancelAppointment = async (patientUserId, appointmentId, reason) => {
       data: { appointmentId: appointment.id, reason: reason || 'Cancelled by patient' },
     }) : Promise.resolve(),
   ]);
-  return appointment;
+  return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
 // Reschedule appointment
@@ -639,7 +699,7 @@ const rescheduleAppointment = async (userId, role, appointmentId, date, timeSlot
       data: { appointmentId: appointment.id, date, timeSlot },
     }) : Promise.resolve(),
   ]);
-  return appointment;
+  return (await attachConsultationContext([appointment]))[0] || appointment;
 };
 
 module.exports = {

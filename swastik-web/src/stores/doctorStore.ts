@@ -27,6 +27,9 @@ export interface Appointment {
     status: string;
     reason?: string;
     consultation_id?: string;
+    consultation_status?: string | null;
+    consultation_room_id?: string | null;
+    has_prescription?: boolean;
     fee?: number;
     notes?: string;
     patient?: { id: string; name: string; phone?: string };
@@ -76,6 +79,7 @@ export interface Prescription {
     patientName?: string;
     patientId?: string;
     consultationId?: string;
+    appointmentId?: string | null;
     medications?: Record<string, unknown>[];
     diagnosis?: string;
     notes?: string;
@@ -259,6 +263,8 @@ const doctorInitialState = {
     reviewsPagination: { ...defaultPagination },
 };
 
+let appointmentsInFlightKey: string | null = null;
+
 export const useDoctorStore = create<DoctorState>((set, get) => ({
     ...doctorInitialState,
 
@@ -300,11 +306,17 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
     },
 
     fetchAppointments: async (status?: string, date?: string, page: number = 1) => {
+        const requestKey = `${status || 'all'}:${date || 'all'}:${page}`;
+        if (get().loadingAppointments && appointmentsInFlightKey === requestKey) return;
+        appointmentsInFlightKey = requestKey;
         set({ loadingAppointments: true, error: null });
         try {
             const response = await doctorApi.getAppointments(status, date, page);
             if (!response.success) {
-                set({ error: response.error || 'Failed to load appointments', loadingAppointments: false });
+                set((state) => ({
+                    error: state.appointments.length > 0 ? null : (response.error || 'Failed to load appointments'),
+                    loadingAppointments: false,
+                }));
                 return;
             }
             // After fetchWithAuth unwrap, response.data IS the array;
@@ -327,6 +339,8 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
         } catch (error) {
             console.error('Error fetching appointments:', error);
             set({ error: 'Failed to load appointments.', loadingAppointments: false });
+        } finally {
+            if (appointmentsInFlightKey === requestKey) appointmentsInFlightKey = null;
         }
     },
 
@@ -557,6 +571,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
                     return false;
                 }
                 get().fetchDashboardData();
+                get().fetchAppointments('active');
                 return consultationId;
             }
             set({ error: response.error || 'Failed to start consultation' });
@@ -595,6 +610,7 @@ export const useDoctorStore = create<DoctorState>((set, get) => ({
             if (success) {
                 get().fetchDashboardData();
                 get().fetchConsultations();
+                get().fetchAppointments('active');
                 return true;
             }
             set({ error: 'Failed to end consultation' });

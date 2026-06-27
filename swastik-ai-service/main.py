@@ -75,6 +75,14 @@ ICMR_FOOD_DB_PATH = os.path.join(os.path.dirname(__file__), "data", "icmr_food_d
 redis_client = aioredis.from_url(REDIS_URL)
 ai_worker_task: Optional[asyncio.Task] = None
 
+
+def canonical_ws_role(role: Optional[str]) -> str:
+    """Normalize compatible role names used by app tokens and chat payloads."""
+    if role == "user":
+        return "patient"
+    return role or ""
+
+
 # ── MongoDB Setup ──────────────────────────────────────────────────
 
 db = None
@@ -412,11 +420,11 @@ async def vitals_websocket(
             return
         try:
             jwt_payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            user_role = jwt_payload.get("role", "")
+            user_role = canonical_ws_role(jwt_payload.get("role", ""))
             if role == "doctor" and user_role != "doctor":
                 await websocket.close(code=4003, reason="Doctor role required")
                 return
-            if role == "patient" and user_role not in ("patient", "user"):
+            if role == "patient" and user_role != "patient":
                 await websocket.close(code=4003, reason="Patient role required")
                 return
 
@@ -432,7 +440,8 @@ async def vitals_websocket(
                     await websocket.close(code=4003, reason="Session access denied")
                     return
                 auth_data = auth_response.json().get("data", {})
-                if not auth_data.get("authorized") or auth_data.get("role") != user_role:
+                authorized_role = canonical_ws_role(auth_data.get("role"))
+                if not auth_data.get("authorized") or authorized_role != user_role:
                     await websocket.close(code=4003, reason="Session access denied")
                     return
             except (httpx.HTTPError, ValueError, TypeError):
