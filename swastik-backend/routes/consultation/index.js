@@ -154,7 +154,11 @@ router.post('/:id/ai-assist',
       req.user.id,
       req.params.id,
       req.body.query,
-      { symptoms: req.body.symptoms }
+      { 
+        symptoms: req.body.symptoms,
+        vitals: req.body.vitals,
+        vitalsHistory: req.body.vitalsHistory
+      }
     );
     res.json({ success: true, data: result });
   })
@@ -166,7 +170,8 @@ router.post('/:id/summarize',
   asyncHandler(async (req, res) => {
     const result = await consultationService.generateClinicalSummary(
       req.user.id,
-      req.params.id
+      req.params.id,
+      req.body.vitalsHistory
     );
     res.json({ success: true, data: result });
   })

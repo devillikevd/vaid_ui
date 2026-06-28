@@ -214,14 +214,14 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
     }, [toggles]);
 
     // AI query handler
-    const handleAIQuery = useCallback(async () => {
-        if (!aiQuery.trim() || aiLoading) return;
-        const q = aiQuery.trim();
+    const handleAIQuery = useCallback(async (queryText?: string) => {
+        const q = (typeof queryText === 'string' ? queryText : aiQuery).trim();
+        if (!q || aiLoading) return;
         setAiQuery('');
         setAiLoading(true);
         setAiError(null);
         try {
-            const res = await consultationsApi.aiAssist(consultationId, q);
+            const res = await consultationsApi.aiAssist(consultationId, q, undefined, latestVitals, vitalsHistory);
             if (res.success && res.data) {
                 const resp = (res.data as any).response || res.data;
                 setAiHistory(prev => [...prev, { query: q, response: resp }]);
@@ -232,7 +232,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
             setAiError(error instanceof Error ? error.message : 'AI assistant is temporarily unavailable.');
         }
         setAiLoading(false);
-    }, [aiLoading, aiQuery, consultationId]);
+    }, [aiLoading, aiQuery, consultationId, latestVitals, vitalsHistory]);
 
     // Generate Clinical Summary handler
     const handleGenerateSummary = useCallback(async () => {
@@ -240,7 +240,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
         setAiLoading(true);
         setAiError(null);
         try {
-            const res = await consultationsApi.generateSummary(consultationId);
+            const res = await consultationsApi.generateSummary(consultationId, vitalsHistory);
             if (res.success && res.data) {
                 // Add the summary to the chat view
                 const summaryResp: AIConsultResponse = {
@@ -254,7 +254,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
             setAiError(error instanceof Error ? error.message : 'Failed to generate clinical summary.');
         }
         setAiLoading(false);
-    }, [aiLoading, consultationId]);
+    }, [aiLoading, consultationId, vitalsHistory]);
 
     if (!isDoctor) return null;
 
@@ -504,7 +504,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     <p className="text-[10px] mt-1 text-center px-4">Ask about medications, interactions, differentials, or get vitals interpretation</p>
                                     <div className="mt-4 space-y-1.5 w-full">
                                         {['Interpret current vitals', 'Suggest differential diagnosis', 'Any drug interactions?'].map(q => (
-                                            <button key={q} onClick={() => { setAiQuery(q); }}
+                                            <button key={q} onClick={() => handleAIQuery(q)}
                                                 className="w-full text-left text-xs text-gray-400 hover:text-white bg-gray-800/50 hover:bg-gray-800 px-3 py-2 rounded-lg border border-gray-700/50 transition-all">
                                                 {q}
                                             </button>
@@ -619,7 +619,7 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     placeholder="Ask about meds, interactions..."
                                     className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                                     disabled={aiLoading} />
-                                <button onClick={handleAIQuery} disabled={aiLoading || !aiQuery.trim()}
+                                <button onClick={() => handleAIQuery()} disabled={aiLoading || !aiQuery.trim()}
                                     className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-40">
                                     {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>

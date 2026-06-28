@@ -1127,15 +1127,16 @@ export const consultationsApi = {
             body: JSON.stringify(data),
         }),
 
-    aiAssist: (consultationId: string, query: string, symptoms?: string) =>
+    aiAssist: (consultationId: string, query: string, symptoms?: string, vitals?: any, vitalsHistory?: any[]) =>
         fetchWithAuth(`/consultations/${consultationId}/ai-assist`, {
             method: 'POST',
-            body: JSON.stringify({ query, symptoms }),
+            body: JSON.stringify({ query, symptoms, vitals, vitalsHistory }),
         }),
 
-    generateSummary: (consultationId: string) =>
+    generateSummary: (consultationId: string, vitalsHistory?: any[]) =>
         fetchWithAuth(`/consultations/${consultationId}/summarize`, {
             method: 'POST',
+            body: JSON.stringify({ vitalsHistory }),
         }),
 };
 

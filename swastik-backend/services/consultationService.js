@@ -1084,7 +1084,11 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
   let vitalsData = null;
   try {
     const vitalsService = require('./vitalsService');
-    const latestVitals = await vitalsService.getLatest(consultationId);
+    let latestVitals = context.vitals;
+    if (!latestVitals) {
+      latestVitals = await vitalsService.getLatest(consultationId);
+    }
+    
     if (latestVitals) {
       vitalsData = await featureToggleService.filterVitalsByToggles(doctorUserId, latestVitals);
     }
@@ -1160,7 +1164,7 @@ const aiAssistDoctor = async (doctorUserId, consultationId, query, context = {})
 };
 
 // Generate AI Clinical Summary at the end or during consultation
-const generateClinicalSummary = async (doctorUserId, consultationId) => {
+const generateClinicalSummary = async (doctorUserId, consultationId, clientVitalsHistory = null) => {
   const axios = require('axios');
   const jwt = require('jsonwebtoken');
 
@@ -1191,11 +1195,15 @@ const generateClinicalSummary = async (doctorUserId, consultationId) => {
     patientHistory = parts.join(', ') || 'No medical history on file';
   }
 
-  // 2. Fetch live CV vitals history from the same source used by the doctor panel.
+  // 2. Fetch live CV vitals history. Use client-provided history as primary, fallback to backend store.
   let vitalsHistory = [];
   try {
-    const vitalsService = require('./vitalsService');
-    vitalsHistory = await vitalsService.getHistory(consultationId, 30);
+    if (clientVitalsHistory && Array.isArray(clientVitalsHistory) && clientVitalsHistory.length > 0) {
+      vitalsHistory = clientVitalsHistory;
+    } else {
+      const vitalsService = require('./vitalsService');
+      vitalsHistory = await vitalsService.getHistory(consultationId, 30);
+    }
   } catch (err) {
     console.warn('[ConsultationService] Could not fetch vitals history for summary:', err.message);
   }
