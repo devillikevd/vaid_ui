@@ -12,6 +12,7 @@
   "dependencies": {
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
+    "framer-motion": "^12.42.0",
     "jose": "^6.2.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
