@@ -25,6 +25,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
         {/* Inline script to prevent flash of wrong theme */}
         <script
           dangerouslySetInnerHTML={{
@@ -32,7 +35,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var t = localStorage.getItem('swastik-theme');
-                  var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  var dark = t === 'dark';
                   document.documentElement.classList.add(dark ? 'dark' : 'light');
                   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
                 } catch(e) {}

@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-lightBg: #F8FAFC;
+  --color-brand-darkBg: #EFF6FF; /* Light blue-50 instead of dark slate */
+  --color-brand-surface: #FFFFFF;
+  --color-brand-darkSurface: #DBEAFE; /* Blue-100 */
+  --color-brand-darkText: #1E3A8A; /* Blue-900 */
+  --color-brand-primary: #2563EB; /* Blue-600 */
+  --color-brand-accent: #60A5FA; /* Blue-400 */
+
+  --font-sans: "Inter", sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --font-cursive: "Great Vibes", cursive;
+  --font-outfit: "Outfit", sans-serif;
+}
+
 /* Enable class-based dark mode in Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -9,7 +24,7 @@
 
 body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  @apply bg-[#EFF6FF] text-[#0F172A];
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -130,28 +145,7 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
-/* =====================================================
-   DARK MODE AUTOMATIC OVERRIDES
-   These target common gray patterns used across all pages
-   so we don't need to add dark: to every component.
-   ===================================================== */
-
-/* --- Text colors auto-adapt in dark mode --- */
-/* BUG-22 Fix: Use :where() to keep specificity low so component-level dark: classes win */
-.dark :where(main, [role="main"], .dashboard-content) .text-gray-900 { color: #f3f4f6; }  /* gray-100 */
-.dark :where(main, [role="main"], .dashboard-content) .text-gray-800 { color: #e5e7eb; }  /* gray-200 */
-.dark .text-gray-700 { color: #d1d5db; }  /* gray-300 — safe for global use */
-.dark .text-gray-600 { color: #9ca3af; }  /* gray-400 */
-.dark .text-gray-500 { color: #9ca3af; }  /* gray-400 */
-
-/* --- Background colors auto-adapt --- */
-.dark .bg-gray-50  { background-color: #030712; }  /* gray-950 */
-.dark .bg-gray-100 { background-color: #111827; }  /* gray-900 */
-.dark .bg-white    { background-color: #111827; }  /* gray-900 */
-
-/* --- Border colors auto-adapt --- */
-.dark .border-gray-200 { border-color: #374151; }  /* gray-700 */
-.dark .border-gray-100 { border-color: #1f2937; }  /* gray-800 */
+/* Dark mode overrides disabled per user request */
 .dark .border-gray-300 { border-color: #4b5563; }  /* gray-600 */
 
 /* --- Hover backgrounds auto-adapt --- */
@@ -194,3 +188,314 @@ body {
 
 /* --- Dividers (inline <hr>) --- */
 .dark .divide-gray-200 > * + * { border-color: #374151; }
+
+/* ===== HERO SECTION - Fluid responsive ===== */
+.hero-section {
+    min-height: 100dvh;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: clamp(7rem, 15vh, 10rem);
+    padding-bottom: clamp(2rem, 6vh, 5rem);
+}
+.hero-content-wrapper {
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    z-index: 10;
+}
+.hero-logo {
+    font-size: clamp(3.5rem, 12vw, 12rem);
+    line-height: 0.95;
+}
+.hero-heading {
+    font-size: clamp(1.75rem, 5vw, 4rem);
+}
+.hero-subtext {
+    font-size: clamp(0.9rem, 2vw, 1.25rem);
+}
+.hero-badge {
+    font-size: clamp(8px, 1.2vw, 11px);
+}
+.hero-logo-wrap {
+    margin-bottom: clamp(1.5rem, 4vh, 3.5rem);
+}
+.hero-heading-wrap {
+    margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+}
+.hero-subtext-wrap {
+    margin-bottom: clamp(1.5rem, 4vh, 3rem);
+}
+.hero-badge-wrap {
+    margin-bottom: clamp(0.75rem, 2.5vh, 2rem);
+}
+
+/* ===== PHONE MOCKUP - Responsive scaling ===== */
+.phone-container {
+    perspective: 1200px;
+    z-index: 20;
+}
+.phone-mockup {
+    transform-style: preserve-3d;
+    transform: rotateX(15deg) rotateY(-15deg) rotateZ(5deg) translateZ(0);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: float3d 6s ease-in-out infinite;
+    box-shadow: -20px 30px 60px rgba(13,148,136,0.1);
+    width: clamp(240px, 40vw, 320px);
+    height: clamp(490px, 80vw, 650px);
+}
+.phone-mockup:hover {
+    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) translateY(-10px) scale(1.02);
+    animation: none;
+    box-shadow: 0 40px 80px rgba(13,148,136,0.15);
+}
+@media (max-width: 767px) {
+    .phone-mockup {
+        transform: none;
+        animation: none;
+        width: min(280px, 75vw);
+        height: min(570px, 150vw);
+    }
+    .phone-mockup:hover {
+        transform: translateY(-5px) scale(1.01);
+    }
+}
+
+@keyframes float3d {
+    0% { transform: rotateX(15deg) rotateY(-15deg) rotateZ(5deg) translateY(0px); }
+    50% { transform: rotateX(15deg) rotateY(-15deg) rotateZ(5deg) translateY(-20px); box-shadow: -20px 40px 70px rgba(13,148,136,0.05); }
+    100% { transform: rotateX(15deg) rotateY(-15deg) rotateZ(5deg) translateY(0px); }
+}
+
+/* ===== 16:9 CONTAINER ===== */
+.aspect-16-9 {
+    aspect-ratio: 16 / 9;
+}
+@media (max-width: 480px) {
+    .aspect-16-9 {
+        aspect-ratio: auto;
+        min-height: 250px;
+    }
+}
+
+/* ===== NAV PILLS (Light Theme) ===== */
+.ecosystem-pill {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    background: transparent;
+    color: var(--color-brand-darkText);
+    border: 1px solid transparent;
+}
+.ecosystem-pill.active, .ecosystem-pill.active:hover {
+    background-color: var(--color-brand-primary);
+    color: #ffffff;
+    border: 1px solid var(--color-brand-primary);
+    box-shadow: 0 4px 15px rgba(13,148,136,0.3);
+    transform: translateY(-2px);
+}
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ===== INTERACTIVE LOGO ===== */
+.logo-letter {
+    display: inline-block;
+    transition: transform 0.7s cubic-bezier(0.16,1,0.3,1), color 0.7s ease;
+}
+.organic-line {
+    transition: all 1s cubic-bezier(0.22,1,0.36,1);
+    stroke-dasharray: 300;
+    stroke-dashoffset: 300;
+    opacity: 0;
+}
+.logo-container:hover .organic-line {
+    stroke-dashoffset: 0;
+    opacity: 1;
+}
+.logo-leaf-1 { transform-origin: 230px 63px; transform: scale(0) rotate(-20deg); opacity: 0; transition: all 0.7s 0.3s ease-out; }
+.logo-container:hover .logo-leaf-1 { transform: scale(1) rotate(0deg); opacity: 0.8; }
+.logo-leaf-2 { transform-origin: 150px 72px; transform: scale(0) rotate(40deg); opacity: 0; transition: all 0.7s 0.5s ease-out; }
+.logo-container:hover .logo-leaf-2 { transform: scale(1) rotate(10deg); opacity: 1; }
+.logo-cross { transform-origin: 80px 68px; transform: scale(0); opacity: 0; transition: all 1s 0.7s ease; }
+.logo-container:hover .logo-cross { transform: scale(1); opacity: 1; }
+
+/* ===== EYE BLOWING AESTHETICS (MEDICAL THEME) ===== */
+.blob-bg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vw;
+    max-width: 1000px;
+    max-height: 1000px;
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.08) 0%, rgba(14, 165, 233, 0.05) 40%, transparent 70%);
+    filter: blur(60px);
+    z-index: -1;
+    animation: medicalPulse 8s infinite ease-in-out;
+    pointer-events: none;
+}
+.blob-bg-2 {
+    position: absolute;
+    top: 60%;
+    right: 10%;
+    width: 60vw;
+    height: 60vw;
+    max-width: 600px;
+    max-height: 600px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, rgba(13, 148, 136, 0.05) 40%, transparent 70%);
+    filter: blur(50px);
+    z-index: -1;
+    animation: medicalPulse2 10s infinite alternate ease-in-out;
+    pointer-events: none;
+}
+@keyframes medicalPulse {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    20% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+    40% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    60% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+}
+@keyframes medicalPulse2 {
+    0% { transform: scale(1) translate(0, 0); opacity: 0.6; }
+    50% { transform: scale(1.1) translate(-20px, 30px); opacity: 1; }
+    100% { transform: scale(0.9) translate(20px, -20px); opacity: 0.6; }
+}
+
+.medical-cross-float {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    opacity: 0.1;
+    animation: floatCross 15s linear infinite;
+    z-index: -1;
+}
+.medical-cross-float::before, .medical-cross-float::after {
+    content: '';
+    position: absolute;
+    background: var(--color-brand-primary);
+    border-radius: 10px;
+}
+.medical-cross-float::before { top: 10px; bottom: 10px; left: 0; right: 0; }
+.medical-cross-float::after { left: 10px; right: 10px; top: 0; bottom: 0; }
+
+@keyframes floatCross {
+    0% { transform: translateY(100px) rotate(0deg); opacity: 0; }
+    20% { opacity: 0.15; }
+    80% { opacity: 0.15; }
+    100% { transform: translateY(-200px) rotate(90deg); opacity: 0; }
+}
+
+.btn-glow {
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+.btn-glow::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 50%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-25deg);
+    animation: buttonShine 3s infinite;
+    z-index: -1;
+}
+@keyframes buttonShine {
+    0% { left: -100%; }
+    20% { left: 200%; }
+    100% { left: 200%; }
+}
+
+.reveal {
+    opacity: 0;
+    transform: translateY(40px);
+}
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover {
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.6s ease;
+}
+.card-hover:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.08), 0 0 40px rgba(13,148,136,0.1);
+    border-color: rgba(13,148,136,0.2);
+    z-index: 10;
+}
+
+/* ===== ECOSYSTEM MOCKUP GLOW & HOVER ===== */
+.portal-showcase {
+    position: relative;
+    perspective: 1200px;
+}
+.portal-mockup-container {
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-style: preserve-3d;
+    border-radius: 0.75rem;
+    transform: translateZ(0);
+    will-change: transform;
+}
+.portal-showcase:hover .portal-mockup-container {
+    transform: translateY(-15px) rotateX(4deg) rotateY(-2deg) scale(1.02);
+    box-shadow: 0 40px 80px rgba(13,148,136,0.15);
+    z-index: 10;
+}
+.portal-glow {
+    position: absolute;
+    top: 15%; left: 10%; right: 10%; bottom: 5%;
+    filter: blur(50px);
+    opacity: 0.5;
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: -1;
+    border-radius: 50%;
+    animation: pulseGlow 4s infinite alternate ease-in-out;
+    pointer-events: none;
+}
+.portal-showcase:hover .portal-glow {
+    opacity: 0.8;
+    transform: scale(1.15) translateY(10px);
+}
+@keyframes pulseGlow {
+    0% { opacity: 0.5; transform: scale(1); }
+    100% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* Specific Portal Glow Colors */
+.portal-glow-hospital { background: #E0F2FE; }
+.portal-glow-doctor { background: #CCFBF1; }
+.portal-glow-clinic { background: #F3E8FF; }
+.portal-glow-pharmacy { background: #FFEDD5; }
+.portal-glow-diagnostics { background: #FCE7F3; }
+
+/* ===== ENTRANCE ANIMATION ===== */
+.fade-in-up {
+    animation: fadeInUp 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    opacity: 0;
+    transform: translate3d(0, 30px, 0);
+}
+@keyframes fadeInUp { 
+    to { 
+        opacity: 1; 
+        transform: translate3d(0, 0, 0); 
+    } 
+}
+
+/* ===== RESPONSIVE OVERRIDES ===== */
+@media (max-width: 639px) {
+    .section-responsive { padding-top: 4rem !important; padding-bottom: 3rem !important; }
+    .patient-section-responsive { padding-top: 4rem !important; padding-bottom: 4rem !important; }
+    .ecosystem-section-responsive { padding-top: 4rem !important; padding-bottom: 5rem !important; }
+    .portal-sidebar-hide { display: none !important; }
+    .portal-main-expand { width: 100% !important; }
+    .ecosystem-pill { padding: 0.4rem 0.75rem !important; font-size: 0.75rem !important; }
+}
+
+@media (min-width: 1920px) {
+    .hero-logo { font-size: 14rem; }
+    .hero-heading { font-size: 4.5rem; }
+}

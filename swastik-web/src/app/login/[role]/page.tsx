@@ -219,25 +219,38 @@ export default function LoginPage({ params }: LoginPageProps) {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 px-4 py-12">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8] dark:bg-[#0b1121] relative overflow-hidden px-4 py-12">
+            {/* Ambient Background Glows */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/15 dark:bg-blue-500/10 blur-[120px]"></div>
+                <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-brand-primary/15 dark:bg-brand-primary/10 blur-[120px]"></div>
+                <div className="absolute top-[30%] left-[40%] w-[30%] h-[30%] rounded-full bg-purple-500/10 dark:bg-purple-500/5 blur-[100px]"></div>
+            </div>
+
+            <div className="w-full max-w-md relative z-10">
                 {/* Back to portal selection */}
                 <Link
                     href="/"
-                    className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-6 transition-colors"
+                    className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mb-6 transition-all font-medium backdrop-blur-md bg-white/40 dark:bg-slate-800/40 px-4 py-2 rounded-full border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md hover:-translate-y-0.5"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    <span>Back to portal selection</span>
+                    <span className="text-sm">Back to portal selection</span>
                 </Link>
 
-                <Card className="shadow-xl">
+                <Card className="shadow-2xl border-white/50 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl relative overflow-hidden">
+                    {/* Top color bar */}
+                    <div className={`absolute top-0 left-0 w-full h-1.5 ${config.bgColor}`}></div>
+                    
+                    {/* Inner glowing accent based on role */}
+                    <div className={`absolute -top-32 -right-32 w-64 h-64 ${config.bgColor} rounded-full opacity-[0.08] dark:opacity-[0.15] blur-3xl pointer-events-none`}></div>
+
                     {/* Header */}
-                    <div className="text-center mb-8">
-                        <div className={`inline-flex p-3 rounded-xl ${config.bgColor} text-white mb-4`}>
+                    <div className="text-center mb-8 relative z-10 mt-2">
+                        <div className={`inline-flex p-3.5 rounded-2xl ${config.bgColor} text-white mb-5 shadow-lg ring-4 ring-white/50 dark:ring-slate-800/50 transition-transform hover:scale-105 duration-300`}>
                             <Icon className="h-8 w-8" />
                         </div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{config.title}</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">{config.subtitle}</p>
+                        <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">{config.title}</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1.5 font-medium">{config.subtitle}</p>
                     </div>
 
                     {/* Login Form */}
