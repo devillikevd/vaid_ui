@@ -319,6 +319,15 @@ fun DoctorProfileContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Queue Status Card
+        var showQueueSheet by remember { mutableStateOf(false) }
+        val aheadCount = queueStats?.currentQueue ?: details.queueCount ?: 0
+        val waitTime = queueStats?.estimatedWaitTime ?: (aheadCount * 15)
+        val queueDotColor = when {
+            aheadCount <= 2 -> Color(0xFF4CAF50)  // Green: low queue
+            aheadCount <= 5 -> Color(0xFFFF9800)  // Orange: moderate queue
+            else -> Color(0xFFF44336)             // Red: heavy queue
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -337,7 +346,8 @@ fun DoctorProfileContent(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        val rawSlot = details.schedules.firstOrNull()?.startTime
+                        // Use real next available slot from polling, fall back to schedule start time
+                        val rawSlot = queueStats?.nextAvailableSlot ?: details.schedules.firstOrNull()?.startTime
                         val formattedSlot = if (rawSlot != null) {
                             try {
                                 val parts = rawSlot.split(":")
@@ -347,10 +357,12 @@ fun DoctorProfileContent(
                                 val h12 = if (h % 12 == 0) 12 else h % 12
                                 "$h12:$m $ampm"
                             } catch (e: Exception) { rawSlot }
-                        } else "N/A"
+                        } else "No slots today"
+
+                        val slotLabel = if (queueStats?.nextAvailableSlot != null) "Next Available: " else "Next Slot: "
                         
                         Text(
-                            text = "Next Slot: $formattedSlot", 
+                            text = "$slotLabel$formattedSlot", 
                             fontSize = 15.sp, 
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -358,12 +370,12 @@ fun DoctorProfileContent(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(8.dp).background(Color(0xFF4CAF50), CircleShape))
+                            Box(modifier = Modifier.size(8.dp).background(queueDotColor, CircleShape))
                             Spacer(modifier = Modifier.width(6.dp))
-                            val aheadCount = queueStats?.currentQueue ?: details.queueCount ?: (1..5).random()
-                            val waitTime = queueStats?.estimatedWaitTime ?: (aheadCount * 15)
                             Text(
-                                text = "Queue: $aheadCount ahead • ~$waitTime mins", 
+                                text = if (aheadCount > 0) "Queue: $aheadCount ahead • ~$waitTime mins"
+                                       else if (queueStats?.inProgress != null && queueStats.inProgress > 0) "Doctor is with a patient"
+                                       else "No wait — Doctor is free",
                                 fontSize = 13.sp, 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -378,7 +390,7 @@ fun DoctorProfileContent(
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { /* Handle View Queue */ },
+                    modifier = Modifier.fillMaxWidth().clickable { showQueueSheet = true },
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -387,6 +399,61 @@ fun DoctorProfileContent(
                     Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 }
             }
+        }
+
+        // Queue Detail Bottom Sheet
+        if (showQueueSheet) {
+            AlertDialog(
+                onDismissRequest = { showQueueSheet = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.People, null, tint = SwastikPrimary)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Live Queue Status", fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Waiting
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(10.dp).background(queueDotColor, CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Patients waiting:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text("$aheadCount", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        // In Progress
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(10.dp).background(Color(0xFF2196F3), CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Currently with doctor:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text("${queueStats?.inProgress ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        // Completed
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(10.dp).background(Color(0xFF4CAF50), CircleShape))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Completed today:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text("${queueStats?.completed ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        HorizontalDivider()
+                        // ETA
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Estimated wait:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text("~$waitTime mins", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SwastikPrimary)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showQueueSheet = false },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                    ) { Text("Done") }
+                },
+                shape = RoundedCornerShape(20.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))

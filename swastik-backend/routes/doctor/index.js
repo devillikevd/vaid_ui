@@ -470,28 +470,78 @@ router.get('/:id/queue-stats',
 
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const { data: appointments, error } = await supabaseAdmin
-      .from('appointments')
-      .select('status')
-      .eq('doctor_id', id)
-      .eq('appointment_date', today);
+    // Fetch today's appointments and doctor's slot schedule in parallel
+    const [appointmentsResult, slotsResult] = await Promise.all([
+      supabaseAdmin
+        .from('appointments')
+        .select('status, time_slot')
+        .eq('doctor_id', id)
+        .eq('appointment_date', today),
+      supabaseAdmin
+        .from('doctor_slots')
+        .select('start_time, end_time, slot_duration, day_of_week')
+        .eq('doctor_id', id)
+        .eq('is_active', true)
+    ]);
 
-    if (error) {
-      console.error("Queue stats error:", error);
+    if (appointmentsResult.error) {
+      console.error("Queue stats error:", appointmentsResult.error);
       return res.status(500).json({ success: false, message: 'Failed to fetch queue stats' });
     }
 
-    const currentQueue = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length;
+    const appointments = appointmentsResult.data || [];
+    const slots = slotsResult.data || [];
+
+    // BUG FIX: Use 'scheduled' (actual creation status) instead of 'pending' (which never exists)
+    const currentQueue = appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').length;
     const inProgress = appointments.filter(a => a.status === 'in_progress' || a.status === 'started').length;
+    const completed = appointments.filter(a => a.status === 'completed').length;
     const estimatedWaitTime = currentQueue * 15; // 15 mins per patient
+
+    // Calculate next available slot by checking which time slots are not yet booked
+    let nextAvailableSlot = null;
+    const todayDow = now.getDay(); // 0=Sun, 1=Mon, ...
+    const todaySchedule = slots.find(s => s.day_of_week === todayDow);
+
+    if (todaySchedule) {
+      const bookedSlots = new Set(
+        appointments
+          .filter(a => ['scheduled', 'confirmed', 'in_progress', 'started'].includes(a.status))
+          .map(a => a.time_slot)
+          .filter(Boolean)
+      );
+
+      // Generate all possible time slots from the schedule
+      const startParts = todaySchedule.start_time.split(':');
+      const endParts = todaySchedule.end_time.split(':');
+      const startMins = parseInt(startParts[0]) * 60 + parseInt(startParts[1] || 0);
+      const endMins = parseInt(endParts[0]) * 60 + parseInt(endParts[1] || 0);
+      const duration = todaySchedule.slot_duration || 15;
+
+      for (let m = startMins; m < endMins; m += duration) {
+        const hh = String(Math.floor(m / 60)).padStart(2, '0');
+        const mm = String(m % 60).padStart(2, '0');
+        const slotTime = `${hh}:${mm}`;
+
+        // Only consider slots that are in the future and not already booked
+        if (slotTime >= currentTimeStr && !bookedSlots.has(slotTime)) {
+          nextAvailableSlot = slotTime;
+          break;
+        }
+      }
+    }
 
     res.json({
       success: true,
       data: {
         currentQueue,
         inProgress,
-        estimatedWaitTime
+        completed,
+        estimatedWaitTime,
+        nextAvailableSlot
       }
     });
   })

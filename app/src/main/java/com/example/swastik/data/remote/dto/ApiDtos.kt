@@ -443,7 +443,9 @@ data class DoctorDto(
 data class DoctorQueueStatsDto(
     val currentQueue: Int,
     val inProgress: Int,
-    val estimatedWaitTime: Int
+    val completed: Int = 0,
+    val estimatedWaitTime: Int,
+    val nextAvailableSlot: String? = null
 )
 
 data class DoctorQueueStatsResponse(
