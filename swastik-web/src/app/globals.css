@@ -9,10 +9,21 @@
   --color-brand-primary: #2563EB; /* Blue-600 */
   --color-brand-accent: #60A5FA; /* Blue-400 */
 
+  /* Vaididea Landing Page Palette */
+  --color-vd-forest: #1B4D3E;
+  --color-vd-forest-deep: #143D31;
+  --color-vd-sage: #2D6A4F;
+  --color-vd-cream: #FAF8F4;
+  --color-vd-warm: #F3EDE4;
+  --color-vd-gold: #C4A265;
+  --color-vd-dark: #0F1F18;
+  --color-vd-muted: #6B7B75;
+
   --font-sans: "Inter", sans-serif;
   --font-serif: "Playfair Display", serif;
   --font-cursive: "Great Vibes", cursive;
   --font-outfit: "Outfit", sans-serif;
+  --font-heading: "Cormorant Garamond", serif;
 }
 
 /* Enable class-based dark mode in Tailwind v4 */
@@ -498,4 +509,81 @@ body {
 @media (min-width: 1920px) {
     .hero-logo { font-size: 14rem; }
     .hero-heading { font-size: 4.5rem; }
+}
+
+
+/* ===== APPLE INTELLIGENCE & GLASSMORPHISM UTILITIES ===== */
+.apple-glass {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.dark .apple-glass {
+    background: rgba(15, 15, 15, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.apple-glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-glass-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.85);
+}
+
+@keyframes appleGlow {
+    0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+    33% { transform: translate(30px, -50px) scale(1.1); opacity: 0.8; }
+    66% { transform: translate(-20px, 20px) scale(0.9); opacity: 0.5; }
+    100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+}
+
+.siri-orb-1 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    animation: appleGlow 15s infinite alternate ease-in-out;
+    background: radial-gradient(circle, rgba(14,165,233,0.3) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.siri-orb-2 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    animation: appleGlow 20s infinite alternate-reverse ease-in-out;
+    background: radial-gradient(circle, rgba(236,72,153,0.2) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.siri-orb-3 {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    animation: appleGlow 18s infinite alternate ease-in-out;
+    background: radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.animate-on-scroll {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+
+.animate-on-scroll.is-visible {
+    opacity: 1;
+    transform: translateY(0);
 }

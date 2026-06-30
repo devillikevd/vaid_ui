@@ -340,368 +340,389 @@ export default function RegisterPage({ params }: RegisterPageProps) {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900 px-4 py-12">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#050505] overflow-hidden font-sans text-slate-200 py-12 px-4">
+            {/* Dynamic Animated Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-vd-forest/20 blur-[120px] mix-blend-screen animate-pulse duration-10000" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-teal-900/20 blur-[150px] mix-blend-screen animate-pulse duration-7000 delay-1000" />
+            </div>
+
+            <div className="w-full max-w-4xl z-10 flex flex-col items-center">
                 <Link
                     href={`/login/${role}`}
-                    className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 mb-6 transition-colors"
+                    className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-8 transition-colors font-medium text-sm mx-auto w-full justify-center"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     <span>Back to Login</span>
                 </Link>
 
-                <Card className="shadow-xl">
-                    {verificationSent ? (
-                        <div className="text-center py-6">
-                            <div className="inline-flex p-3 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-                                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
-                            </div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                {verificationComplete ? 'Email Verified' : 'Enter Verification Code'}
-                            </h1>
-                            <p className="text-gray-600 dark:text-gray-400 mt-3 text-sm leading-relaxed max-w-xs mx-auto">
-                                {verificationComplete ? (
-                                    <>Your email for <strong>{email}</strong> is verified. You can now sign in and continue to approval review.</>
-                                ) : (
-                                    <>We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to activate your account.</>
-                                )}
-                            </p>
-                            {verificationInfo && (
-                                <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
-                                    {verificationInfo}
+                <div className="flex justify-center transition-colors duration-500 relative group w-full max-w-2xl">
+                    <div className="absolute -inset-0.5 bg-gradient-to-br from-gray-500/30 to-gray-800/30 rounded-[2rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+                    <div className="relative w-full bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 p-8 md:p-10 rounded-[2rem] shadow-2xl flex flex-col gap-6 transition-all duration-500 [&_label]:!text-white/60 [&_label]:!text-xs [&_label]:!font-medium [&_label]:uppercase [&_label]:tracking-wider [&_input]:!bg-white/[0.03] [&_input]:!border-white/10 [&_input]:!text-white [&_input]:placeholder:!text-white/30 [&_input]:focus:!border-white/30 [&_input]:focus:!bg-white/[0.05] [&_input]:!rounded-xl [&_input]:!py-3.5 [&_.text-gray-600]:!text-white/40 [&_.dark\:text-gray-500]:!text-white/40 [&_select]:!bg-[#0A0A0A] [&_select]:!border-white/10 [&_select]:!text-white [&_textarea]:!bg-white/[0.03] [&_textarea]:!border-white/10 [&_textarea]:!text-white [&_textarea]:placeholder:!text-white/30">
+                        {verificationSent ? (
+                            <div className="text-center py-6">
+                                <div className="inline-flex p-3 rounded-full bg-green-500/10 border border-green-500/20 mb-4">
+                                    <CheckCircle className="h-10 w-10 text-green-400" />
                                 </div>
-                            )}
-                            {verificationError && (
-                                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-                                    {verificationError}
-                                </div>
-                            )}
-                            {!verificationComplete && (
-                                <div className="mt-5 space-y-4 text-left">
-                                    <Input
-                                        label="Verification Code"
-                                        type="text"
-                                        value={verificationOtp}
-                                        onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                        placeholder="123456"
-                                        inputMode="numeric"
-                                        maxLength={6}
-                                        autoComplete="one-time-code"
-                                        required
-                                    />
-                                    <Button
-                                        type="button"
-                                        isLoading={verifyingOtp}
-                                        onClick={handleVerifyOtp}
-                                        className={`w-full ${config.bgColor} ${config.hoverColor} text-white`}
-                                    >
-                                        Verify Email OTP
-                                    </Button>
-                                    <button
-                                        type="button"
-                                        onClick={handleResendVerification}
-                                        disabled={resendingOtp || resendCooldown > 0}
-                                        className={`w-full text-sm font-medium ${config.color} disabled:opacity-50`}
-                                    >
-                                        {resendingOtp ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
-                                    </button>
-                                </div>
-                            )}
-                            <div className="mt-6 space-y-3">
-                                <Link href={`/login/${role}`}>
-                                    <Button className={`w-full ${config.bgColor} ${config.hoverColor} text-white`}>
-                                        Go to Login
-                                    </Button>
-                                </Link>
-                                <p className="text-gray-500 dark:text-gray-500 text-xs">
-                                    Didn&apos;t receive it? Check your spam folder and confirm the email address above before requesting another code.
+                                <h1 className="text-2xl font-bold text-white">
+                                    {verificationComplete ? 'Email Verified' : 'Enter Verification Code'}
+                                </h1>
+                                <p className="text-white/60 mt-3 text-sm leading-relaxed max-w-xs mx-auto">
+                                    {verificationComplete ? (
+                                        <>Your email for <strong className="text-white">{email}</strong> is verified. You can now sign in and continue to approval review.</>
+                                    ) : (
+                                        <>We&apos;ve sent a 6-digit verification code to <strong className="text-white">{email}</strong>. Enter it below to activate your account.</>
+                                    )}
                                 </p>
+                                {verificationInfo && (
+                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium">
+                                        {verificationInfo}
+                                    </div>
+                                )}
+                                {verificationError && (
+                                    <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
+                                        {verificationError}
+                                    </div>
+                                )}
+                                {!verificationComplete && (
+                                    <div className="mt-6 space-y-5 text-left">
+                                        <Input
+                                            label="Verification Code"
+                                            type="text"
+                                            value={verificationOtp}
+                                            onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            placeholder="123456"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            autoComplete="one-time-code"
+                                            required
+                                        />
+                                        <Button
+                                            type="button"
+                                            isLoading={verifyingOtp}
+                                            onClick={handleVerifyOtp}
+                                            className="w-full bg-white text-black hover:bg-gray-200 py-4 font-semibold rounded-xl"
+                                        >
+                                            Verify Email OTP
+                                        </Button>
+                                        <button
+                                            type="button"
+                                            onClick={handleResendVerification}
+                                            disabled={resendingOtp || resendCooldown > 0}
+                                            className="w-full text-sm font-semibold text-white/70 hover:text-white disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5 mt-2"
+                                        >
+                                            <Mail className="h-4 w-4" />
+                                            {resendingOtp ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="mt-8 space-y-3 border-t border-white/10 pt-6">
+                                    <Link href={`/login/${role}`}>
+                                        <Button className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all">
+                                            <span className="relative z-10">Go to Login</span>
+                                        </Button>
+                                    </Link>
+                                    <p className="text-white/40 text-xs mt-4">
+                                        Didn&apos;t receive it? Check your spam folder and confirm the email address above before requesting another code.
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                    <>
-                    <div className="text-center mb-8">
-                        <div className={`inline-flex p-3 rounded-xl ${config.bgColor} text-white mb-4`}>
-                            <Icon className="h-8 w-8" />
-                        </div>
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{config.title}</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">{config.subtitle}</p>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {error && (
-                            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
-                                {error}
+                        ) : (
+                        <>
+                        <div className="text-center mb-6">
+                            <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-gray-200 to-white text-black shadow-sm mb-4">
+                                <Icon className="h-8 w-8" />
                             </div>
-                        )}
+                            <h1 className="text-3xl font-semibold text-white tracking-tight mb-2">{config.title}</h1>
+                            <p className="text-white/50 text-sm font-light">{config.subtitle}</p>
+                        </div>
 
-                        <Input
-                            label={withRequiredMark(nameLabel, true)}
-                            value={name}
-                            onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
-                            placeholder={namePlaceholder}
-                            leftIcon={<User className="h-5 w-5" />}
-                            error={fieldErrors.name}
-                            required
-                        />
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            {error && (
+                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
+                                    {error}
+                                </div>
+                            )}
 
-                        {isFacilityRole && (
                             <Input
-                                label={withRequiredMark(facilityLabel, true)}
-                                value={facilityName}
-                                onChange={(e) => { setFacilityName(e.target.value); setFieldErrors(p => { const { facilityName, ...rest } = p; return rest; }); }}
-                                placeholder={`Enter ${facilityLabel.toLowerCase()}`}
-                                leftIcon={<Building2 className="h-5 w-5" />}
-                                error={fieldErrors.facilityName}
+                                label={withRequiredMark(nameLabel, true)}
+                                value={name}
+                                onChange={(e) => { setName(e.target.value); setFieldErrors(p => { const { name, ...rest } = p; return rest; }); }}
+                                placeholder={namePlaceholder}
+                                leftIcon={<User className="h-5 w-5" />}
+                                error={fieldErrors.name}
                                 required
                             />
-                        )}
 
-                        <Input
-                            label={withRequiredMark('Email Address', true)}
-                            type="email"
-                            value={email}
-                            onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
-                            placeholder="Enter email"
-                            leftIcon={<Mail className="h-5 w-5" />}
-                            error={fieldErrors.email}
-                            required
-                        />
+                            {isFacilityRole && (
+                                <Input
+                                    label={withRequiredMark(facilityLabel, true)}
+                                    value={facilityName}
+                                    onChange={(e) => { setFacilityName(e.target.value); setFieldErrors(p => { const { facilityName, ...rest } = p; return rest; }); }}
+                                    placeholder={`Enter ${facilityLabel.toLowerCase()}`}
+                                    leftIcon={<Building2 className="h-5 w-5" />}
+                                    error={fieldErrors.facilityName}
+                                    required
+                                />
+                            )}
 
-                        <Input
-                            label={withRequiredMark('Phone Number', true)}
-                            value={phone}
-                            onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
-                            placeholder="Enter approval contact number"
-                            leftIcon={<Phone className="h-5 w-5" />}
-                            error={fieldErrors.phone}
-                            required
-                        />
+                            <Input
+                                label={withRequiredMark('Email Address', true)}
+                                type="email"
+                                value={email}
+                                onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => { const { email, ...rest } = p; return rest; }); }}
+                                placeholder="Enter email"
+                                leftIcon={<Mail className="h-5 w-5" />}
+                                error={fieldErrors.email}
+                                required
+                            />
 
-                        {/* Role Specific Fields */}
-                        {config.role === 'doctor' && (
-                            <>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        {withRequiredMark('Specialization', true)}
-                                    </label>
-                                    <select
-                                        value={specialization}
-                                        onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
-                                        className={`w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${fieldErrors.specialization ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}
-                                        required
-                                    >
-                                        <option value="">Select specialization</option>
-                                        {SPECIALIZATIONS.map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                    {fieldErrors.specialization && (
-                                        <p className="text-sm text-red-600 dark:text-red-400 mt-1">{fieldErrors.specialization}</p>
-                                    )}
-                                </div>
-                                <Input
-                                    label={withRequiredMark('Medical Registration Number', true)}
-                                    value={registrationNumber}
-                                    onChange={(e) => { setRegistrationNumber(e.target.value); setFieldErrors(p => { const { registrationNumber, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter medical registration number"
-                                    leftIcon={<FileText className="h-5 w-5" />}
-                                    error={fieldErrors.registrationNumber}
-                                    required
-                                />
-                                <Input
-                                    label={withRequiredMark('Medical License Number', true)}
-                                    value={licenseNumber}
-                                    onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter medical license number"
-                                    leftIcon={<FileText className="h-5 w-5" />}
-                                    error={fieldErrors.licenseNumber}
-                                    required
-                                />
-                                <Input
-                                    label={withRequiredMark('Medical Degree / Qualification', true)}
-                                    value={qualification}
-                                    onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
-                                    placeholder="Example: MBBS, MD Internal Medicine"
-                                    leftIcon={<GraduationCap className="h-5 w-5" />}
-                                    error={fieldErrors.qualification}
-                                    required
-                                />
-                                <Input
-                                    label={withRequiredMark('Years of Experience', true)}
-                                    type="number"
-                                    value={experience}
-                                    onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter years of experience"
-                                    leftIcon={<Briefcase className="h-5 w-5" />}
-                                    error={fieldErrors.experience}
-                                    min="0"
-                                    required
-                                />
-                                <Input
-                                    label={withRequiredMark('Consultation Fee', true)}
-                                    type="number"
-                                    value={consultationFee}
-                                    onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter consultation fee in INR"
-                                    leftIcon={<IndianRupee className="h-5 w-5" />}
-                                    error={fieldErrors.consultationFee}
-                                    min="0"
-                                    required
-                                />
-                                <Input
-                                    label="Languages"
-                                    value={languages}
-                                    onChange={(e) => setLanguages(e.target.value)}
-                                    placeholder="Example: Hindi, English, Marathi"
-                                    leftIcon={<Languages className="h-5 w-5" />}
-                                />
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Profile Summary
-                                    </label>
-                                    <textarea
-                                        value={bio}
-                                        onChange={(e) => setBio(e.target.value)}
-                                        placeholder="Short clinical background, areas of focus, and patient-care approach"
-                                        rows={3}
-                                        className="w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 border-gray-200 dark:border-gray-700"
-                                    />
-                                </div>
-                            </>
-                        )}
+                            <Input
+                                label={withRequiredMark('Phone Number', true)}
+                                value={phone}
+                                onChange={(e) => { setPhone(e.target.value); setFieldErrors(p => { const { phone, ...rest } = p; return rest; }); }}
+                                placeholder="Enter approval contact number"
+                                leftIcon={<Phone className="h-5 w-5" />}
+                                error={fieldErrors.phone}
+                                required
+                            />
 
-                        {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner') && (
-                            <>
-                                <Input
-                                    label={withRequiredMark('License / Registration Number', true)}
-                                    value={licenseNumber}
-                                    onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
-                                    placeholder="Enter facility license or registration number"
-                                    leftIcon={<FileText className="h-5 w-5" />}
-                                    error={fieldErrors.licenseNumber}
-                                    required
-                                />
-                                {config.role === 'hospital_owner' && (
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            {withRequiredMark('Hospital Type', true)}
+                            {/* Role Specific Fields */}
+                            {config.role === 'doctor' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                            {withRequiredMark('Specialization', true)}
                                         </label>
                                         <select
-                                            value={hospitalType}
-                                            onChange={(e) => setHospitalType(e.target.value)}
-                                            className="w-full px-3 py-2.5 border rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 border-gray-200 dark:border-gray-700"
+                                            value={specialization}
+                                            onChange={(e) => { setSpecialization(e.target.value); setFieldErrors(p => { const { specialization, ...rest } = p; return rest; }); }}
+                                            className={`w-full px-4 py-3.5 border rounded-xl text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none ${fieldErrors.specialization ? '!border-red-400' : 'border-white/10 bg-white/[0.03]'}`}
                                             required
                                         >
-                                            <option value="Private">Private</option>
-                                            <option value="Government">Government</option>
+                                            <option value="" className="text-black">Select specialization</option>
+                                            {SPECIALIZATIONS.map(s => (
+                                                <option key={s} value={s} className="text-black">{s}</option>
+                                            ))}
                                         </select>
+                                        {fieldErrors.specialization && (
+                                            <p className="text-sm text-red-400 mt-1.5">{fieldErrors.specialization}</p>
+                                        )}
                                     </div>
-                                )}
+                                    <Input
+                                        label={withRequiredMark('Medical Registration Number', true)}
+                                        value={registrationNumber}
+                                        onChange={(e) => { setRegistrationNumber(e.target.value); setFieldErrors(p => { const { registrationNumber, ...rest } = p; return rest; }); }}
+                                        placeholder="Enter medical registration number"
+                                        leftIcon={<FileText className="h-5 w-5" />}
+                                        error={fieldErrors.registrationNumber}
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Medical License Number', true)}
+                                        value={licenseNumber}
+                                        onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
+                                        placeholder="Enter medical license number"
+                                        leftIcon={<FileText className="h-5 w-5" />}
+                                        error={fieldErrors.licenseNumber}
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Medical Degree / Qualification', true)}
+                                        value={qualification}
+                                        onChange={(e) => { setQualification(e.target.value); setFieldErrors(p => { const { qualification, ...rest } = p; return rest; }); }}
+                                        placeholder="Example: MBBS, MD Internal Medicine"
+                                        leftIcon={<GraduationCap className="h-5 w-5" />}
+                                        error={fieldErrors.qualification}
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Years of Experience', true)}
+                                        type="number"
+                                        value={experience}
+                                        onChange={(e) => { setExperience(e.target.value); setFieldErrors(p => { const { experience, ...rest } = p; return rest; }); }}
+                                        placeholder="Enter years of experience"
+                                        leftIcon={<Briefcase className="h-5 w-5" />}
+                                        error={fieldErrors.experience}
+                                        min="0"
+                                        required
+                                    />
+                                    <Input
+                                        label={withRequiredMark('Consultation Fee', true)}
+                                        type="number"
+                                        value={consultationFee}
+                                        onChange={(e) => { setConsultationFee(e.target.value); setFieldErrors(p => { const { consultationFee, ...rest } = p; return rest; }); }}
+                                        placeholder="Enter consultation fee in INR"
+                                        leftIcon={<IndianRupee className="h-5 w-5" />}
+                                        error={fieldErrors.consultationFee}
+                                        min="0"
+                                        required
+                                    />
+                                    <Input
+                                        label="Languages"
+                                        value={languages}
+                                        onChange={(e) => setLanguages(e.target.value)}
+                                        placeholder="Example: Hindi, English, Marathi"
+                                        leftIcon={<Languages className="h-5 w-5" />}
+                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                            Profile Summary
+                                        </label>
+                                        <textarea
+                                            value={bio}
+                                            onChange={(e) => setBio(e.target.value)}
+                                            placeholder="Short clinical background, areas of focus, and patient-care approach"
+                                            rows={3}
+                                            className="w-full px-4 py-3.5 border border-white/10 rounded-xl text-white bg-white/[0.03] placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {(config.role === 'pharmacy_owner' || config.role === 'hospital_owner' || config.role === 'clinic_owner' || config.role === 'diagnostic_center_owner') && (
+                                <>
+                                    <Input
+                                        label={withRequiredMark('License / Registration Number', true)}
+                                        value={licenseNumber}
+                                        onChange={(e) => { setLicenseNumber(e.target.value); setFieldErrors(p => { const { licenseNumber, ...rest } = p; return rest; }); }}
+                                        placeholder="Enter facility license or registration number"
+                                        leftIcon={<FileText className="h-5 w-5" />}
+                                        error={fieldErrors.licenseNumber}
+                                        required
+                                    />
+                                    {config.role === 'hospital_owner' && (
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-white/60 mb-2 uppercase tracking-wider pl-1">
+                                                {withRequiredMark('Hospital Type', true)}
+                                            </label>
+                                            <select
+                                                value={hospitalType}
+                                                onChange={(e) => setHospitalType(e.target.value)}
+                                                className="w-full px-4 py-3.5 border rounded-xl text-white border-white/10 bg-white/[0.03] focus:outline-none focus:border-white/30 focus:bg-white/[0.05] transition-all appearance-none"
+                                                required
+                                            >
+                                                <option value="Private" className="text-black">Private</option>
+                                                <option value="Government" className="text-black">Government</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    <Input
+                                        label={withRequiredMark('Address', true)}
+                                        value={address}
+                                        onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => { const { address, ...rest } = p; return rest; }); }}
+                                        placeholder="Full Address"
+                                        leftIcon={<MapPin className="h-5 w-5" />}
+                                        error={fieldErrors.address}
+                                        required
+                                    />
+                                    <div className="rounded-xl overflow-hidden border border-white/10 relative mt-2 mb-4 bg-white/[0.02]">
+                                        <LocationPicker
+                                            latitude={latitude}
+                                            longitude={longitude}
+                                            address={address}
+                                            onLocationChange={(lat, lng) => {
+                                                if (lat === 0 && lng === 0) {
+                                                    setLatitude(null);
+                                                    setLongitude(null);
+                                                } else {
+                                                    setLatitude(lat);
+                                                    setLongitude(lng);
+                                                }
+                                                setFieldErrors((p) => {
+                                                    const { location, ...rest } = p;
+                                                    return rest;
+                                                });
+                                            }}
+                                            accentColor="black"
+                                            label={withRequiredMark('Pin your facility on the map', true)}
+                                            height="300px"
+                                        />
+                                    </div>
+                                    {fieldErrors.location && (
+                                        <p className="text-sm text-red-400 mt-1">{fieldErrors.location}</p>
+                                    )}
+                                    {(config.role === 'hospital_owner' || config.role === 'clinic_owner') && (
+                                        <div className="flex items-center space-x-3 mt-4 mb-2 p-4 border border-white/10 rounded-xl bg-white/[0.02]">
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    id="emergency_available"
+                                                    checked={isEmergencyAvailable}
+                                                    onChange={(e) => setIsEmergencyAvailable(e.target.checked)}
+                                                    className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-white checked:border-white transition-all cursor-pointer"
+                                                />
+                                                <svg className="absolute w-3 h-3 text-black left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <label htmlFor="emergency_available" className="text-sm font-medium text-white/80 cursor-pointer">
+                                                24/7 Emergency Services Available
+                                            </label>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
                                 <Input
-                                    label={withRequiredMark('Address', true)}
-                                    value={address}
-                                    onChange={(e) => { setAddress(e.target.value); setFieldErrors(p => { const { address, ...rest } = p; return rest; }); }}
-                                    placeholder="Full Address"
-                                    leftIcon={<MapPin className="h-5 w-5" />}
-                                    error={fieldErrors.address}
+                                    label={withRequiredMark('Password', true)}
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => { const { password, ...rest } = p; return rest; }); }}
+                                    placeholder="******"
+                                    leftIcon={<Lock className="h-5 w-5" />}
+                                    error={fieldErrors.password}
+                                    rightIcon={
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="hover:text-white text-white/40 transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                        </button>
+                                    }
                                     required
                                 />
-                                <LocationPicker
-                                    latitude={latitude}
-                                    longitude={longitude}
-                                    address={address}
-                                    onLocationChange={(lat, lng) => {
-                                        if (lat === 0 && lng === 0) {
-                                            setLatitude(null);
-                                            setLongitude(null);
-                                        } else {
-                                            setLatitude(lat);
-                                            setLongitude(lng);
-                                        }
-                                        setFieldErrors((p) => {
-                                            const { location, ...rest } = p;
-                                            return rest;
-                                        });
-                                    }}
-                                    accentColor={config.bgColor.replace('bg-', '').replace('-600', '')}
-                                    label={withRequiredMark('Pin your facility on the map', true)}
-                                    height="250px"
+                                <Input
+                                    label={withRequiredMark('Confirm Password', true)}
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={confirmPassword}
+                                    onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(p => { const { confirmPassword, ...rest } = p; return rest; }); }}
+                                    placeholder="******"
+                                    leftIcon={<Lock className="h-5 w-5" />}
+                                    error={fieldErrors.confirmPassword}
+                                    required
                                 />
-                                {fieldErrors.location && (
-                                    <p className="text-sm text-red-600 dark:text-red-400 -mt-2">{fieldErrors.location}</p>
-                                )}
-                                {(config.role === 'hospital_owner' || config.role === 'clinic_owner') && (
-                                    <div className="flex items-center space-x-3 mt-4 mb-2 p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-900/50">
-                                        <input
-                                            type="checkbox"
-                                            id="emergency_available"
-                                            checked={isEmergencyAvailable}
-                                            onChange={(e) => setIsEmergencyAvailable(e.target.checked)}
-                                            className="w-5 h-5 rounded border-gray-300 text-teal-600 focus:ring-teal-600 dark:border-gray-700 dark:bg-gray-900"
-                                        />
-                                        <label htmlFor="emergency_available" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            24/7 Emergency Services Available
-                                        </label>
-                                    </div>
-                                )}
-                            </>
+                            </div>
+
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-400 mt-4 leading-relaxed font-medium">
+                                {approvalHint}
+                            </div>
+
+                            <div className="pt-6">
+                                <Button
+                                    type="submit"
+                                    isLoading={isLoading}
+                                    className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all"
+                                >
+                                    <span className="relative z-10">Complete Registration</span>
+                                </Button>
+                            </div>
+                        </form>
+
+                        <div className="mt-6 pt-6 border-t border-white/10 text-center">
+                            <p className="text-white/50 text-sm">
+                                Already have an account?{' '}
+                                <Link href={`/login/${role}`} className="text-white font-medium hover:underline decoration-white/30 ml-1 transition-colors">
+                                    Sign In
+                                </Link>
+                            </p>
+                        </div>
+                        </>
                         )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input
-                                label={withRequiredMark('Password', true)}
-                                type={showPassword ? 'text' : 'password'}
-                                value={password}
-                                onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => { const { password, ...rest } = p; return rest; }); }}
-                                placeholder="******"
-                                leftIcon={<Lock className="h-5 w-5" />}
-                                error={fieldErrors.password}
-                                rightIcon={
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="hover:text-gray-600 dark:text-gray-400"
-                                    >
-                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                    </button>
-                                }
-                                required
-                            />
-                            <Input
-                                label={withRequiredMark('Confirm Password', true)}
-                                type={showPassword ? 'text' : 'password'}
-                                value={confirmPassword}
-                                onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors(p => { const { confirmPassword, ...rest } = p; return rest; }); }}
-                                placeholder="******"
-                                leftIcon={<Lock className="h-5 w-5" />}
-                                error={fieldErrors.confirmPassword}
-                                required
-                            />
-                        </div>
-
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
-                            {approvalHint}
-                        </div>
-
-                        <Button
-                            type="submit"
-                            isLoading={isLoading}
-                            className={`w-full ${config.bgColor} ${config.hoverColor} text-white mt-6`}
-                        >
-                            Complete Registration
-                        </Button>
-                    </form>
-
-                    <p className="text-center text-gray-600 dark:text-gray-400 mt-6 text-sm">
-                        Already have an account?{' '}
-                        <Link href={`/login/${role}`} className={`${config.color} hover:underline font-medium`}>
-                            Sign In
-                        </Link>
-                    </p>
-                    </>
-                    )}
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );

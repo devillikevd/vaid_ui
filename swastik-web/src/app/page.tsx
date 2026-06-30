@@ -1,22 +1,21 @@
 import React from "react";
 import Navbar from "@/components/landing/Navbar";
-import LocationSplashScreen from "@/components/landing/LocationSplashScreen";
 import Hero from "@/components/landing/Hero";
-import EcosystemFeatures from "@/components/landing/EcosystemFeatures";
-import GuardianEmergency from "@/components/landing/GuardianEmergency";
-import DailyHealthAI from "@/components/landing/DailyHealthAI";
+import ChoosePath from "@/components/landing/ChoosePath";
+import PatientApp from "@/components/landing/PatientApp";
+import ProviderEcosystem from "@/components/landing/ProviderEcosystem";
+import VisionSection from "@/components/landing/VisionSection";
 import Footer from "@/components/landing/Footer";
-import FloatingIcons from "@/components/landing/FloatingIcons";
 
 export default function HomePage() {
   return (
-    <main className="bg-[#EFF6FF] min-h-screen">
-      <LocationSplashScreen />
+    <main className="bg-vd-cream min-h-screen">
       <Navbar />
       <Hero />
-      <EcosystemFeatures />
-      <GuardianEmergency />
-      <DailyHealthAI />
+      <ChoosePath />
+      <PatientApp />
+      <ProviderEcosystem />
+      <VisionSection />
       <Footer />
     </main>
   );

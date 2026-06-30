@@ -219,179 +219,181 @@ export default function LoginPage({ params }: LoginPageProps) {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8] dark:bg-[#0b1121] relative overflow-hidden px-4 py-12">
-            {/* Ambient Background Glows */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/15 dark:bg-blue-500/10 blur-[120px]"></div>
-                <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-brand-primary/15 dark:bg-brand-primary/10 blur-[120px]"></div>
-                <div className="absolute top-[30%] left-[40%] w-[30%] h-[30%] rounded-full bg-purple-500/10 dark:bg-purple-500/5 blur-[100px]"></div>
+        <div className="min-h-screen relative flex flex-col items-center justify-center bg-[#050505] overflow-hidden font-sans text-slate-200 py-12 px-4">
+            {/* Dynamic Animated Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-vd-forest/20 blur-[120px] mix-blend-screen animate-pulse duration-10000" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-teal-900/20 blur-[150px] mix-blend-screen animate-pulse duration-7000 delay-1000" />
             </div>
 
-            <div className="w-full max-w-md relative z-10">
-                {/* Back to portal selection */}
+            <div className="w-full max-w-lg z-10 flex flex-col items-center">
                 <Link
                     href="/"
-                    className="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mb-6 transition-all font-medium backdrop-blur-md bg-white/40 dark:bg-slate-800/40 px-4 py-2 rounded-full border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                    className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-8 transition-colors font-medium text-sm mx-auto w-full justify-center"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    <span className="text-sm">Back to portal selection</span>
+                    <span>Back to portal selection</span>
                 </Link>
 
-                <Card className="shadow-2xl border-white/50 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl relative overflow-hidden">
-                    {/* Top color bar */}
-                    <div className={`absolute top-0 left-0 w-full h-1.5 ${config.bgColor}`}></div>
-                    
-                    {/* Inner glowing accent based on role */}
-                    <div className={`absolute -top-32 -right-32 w-64 h-64 ${config.bgColor} rounded-full opacity-[0.08] dark:opacity-[0.15] blur-3xl pointer-events-none`}></div>
-
-                    {/* Header */}
-                    <div className="text-center mb-8 relative z-10 mt-2">
-                        <div className={`inline-flex p-3.5 rounded-2xl ${config.bgColor} text-white mb-5 shadow-lg ring-4 ring-white/50 dark:ring-slate-800/50 transition-transform hover:scale-105 duration-300`}>
-                            <Icon className="h-8 w-8" />
+                <div className="flex justify-center transition-colors duration-500 relative group w-full">
+                    <div className="absolute -inset-0.5 bg-gradient-to-br from-gray-500/30 to-gray-800/30 rounded-[2rem] blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+                    <div className="relative w-full bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 p-8 md:p-10 rounded-[2rem] shadow-2xl flex flex-col gap-6 transition-all duration-500 [&_label]:!text-white/60 [&_label]:!text-xs [&_label]:!font-medium [&_label]:uppercase [&_label]:tracking-wider [&_input]:!bg-white/[0.03] [&_input]:!border-white/10 [&_input]:!text-white [&_input]:placeholder:!text-white/30 [&_input]:focus:!border-white/30 [&_input]:focus:!bg-white/[0.05] [&_input]:!rounded-xl [&_input]:!py-3.5 [&_.text-gray-600]:!text-white/40 [&_.dark\:text-gray-500]:!text-white/40 [&_select]:!bg-[#0A0A0A] [&_select]:!border-white/10 [&_select]:!text-white [&_textarea]:!bg-white/[0.03] [&_textarea]:!border-white/10 [&_textarea]:!text-white [&_textarea]:placeholder:!text-white/30">
+                        
+                        <div className="text-center mb-6">
+                            <div className="inline-flex p-3 rounded-2xl bg-gradient-to-br from-gray-200 to-white text-black shadow-sm mb-4">
+                                <Icon className="h-8 w-8" />
+                            </div>
+                            <h1 className="text-3xl font-semibold text-white tracking-tight mb-2">{config.title}</h1>
+                            <p className="text-white/50 text-sm font-light">{config.subtitle}</p>
                         </div>
-                        <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">{config.title}</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1.5 font-medium">{config.subtitle}</p>
-                    </div>
 
-                    {/* Login Form */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {verificationResent && (
-                            <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
-                                Verification code sent. Please check your inbox and enter the 6-digit code below.
-                            </div>
-                        )}
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            {verificationResent && (
+                                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium">
+                                    Verification code sent. Please check your inbox and enter the 6-digit code below.
+                                </div>
+                            )}
 
-                        {verificationComplete && (
-                            <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 text-sm">
-                                Email verified successfully. You can now sign in with your password.
-                            </div>
-                        )}
+                            {verificationComplete && (
+                                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-sm font-medium">
+                                    Email verified successfully. You can now sign in with your password.
+                                </div>
+                            )}
 
-                        {isExpiredRedirect && !error && (
-                            <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
-                                <p className="text-amber-700 dark:text-amber-400">Your session has expired. Please sign in again.</p>
-                            </div>
-                        )}
+                            {isExpiredRedirect && !error && (
+                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-medium">
+                                    Your session has expired. Please sign in again.
+                                </div>
+                            )}
 
-                        {error && (
-                            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-sm">
-                                <p className="text-red-700 dark:text-red-400">{error}</p>
-                                {emailNotVerified && email && (
+                            {error && (
+                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
+                                    <p>{error}</p>
+                                    {emailNotVerified && email && (
+                                        <button
+                                            type="button"
+                                            onClick={handleResendVerification}
+                                            disabled={resendingVerification || resendCooldown > 0}
+                                            className="mt-3 inline-flex items-center gap-1.5 text-white/70 hover:text-white font-medium text-sm disabled:opacity-50 transition-colors"
+                                        >
+                                            <Mail className="h-4 w-4" />
+                                            {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {emailNotVerified && (
+                                <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-5">
+                                    <div>
+                                        <p className="text-sm font-medium text-white/90">Verify your email</p>
+                                        <p className="mt-1 text-xs text-white/50">
+                                            Enter the 6-digit code we emailed to this address before signing in.
+                                        </p>
+                                    </div>
+                                    <Input
+                                        label="Verification Code"
+                                        type="text"
+                                        value={verificationOtp}
+                                        onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        placeholder="123456"
+                                        inputMode="numeric"
+                                        maxLength={6}
+                                        autoComplete="one-time-code"
+                                        required
+                                    />
+                                    <Button
+                                        type="button"
+                                        isLoading={verifyingOtp}
+                                        onClick={handleVerifyOtp}
+                                        className="w-full bg-white text-black hover:bg-gray-200 py-4 font-semibold rounded-xl transition-all"
+                                    >
+                                        Verify Email OTP
+                                    </Button>
+                                </div>
+                            )}
+
+                            <Input
+                                label="Email Address"
+                                type="email"
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    setVerificationComplete(false);
+                                }}
+                                placeholder="Enter your email"
+                                leftIcon={<Mail className="h-5 w-5" />}
+                                required
+                                autoComplete="email"
+                            />
+
+                            <Input
+                                label="Password"
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter your password"
+                                leftIcon={<Lock className="h-5 w-5" />}
+                                rightIcon={
                                     <button
                                         type="button"
-                                        onClick={handleResendVerification}
-                                        disabled={resendingVerification || resendCooldown > 0}
-                                        className="mt-2 inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm disabled:opacity-50"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="hover:text-white text-white/40 transition-colors"
                                     >
-                                        <Mail className="h-3.5 w-3.5" />
-                                        {resendingVerification ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend verification code'}
+                                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                     </button>
-                                )}
-                            </div>
-                        )}
+                                }
+                                required
+                                autoComplete="current-password"
+                            />
 
-                        {emailNotVerified && (
-                            <div className="space-y-3 rounded-xl border border-purple-200 bg-purple-50/70 p-4 dark:border-purple-900 dark:bg-purple-950/30">
-                                <div>
-                                    <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Verify your email</p>
-                                    <p className="mt-1 text-xs text-purple-700 dark:text-purple-300">
-                                        Enter the 6-digit code we emailed to this address before signing in.
-                                    </p>
-                                </div>
-                                <Input
-                                    label="Verification Code"
-                                    type="text"
-                                    value={verificationOtp}
-                                    onChange={(e) => setVerificationOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    placeholder="123456"
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    autoComplete="one-time-code"
-                                    required
-                                />
+                            <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between py-2">
+                                <label className="flex items-center gap-2.5 cursor-pointer">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="peer appearance-none w-5 h-5 border border-white/20 rounded bg-white/[0.03] checked:bg-white checked:border-white transition-all cursor-pointer"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                        />
+                                        <svg className="absolute w-3 h-3 text-black left-1 top-1 opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <span className="text-white/60 font-medium">Remember me</span>
+                                </label>
+                                <Link href={`/forgot-password/${role}`} className="text-white/60 hover:text-white transition-colors font-medium">
+                                    Forgot password?
+                                </Link>
+                            </div>
+
+                            <div className="pt-2">
                                 <Button
-                                    type="button"
-                                    isLoading={verifyingOtp}
-                                    onClick={handleVerifyOtp}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                    type="submit"
+                                    isLoading={isLoading}
+                                    className="w-full relative overflow-hidden group/btn bg-gradient-to-r from-gray-200 to-white !text-black py-6 rounded-xl font-semibold tracking-wide border-0 shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all"
                                 >
-                                    Verify Email OTP
+                                    <span className="relative z-10">Sign In</span>
                                 </Button>
                             </div>
+                        </form>
+
+                        {/* Register Link */}
+                        {role !== 'admin' && (
+                            <div className="mt-6 pt-6 border-t border-white/10 text-center">
+                                <p className="text-white/50 text-sm">
+                                    Don&apos;t have an account?{' '}
+                                    <Link href={`/register/${role}`} className="text-white font-medium hover:underline decoration-white/30 ml-1 transition-colors">
+                                        Register as {config.title.replace(' Portal', '')}
+                                    </Link>
+                                </p>
+                            </div>
                         )}
-
-                        <Input
-                            label="Email Address"
-                            type="email"
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                setVerificationComplete(false);
-                            }}
-                            placeholder="Enter your email"
-                            leftIcon={<Mail className="h-5 w-5" />}
-                            required
-                            autoComplete="email"
-                        />
-
-                        <Input
-                            label="Password"
-                            type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter your password"
-                            leftIcon={<Lock className="h-5 w-5" />}
-                            rightIcon={
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="hover:text-gray-600"
-                                >
-                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                                </button>
-                            }
-                            required
-                            autoComplete="current-password"
-                        />
-
-                        <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-gray-300"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                />
-                                <span className="text-gray-600 dark:text-gray-400">Remember me</span>
-                            </label>
-                            <Link href={`/forgot-password/${role}`} className={`${config.color} hover:underline`}>
-                                Forgot password?
-                            </Link>
-                        </div>
-
-                        <Button
-                            type="submit"
-                            isLoading={isLoading}
-                            className={`w-full ${config.bgColor} ${config.hoverColor} text-white`}
-                        >
-                            Sign In
-                        </Button>
-                    </form>
-
-                    {/* Register Link */}
-                    {role !== 'admin' && (
-                        <p className="text-center text-gray-600 dark:text-gray-400 mt-6 text-sm">
-                            Don&apos;t have an account?{' '}
-                            <Link href={`/register/${role}`} className={`${config.color} hover:underline font-medium`}>
-                                Register as {config.title.replace(' Portal', '')}
-                            </Link>
-                        </p>
-                    )}
-
-                </Card>
+                    </div>
+                </div>
 
                 {/* Footer */}
-                <p className="text-center text-gray-500 dark:text-gray-500 text-sm mt-6">
+                <p className="text-center text-white/30 text-sm mt-8 font-light">
                     © {new Date().getFullYear()} VAIDIDEA Healthcare. All rights reserved.
                 </p>
             </div>
