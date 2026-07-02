@@ -73,6 +73,7 @@ class ComputerVisionAnalyzer(
     data class CVMetrics(
         val heartRate: Double? = null,
         val respirationRate: Double? = null,
+        val blinkRate: Double? = null,
         val spo2: Double? = null,
         val drowsinessScore: Double? = null,
         val facialAsymmetryScore: Double? = null,
@@ -80,6 +81,8 @@ class ComputerVisionAnalyzer(
         val tremorSeverity: Double? = null,
         val tremorFrequency: Double? = null,
         val painScore: Double? = null,
+        val jaundiceScore: Double? = null,
+        val cyanosisScore: Double? = null,
         val posture: String? = null,
         val spineAngle: Double? = null,
         val pallorScore: Double? = null,
@@ -181,6 +184,19 @@ class ComputerVisionAnalyzer(
     private var smoothedPain: Double? = null
     private var smoothedAsymmetry: Double? = null
     private var smoothedPallor: Double? = null
+
+    // Blink tracking
+    private val eyeLuminanceSamples = ArrayDeque<SignalSample>()
+    private val blinkTimestamps = ArrayDeque<Long>()
+    private var lastBlinkTimeMs = 0L
+    private var smoothedBlinkRate: Double? = null
+
+    // Clinical emergency tracking (15-sec rolling windows)
+    private val jaundiceSamples = ArrayDeque<SignalSample>()
+    private val cyanosisSamples = ArrayDeque<SignalSample>()
+    private var smoothedJaundice: Double? = null
+    private var smoothedCyanosis: Double? = null
+    
     private var tremorBaselineX: Double? = null
     private var lastLuminance: Double? = null
 
@@ -340,6 +356,18 @@ class ComputerVisionAnalyzer(
                         )
                         if (left != null && right != null) averageRgb(left, right) else null
                     }
+                    
+                    val eyeColor = cachedRoi?.let { roi ->
+                        val left = sampleYuvPatch(
+                            yBufferCopy, yStride, uBufferCopy, uStride, uPixelStride, vBufferCopy, vStride, vPixelStride,
+                            width, height, roi.faceBox, xFactor = 0.30, yFactor = 0.35, widthFactor = 0.12, heightFactor = 0.06
+                        )
+                        val right = sampleYuvPatch(
+                            yBufferCopy, yStride, uBufferCopy, uStride, uPixelStride, vBufferCopy, vStride, vPixelStride,
+                            width, height, roi.faceBox, xFactor = 0.70, yFactor = 0.35, widthFactor = 0.12, heightFactor = 0.06
+                        )
+                        if (left != null && right != null) averageRgb(left, right) else null
+                    }
 
                     processKeyframe(nv21, width, height, rotation, currentTimeMs, yuvCheekColor)
 
@@ -360,6 +388,16 @@ class ComputerVisionAnalyzer(
                         )
                         val avgColor = if (leftCheek != null && rightCheek != null) averageRgb(leftCheek, rightCheek) else null
                         
+                        val leftEye = sampleYuvPatch(
+                            yBufferCopy, yStride, uBufferCopy, uStride, uPixelStride, vBufferCopy, vStride, vPixelStride,
+                            width, height, roi.faceBox, xFactor = 0.30, yFactor = 0.35, widthFactor = 0.12, heightFactor = 0.06
+                        )
+                        val rightEye = sampleYuvPatch(
+                            yBufferCopy, yStride, uBufferCopy, uStride, uPixelStride, vBufferCopy, vStride, vPixelStride,
+                            width, height, roi.faceBox, xFactor = 0.70, yFactor = 0.35, widthFactor = 0.12, heightFactor = 0.06
+                        )
+                        val eyeColor = if (leftEye != null && rightEye != null) averageRgb(leftEye, rightEye) else null
+                        
                         val lipColor = sampleYuvPatch(
                             yBufferCopy, yStride,
                             uBufferCopy, uStride, uPixelStride,
@@ -368,7 +406,13 @@ class ComputerVisionAnalyzer(
                             widthFactor = 0.12, heightFactor = 0.07
                         )
                         
-                        processLightweightFrame(avgColor, lipColor, roi, currentTimeMs)
+                        processLightweightFrame(
+                            cheekColor = avgColor,
+                            lipColor = lipColor,
+                            eyeColor = eyeColor,
+                            roi = roi,
+                            currentTimeMs = currentTimeMs
+                        )
                     } else {
                         handleFaceLoss()
                     }
@@ -541,7 +585,9 @@ class ComputerVisionAnalyzer(
             ?.takeIf { signalQuality >= 0.45 }
             ?.let { estimateHeartRate(currentTimeMs, it) }
 
-        val respirationRate = estimateRespirationRate(currentTimeMs, landmarks)
+        val respirationRate = landmarks
+            .takeIf { signalQuality >= 0.40 }
+            ?.let { estimateRespirationRate(currentTimeMs, it) }
 
         val pallorScore = lipColor
             ?.takeIf { signalQuality >= 0.35 }
@@ -554,13 +600,16 @@ class ComputerVisionAnalyzer(
         _vitalsData.value = CVMetrics(
             heartRate = heartRate,
             respirationRate = respirationRate,
+            blinkRate = smoothedBlinkRate?.round(1),
             spo2 = null,
             drowsinessScore = drowsinessScore?.round(3),
             facialAsymmetryScore = asymmetryScore,
-            tremorDetected = tremor.detected,
-            tremorSeverity = tremor.severity?.round(2),
-            tremorFrequency = tremor.frequency?.round(2),
-            painScore = painScore,
+            tremorDetected = tremor?.detected,
+            tremorSeverity = tremor?.severity?.round(2),
+            tremorFrequency = tremor?.frequency?.round(2),
+            painScore = painScore?.round(2),
+            jaundiceScore = smoothedJaundice?.round(2),
+            cyanosisScore = smoothedCyanosis?.round(3),
             posture = lastKeyframePosture?.first,
             spineAngle = lastKeyframePosture?.second?.round(1),
             pallorScore = pallorScore,
@@ -583,6 +632,7 @@ class ComputerVisionAnalyzer(
     private fun processLightweightFrame(
         cheekColor: RgbStats?,
         lipColor: RgbStats?,
+        eyeColor: RgbStats?,
         roi: CachedRoi,
         currentTimeMs: Long
     ) {
@@ -596,6 +646,72 @@ class ComputerVisionAnalyzer(
             }
         }
         lastLuminance = currentLuminance
+
+        // ── Blink Tracking ─────────────────────────────────────────
+        val currentEyeLum = eyeColor?.luminance
+        if (currentEyeLum != null) {
+            eyeLuminanceSamples.addLast(SignalSample(currentTimeMs, currentEyeLum))
+            trimSamples(eyeLuminanceSamples, currentTimeMs, 5_000L) // 5s window
+
+            if (eyeLuminanceSamples.size > 10) {
+                val recentAvg = eyeLuminanceSamples.takeLast(3).map { it.value }.average()
+                val olderAvg = eyeLuminanceSamples.dropLast(3).takeLast(15).map { it.value }.average()
+
+                // Sharp drop in luminance indicates a blink (eyelid covering white sclera)
+                if (olderAvg > 1.0 && recentAvg < olderAvg * 0.94 && (currentTimeMs - lastBlinkTimeMs > 400L)) {
+                    lastBlinkTimeMs = currentTimeMs
+                    blinkTimestamps.addLast(currentTimeMs)
+                }
+            }
+        }
+
+        // Keep last 60 seconds of blinks
+        while (blinkTimestamps.isNotEmpty() && (currentTimeMs - blinkTimestamps.first() > 60_000L)) {
+            blinkTimestamps.removeFirst()
+        }
+
+        val rawBlinkRate = if (blinkTimestamps.size > 1) {
+            val elapsedSec = (currentTimeMs - blinkTimestamps.first()) / 1000.0
+            if (elapsedSec > 10.0) (blinkTimestamps.size / elapsedSec) * 60.0 else null
+        } else null
+        
+        if (rawBlinkRate != null) {
+            smoothedBlinkRate = smooth(smoothedBlinkRate, rawBlinkRate, alpha = 0.1)
+        }
+
+        // ── Clinical Emergency Tracking (Jaundice & Cyanosis) ──────
+        // Only evaluate if lighting/signal quality is very good
+        if (roi.signalQuality >= 0.70 && cheekColor != null) {
+            // Jaundice (Yellow Sclera vs Cheeks)
+            if (eyeColor != null) {
+                val eyeYellow = (eyeColor.red + eyeColor.green) / 2.0 - eyeColor.blue
+                val cheekYellow = (cheekColor.red + cheekColor.green) / 2.0 - cheekColor.blue
+                val jaundiceIndex = eyeYellow - cheekYellow
+                
+                jaundiceSamples.addLast(SignalSample(currentTimeMs, jaundiceIndex))
+                trimSamples(jaundiceSamples, currentTimeMs, 15_000L) // 15 sec window
+                
+                if (jaundiceSamples.size > 15) {
+                    val avgJaundice = jaundiceSamples.map { it.value }.average()
+                    smoothedJaundice = smooth(smoothedJaundice, avgJaundice, alpha = 0.05)
+                }
+            }
+            
+            // Cyanosis (Blue Lips vs Cheeks)
+            if (lipColor != null) {
+                val lipBlueRatio = lipColor.blue / (lipColor.red + 1.0)
+                val cheekBlueRatio = cheekColor.blue / (cheekColor.red + 1.0)
+                val cyanosisIndex = lipBlueRatio - cheekBlueRatio
+                
+                cyanosisSamples.addLast(SignalSample(currentTimeMs, cyanosisIndex))
+                trimSamples(cyanosisSamples, currentTimeMs, 15_000L) // 15 sec window
+                
+                if (cyanosisSamples.size > 15) {
+                    val avgCyanosis = cyanosisSamples.map { it.value }.average()
+                    smoothedCyanosis = smooth(smoothedCyanosis, avgCyanosis, alpha = 0.05)
+                }
+            }
+        }
 
         // ── rPPG signal ────────────────────────────────────────────
         val heartRate = cheekColor
@@ -614,6 +730,7 @@ class ComputerVisionAnalyzer(
         _vitalsData.value = CVMetrics(
             heartRate = heartRate,
             respirationRate = smoothedRespirationRate?.round(1),
+            blinkRate = smoothedBlinkRate?.round(1),
             spo2 = null,
             drowsinessScore = lastKeyframeDrowsiness?.round(3),
             facialAsymmetryScore = lastKeyframeAsymmetry,
@@ -621,6 +738,8 @@ class ComputerVisionAnalyzer(
             tremorSeverity = lastKeyframeTremor.severity?.round(2),
             tremorFrequency = lastKeyframeTremor.frequency?.round(2),
             painScore = lastKeyframePain,
+            jaundiceScore = smoothedJaundice?.round(2),
+            cyanosisScore = smoothedCyanosis?.round(3),
             posture = lastKeyframePosture?.first,
             spineAngle = lastKeyframePosture?.second?.round(1),
             pallorScore = pallorScore,
@@ -762,11 +881,20 @@ class ComputerVisionAnalyzer(
         currentTimeMs: Long,
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>
     ): Double? {
-        val mouthWidth = distance(landmarks, 78, 308)
-        if (mouthWidth == null || mouthWidth < 1e-6) return null
+        // Track the vertical position of the nose to detect head-bobbing caused by chest expansion
+        val noseY = landmarks[1].y().toDouble()
+        
+        // Calculate face height (from top of forehead to bottom of chin) to normalize the movement
+        val topHeadY = landmarks[10].y().toDouble()
+        val chinY = landmarks[152].y().toDouble()
+        val faceHeight = Math.abs(chinY - topHeadY)
+        
+        if (faceHeight < 1e-6) return null
 
-        val mouthOpenness = distance(landmarks, 13, 14)?.div(mouthWidth) ?: return null
-        respirationSamples.addLast(SignalSample(currentTimeMs, mouthOpenness))
+        // Normalized vertical position makes it robust against the patient moving closer/further from camera
+        val normalizedNoseY = noseY / faceHeight
+        
+        respirationSamples.addLast(SignalSample(currentTimeMs, normalizedNoseY))
         trimSamples(respirationSamples, currentTimeMs, RESPIRATION_WINDOW_MS)
 
         val estimate = estimateDominantFrequency(

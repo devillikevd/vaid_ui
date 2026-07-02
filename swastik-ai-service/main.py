@@ -631,11 +631,16 @@ class VitalsData(BaseModel):
     # Signal 5: Drowsiness / Fatigue (EAR)
     #   Pipeline: Face landmarks → eye points → Eye Aspect Ratio → drowsiness flag
     drowsiness_score: Optional[float] = Field(None, ge=0, le=1, description="0=alert, 1=fully drowsy")
+    blink_rate: Optional[float] = Field(None, ge=0, le=100, description="Blinks per minute")
 
     # Signal 6: Pain Level (Facial Action Units / FACS)
     #   Pipeline: OpenFace AU detection → AU4, AU6, AU9 → pain score
     pain_score: Optional[float] = Field(None, ge=0, le=10, description="Pain score 0-10 from FACS")
     pain_action_units: Optional[str] = Field(None, description="Active FACS AUs, e.g. 'AU4,AU6,AU9'")
+
+    # Signal 6b: Clinical Emergency Colorimetric Detection
+    jaundice_score: Optional[float] = Field(None, description="Yellow sclera index via relative YUV")
+    cyanosis_score: Optional[float] = Field(None, description="Blue lips index via relative YUV")
 
     # Signal 7: Abnormal Posture
     #   Pipeline: Pose landmarks → shoulder/hip/knee → spine angle → classification
@@ -945,6 +950,15 @@ def analyze_vitals_for_alerts(vitals: Optional[VitalsData]) -> list[dict]:
         elif ds > 0.7:
             alerts.append(_a("SEVERE_DROWSINESS", "drowsiness_score", "warning",
                 f"Patient appears severely drowsy (score: {ds:.0%} via Eye Aspect Ratio)", 0.7, ds))
+                
+    if vitals.blink_rate is not None:
+        br = vitals.blink_rate
+        if br < 6:
+            alerts.append(_a("LOW_BLINK_RATE", "blink_rate", "warning",
+                f"Very low blink rate ({br:.1f} bpm). May indicate Parkinson's, intense focus, or neurological issue.", 6, br))
+        elif br > 45:
+            alerts.append(_a("HIGH_BLINK_RATE", "blink_rate", "warning",
+                f"High blink rate ({br:.1f} bpm). May indicate severe anxiety or fatigue.", 45, br))
 
     # ── Signal 6: Pain Level (FACS) ───────────────────────────────
     if vitals.pain_score is not None:
@@ -952,10 +966,19 @@ def analyze_vitals_for_alerts(vitals: Optional[VitalsData]) -> list[dict]:
         au_info = f" — active AUs: {vitals.pain_action_units}" if vitals.pain_action_units else ""
         if ps >= 8:
             alerts.append(_a("SEVERE_PAIN", "pain_score", "critical",
-                f"Severe pain detected (score: {ps}/10 via FACS{au_info})", 8, ps))
+                f"Patient in extreme pain (FACS score {ps:.1f}/10){au_info}. Requires immediate attention.", 8, ps))
         elif ps >= 5:
             alerts.append(_a("MODERATE_PAIN", "pain_score", "warning",
-                f"Moderate pain detected (score: {ps}/10 via Facial Action Units{au_info})", 5, ps))
+                f"Patient exhibiting moderate pain (FACS score {ps:.1f}/10){au_info}.", 5, ps))
+
+    # ── Signal 6b: Colorimetric Emergency Tracking ────────────────
+    if vitals.jaundice_score is not None and vitals.jaundice_score > 12.0:
+        alerts.append(_a("JAUNDICE_DETECTED", "jaundice_score", "warning",
+            f"Yellow sclera detected (Jaundice Index: {vitals.jaundice_score:.1f}). Highly indicative of hepatobiliary dysfunction.", 12.0, vitals.jaundice_score))
+            
+    if vitals.cyanosis_score is not None and vitals.cyanosis_score > 0.15:
+        alerts.append(_a("CYANOSIS_DETECTED", "cyanosis_score", "critical",
+            f"CRITICAL: Blue lips detected (Cyanosis Index: {vitals.cyanosis_score:.2f}). Patient may be experiencing acute hypoxia or cardiopulmonary failure.", 0.15, vitals.cyanosis_score))
 
     # ── Signal 7: Abnormal Posture ────────────────────────────────
     if vitals.posture and vitals.posture not in ("normal", "unknown"):
@@ -1087,10 +1110,13 @@ def build_vitals_context(vitals: Optional[VitalsData]) -> str:
     if vitals.drowsiness_score is not None:
         sections.append(f"Drowsiness: {vitals.drowsiness_score:.0%} (EAR method)")
 
-    # Signal 6: Pain
+    # Signal 6: Pain & Emergency Colors
     if vitals.pain_score is not None:
-        au_info = f" [AUs: {vitals.pain_action_units}]" if vitals.pain_action_units else ""
-        sections.append(f"Pain: {vitals.pain_score}/10 (FACS{au_info})")
+        sections.append(f"Pain Level: {vitals.pain_score:.1f}/10 (FACS AUs: {vitals.pain_action_units or 'none'})")
+    if vitals.jaundice_score is not None:
+        sections.append(f"Jaundice Index: {vitals.jaundice_score:.1f}")
+    if vitals.cyanosis_score is not None:
+        sections.append(f"Cyanosis Index: {vitals.cyanosis_score:.2f}")
 
     # Signal 7: Posture
     if vitals.posture:

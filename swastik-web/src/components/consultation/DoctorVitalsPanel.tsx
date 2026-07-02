@@ -348,6 +348,15 @@ export default function DoctorVitalsPanel({ consultationId, isDoctor }: { consul
                                     <VitalGauge label="Respiration" value={latestVitals.respiration_rate} unit="/min" icon={Wind} color="text-cyan-400" min={4} max={40} warningLow={8} warningHigh={25} />
                                     <VitalGauge label="SpO2" value={latestVitals.spo2} unit="%" icon={Activity} color="text-blue-400" min={80} max={100} warningLow={92} />
                                     <VitalGauge label="Temp" value={latestVitals.temperature} unit="°C" icon={Thermometer} color="text-amber-400" min={34} max={42} warningLow={35.5} warningHigh={38.5} />
+                                    {latestVitals.blink_rate !== undefined && (
+                                        <VitalGauge label="Blink Rate" value={latestVitals.blink_rate} unit="bpm" icon={Eye} color="text-amber-500" min={0} max={60} warningLow={6} warningHigh={45} />
+                                    )}
+                                    {latestVitals.jaundice_score !== undefined && (
+                                        <VitalGauge label="Jaundice" value={latestVitals.jaundice_score} unit="idx" icon={AlertTriangle} color="text-yellow-400" min={0} max={20} warningHigh={12} />
+                                    )}
+                                    {latestVitals.cyanosis_score !== undefined && (
+                                        <VitalGauge label="Cyanosis" value={latestVitals.cyanosis_score} unit="idx" icon={AlertTriangle} color="text-blue-500" min={0} max={0.5} warningHigh={0.15} />
+                                    )}
                                     {latestVitals.blood_pressure_systolic && (
                                         <div className="col-span-2 bg-gray-800/60 rounded-xl p-3 border border-gray-700/50">
                                             <div className="flex items-center gap-1.5 mb-1">

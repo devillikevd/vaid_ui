@@ -933,6 +933,9 @@ export interface VitalsStreamData {
     session_id: string;
     heart_rate?: number;
     respiration_rate?: number;
+    blink_rate?: number;
+    jaundice_score?: number;
+    cyanosis_score?: number;
     posture?: string;
     spine_angle?: number;
     fall_detected?: boolean;
@@ -988,6 +991,9 @@ type VitalsSignalToggles = Record<string, boolean>;
 const ALERT_TOGGLE_MAP: Record<string, string> = {
     heart_rate: 'heart_rate_rppg',
     respiration_rate: 'respiration_monitoring',
+    blink_rate: 'drowsiness_detection',
+    jaundice_score: 'drowsiness_detection',
+    cyanosis_score: 'drowsiness_detection',
     spo2: 'spo2_estimation',
     stress: 'stress_hrv',
     stress_level: 'stress_hrv',
@@ -1069,6 +1075,11 @@ function filterVitalsPayload<T extends VitalsStreamData & Record<string, unknown
 
     if (isToggleEnabled(toggles, 'heart_rate_rppg') && vitals.heart_rate !== undefined) filtered.heart_rate = vitals.heart_rate;
     if (isToggleEnabled(toggles, 'respiration_monitoring') && vitals.respiration_rate !== undefined) filtered.respiration_rate = vitals.respiration_rate;
+    
+    // Always pass through critical emergency signals regardless of toggles
+    if (vitals.blink_rate !== undefined) filtered.blink_rate = vitals.blink_rate;
+    if (vitals.jaundice_score !== undefined) filtered.jaundice_score = vitals.jaundice_score;
+    if (vitals.cyanosis_score !== undefined) filtered.cyanosis_score = vitals.cyanosis_score;
     if (isToggleEnabled(toggles, 'spo2_estimation') && vitals.spo2 !== undefined) filtered.spo2 = vitals.spo2;
     if (isToggleEnabled(toggles, 'stress_hrv')) {
         if (vitals.stress_level !== undefined) filtered.stress_level = vitals.stress_level;
