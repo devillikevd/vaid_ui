@@ -351,7 +351,7 @@ fun NoInternetView(onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "No Internet Connection",
+            text = stringResource(R.string.no_internet_connection_1),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -360,7 +360,7 @@ fun NoInternetView(onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Please check your connection and try again",
+            text = stringResource(R.string.please_check_your_connection_and),
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center

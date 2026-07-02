@@ -46,6 +46,7 @@ import com.example.swastik.data.model.PatientProfile
 import com.example.swastik.ui.theme.*
 import java.util.Locale
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
 
 private val HomeSoftSurface = Color(0xFFF8FBFB)
 private val EmergencyRed = Color(0xFFFF5252)
@@ -77,13 +78,13 @@ fun EmergencySOSBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Emergency / SOS",
+                    stringResource(R.string.emergency_sos_1),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 14.sp,
                     color = Color.White
                 )
                 Text(
-                    "Tap to call ambulance",
+                    stringResource(R.string.tap_to_call_ambulance),
                     fontSize = 11.sp,
                     color = Color.White.copy(alpha = 0.85f)
                 )
@@ -118,7 +119,7 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
                 Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(17.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "Vaididea AI Assistant",
+                    stringResource(R.string.vaididea_ai_assistant),
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
                     color = Color.White
@@ -142,7 +143,7 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "Hi, how are you feeling today?",
+                        stringResource(R.string.hi_how_are_you_feeling),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
@@ -276,13 +277,13 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Digital Health ID",
+                    text = stringResource(R.string.digital_health_id),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
                 Text(
-                    text = "View your vitals, history & more",
+                    text = stringResource(R.string.view_your_vitals_history_more),
                     fontSize = 11.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 2.dp)
@@ -291,7 +292,7 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "View Vitals",
+                    stringResource(R.string.view_vitals),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF00796B)
@@ -336,13 +337,13 @@ fun DietTrackerCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Snap & Track Meal",
+                    text = stringResource(R.string.snap_track_meal),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
                 Text(
-                    text = "AI-powered diet & nutrition analysis",
+                    text = stringResource(R.string.aipowered_diet_nutrition_analysis),
                     fontSize = 11.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 2.dp)
@@ -351,7 +352,7 @@ fun DietTrackerCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Scan Food",
+                    stringResource(R.string.scan_food),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFE65100)
@@ -390,7 +391,7 @@ fun HealthServicesSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Quick Actions",
+                    stringResource(R.string.quick_actions),
                     fontWeight = FontWeight.ExtraBold, 
                     fontSize = 16.sp, 
                     color = MaterialTheme.colorScheme.onSurface
@@ -527,8 +528,8 @@ fun CommunityQABanner(onClick: () -> Unit) {
         ) {
             // Avatars overlap
             Box(modifier = Modifier.width(54.dp).height(36.dp)) {
-                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterStart), contentAlignment = Alignment.Center) { Text("👨‍⚕️", fontSize = 18.sp) }
-                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterEnd), contentAlignment = Alignment.Center) { Text("👩‍⚕️", fontSize = 18.sp) }
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterStart), contentAlignment = Alignment.Center) { Text(stringResource(R.string.string_2), fontSize = 18.sp) }
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)).border(2.dp, Color.White, CircleShape).align(Alignment.CenterEnd), contentAlignment = Alignment.Center) { Text(stringResource(R.string.str_key_1), fontSize = 18.sp) }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -540,7 +541,7 @@ fun CommunityQABanner(onClick: () -> Unit) {
                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Community Q&A",
+                        stringResource(R.string.community_qa),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.sp,
                         color = Color(0xFF1E293B)
@@ -548,7 +549,7 @@ fun CommunityQABanner(onClick: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    "Get answers from verified doctors",
+                    stringResource(R.string.get_answers_from_verified_doctors),
                     fontSize = 11.sp,
                     color = Color(0xFF64748B)
                 )
@@ -609,7 +610,7 @@ fun SecondaryActionsGrid(
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
-                        "Reports",
+                        stringResource(R.string.filter_reports),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 11.sp,
                         color = Color(0xFF1E293B),
@@ -617,7 +618,7 @@ fun SecondaryActionsGrid(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "History",
+                        stringResource(R.string.history),
                         fontSize = 10.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -661,7 +662,7 @@ fun SecondaryActionsGrid(
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
-                        "Appointments",
+                        stringResource(R.string.appointments),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 11.sp,
                         color = Color(0xFF1E293B),
@@ -669,7 +670,7 @@ fun SecondaryActionsGrid(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Upcoming",
+                        stringResource(R.string.upcoming),
                         fontSize = 10.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -727,7 +728,7 @@ fun TertiaryActionsGrid(
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
-                        "My Orders",
+                        stringResource(R.string.my_orders),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 11.sp,
                         color = Color(0xFF1E293B),
@@ -735,7 +736,7 @@ fun TertiaryActionsGrid(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Medicines",
+                        stringResource(R.string.filter_medicines),
                         fontSize = 10.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -779,7 +780,7 @@ fun TertiaryActionsGrid(
                 Spacer(modifier = Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
-                        "My Bookings",
+                        stringResource(R.string.my_bookings),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 11.sp,
                         color = Color(0xFF1E293B),
@@ -787,7 +788,7 @@ fun TertiaryActionsGrid(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Lab Tests",
+                        stringResource(R.string.lab_tests),
                         fontSize = 10.sp,
                         color = Color(0xFF64748B),
                         maxLines = 1,
@@ -905,7 +906,7 @@ fun HealthcareServicesSection(
 ) {
     Column(modifier = Modifier.padding(vertical = 12.dp)) {
         Text(
-            text = "Healthcare Services",
+            text = stringResource(R.string.healthcare_services),
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             color = MaterialTheme.colorScheme.onSurface,
@@ -1084,7 +1085,7 @@ fun RecommendedDoctorsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Recommended Doctor", 
+                stringResource(R.string.recommended_doctor), 
                 fontWeight = FontWeight.Bold, 
                 fontSize = 17.sp, 
                 color = MaterialTheme.colorScheme.onSurface
@@ -1094,7 +1095,7 @@ fun RecommendedDoctorsSection(
                 modifier = Modifier.clickable { onViewAllClick() }
             ) {
                 Text(
-                    "View all", 
+                    stringResource(R.string.view_all_1), 
                     fontSize = 13.sp, 
                     color = MaterialTheme.colorScheme.onSurface, 
                     fontWeight = FontWeight.Bold
@@ -1183,7 +1184,7 @@ fun DoctorCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Text("👨‍⚕️", fontSize = 28.sp)
+                        Text(stringResource(R.string.string_2), fontSize = 28.sp)
                     }
                 }
                 Box(
@@ -1258,7 +1259,7 @@ fun DoctorCard(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 modifier = Modifier.height(32.dp).defaultMinSize(minWidth = 1.dp)
             ) {
-                Text("Book", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.book), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

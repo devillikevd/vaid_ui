@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 /**
  * An animated offline banner that slides down when the device is offline
@@ -46,7 +48,7 @@ fun OfflineBanner(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "No internet connection",
+                text = stringResource(R.string.no_internet_connection),
                 color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium

@@ -139,10 +139,15 @@ const normalizeBoolean = (value, fallback = true) => {
 class DoctorService {
   // Get doctor profile
   async getProfile(userId) {
+    // HIGH-13 Fix: Explicit field selection prevents leaking internal credentials or raw metadata
     const { data: doctor, error } = await supabaseAdmin
       .from('doctors')
       .select(`
-        *,
+        id, name, specialization, experience_years, qualifications, bio,
+        consultation_fee, video_consultation_fee, profile_image_url,
+        languages, awards, registration_number, license_number,
+        consultation_types, education, certifications, rating, total_reviews,
+        is_available, is_approved, approval_status,
         user:users!doctors_user_id_fkey(email, phone, is_verified, created_at),
         hospital:hospitals(id, name, address, city)
       `)
@@ -161,9 +166,9 @@ class DoctorService {
       { data: reviews }
     ] = await Promise.all([
       supabaseAdmin.from('appointments').select('patient_id').eq('doctor_id', doctor.id),
-      supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('doctor_id', doctor.id),
-      supabaseAdmin.from('consultations').select('*', { count: 'exact', head: true }).eq('doctor_id', doctor.id).eq('status', 'completed'),
-      supabaseAdmin.from('reviews').select('*').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).order('created_at', { ascending: false }).limit(5),
+      supabaseAdmin.from('appointments').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id),
+      supabaseAdmin.from('consultations').select('id', { count: 'exact', head: true }).eq('doctor_id', doctor.id).eq('status', 'completed'),
+      supabaseAdmin.from('reviews').select('id, rating, comment, created_at, patient:patients(name)').eq('reviewable_type', 'doctor').eq('reviewable_id', doctor.id).order('created_at', { ascending: false }).limit(5),
     ]);
 
     const uniquePatients = new Set((patientRows || []).map((r) => r.patient_id)).size;

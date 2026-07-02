@@ -19,80 +19,63 @@ class ReviewService {
       throw new ApiError(400, 'Rating must be between 1 and 5');
     }
 
-    // If a consultation ID is provided, verify it belongs to the patient and is valid
+    // Resolve real IDs for database constraints
+    let realConsultationId = null;
+    let appointmentIdMarker = null;
+
     if (consultationId) {
-      let consultation = null;
-      
-      // Try finding it as a consultation first
-      const { data: consultData, error: consultError } = await supabaseAdmin
+      // 1. Is it a real Consultation ID?
+      const { data: consult } = await supabaseAdmin
         .from('consultations')
-        .select('id, status, patient_id')
+        .select('id')
         .eq('id', consultationId)
-        .single();
+        .maybeSingle();
 
-      if (!consultError && consultData) {
-        consultation = consultData;
+      if (consult) {
+        realConsultationId = consult.id;
       } else {
-        // Try finding it as an appointment (since Android app passes appointment ID)
-        const { data: aptData, error: aptError } = await supabaseAdmin
+        // 2. Is it an Appointment ID?
+        const { data: apt } = await supabaseAdmin
           .from('appointments')
-          .select('id, status, patient_id')
+          .select('id')
           .eq('id', consultationId)
-          .single();
-          
-        if (!aptError && aptData) {
-          consultation = aptData;
+          .maybeSingle();
+
+        if (apt) {
+          appointmentIdMarker = apt.id;
+          // Check for linked consultation
+          const { data: linked } = await supabaseAdmin
+            .from('consultations')
+            .select('id')
+            .eq('appointment_id', apt.id)
+            .maybeSingle();
+          if (linked) realConsultationId = linked.id;
         }
-      }
-
-      if (!consultation) {
-        throw new ApiError(404, 'Consultation or Appointment not found');
-      }
-
-      if (consultation.patient_id !== patientId) {
-        throw new ApiError(403, 'Not authorized to review this consultation');
-      }
-
-      // Allow reviews for 'completed', 'in_progress' or even 'scheduled' (since Android app uses appointment_id)
-      const validStatuses = ['completed', 'in_progress', 'scheduled', 'confirmed'];
-      if (!validStatuses.includes(consultation.status.toLowerCase())) {
-        throw new ApiError(400, 'Can only review active or completed consultations');
       }
     }
 
-    // Find if a review already exists for this visit to avoid double counting
+    // Find existing review to update (Spam protection + Edit feature)
     let existingReviewId = null;
-    if (consultationId) {
-      // Try to find review by this consultationId (might be appointmentId)
-      const { data: existingByVisit } = await supabaseAdmin
+    if (realConsultationId) {
+      const { data: existing } = await supabaseAdmin
         .from('reviews')
         .select('id')
         .eq('patient_id', patientId)
-        .eq('consultation_id', consultationId)
+        .eq('consultation_id', realConsultationId)
         .maybeSingle();
-
-      if (existingByVisit) {
-        existingReviewId = existingByVisit.id;
-      } else {
-        // If not found, check if there's a consultation record for this appointmentId
-        const { data: consultRec } = await supabaseAdmin
-          .from('consultations')
-          .select('id')
-          .eq('appointment_id', consultationId)
-          .maybeSingle();
-
-        if (consultRec) {
-          const { data: existingByConsult } = await supabaseAdmin
-            .from('reviews')
-            .select('id')
-            .eq('patient_id', patientId)
-            .eq('consultation_id', consultRec.id)
-            .maybeSingle();
-          if (existingByConsult) existingReviewId = existingByConsult.id;
-        }
-      }
+      if (existing) existingReviewId = existing.id;
+    } else if (appointmentIdMarker) {
+      // Use AID: marker in title to find previous review for this appointment
+      const { data: existing } = await supabaseAdmin
+        .from('reviews')
+        .select('id')
+        .eq('patient_id', patientId)
+        .eq('reviewable_id', reviewableId)
+        .eq('title', `AID:${appointmentIdMarker}`)
+        .maybeSingle();
+      if (existing) existingReviewId = existing.id;
     } else {
-      // General spam protection: if no visit ID, don't allow more than one general review per entity
+      // General review (one per doctor)
       const { data: existing } = await supabaseAdmin
         .from('reviews')
         .select('id')
@@ -108,9 +91,9 @@ class ReviewService {
       patient_id: patientId,
       reviewable_type: reviewableType,
       reviewable_id: reviewableId,
-      consultation_id: consultationId || null,
+      consultation_id: realConsultationId,
       rating,
-      title: title || null,
+      title: realConsultationId ? (title || null) : `AID:${appointmentIdMarker || consultationId || 'GENERAL'}`,
       comment: comment || null,
       is_anonymous: isAnonymous || false,
       is_approved: true,
@@ -120,7 +103,7 @@ class ReviewService {
 
     let result;
     if (existingReviewId) {
-      // UPDATE existing review (Doesn't increase count)
+      // UPDATE (Edit Mode)
       const { data, error } = await supabaseAdmin
         .from('reviews')
         .update(reviewPayload)
@@ -130,36 +113,7 @@ class ReviewService {
       if (error) throw new ApiError(500, `Failed to update review: ${error.message}`);
       result = data;
     } else {
-      // INSERT new review (Increases count once)
-      // Check if consultationId exists in consultations table before inserting to avoid FK error
-      if (reviewPayload.consultation_id) {
-        const { data: consultExists } = await supabaseAdmin
-          .from('consultations')
-          .select('id')
-          .eq('id', reviewPayload.consultation_id)
-          .maybeSingle();
-
-        if (!consultExists) {
-          // It's likely an appointmentId, check if it's in appointments table
-          const { data: apptExists } = await supabaseAdmin
-            .from('appointments')
-            .select('id')
-            .eq('id', reviewPayload.consultation_id)
-            .maybeSingle();
-
-          if (!apptExists) {
-            // Neither consultation nor appointment exists with this ID, null it out
-            delete reviewPayload.consultation_id;
-          } else {
-            // It's an appointmentId, but column has FK to consultations.
-            // We can't store appointmentId in consultation_id column due to FK.
-            // For now, store without ID or we'd need a schema change.
-            // BUT wait, to prevent spam, we NEED to link it.
-            // I'll try to insert and catch FK error just in case.
-          }
-        }
-      }
-
+      // INSERT (New Review)
       const { data, error } = await supabaseAdmin
         .from('reviews')
         .insert(reviewPayload)
@@ -167,15 +121,15 @@ class ReviewService {
         .single();
 
       if (error && error.code === '23503') {
-        // FK Fallback: link was invalid, store without ID to at least save the rating
+        // FK Fallback: Save without consultation_id but keep AID in title
         delete reviewPayload.consultation_id;
-        const { data: retryData, error: retryError } = await supabaseAdmin
+        const { data: retry, error: retryErr } = await supabaseAdmin
           .from('reviews')
           .insert(reviewPayload)
           .select()
           .single();
-        if (retryError) throw new ApiError(500, `Failed to submit review: ${retryError.message}`);
-        result = retryData;
+        if (retryErr) throw new ApiError(500, `Failed to submit review: ${retryErr.message}`);
+        result = retry;
       } else if (error) {
         throw new ApiError(500, `Failed to submit review: ${error.message}`);
       } else {
@@ -183,49 +137,42 @@ class ReviewService {
       }
     }
 
-    // Update aggregate rating on the parent entity table
-    try {
-      await this.updateAggregateRating(reviewableType, reviewableId);
-    } catch (aggErr) {
-      console.error('Failed to update aggregate rating:', aggErr);
-      // We don't fail the review submission if aggregate fails
-    }
+    // Trigger aggregate update
+    this.updateAggregateRating(reviewableType, reviewableId).catch(err =>
+      console.error('Aggregate update failed:', err.message)
+    );
 
     return result;
   }
 
   /**
-   * Get reviews for a specific entity (doctor, hospital, etc.)
+   * Get reviews for a specific entity
    */
   async getEntityReviews(type, id, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
-
     const { data, count, error } = await supabaseAdmin
       .from('reviews')
-      .select(`
-        id, rating, title, comment, created_at, is_anonymous, response,
-        patient:patients(id, name, profile_image_url)
-      `, { count: 'exact' })
+      .select('*, patient:patients(id, name, profile_image_url)', { count: 'exact' })
       .eq('reviewable_type', type)
       .eq('reviewable_id', id)
       .eq('is_visible', true)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) {
-      throw new ApiError(500, 'Failed to fetch reviews');
-    }
-
-    // Format the patient data based on anonymity
-    const formattedReviews = (data || []).map(review => {
-      if (review.is_anonymous) {
-        review.patient = { name: 'Anonymous', profile_image_url: null };
-      }
-      return review;
-    });
+    if (error) throw new ApiError(500, 'Failed to fetch reviews');
 
     return {
-      data: formattedReviews,
+      data: (data || []).map(r => {
+        const review = { ...r };
+        if (review.is_anonymous) {
+            review.patient = { name: 'Anonymous', profile_image_url: null };
+        }
+        // Clean AID marker from title for UI
+        if (review.title && review.title.startsWith('AID:')) {
+            review.title = null;
+        }
+        return review;
+      }),
       pagination: {
         total: count,
         page,
@@ -236,24 +183,20 @@ class ReviewService {
   }
 
   /**
-   * Helper to recalculate and update the aggregate rating and total_reviews
-   * for a given entity type and ID.
+   * Recalculate and update the aggregate rating and total_reviews
    */
   async updateAggregateRating(reviewableType, reviewableId) {
-    const { data: allReviews } = await supabaseAdmin
+    const { data: allReviews, error } = await supabaseAdmin
       .from('reviews')
       .select('rating')
       .eq('reviewable_type', reviewableType)
       .eq('reviewable_id', reviewableId)
       .eq('is_visible', true);
 
-    if (!allReviews) return;
+    if (error || !allReviews || allReviews.length === 0) return;
 
     const totalReviews = allReviews.length;
-    const avgRating = totalReviews > 0
-      ? allReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
-      : 0;
-    
+    const avgRating = allReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews;
     const roundedRating = Math.round(avgRating * 10) / 10;
 
     let tableName;
@@ -263,7 +206,7 @@ class ReviewService {
       case 'clinic': tableName = 'clinics'; break;
       case 'pharmacy': tableName = 'pharmacies'; break;
       case 'diagnostic_center': tableName = 'diagnostic_centers'; break;
-      default: return; // Unsupported entity type
+      default: return;
     }
 
     await supabaseAdmin

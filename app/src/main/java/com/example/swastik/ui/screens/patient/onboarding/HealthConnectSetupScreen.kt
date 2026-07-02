@@ -26,6 +26,8 @@ import com.example.swastik.ui.components.bounceClick
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.health.connect.client.PermissionController
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +62,7 @@ fun HealthConnectSetupScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Setup Health Connect") },
+                title = { Text(stringResource(R.string.setup_health_connect)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -94,7 +96,7 @@ fun HealthConnectSetupScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Sync Your Health Data",
+                text = stringResource(R.string.sync_your_health_data),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -103,7 +105,7 @@ fun HealthConnectSetupScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Connect Swastik with Google Health Connect to automatically sync your daily steps, heart rate, and body temperature.",
+                text = stringResource(R.string.connect_swastik_with_google_health),
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -118,13 +120,13 @@ fun HealthConnectSetupScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Health Connect Update Required",
+                            stringResource(R.string.health_connect_update_required),
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Your Health Connect app needs an update to continue.",
+                            stringResource(R.string.your_health_connect_app_needs),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -145,7 +147,7 @@ fun HealthConnectSetupScreen(
                     modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Update Health Connect", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.update_health_connect), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             } else if (!isAvailable) {
                 Card(
@@ -154,13 +156,13 @@ fun HealthConnectSetupScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Health Connect App Missing",
+                            stringResource(R.string.health_connect_app_missing),
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Your device requires the official Google Health Connect app to be installed from the Play Store.",
+                            stringResource(R.string.your_device_requires_the_official),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
@@ -181,13 +183,13 @@ fun HealthConnectSetupScreen(
                     modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Install via Play Store", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.install_via_play_store), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Health Connect is available on your device.", color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.health_connect_is_available_on), color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
                 if (hasPermissions) {
@@ -196,7 +198,7 @@ fun HealthConnectSetupScreen(
                         modifier = Modifier.fillMaxWidth().height(56.dp).bounceClick { },
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Continue", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.str_continue), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Button(
@@ -214,7 +216,7 @@ fun HealthConnectSetupScreen(
                         enabled = isAvailable && !hasPermissions,
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Grant Permissions", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.grant_permissions), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -234,7 +236,7 @@ fun HealthConnectSetupScreen(
                         enabled = isAvailable,
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Open Health Connect Settings", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.open_health_connect_settings), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

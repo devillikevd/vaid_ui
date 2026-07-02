@@ -186,10 +186,14 @@ class PatientService {
 
   // Get patient profile
   async getProfile(userId) {
+    // HIGH-13 Fix: Use explicit field selection to avoid leaking internal metadata or password hashes
     const { data: patient, error } = await supabaseAdmin
       .from('patients')
       .select(`
-        *,
+        id, name, date_of_birth, gender, blood_group, weight, height,
+        address, city, state, pincode, abha_number, profile_image_url,
+        medical_conditions, allergies, chronic_conditions, current_medications,
+        medical_history, insurance_provider, insurance_id,
         user:users(email, phone, is_verified, created_at)
       `)
       .eq('user_id', userId)
@@ -206,10 +210,10 @@ class PatientService {
       { count: appointmentCount },
       { count: reportCount }
     ] = await Promise.all([
-      supabaseAdmin.from('emergency_contacts').select('*').eq('patient_id', patient.id),
-      supabaseAdmin.from('family_members').select('*').eq('patient_id', patient.id),
-      supabaseAdmin.from('appointments').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
-      supabaseAdmin.from('reports').select('*', { count: 'exact', head: true }).eq('patient_id', patient.id),
+      supabaseAdmin.from('emergency_contacts').select('id, name, phone, relationship').eq('patient_id', patient.id),
+      supabaseAdmin.from('family_members').select('id, name, relationship, phone, date_of_birth, gender, blood_group').eq('patient_id', patient.id),
+      supabaseAdmin.from('appointments').select('id', { count: 'exact', head: true }).eq('patient_id', patient.id),
+      supabaseAdmin.from('reports').select('id', { count: 'exact', head: true }).eq('patient_id', patient.id),
     ]);
 
     return normalizePatientProfile(patient, {

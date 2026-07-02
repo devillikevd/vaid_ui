@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun MultiEntityReviewDialog(
@@ -58,7 +60,7 @@ fun MultiEntityReviewDialog(
                 }
                 
                 Text(
-                    text = "Write a Review",
+                    text = stringResource(R.string.write_a_review),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B)
@@ -89,7 +91,7 @@ fun MultiEntityReviewDialog(
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("Doctor", fontWeight = if (selectedTarget == "doctor") FontWeight.Bold else FontWeight.Medium, color = if (selectedTarget == "doctor") accentBlue else Color(0xFF64748B))
+                            Text(stringResource(R.string.doctor), fontWeight = if (selectedTarget == "doctor") FontWeight.Bold else FontWeight.Medium, color = if (selectedTarget == "doctor") accentBlue else Color(0xFF64748B))
                         }
                         
                         Box(
@@ -146,7 +148,7 @@ fun MultiEntityReviewDialog(
                     value = comment,
                     onValueChange = { comment = it },
                     modifier = Modifier.fillMaxWidth().height(100.dp),
-                    placeholder = { Text("Share details of your experience (optional)", fontSize = 14.sp) },
+                    placeholder = { Text(stringResource(R.string.share_details_of_your_experience), fontSize = 14.sp) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = accentBlue,
                         unfocusedBorderColor = Color(0xFFE2E8F0)
@@ -162,7 +164,7 @@ fun MultiEntityReviewDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = accentBlue),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Submit Review", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.submit_review), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

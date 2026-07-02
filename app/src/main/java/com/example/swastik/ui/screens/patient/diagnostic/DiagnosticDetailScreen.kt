@@ -57,7 +57,7 @@ fun DiagnosticDetailScreen(
         containerColor = bgColor,
         topBar = {
             TopAppBar(
-                title = { Text("Diagnostic Center", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(stringResource(R.string.diagnostic_center), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -86,7 +86,7 @@ fun DiagnosticDetailScreen(
                         ) {
                             Icon(Icons.Default.Science, contentDescription = null, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Book Tests", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.book_tests), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -106,7 +106,7 @@ fun DiagnosticDetailScreen(
                     Text(uiState.error ?: "", color = colorScheme.error, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(onClick = { viewModel.loadDiagnosticDetails(centerId) }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             } else if (uiState.facility != null) {
@@ -155,7 +155,7 @@ fun DiagnosticDetailScreen(
                                                 color = titleColor
                                             )
                                             Text(
-                                                text = "Diagnostic Center",
+                                                text = stringResource(R.string.diagnostic_center),
                                                 fontSize = 14.sp,
                                                 color = valueColor
                                             )
@@ -228,7 +228,7 @@ fun DiagnosticDetailScreen(
                         // Info Section
                         item {
                             Text(
-                                text = "Diagnostic Center Information",
+                                text = stringResource(R.string.diagnostic_center_information),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -393,7 +393,7 @@ fun DiagnosticReviewSection(
                             }
                         } else {
                             Text(
-                                "Login to write a review",
+                                stringResource(R.string.login_to_write_a_review),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -450,7 +450,7 @@ fun DiagnosticReviewSection(
 
                     if (uiState.reviewSuccess) {
                         Text(
-                            "✅ Review submitted successfully!",
+                            stringResource(R.string.review_submitted_successfully),
                             color = SwastikGreen,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp
@@ -504,7 +504,7 @@ fun DiagnosticReviewSection(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("Patient Reviews", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
 
             if (uiState.reviewsLoading) {
@@ -573,7 +573,7 @@ fun DiagnosticReviewSection(
         } else if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                "No reviews yet. Be the first to review!",
+                stringResource(R.string.no_reviews_yet_be_the),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -307,19 +307,19 @@ fun AppointmentBookingScreen(
                                             tint = MaterialTheme.colorScheme.error
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
-                                        Text("Failed to load doctor details", color = MaterialTheme.colorScheme.error)
+                                        Text(stringResource(R.string.failed_to_load_doctor_details), color = MaterialTheme.colorScheme.error)
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(doctorState.error ?: "Unknown error", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(modifier = Modifier.height(24.dp))
                                         Button(onClick = onBackClick) {
-                                            Text("Go Back")
+                                            Text(stringResource(R.string.go_back))
                                         }
                                     }
                                 } else {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         CircularProgressIndicator(color = SwastikPrimary)
                                         Spacer(modifier = Modifier.height(16.dp))
-                                        Text("Loading doctor details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(stringResource(R.string.loading_doctor_details), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -468,7 +468,7 @@ fun AppointmentBookingScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Info, contentDescription = null, tint = SwastikPrimary)
                     Spacer(Modifier.width(8.dp))
-                    Text("Existing Booking Found")
+                    Text(stringResource(R.string.existing_booking_found))
                 }
             },
             text = {
@@ -485,12 +485,12 @@ fun AppointmentBookingScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) {
-                    Text("View Booking")
+                    Text(stringResource(R.string.view_booking))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDuplicateBookingDialog = false }) {
-                    Text("Reschedule")
+                    Text(stringResource(R.string.reschedule))
                 }
             },
             shape = RoundedCornerShape(20.dp)
@@ -695,7 +695,7 @@ private fun DoctorSelectionStep(
                             Icon(Icons.Outlined.PersonSearch, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(stringResource(R.string.no_doctors_found), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
-                            Text("Try a different search", color = MaterialTheme.colorScheme.outlineVariant, fontSize = 14.sp)
+                            Text(stringResource(R.string.try_a_different_search), color = MaterialTheme.colorScheme.outlineVariant, fontSize = 14.sp)
                         }
                     }
                 } else {
@@ -779,7 +779,7 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Consultation Fee", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.consultation_fee), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(doctor.consultationFee?.let { "₹$it" } ?: "Fee not listed", color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (!compact) {
@@ -842,7 +842,7 @@ private fun ConsultationDetailsStep(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // Choose Consultation Type heading
-        Text("Consultation Type", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(stringResource(R.string.consultation_type), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(
@@ -853,7 +853,7 @@ private fun ConsultationDetailsStep(
             ConsultationTypeCard(
                 modifier = if (showBothTypes) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxWidth(0.48f).fillMaxHeight(),
                 icon = "📹",
-                title = "Video Consultation",
+                title = stringResource(R.string.video_consultation),
                 subtitle = "Consult with doctor online",
                 price = "",
                 isSelected = selectedType == "video",
@@ -865,7 +865,7 @@ private fun ConsultationDetailsStep(
                 ConsultationTypeCard(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     icon = "🏥",
-                    title = "In-Person Visit",
+                    title = stringResource(R.string.in_person_consultation),
                     subtitle = "Visit doctor at clinic",
                     price = "", // Hide price during selection as requested
                     isSelected = selectedType == "in_person",
@@ -876,7 +876,7 @@ private fun ConsultationDetailsStep(
 
         // Add Notes section
         Text(
-            "Add Notes (Optional)",
+            stringResource(R.string.add_notes_optional),
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             color = MaterialTheme.colorScheme.onSurface
@@ -888,7 +888,7 @@ private fun ConsultationDetailsStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp),
-            placeholder = { Text("Tell the doctor about your health concern") },
+            placeholder = { Text(stringResource(R.string.tell_the_doctor_about_your)) },
             shape = RoundedCornerShape(12.dp),
             maxLines = 5,
             supportingText = {
@@ -918,13 +918,13 @@ private fun ConsultationDetailsStep(
             if (errorMessage != null) {
                 Icon(Icons.Outlined.Warning, contentDescription = "Error", modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Retry Loading", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(stringResource(R.string.retry_loading), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             } else if (!isDoctorLoaded) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Loading doctor...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(stringResource(R.string.loading_doctor), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             } else {
-                Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(stringResource(R.string.str_continue), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }
@@ -1083,7 +1083,7 @@ private fun DateTimeSelectionStep(
 
         // Select Date
         item {
-            Text("Select Date", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.select_date), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(availableDates) { date ->
@@ -1132,7 +1132,7 @@ private fun DateTimeSelectionStep(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Available Time Slots", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.available_time_slots), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     if (availableSlotCount > 0) {
                         Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(999.dp)) {
                             Text(
@@ -1181,7 +1181,7 @@ private fun DateTimeSelectionStep(
                     ) {
                         Text("📅", fontSize = 32.sp)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Select a date above to see available slots", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.select_a_date_above_to), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -1203,7 +1203,7 @@ private fun DateTimeSelectionStep(
                         Text("📌", fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Selected Date & Time",
+                            stringResource(R.string.selected_date_time),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1227,7 +1227,7 @@ private fun DateTimeSelectionStep(
                 enabled = selectedDate != null && selectedTimeSlot != null,
                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
             ) {
-                Text("Continue", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(stringResource(R.string.str_continue), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }
@@ -1254,7 +1254,7 @@ private fun NoSlotsAvailableCard(
                     Spacer(modifier = Modifier.height(16.dp))
                     CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text("Checking the next available dates", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.checking_the_next_available_dates), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 suggestion != null -> {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1268,7 +1268,7 @@ private fun NoSlotsAvailableCard(
                 }
                 else -> {
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("No open slots found in the next two weeks. Try another doctor or facility.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.no_open_slots_found_in), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -1283,7 +1283,7 @@ private fun TimeSlotGrid(slots: List<TimeSlot>, selectedSlot: String?, onSlotSel
         if (availableSlots.isNotEmpty()) SlotChunkRows(slots = availableSlots, selectedSlot = selectedSlot, enabled = true, onSlotSelected = onSlotSelected)
         if (unavailableSlots.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Booked", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+            Text(stringResource(R.string.booked), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
             SlotChunkRows(slots = unavailableSlots, selectedSlot = null, enabled = false, onSlotSelected = {})
         }
     }
@@ -1350,7 +1350,7 @@ private fun ReviewBookingStep(
     ) {
         // Header
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Please Review Your Booking", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(stringResource(R.string.please_review_your_booking), fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.width(8.dp))
             Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(22.dp))
         }
@@ -1368,7 +1368,7 @@ private fun ReviewBookingStep(
             ) {
                 ReviewRow(icon = "👨‍⚕️", label = "Doctor", value = doctor.name, subtitle = doctor.specialization)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                ReviewRow(icon = if (selectedType == "video") "📹" else "🏥", label = "Consultation Type", value = if (selectedType == "video") "Video Consultation" else "In-Person Visit")
+                ReviewRow(icon = if (selectedType == "video") "📹" else "🏥", label = "Consultation Type", value = if (selectedType == "video") stringResource(R.string.video_consultation) else stringResource(R.string.in_person_consultation))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ReviewRow(icon = "📅", label = "Date", value = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1391,7 +1391,7 @@ private fun ReviewBookingStep(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Consultation Fee", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(stringResource(R.string.consultation_fee), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 Text(
                     fee?.let { "₹$it" } ?: "Free",
                     fontWeight = FontWeight.ExtraBold,
@@ -1419,7 +1419,7 @@ private fun ReviewBookingStep(
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
-            Text("Continue to Confirm", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.continue_to_confirm), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
     }
 }
@@ -1483,7 +1483,7 @@ private fun ConfirmBookingStep(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "APPOINTMENT SUMMARY",
+                            stringResource(R.string.appointment_summary),
                             fontWeight = FontWeight.Black,
                             fontSize = 13.sp,
                             color = SwastikPrimary,
@@ -1501,12 +1501,12 @@ private fun ConfirmBookingStep(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("PATIENT", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                            Text("You", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.patient_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.you), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         }
                         Icon(Icons.Outlined.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("DOCTOR", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.doctor_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             Text(doctor.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -1516,11 +1516,11 @@ private fun ConfirmBookingStep(
                     // Date, Time
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("DATE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.date_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")), fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                            Text("TIME", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.time_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             Text(timeSlot, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                     }
@@ -1530,12 +1530,12 @@ private fun ConfirmBookingStep(
                     // Type + Fee
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("CONSULTATION TYPE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.consultation_type_1), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(if (selectedType == "video") "📹" else "🏥", fontSize = 14.sp)
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    if (selectedType == "video") "Video Consultation" else "In-Person Visit",
+                                    if (selectedType == "video") stringResource(R.string.video_consultation) else stringResource(R.string.in_person_consultation),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = SwastikPrimary
@@ -1543,7 +1543,7 @@ private fun ConfirmBookingStep(
                             }
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("FEE", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.fee_uppercase), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             Text(fee?.let { "₹$it" } ?: "Free", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = PriceColor)
                         }
                     }
@@ -1567,7 +1567,7 @@ private fun ConfirmBookingStep(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "|||| ||| ||||| |||| || ||| ||||",
+                        stringResource(R.string.str_key),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Light,
                         letterSpacing = 4.sp,
@@ -1576,7 +1576,7 @@ private fun ConfirmBookingStep(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "VAIDIDEA HEALTHCARE",
+                        stringResource(R.string.vaididea_healthcare),
                         fontSize = 10.sp,
                         letterSpacing = 2.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1629,7 +1629,7 @@ private fun ConfirmBookingStep(
             if (isBooking) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Booking...", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(stringResource(R.string.booking), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             } else {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1684,7 +1684,7 @@ private fun BookingConfirmedStep(
         }
 
         Text(
-            "Appointment Confirmed!",
+            stringResource(R.string.appointment_confirmed),
             fontWeight = FontWeight.Bold,
             fontSize = 22.sp,
             textAlign = TextAlign.Center
@@ -1715,7 +1715,7 @@ private fun BookingConfirmedStep(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Booking ID", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.booking_id), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(bookingId, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
                         Spacer(modifier = Modifier.width(6.dp))
@@ -1733,7 +1733,7 @@ private fun BookingConfirmedStep(
                 ConfirmedDetailRow(label = "Doctor", value = doctor.name, subtitle = doctor.specialization)
                 ConfirmedDetailRow(label = "Date", value = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy")))
                 ConfirmedDetailRow(label = "Time", value = timeSlot)
-                ConfirmedDetailRow(label = "Type", value = if (selectedType == "video") "Video Consultation" else "In-Person Visit")
+                ConfirmedDetailRow(label = "Type", value = if (selectedType == "video") stringResource(R.string.video_consultation) else stringResource(R.string.in_person_consultation))
                 ConfirmedDetailRow(label = "Fee Paid", value = fee?.let { "₹$it" } ?: "Free", valueColor = PriceColor)
             }
         }
@@ -1747,7 +1747,7 @@ private fun BookingConfirmedStep(
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
-            Text("View My Appointments", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.view_my_appointments), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
 
         // Add to Calendar
@@ -1762,7 +1762,7 @@ private fun BookingConfirmedStep(
                     val calIntent = Intent(Intent.ACTION_INSERT).apply {
                         data = CalendarContract.Events.CONTENT_URI
                         putExtra(CalendarContract.Events.TITLE, "Appointment with ${doctor.name}")
-                        putExtra(CalendarContract.Events.DESCRIPTION, "Consultation Type: ${if (selectedType == "video") "Video" else "In-Person"}")
+                        putExtra(CalendarContract.Events.DESCRIPTION, "Consultation Type: ${if (selectedType == "video") context.getString(R.string.video_consultation) else context.getString(R.string.in_person_consultation)}")
                         putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
                         putExtra(CalendarContract.EXTRA_EVENT_END_TIME, startMillis + 30 * 60 * 1000)
                     }
@@ -1773,7 +1773,7 @@ private fun BookingConfirmedStep(
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, SwastikPrimary.copy(alpha = 0.3f))
         ) {
-            Text("📅  Add to Calendar", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.add_to_calendar), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         // Share Appointment
@@ -1787,7 +1787,7 @@ private fun BookingConfirmedStep(
                         Doctor: ${doctor.name} (${doctor.specialization})
                         Date: ${date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy"))}
                         Time: $timeSlot
-                        Type: ${if (selectedType == "video") "Video Consultation" else "In-Person Visit"}
+                        Type: ${if (selectedType == "video") context.getString(R.string.video_consultation) else context.getString(R.string.in_person_consultation)}
                         
                         — Vaididea Healthcare
                     """.trimIndent()
@@ -1802,7 +1802,7 @@ private fun BookingConfirmedStep(
             shape = RoundedCornerShape(14.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         ) {
-            Text("↗  Share Appointment", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.share_appointment), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         Spacer(modifier = Modifier.height(24.dp))

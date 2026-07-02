@@ -317,7 +317,7 @@ private fun MedicineScreenHeader(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Patient",
+                text = stringResource(R.string.patient_label),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -389,7 +389,7 @@ private fun MedicineSearchBar(
         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
         placeholder = {
             Text(
-                "Search for medicines",
+                stringResource(R.string.search_for_medicines_1),
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -513,7 +513,7 @@ private fun MedicineListItem(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                "Rx",
+                                stringResource(R.string.rx),
                                 fontSize = 10.sp,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 fontWeight = FontWeight.Bold
@@ -674,7 +674,7 @@ private fun MedicineEmptyState(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            "No medicines found",
+            stringResource(R.string.no_medicines_found),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
@@ -683,7 +683,7 @@ private fun MedicineEmptyState(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            "Try searching with different keywords or reset filters",
+            stringResource(R.string.try_searching_with_different_keywords),
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -758,7 +758,7 @@ private fun MedicineBottomNavBar(
             },
             label = {
                 Text(
-                    "Medicine",
+                    stringResource(R.string.medicine),
                     fontSize = 11.sp,
                     color = if (selectedTab == 1) SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )

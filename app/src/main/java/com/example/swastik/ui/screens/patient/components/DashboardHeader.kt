@@ -550,7 +550,7 @@ fun DashboardHeader(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.LocationOn, null, tint = SwastikPrimary)
                     Spacer(Modifier.width(8.dp))
-                    Text("Update Location")
+                    Text(stringResource(R.string.update_location))
                 }
             },
             text = {
@@ -566,15 +566,15 @@ fun DashboardHeader(
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(12.dp))
-                            Text("Detecting current location...", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.detecting_current_location), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
                     OutlinedTextField(
                         value = locationInput,
                         onValueChange = { locationInput = it },
-                        label = { Text("Your Location") },
-                        placeholder = { Text("e.g. Sonipat, Haryana") },
+                        label = { Text(stringResource(R.string.your_location)) },
+                        placeholder = { Text(stringResource(R.string.eg_sonipat_haryana)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -589,7 +589,7 @@ fun DashboardHeader(
 
                     if (profile?.savedAddresses?.isNotEmpty() == true) {
                         Text(
-                            "Saved Addresses",
+                            stringResource(R.string.saved_addresses),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPrimary,
@@ -647,8 +647,8 @@ fun DashboardHeader(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Add New Address", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text("Save home, office etc.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.add_new_address), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.save_home_office_etc), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(modifier = Modifier.weight(1f))
                         Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -665,12 +665,12 @@ fun DashboardHeader(
                     enabled = locationInput.isNotBlank() && !isFetchingLocation,
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Update")
+                    Text(stringResource(R.string.update))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLocationDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
             shape = RoundedCornerShape(20.dp)

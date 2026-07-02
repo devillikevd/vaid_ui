@@ -60,7 +60,7 @@ fun FilterBottomSheet(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Filters",
+                stringResource(R.string.filters),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -125,7 +125,7 @@ fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Show only open facilities",
+                    stringResource(R.string.show_only_open_facilities),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
@@ -230,7 +230,7 @@ fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Only with emergency services",
+                    stringResource(R.string.only_with_emergency_services),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray

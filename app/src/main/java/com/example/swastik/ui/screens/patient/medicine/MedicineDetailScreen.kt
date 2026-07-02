@@ -181,7 +181,7 @@ fun MedicineDetailScreen(
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    "Rx Required",
+                                    stringResource(R.string.rx_required),
                                     fontSize = 12.sp,
                                     color = colorScheme.onTertiaryContainer,
                                     fontWeight = FontWeight.Bold

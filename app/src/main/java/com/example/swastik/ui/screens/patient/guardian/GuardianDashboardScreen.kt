@@ -27,6 +27,8 @@ import com.example.swastik.ui.viewmodel.PatientDashboardViewModel
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.data.local.GuardianTelemetry
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +48,7 @@ fun GuardianDashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Guardian Dashboard", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.guardian_dashboard), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -74,7 +76,7 @@ fun GuardianDashboardScreen(
             }
             
             Text(
-                text = "Monitoring Settings",
+                text = stringResource(R.string.monitoring_settings),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -89,7 +91,7 @@ fun GuardianDashboardScreen(
             )
             
             Text(
-                text = "Insights & Logs",
+                text = stringResource(R.string.insights_logs),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -157,7 +159,7 @@ fun LiveTelemetrySection(
                 Icon(Icons.Default.Sensors, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "Live Sensor Feed",
+                    stringResource(R.string.live_sensor_feed),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface
@@ -315,7 +317,7 @@ fun InsightsSection(
                 Icon(Icons.Default.History, contentDescription = null, tint = Color.Gray)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Fall Alerts Log", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.fall_alerts_log), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Text(
                         text = fallText,
                         fontSize = 13.sp,
@@ -339,9 +341,9 @@ fun InsightsSection(
                     Icon(Icons.Default.Timeline, contentDescription = null, tint = Color.Gray)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Mobility Score", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(stringResource(R.string.mobility_score), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Text(
-                            text = "Mobility tracking is disabled.",
+                            text = stringResource(R.string.mobility_tracking_is_disabled),
                             fontSize = 13.sp,
                             color = Color.Gray
                         )

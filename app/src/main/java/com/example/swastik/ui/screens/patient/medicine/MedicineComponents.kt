@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.ui.theme.SwastikPrimary
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 /**
  * Reusable components for Medicine screens
@@ -224,7 +226,7 @@ fun PrescriptionBadge(
             )
     ) {
         Text(
-            "Rx",
+            stringResource(R.string.rx),
             fontSize = if (small) 8.sp else 10.sp,
             color = MaterialTheme.colorScheme.tertiary,
             fontWeight = FontWeight.Bold

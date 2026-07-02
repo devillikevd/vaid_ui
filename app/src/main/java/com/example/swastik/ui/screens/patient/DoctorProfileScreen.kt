@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.swastik.R
+import com.example.swastik.utils.getTranslatedCategoryText
 import com.example.swastik.data.model.DoctorDetails
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
@@ -62,7 +63,7 @@ fun DoctorProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Doctor Profile", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
+                title = { Text(stringResource(R.string.doctor_profile), fontWeight = FontWeight.SemiBold, fontSize = 18.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
@@ -116,7 +117,7 @@ fun DoctorProfileScreen(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Consultation Fee",
+                            text = stringResource(R.string.consultation_fee),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -134,7 +135,7 @@ fun DoctorProfileScreen(
                         Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "Book Appointment", 
+                            text = stringResource(R.string.book_appointment), 
                             fontSize = 14.sp, 
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -185,7 +186,7 @@ fun DoctorProfileContent(
 
     val qualificationText = doctor.qualification?.takeIf { it.isNotBlank() }
         ?: doctor.qualifications?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }
-        ?: "Qualification not listed"
+        ?: stringResource(R.string.qualification_not_listed)
         
     var isBioExpanded by remember { mutableStateOf(false) }
 
@@ -217,7 +218,7 @@ fun DoctorProfileContent(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Text("Dr", fontSize = 40.sp, color = SwastikPrimary)
+                    Text(stringResource(R.string.dr), fontSize = 40.sp, color = SwastikPrimary)
                 }
                 // Verified Badge
                 Icon(
@@ -256,7 +257,7 @@ fun DoctorProfileContent(
                 val exp = doctor.experienceYears
                 if (exp != null && exp > 0) {
                     Text(
-                        text = "$exp+ Years Experience",
+                        text = stringResource(R.string.years_experience_fmt, exp),
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -278,7 +279,7 @@ fun DoctorProfileContent(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = "(${doctor.totalReviews ?: 0} reviews)",
+                        text = stringResource(R.string.reviews_fmt, doctor.totalReviews ?: 0),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -296,23 +297,23 @@ fun DoctorProfileContent(
             StatCard(
                 icon = Icons.Outlined.Group,
                 value = "${doctor.totalConsultations ?: 0}+",
-                label = "Patients\nTreated"
+                label = stringResource(R.string.patients_treated_lbl)
             )
             StatCard(
                 icon = Icons.Outlined.WorkOutline,
                 value = "${doctor.experienceYears ?: 0}+",
-                label = "Years\nExperience"
+                label = stringResource(R.string.years_experience_lbl)
             )
             StatCard(
                 icon = Icons.Filled.Star,
                 iconTint = Color(0xFFFFB800),
                 value = doctor.averageRating?.let { String.format(Locale.US, "%.1f", it) } ?: "5.0",
-                label = "Rating\n"
+                label = stringResource(R.string.rating_lbl)
             )
             StatCard(
                 icon = Icons.Outlined.Payments,
                 value = "₹${doctor.consultationFee ?: 0}",
-                label = "Consult\nFee"
+                label = stringResource(R.string.consult_fee_lbl)
             )
         }
 
@@ -357,9 +358,9 @@ fun DoctorProfileContent(
                                 val h12 = if (h % 12 == 0) 12 else h % 12
                                 "$h12:$m $ampm"
                             } catch (e: Exception) { rawSlot }
-                        } else "No slots today"
+                        } else stringResource(R.string.no_slots_today)
 
-                        val slotLabel = if (queueStats?.nextAvailableSlot != null) "Next Available: " else "Next Slot: "
+                        val slotLabel = if (queueStats?.nextAvailableSlot != null) stringResource(R.string.next_available_prefix) else stringResource(R.string.next_slot_prefix)
                         
                         Text(
                             text = "$slotLabel$formattedSlot", 
@@ -373,9 +374,9 @@ fun DoctorProfileContent(
                             Box(modifier = Modifier.size(8.dp).background(queueDotColor, CircleShape))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (aheadCount > 0) "Queue: $aheadCount ahead • ~$waitTime mins"
-                                       else if (queueStats?.inProgress != null && queueStats.inProgress > 0) "Doctor is with a patient"
-                                       else "No wait — Doctor is free",
+                                text = if (aheadCount > 0) stringResource(R.string.queue_status_fmt, aheadCount, waitTime)
+                                       else if (queueStats?.inProgress != null && queueStats.inProgress > 0) stringResource(R.string.doctor_is_with_patient)
+                                       else stringResource(R.string.no_wait_doctor_free),
                                 fontSize = 13.sp, 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -394,7 +395,7 @@ fun DoctorProfileContent(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("View Full Queue Status", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.view_full_queue_status), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                 }
@@ -409,7 +410,7 @@ fun DoctorProfileContent(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.People, null, tint = SwastikPrimary)
                         Spacer(Modifier.width(8.dp))
-                        Text("Live Queue Status", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.live_queue_status), fontWeight = FontWeight.Bold)
                     }
                 },
                 text = {
@@ -418,21 +419,21 @@ fun DoctorProfileContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(10.dp).background(queueDotColor, CircleShape))
                             Spacer(Modifier.width(8.dp))
-                            Text("Patients waiting:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text(stringResource(R.string.patients_waiting), modifier = Modifier.weight(1f), fontSize = 14.sp)
                             Text("$aheadCount", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         // In Progress
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(10.dp).background(Color(0xFF2196F3), CircleShape))
                             Spacer(Modifier.width(8.dp))
-                            Text("Currently with doctor:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text(stringResource(R.string.currently_with_doctor), modifier = Modifier.weight(1f), fontSize = 14.sp)
                             Text("${queueStats?.inProgress ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         // Completed
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(10.dp).background(Color(0xFF4CAF50), CircleShape))
                             Spacer(Modifier.width(8.dp))
-                            Text("Completed today:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text(stringResource(R.string.completed_today), modifier = Modifier.weight(1f), fontSize = 14.sp)
                             Text("${queueStats?.completed ?: 0}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         HorizontalDivider()
@@ -440,7 +441,7 @@ fun DoctorProfileContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Schedule, null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Estimated wait:", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                            Text(stringResource(R.string.estimated_wait), modifier = Modifier.weight(1f), fontSize = 14.sp)
                             Text("~$waitTime mins", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SwastikPrimary)
                         }
                     }
@@ -450,7 +451,7 @@ fun DoctorProfileContent(
                         onClick = { showQueueSheet = false },
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-                    ) { Text("Done") }
+                    ) { Text(stringResource(R.string.done)) }
                 },
                 shape = RoundedCornerShape(20.dp)
             )
@@ -459,8 +460,8 @@ fun DoctorProfileContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // About
-        Text("About Doctor", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
-        val bioText = doctor.bio ?: "Profile summary has not been added yet."
+        Text(stringResource(R.string.about_doctor), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
+        val bioText = doctor.bio ?: stringResource(R.string.profile_summary_not_added)
         Text(
             text = bioText,
             fontSize = 14.sp,
@@ -470,7 +471,7 @@ fun DoctorProfileContent(
         )
         if (bioText.length > 100) {
             Text(
-                text = if (isBioExpanded) "Read Less" else "Read More",
+                text = if (isBioExpanded) stringResource(R.string.read_less) else stringResource(R.string.read_more),
                 color = SwastikPrimary,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
@@ -483,7 +484,7 @@ fun DoctorProfileContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Specializations (Tags/Grid)
-        Text("Specializations", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
+        Text(stringResource(R.string.specializations), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
         val defaultSpecializations = listOf("Sinus Treatment", "Ear Infection", "Hearing Loss", "Tonsillitis", "Nasal Allergy", "Throat Infection")
         val specs = doctor.qualifications?.takeIf { it.isNotEmpty() } ?: defaultSpecializations
         
@@ -501,7 +502,7 @@ fun DoctorProfileContent(
                         ) {
                             Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(spec, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(com.example.swastik.utils.getTranslatedCategoryText(spec), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                     if (rowSpecs.size == 1) {
@@ -514,7 +515,7 @@ fun DoctorProfileContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Education
-        Text("Education & Qualifications", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
+        Text(stringResource(R.string.education_qualifications), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val eduList = doctor.qualifications ?: listOf("MBBS", "MD")
             eduList.forEach { edu ->
@@ -557,7 +558,7 @@ fun DoctorProfileContent(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("View Clinic Details")
+                            Text(stringResource(R.string.view_clinic_details))
                         }
                     }
                 }
@@ -590,7 +591,7 @@ fun DoctorProfileContent(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("View Hospital Details")
+                            Text(stringResource(R.string.view_hospital_details))
                         }
                     }
                 }
@@ -598,7 +599,7 @@ fun DoctorProfileContent(
         }
 
         if (allAffiliations.isNotEmpty()) {
-            Text("Affiliated Clinics & Hospitals", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
+            Text(stringResource(R.string.affiliated_clinics_hospitals), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 allAffiliations.forEach { it() }
             }
@@ -607,8 +608,8 @@ fun DoctorProfileContent(
 
         // Reviews Section
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            Text("Patient Reviews", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("View All", color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable {
+            Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(stringResource(R.string.view_all), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.clickable {
                 com.example.swastik.ui.components.SnackbarManager.showMessage("Detailed reviews page will be available soon.")
             })
         }
@@ -626,7 +627,7 @@ fun DoctorProfileContent(
                     }
                 }
                 Text(
-                    text = "(${doctor.totalReviews ?: 0} reviews)",
+                    text = stringResource(R.string.reviews_fmt, doctor.totalReviews ?: 0),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)

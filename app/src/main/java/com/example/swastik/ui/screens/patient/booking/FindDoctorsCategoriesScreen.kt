@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.utils.getTranslatedCategoryText
 import com.example.swastik.ui.theme.*
 
 // ====== Data Models ======
@@ -295,7 +296,7 @@ fun FindDoctorsCategoriesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Find Doctors",
+                        stringResource(R.string.find_doctors),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -345,7 +346,7 @@ fun FindDoctorsCategoriesScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (mode == "in_person") "In-Person Consultation" else "Video Consultation",
+                            text = if (mode == "in_person") stringResource(R.string.in_person_consultation) else stringResource(R.string.video_consultation),
                             color = SwastikPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
@@ -479,7 +480,7 @@ fun FindDoctorsCategoriesScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        Text(item, fontSize = 14.sp)
+                                        Text(getTranslatedCategoryText(item), fontSize = 14.sp)
                                     }
                                     if (item != displayList.last()) {
                                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -557,7 +558,7 @@ fun FindDoctorsCategoriesScreen(
             SectionHeader(title = stringResource(R.string.surgery_conditions))
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Find top surgeons near you for your surgical procedure",
+                stringResource(R.string.find_top_surgeons_near_you),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp)
@@ -729,7 +730,7 @@ private fun CategoriesGrid(
                                     .padding(12.dp)
                             ) {
                                 Text(
-                                    text = item.title,
+                                    text = getTranslatedCategoryText(item.title),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -737,7 +738,7 @@ private fun CategoriesGrid(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = item.description,
+                                    text = getTranslatedCategoryText(item.description),
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 3,

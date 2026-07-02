@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +43,7 @@ fun AskQuestionScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ask a Question", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.ask_a_question), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -62,7 +64,7 @@ fun AskQuestionScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                "Select a Topic",
+                stringResource(R.string.select_a_topic),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -93,8 +95,8 @@ fun AskQuestionScreen(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Question Title") },
-                placeholder = { Text("Summarize your health concern...") },
+                label = { Text(stringResource(R.string.question_title)) },
+                placeholder = { Text(stringResource(R.string.summarize_your_health_concern)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
@@ -108,8 +110,8 @@ fun AskQuestionScreen(
             OutlinedTextField(
                 value = content,
                 onValueChange = { content = it },
-                label = { Text("Detailed Description") },
-                placeholder = { Text("Provide more details about the symptoms, duration, etc.") },
+                label = { Text(stringResource(R.string.detailed_description)) },
+                placeholder = { Text(stringResource(R.string.provide_more_details_about_the)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 150.dp),
@@ -140,7 +142,7 @@ fun AskQuestionScreen(
                 if (isLoading) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Post Question", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(stringResource(R.string.post_question), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }

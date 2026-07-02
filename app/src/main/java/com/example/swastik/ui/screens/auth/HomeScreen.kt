@@ -29,6 +29,8 @@ import com.example.swastik.ui.theme.SwastikGreen
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun HomeScreen(
@@ -102,7 +104,7 @@ fun HomeScreen(
 
             // App Name with unique styling
             Text(
-                text = "VAIDIDEA",
+                text = stringResource(R.string.swastik_healthcare),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
@@ -110,7 +112,7 @@ fun HomeScreen(
             )
 
             Text(
-                text = "VAIDIDEA",
+                text = stringResource(R.string.swastik_healthcare),
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
@@ -125,7 +127,7 @@ fun HomeScreen(
                 shape = RoundedCornerShape(20.dp)
             ) {
                 Text(
-                    text = "Healthcare Reimagined",
+                    text = stringResource(R.string.healthcare_reimagined),
                     fontSize = 14.sp,
                     fontStyle = FontStyle.Italic,
                     color = MaterialTheme.colorScheme.onPrimary,
@@ -148,7 +150,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    "Welcome",
+                    stringResource(R.string.welcome),
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -157,7 +159,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    "Your health journey starts here",
+                    stringResource(R.string.your_health_journey_starts_here),
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -186,7 +188,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            "Create Patient Account",
+                            stringResource(R.string.create_patient_account),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -217,7 +219,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            "Login as Patient",
+                            stringResource(R.string.login_as_patient),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -258,13 +260,13 @@ fun HomeScreen(
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Are you a Doctor, Hospital, Clinic or Lab?",
+                                stringResource(R.string.are_you_a_doctor_hospital),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                "Login to your portal on the website.",
+                                stringResource(R.string.login_to_your_portal_on),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                             )
@@ -284,7 +286,7 @@ fun HomeScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Language, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Login on Website", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(stringResource(R.string.login_on_website), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Icon(Icons.Default.OpenInNew, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                 }
@@ -311,7 +313,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Text(
-                    "By continuing, you agree to our Terms & Privacy Policy",
+                    stringResource(R.string.by_continuing_you_agree_to),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

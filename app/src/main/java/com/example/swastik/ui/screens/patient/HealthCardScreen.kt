@@ -205,14 +205,14 @@ fun HealthCardScreen(
                                 modifier = Modifier.weight(1f).padding(end = 16.dp)
                             ) {
                                 Text(
-                                    "Digital Health Card",
+                                    stringResource(R.string.digital_health_card),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 26.sp
                                 )
                                 Text(
-                                    "Valid through 12/25",
+                                    stringResource(R.string.valid_through_1225),
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -245,7 +245,7 @@ fun HealthCardScreen(
                                                     color = Color.DarkGray
                                                 )
                                                 Text(
-                                                    text = "Share this ID for manual entry",
+                                                    text = stringResource(R.string.share_this_id_for_manual),
                                                     fontSize = 10.sp,
                                                     color = Color.Gray
                                                 )
@@ -264,14 +264,14 @@ fun HealthCardScreen(
                                         onClick = { dashboardViewModel.revokeHealthCard() },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                                     ) {
-                                        Text("Revoke Access")
+                                        Text(stringResource(R.string.revoke_access))
                                     }
                                 } else {
                                     Button(
                                         onClick = { dashboardViewModel.generateHealthCard() },
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text("Generate QR Code")
+                                        Text(stringResource(R.string.generate_qr_code))
                                     }
                                 }
                                 
@@ -298,7 +298,7 @@ fun HealthCardScreen(
                                         .padding(8.dp)
                                 )
                                 Text(
-                                    "Patient",
+                                    stringResource(R.string.patient_label),
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 4.dp)
@@ -357,7 +357,7 @@ fun HealthCardScreen(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("View Live Dashboard", fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                    Text(stringResource(R.string.view_live_dashboard), fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
                 }
             }
 
@@ -418,7 +418,7 @@ fun HealthCardScreen(
                             
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Google Health Connect",
+                                    stringResource(R.string.google_health_connect),
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 17.sp
@@ -493,7 +493,7 @@ fun HealthCardScreen(
                                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Please grant permissions to sync your vitals.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    Text(stringResource(R.string.please_grant_permissions_to_sync), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
                                 }
                             }
                             Button(
@@ -509,7 +509,7 @@ fun HealthCardScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Grant Permissions", color = MaterialTheme.colorScheme.onSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.grant_permissions), color = MaterialTheme.colorScheme.onSecondary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             // State 3: Connected and ready to sync
@@ -527,11 +527,11 @@ fun HealthCardScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Syncing...", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.syncing), color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 } else {
                                     Icon(Icons.Default.Sync, null, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Sync Now", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.sync_now), color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
@@ -546,7 +546,7 @@ fun HealthCardScreen(
                             ) {
                                 Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Revoke Access")
+                                Text(stringResource(R.string.revoke_access))
                             }
                         }
                         
@@ -623,7 +623,7 @@ private fun HealthCardHowItWorks() {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "How it works",
+                    text = stringResource(R.string.how_it_works),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -631,7 +631,7 @@ private fun HealthCardHowItWorks() {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Use your Digital Health Card in 4 simple steps.",
+                    text = stringResource(R.string.use_your_digital_health_card),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -720,7 +720,7 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Setup Guide",
+                    text = stringResource(R.string.setup_guide),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -728,7 +728,7 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "How to connect your Smartwatch or Phone.",
+                    text = stringResource(R.string.how_to_connect_your_smartwatch),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

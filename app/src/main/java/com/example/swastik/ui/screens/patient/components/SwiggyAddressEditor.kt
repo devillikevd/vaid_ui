@@ -125,11 +125,11 @@ fun SwiggyAddressEditor(
             if (isFetchingLocation) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = SwastikPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Fetching location...")
+                Text(stringResource(R.string.fetching_location))
             } else {
                 Icon(Icons.Default.MyLocation, contentDescription = "Use Current Location")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Use Current Location", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.use_current_location), fontWeight = FontWeight.Bold)
             }
         }
 
@@ -139,8 +139,8 @@ fun SwiggyAddressEditor(
         OutlinedTextField(
             value = streetAddress,
             onValueChange = { streetAddress = it },
-            label = { Text("Street Address / Full Address") },
-            placeholder = { Text("e.g. 123 Main St, Sector 4") },
+            label = { Text(stringResource(R.string.street_address_full_address)) },
+            placeholder = { Text(stringResource(R.string.eg_123_main_st_sector)) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             shape = RoundedCornerShape(8.dp)
@@ -150,7 +150,7 @@ fun SwiggyAddressEditor(
         OutlinedTextField(
             value = flatNo,
             onValueChange = { flatNo = it },
-            label = { Text("House No., Flat, Building, etc.") },
+            label = { Text(stringResource(R.string.house_no_flat_building_etc)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
             singleLine = true
@@ -160,7 +160,7 @@ fun SwiggyAddressEditor(
             OutlinedTextField(
                 value = landmark,
                 onValueChange = { landmark = it },
-                label = { Text("Landmark (Optional)") },
+                label = { Text(stringResource(R.string.landmark_optional)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
                 singleLine = true
@@ -169,7 +169,7 @@ fun SwiggyAddressEditor(
             OutlinedTextField(
                 value = pincode,
                 onValueChange = { pincode = it },
-                label = { Text("Pincode", maxLines = 1) },
+                label = { Text(stringResource(R.string.pincode), maxLines = 1) },
                 modifier = Modifier.weight(0.7f),
                 shape = RoundedCornerShape(8.dp),
                 singleLine = true
@@ -177,7 +177,7 @@ fun SwiggyAddressEditor(
         }
 
         // Save As Tags
-        Text("Save as", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        Text(stringResource(R.string.save_as), fontWeight = FontWeight.Medium, fontSize = 14.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             tags.forEach { tag ->
                 val isSelected = selectedTag == tag
@@ -217,7 +217,7 @@ fun SwiggyAddressEditor(
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Save Delivery Address", fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(stringResource(R.string.save_delivery_address), fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }

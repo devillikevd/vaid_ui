@@ -21,6 +21,8 @@ import com.example.swastik.ui.components.SwastikTopBar
 import com.example.swastik.ui.theme.SwastikPrimary
 import kotlinx.coroutines.delay
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 /**
  * Screen shown after successful registration.
@@ -189,8 +191,8 @@ fun EmailVerificationPendingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
-                label = { Text("Verification code") },
-                placeholder = { Text("123456") },
+                label = { Text(stringResource(R.string.verification_code)) },
+                placeholder = { Text(stringResource(R.string.str_123456)) },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
@@ -234,7 +236,7 @@ fun EmailVerificationPendingScreen(
 
             if (!uiState.emailVerificationComplete) {
                 SwastikButton(
-                    text = "Verify Email OTP",
+                    text = stringResource(R.string.verify_email_otp_1),
                     onClick = { viewModel.verifyEmailOtp(email, otp) },
                     enabled = otp.length == 6 && !uiState.isLoading
                 )
@@ -242,7 +244,7 @@ fun EmailVerificationPendingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             } else {
                 SwastikButton(
-                    text = "Go to Dashboard",
+                    text = stringResource(R.string.go_to_dashboard),
                     onClick = onLoginSuccess
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -250,7 +252,7 @@ fun EmailVerificationPendingScreen(
 
             if (!uiState.emailVerificationComplete) {
                 Text(
-                    text = "After verifying your email, you will be automatically logged in.",
+                    text = stringResource(R.string.after_verifying_your_email_you),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth(),

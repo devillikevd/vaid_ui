@@ -321,7 +321,7 @@ fun HospitalDetailScreen(
                                 } else {
                                     Icon(Icons.Default.Emergency, contentDescription = null, modifier = Modifier.size(24.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Send Digital SOS", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.send_digital_sos), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -437,7 +437,7 @@ fun HospitalDetailScreen(
                         if (facility.doctors.isNotEmpty()) {
                             item {
                                 Text(
-                                    "Available Doctors",
+                                    stringResource(R.string.available_doctors),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp
                                 )
@@ -524,7 +524,7 @@ private fun HospitalReviewSection(
                         }
                     } else {
                         Text(
-                            "Login to write a review",
+                            stringResource(R.string.login_to_write_a_review),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -581,7 +581,7 @@ private fun HospitalReviewSection(
 
                 if (uiState.reviewSuccess) {
                     Text(
-                        "✅ Review submitted successfully!",
+                        stringResource(R.string.review_submitted_successfully),
                         color = SwastikGreen,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp
@@ -714,7 +714,7 @@ private fun HospitalReviewSection(
             } else if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "No reviews yet. Be the first to review!",
+                    stringResource(R.string.no_reviews_yet_be_the),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

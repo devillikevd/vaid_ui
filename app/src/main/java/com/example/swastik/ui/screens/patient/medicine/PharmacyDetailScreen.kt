@@ -61,7 +61,7 @@ fun PharmacyDetailScreen(
         containerColor = bgColor,
         topBar = {
             TopAppBar(
-                title = { Text("Pharmacy Details", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(stringResource(R.string.pharmacy_details), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -90,7 +90,7 @@ fun PharmacyDetailScreen(
                         ) {
                             Icon(Icons.Default.MedicalServices, contentDescription = null, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Order Medicines", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.order_medicines), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -110,7 +110,7 @@ fun PharmacyDetailScreen(
                     Text(uiState.error ?: "", color = colorScheme.error, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(onClick = { viewModel.loadPharmacyDetails(pharmacyId) }) {
-                        Text("Retry")
+                        Text(stringResource(R.string.retry))
                     }
                 }
             } else if (uiState.facility != null) {
@@ -160,7 +160,7 @@ fun PharmacyDetailScreen(
                                                 // Fixed truncation issue: Removed maxLines and overflow
                                             )
                                             Text(
-                                                text = "Pharmacy & Store",
+                                                text = stringResource(R.string.pharmacy_store),
                                                 fontSize = 14.sp,
                                                 color = valueColor
                                             )
@@ -233,7 +233,7 @@ fun PharmacyDetailScreen(
                         // Info Section
                         item {
                             Text(
-                                text = "Pharmacy Information",
+                                text = stringResource(R.string.pharmacy_information),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
@@ -437,7 +437,7 @@ fun PharmacyReviewSection(
                             }
                         } else {
                             Text(
-                                "Login to write a review",
+                                stringResource(R.string.login_to_write_a_review),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -494,7 +494,7 @@ fun PharmacyReviewSection(
 
                     if (uiState.reviewSuccess) {
                         Text(
-                            "✅ Review submitted successfully!",
+                            stringResource(R.string.review_submitted_successfully),
                             color = SwastikGreen,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp
@@ -548,7 +548,7 @@ fun PharmacyReviewSection(
             HorizontalDivider()
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text("Patient Reviews", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.patient_reviews), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
 
             if (uiState.reviewsLoading) {
@@ -617,7 +617,7 @@ fun PharmacyReviewSection(
         } else if (!uiState.reviewsLoading && uiState.reviews.isEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                "No reviews yet. Be the first to review!",
+                stringResource(R.string.no_reviews_yet_be_the),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -24,6 +24,8 @@ import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.theme.SwastikRed
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun FitnessTrackingCard(
@@ -49,13 +51,13 @@ fun FitnessTrackingCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Activity & Fitness",
+                    text = stringResource(R.string.activity_fitness),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Today",
+                    text = stringResource(R.string.today),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

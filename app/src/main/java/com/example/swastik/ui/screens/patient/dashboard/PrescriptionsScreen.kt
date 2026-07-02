@@ -211,7 +211,7 @@ fun PrescriptionsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "Unable to Load Prescriptions",
+                            stringResource(R.string.unable_to_load_prescriptions),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -248,7 +248,7 @@ fun PrescriptionsScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Your real prescriptions from completed consultations will appear here.",
+                            stringResource(R.string.your_real_prescriptions_from_completed),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -455,7 +455,7 @@ fun PrescriptionDetailScreen(
                                 .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = "Selected Pharmacy",
+                                text = stringResource(R.string.selected_pharmacy),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -708,7 +708,7 @@ fun PrescriptionDetailScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Diagnosis",
+                                text = stringResource(R.string.diagnosis),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -742,7 +742,7 @@ fun PrescriptionDetailScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Status",
+                                text = stringResource(R.string.status),
                                 fontSize = 12.sp,
                                 color = prescriptionStatusTextColor(prescription, MaterialTheme.colorScheme)
                             )
@@ -777,7 +777,7 @@ fun PrescriptionDetailScreen(
 
             item {
                 Text(
-                    text = "Prescribed Medicines",
+                    text = stringResource(R.string.prescribed_medicines),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -803,7 +803,7 @@ fun PrescriptionDetailScreen(
                         ) {
                             Icon(Icons.Outlined.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("View Prescription Document")
+                            Text(stringResource(R.string.view_prescription_document))
                         }
                     } else {
                         Surface(
@@ -812,7 +812,7 @@ fun PrescriptionDetailScreen(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
                             Text(
-                                text = "No medicines were attached to this prescription.",
+                                text = stringResource(R.string.no_medicines_were_attached_to),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
@@ -848,7 +848,7 @@ fun PrescriptionDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Doctor's Notes",
+                                    text = stringResource(R.string.doctors_notes),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -885,7 +885,7 @@ fun PrescriptionDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Instructions",
+                                    text = stringResource(R.string.instructions),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -922,7 +922,7 @@ fun PrescriptionDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Follow-up Appointment",
+                                    text = stringResource(R.string.followup_appointment),
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
@@ -958,7 +958,7 @@ fun PrescriptionDetailScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Valid Until",
+                                    text = stringResource(R.string.valid_until),
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1004,7 +1004,7 @@ private fun PrescriptionForwardCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Send To Pharmacy",
+                        text = stringResource(R.string.send_to_pharmacy),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1064,14 +1064,14 @@ private fun ForwardPrescriptionSheet(
             .padding(bottom = 24.dp)
     ) {
         Text(
-            text = "Send Prescription",
+            text = stringResource(R.string.send_prescription),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Pick a pharmacy and optionally add a delivery address.",
+            text = stringResource(R.string.pick_a_pharmacy_and_optionally),
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -1156,7 +1156,7 @@ private fun ForwardPrescriptionSheet(
                     color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
-                        text = "No pharmacies available for this search yet.",
+                        text = stringResource(R.string.no_pharmacies_available_for_this),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(18.dp),

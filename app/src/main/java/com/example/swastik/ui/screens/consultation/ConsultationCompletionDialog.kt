@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun ConsultationCompletionDialog(
@@ -74,7 +76,7 @@ fun ConsultationCompletionDialog(
                 Spacer(modifier = Modifier.height(22.dp))
 
                 Text(
-                    text = "Consultation Complete",
+                    text = stringResource(R.string.consultation_complete),
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = onSurfaceColor
@@ -110,7 +112,7 @@ fun ConsultationCompletionDialog(
                         value = comment,
                         onValueChange = { comment = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Leave a review (optional)", color = onSurfaceColor.copy(alpha = 0.5f)) },
+                        placeholder = { Text(stringResource(R.string.leave_a_review_optional), color = onSurfaceColor.copy(alpha = 0.5f)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = onSurfaceColor,
                             unfocusedTextColor = onSurfaceColor,

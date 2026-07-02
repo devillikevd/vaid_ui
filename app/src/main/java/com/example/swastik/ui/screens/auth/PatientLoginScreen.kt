@@ -265,7 +265,7 @@ fun PatientLoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         isError = emailError != null,
-                        placeholder = { Text("you@example.com") },
+                        placeholder = { Text(stringResource(R.string.youexamplecom)) },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
@@ -558,7 +558,7 @@ private fun ForgotPasswordDialog(
                     singleLine = true,
                     isError = emailError != null,
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                    placeholder = { Text("you@example.com") },
+                    placeholder = { Text(stringResource(R.string.youexamplecom)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Done
@@ -588,7 +588,7 @@ private fun ForgotPasswordDialog(
                         singleLine = true,
                         isError = otpError != null,
                         leadingIcon = { Icon(Icons.Default.MarkEmailRead, contentDescription = null) },
-                        placeholder = { Text("123456") },
+                        placeholder = { Text(stringResource(R.string.str_123456)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         colors = authOutlinedTextFieldColors(),
                         supportingText = {

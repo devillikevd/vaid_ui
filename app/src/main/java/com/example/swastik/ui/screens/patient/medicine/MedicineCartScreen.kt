@@ -130,7 +130,7 @@ fun MedicineCartScreen(
                                 .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = "Selected Pharmacy",
+                                text = stringResource(R.string.selected_pharmacy),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -287,7 +287,7 @@ fun MedicineCartScreen(
                                             Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                             Spacer(Modifier.width(8.dp))
                                             Text(
-                                                "Select medicines from a pharmacy inventory to place an order.",
+                                                stringResource(R.string.select_medicines_from_a_pharmacy),
                                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                                 fontSize = 13.sp
                                             )
@@ -347,7 +347,7 @@ fun MedicineCartScreen(
                                                 onClick = { viewModel.setDeliveryAddress("") },
                                                 contentPadding = PaddingValues(0.dp)
                                             ) {
-                                                Text("Change Address", color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = FontWeight.Bold)
+                                                Text(stringResource(R.string.change_address), color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -357,7 +357,7 @@ fun MedicineCartScreen(
                         
                         CheckoutStep.PAYMENT -> {
                             item {
-                                Text("Order Summary", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(stringResource(R.string.order_summary), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 Spacer(Modifier.height(16.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
@@ -371,7 +371,7 @@ fun MedicineCartScreen(
                                         }
                                         Spacer(Modifier.height(8.dp))
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Delivery Address", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.delivery_address), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text(cartState.deliveryAddress.take(20) + if (cartState.deliveryAddress.length > 20) "..." else "", maxLines = 1)
                                         }
                                         Spacer(Modifier.height(16.dp))
@@ -414,7 +414,7 @@ fun MedicineCartScreen(
                                     modifier = Modifier.weight(1f).height(52.dp),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Back")
+                                    Text(stringResource(R.string.back))
                                 }
                             }
                             
@@ -444,7 +444,7 @@ fun MedicineCartScreen(
                                         Spacer(Modifier.width(8.dp))
                                         Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                     } else {
-                                        Text("Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Text(stringResource(R.string.str_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                         Spacer(Modifier.width(8.dp))
                                         Icon(Icons.Default.ArrowForward, null)
                                     }

@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikTheme
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @AndroidEntryPoint
 class ReminderAlarmActivity : ComponentActivity() {
@@ -235,7 +237,7 @@ fun AlarmScreen(
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
-            Text("Mark as Taken", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.mark_as_taken), fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -250,7 +252,7 @@ fun AlarmScreen(
                     .weight(1f)
                     .height(56.dp)
             ) {
-                Text("Snooze 15m", fontSize = 16.sp)
+                Text(stringResource(R.string.snooze_15m), fontSize = 16.sp)
             }
             
             OutlinedButton(
@@ -262,7 +264,7 @@ fun AlarmScreen(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Skip", fontSize = 16.sp)
+                Text(stringResource(R.string.skip), fontSize = 16.sp)
             }
         }
     }

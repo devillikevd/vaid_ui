@@ -246,7 +246,7 @@ fun DiagnosticBookingScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.UploadFile, contentDescription = null, tint = SwastikPrimary)
                             Spacer(Modifier.width(8.dp))
-                            Text("Prescription uploaded.", fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                            Text(stringResource(R.string.prescription_uploaded), fontWeight = FontWeight.Bold, color = SwastikPrimary)
                         }
                     } else {
                         Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
@@ -345,7 +345,7 @@ fun DiagnosticBookingScreen(
                                         onClick = { collectionAddress = "" },
                                         contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Text("Change Address", color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        Text(stringResource(R.string.change_address), color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                                     }
                                 }
                             }
@@ -484,7 +484,7 @@ private fun CenterCard(center: DiagnosticCenterDto, onClick: () -> Unit) {
                         )
                     }
                     Text(
-                        text = "Diagnostic Center",
+                        text = stringResource(R.string.diagnostic_center),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -623,11 +623,11 @@ private fun CenterTestsView(
     if (showCameraPermissionRationale) {
         AlertDialog(
             onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text("Permission Required") },
-            text = { Text("Camera permission is required to capture documents.") },
+            title = { Text(stringResource(R.string.permission_required)) },
+            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
             confirmButton = {
                 TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok_1))
                 }
             }
         )
@@ -639,10 +639,10 @@ private fun CenterTestsView(
             val prescriptions = uiState?.dashboard?.recentPrescriptions ?: emptyList()
             
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Select a Prescription Record", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.select_a_prescription_record), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
                 if (prescriptions.isEmpty()) {
-                    Text("No records found.", color = Color.Gray)
+                    Text(stringResource(R.string.no_records_found), color = Color.Gray)
                 } else {
                     prescriptions.forEach { testRecord ->
                         Card(
@@ -724,7 +724,7 @@ private fun CenterTestsView(
             
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             Text(
-                "Or Order via Prescription",
+                stringResource(R.string.or_order_via_prescription),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -734,13 +734,13 @@ private fun CenterTestsView(
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Uploading...", color = SwastikPrimary)
+                    Text(stringResource(R.string.uploading_1), color = SwastikPrimary)
                 }
             } else if (uploadSuccess) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Uploaded Successfully!", color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
                 }
                 LaunchedEffect(Unit) {
                     kotlinx.coroutines.delay(1000)
@@ -759,7 +759,7 @@ private fun CenterTestsView(
                     ) {
                         Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Gallery", color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.gallery), color = SwastikPrimary, fontSize = 11.sp)
                     }
                     OutlinedButton(
                         onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
@@ -769,7 +769,7 @@ private fun CenterTestsView(
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Camera", color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.camera), color = SwastikPrimary, fontSize = 11.sp)
                     }
                     OutlinedButton(
                         onClick = { showRecordsSheet = true },
@@ -779,7 +779,7 @@ private fun CenterTestsView(
                     ) {
                         Icon(Icons.Default.Folder, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Records", color = SwastikPrimary, fontSize = 11.sp)
+                        Text(stringResource(R.string.records), color = SwastikPrimary, fontSize = 11.sp)
                     }
                 }
             }

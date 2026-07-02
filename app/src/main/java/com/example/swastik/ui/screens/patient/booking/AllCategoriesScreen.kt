@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.*
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +39,7 @@ fun AllCategoriesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "All Categories",
+                        stringResource(R.string.all_categories),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )

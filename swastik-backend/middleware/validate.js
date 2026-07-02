@@ -4,7 +4,9 @@
  */
 const { validationResult, param } = require('express-validator');
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// LOW-09 Fix: Update UUID regex to reject Nil UUID (00000000-0000-0000-0000-000000000000)
+// This prevents unexpected behavior in database lookups with null-like UUIDs.
+const UUID_REGEX = /^(?!0{8}-0{4}-0{4}-0{4}-0{12})[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Validate request using express-validator chain

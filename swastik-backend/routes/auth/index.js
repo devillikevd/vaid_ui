@@ -7,28 +7,35 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 
 const router = express.Router();
 
-// Fix #19: Redis-backed rate limiter for sensitive auth routes
-const { cacheGet, cacheSet, getConnectionState } = require('../../config/redis');
+// Fix #19: Redis-backed atomic rate limiter for sensitive auth routes
+const { cacheIncr, getConnectionState } = require('../../middleware/mongoSanitizer').mongoSanitizer ? require('../../config/redis') : require('../../config/redis'); // Just ensuring imports
 const authRateLimit = (maxAttempts, windowSeconds, keyPrefix) => {
   return asyncHandler(async (req, res, next) => {
+    // Fail-Open strategy: If Redis is disconnected, log warning but allow request
+    // This prevents 503 errors from blocking users during local network issues
     if (!getConnectionState()) {
-      return res.status(503).json({ success: false, message: 'Service unavailable due to high load. Please try again later.' });
+      console.warn(`[RateLimit] Redis unavailable, skipping limit check for ${keyPrefix}`);
+      return next();
     }
+
     const identifier = req.body.email || req.ip;
     const key = `ratelimit:${keyPrefix}:${identifier}`;
-    const rawVal = await cacheGet(key);
-    if (rawVal === null && !getConnectionState()) {
-      return res.status(503).json({ success: false, message: 'Service unavailable due to high load. Please try again later.' });
+
+    // MED-01 Fix: Use atomic increment (INCR + EXPIRE) to prevent race conditions
+    try {
+      const current = await cacheIncr(key, windowSeconds);
+
+      if (current !== null && current > maxAttempts) {
+        return res.status(429).json({
+          success: false,
+          message: `Too many attempts. Please try again in ${Math.max(1, Math.ceil(windowSeconds / 60))} minute${windowSeconds > 60 ? 's' : ''}.`,
+        });
+      }
+      next();
+    } catch (err) {
+      console.error(`[RateLimit] Atomic check failed: ${err.message}. Proceeding...`);
+      next();
     }
-    const current = parseInt(rawVal) || 0;
-    if (current >= maxAttempts) {
-      return res.status(429).json({
-        success: false,
-        message: `Too many attempts. Please try again in ${Math.max(1, Math.ceil(windowSeconds / 60))} minute${windowSeconds > 60 ? 's' : ''}.`,
-      });
-    }
-    await cacheSet(key, (current + 1).toString(), windowSeconds);
-    next();
   });
 };
 

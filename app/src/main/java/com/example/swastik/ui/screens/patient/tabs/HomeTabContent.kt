@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.*
 import com.example.swastik.ui.screens.patient.components.*
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -170,7 +172,7 @@ fun HomeTabContent(
 
                 // My Activity Section Title
                 Text(
-                    text = "My Activity",
+                    text = stringResource(R.string.my_activity),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -222,7 +224,7 @@ fun HomeTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Book Doctor by Speciality",
+                    stringResource(R.string.book_doctor_by_speciality),
                     fontWeight = FontWeight.Bold, 
                     fontSize = 17.sp, 
                     color = MaterialTheme.colorScheme.onSurface

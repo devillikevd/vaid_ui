@@ -228,7 +228,7 @@ fun AppointmentHistoryScreen(
                                         if (selectedBookingStatusAppointment != null) {
                                             AlertDialog(
                                                 onDismissRequest = { selectedBookingStatusAppointment = null },
-                                                title = { Text("Booking Status", fontWeight = FontWeight.Bold) },
+                                                title = { Text(stringResource(R.string.booking_status), fontWeight = FontWeight.Bold) },
                                                 text = {
                                                     Column {
                                                         Text("Appointment ID: ${selectedBookingStatusAppointment?.appointmentNumber ?: selectedBookingStatusAppointment?.id}")
@@ -242,12 +242,12 @@ fun AppointmentHistoryScreen(
                                                             Text("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
                                                         }
                                                         Spacer(modifier = Modifier.height(16.dp))
-                                                        Text("Please keep this information for your records. The appointment card is saved here.")
+                                                        Text(stringResource(R.string.please_keep_this_information_for))
                                                     }
                                                 },
                                                 confirmButton = {
                                                     Button(onClick = { selectedBookingStatusAppointment = null }) {
-                                                        Text("Close")
+                                                        Text(stringResource(R.string.close))
                                                     }
                                                 }
                                             )
@@ -462,7 +462,7 @@ private fun AppointmentCard(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Icon(if (isVideo) Icons.Outlined.VideoCall else Icons.Outlined.Person, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = if (isVideo) "Video" else "In-Person", fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = if (isVideo) stringResource(R.string.video_consultation) else stringResource(R.string.in_person_consultation), fontSize = 12.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -683,7 +683,7 @@ private fun AppointmentCard(
                     Icon(Icons.Outlined.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "View Booking Status", 
+                        stringResource(R.string.view_booking_status), 
                         color = MaterialTheme.colorScheme.primary, 
                         fontSize = 13.sp,
                         maxLines = 1,
@@ -700,7 +700,7 @@ private fun AppointmentCard(
                 ) {
                     Icon(Icons.Outlined.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("View Booking Status", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Text(stringResource(R.string.view_booking_status), color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                 }
             }
         }

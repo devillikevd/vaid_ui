@@ -127,8 +127,8 @@ fun EditProfileDialog(
                         value = dateOfBirth,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Date of Birth") },
-                        placeholder = { Text("YYYY-MM-DD") },
+                        label = { Text(stringResource(R.string.date_of_birth)) },
+                        placeholder = { Text(stringResource(R.string.yyyymmdd)) },
                         modifier = Modifier.weight(1f).clickable { if (!isSaving) showDatePicker = true },
                         shape = RoundedCornerShape(12.dp),
                         enabled = false,
@@ -225,7 +225,7 @@ fun EditProfileDialog(
                     )
                     OutlinedTextField(
                         value = city, onValueChange = { city = it },
-                        label = { Text("City") },
+                        label = { Text(stringResource(R.string.city)) },
                         leadingIcon = { Icon(Icons.Outlined.LocationCity, null, modifier = Modifier.size(20.dp)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
@@ -290,12 +290,12 @@ fun EditProfileDialog(
                             }
                             showDatePicker = false
                         }) {
-                            Text("OK")
+                            Text(stringResource(R.string.ok_1))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showDatePicker = false }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.cancel))
                         }
                     }
                 ) {

@@ -241,7 +241,7 @@ private fun MedicineFinderHeader(
                 color = colorScheme.onSurface
             )
             Text(
-                text = "Patient",
+                text = stringResource(R.string.patient_label),
                 fontSize = 13.sp,
                 color = colorScheme.onSurfaceVariant
             )
@@ -435,7 +435,7 @@ private fun NearbyInventorySection(
 ) {
     Column {
         Text(
-            "Nearby pharmacies with stock",
+            stringResource(R.string.nearby_pharmacies_with_stock),
             fontWeight = FontWeight.Bold,
             fontSize = 17.sp,
             color = MaterialTheme.colorScheme.onSurface,
@@ -649,7 +649,7 @@ private fun MedicineListItem(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Text(
-                                text = "Rx",
+                                text = stringResource(R.string.rx),
                                 fontSize = 10.sp,
                                 color = colorScheme.onTertiaryContainer,
                                 fontWeight = FontWeight.Bold,

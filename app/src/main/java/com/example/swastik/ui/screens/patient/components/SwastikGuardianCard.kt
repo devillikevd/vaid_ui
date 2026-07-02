@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.data.local.GuardianFeaturePreferences
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun SwastikGuardianCard(
@@ -104,13 +106,13 @@ fun SwastikGuardianCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Vaididea Guardian",
+                            text = stringResource(R.string.vaididea_guardian),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             color = contentColor
                         )
                         Text(
-                            text = "Fall alerts • Crash SOS",
+                            text = stringResource(R.string.fall_alerts_crash_sos),
                             fontSize = 12.sp,
                             color = secondaryColor
                         )
@@ -218,7 +220,7 @@ fun SwastikGuardianCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Learn more about Guardian",
+                        text = stringResource(R.string.learn_more_about_guardian),
                         fontSize = 13.sp,
                         color = secondaryColor,
                         modifier = Modifier.weight(1f)
@@ -320,13 +322,13 @@ fun GuardianLearnMoreDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Guardian Learn More",
+                                text = stringResource(R.string.guardian_learn_more),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Choose features and agree to unlock protection.",
+                                text = stringResource(R.string.choose_features_and_agree_to),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -399,7 +401,7 @@ fun GuardianLearnMoreDialog(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "I understand and agree to these features.",
+                            text = stringResource(R.string.i_understand_and_agree_to),
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -416,7 +418,7 @@ fun GuardianLearnMoreDialog(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Close")
+                            Text(stringResource(R.string.close))
                         }
                         Button(
                             onClick = { latestOnProceed(selectedFeatures) },
@@ -425,7 +427,7 @@ fun GuardianLearnMoreDialog(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("Agree & Proceed")
+                            Text(stringResource(R.string.agree_proceed))
                         }
                     }
                 }

@@ -238,7 +238,7 @@ fun EmergencyContactsDialog(
         val relationOptions = listOf("Father", "Mother", "Spouse", "Brother", "Sister", "Friend", "Other")
         AlertDialog(
             onDismissRequest = { showRelationDialog = false },
-            title = { Text("Select Relationship", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.select_relationship), fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     relationOptions.forEach { relation ->
@@ -269,7 +269,7 @@ fun EmergencyContactsDialog(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showRelationDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showRelationDialog = false }) { Text(stringResource(R.string.cancel)) }
             },
             shape = RoundedCornerShape(20.dp)
         )
@@ -627,11 +627,11 @@ fun SavedAddressesDialog(
                                 if (isFetchingLocation) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = colorScheme.onSecondaryContainer, strokeWidth = 2.dp)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Fetching Location...")
+                                    Text(stringResource(R.string.fetching_location_1))
                                 } else {
                                     Icon(Icons.Outlined.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Auto-Fetch Current Location")
+                                    Text(stringResource(R.string.autofetch_current_location))
                                 }
                             }
 
@@ -644,14 +644,14 @@ fun SavedAddressesDialog(
                             
                             OutlinedTextField(
                                 value = houseNumber, onValueChange = { houseNumber = it },
-                                label = { Text("House / Flat / Block No.") },
+                                label = { Text(stringResource(R.string.house_flat_block_no)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp), singleLine = true
                             )
                             
                             OutlinedTextField(
                                 value = areaLocality, onValueChange = { areaLocality = it },
-                                label = { Text("Area / Street / Locality") },
+                                label = { Text(stringResource(R.string.area_street_locality)) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 maxLines = 3

@@ -72,6 +72,13 @@ const errorHandler = (err, req, res, next) => {
     message = 'Referenced resource does not exist';
   }
 
+  // MED-02 Fix: Strip all PostgreSQL details in production
+  // Prevents leaking schema information like table/column names in error messages.
+  const isPostgresError = err.code && /^\d{5}$/.test(err.code);
+  if (isPostgresError && process.env.NODE_ENV === 'production') {
+    message = 'Database operation failed';
+  }
+
   if (err.type === 'entity.too.large') {
     statusCode = 413;
     message = 'Request payload too large';

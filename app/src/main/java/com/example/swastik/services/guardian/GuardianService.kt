@@ -48,6 +48,8 @@ import com.example.swastik.data.repository.EmergencyRepository
 import com.example.swastik.data.repository.GuardianRepository
 import com.example.swastik.data.repository.Result
 import com.example.swastik.util.ConsultationPerformanceState
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @AndroidEntryPoint
 class GuardianService : Service(), SensorEventListener {
@@ -195,7 +197,7 @@ class GuardianService : Service(), SensorEventListener {
         createNotificationChannel()
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Vaididea Guardian Active")
-            .setContentText("Monitoring for falls and accidents")
+            .setContentText(getString(R.string.monitoring_for_falls_and_accidents))
             .setSmallIcon(android.R.drawable.ic_menu_directions) // Update with better icon later
             .setOngoing(true)
             .build()
@@ -612,7 +614,7 @@ class GuardianService : Service(), SensorEventListener {
         val notification = NotificationCompat.Builder(this, CRASH_ALERT_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Crash SOS detected")
-            .setContentText("Unlock not required. Cancel if you are safe.")
+            .setContentText(getString(R.string.unlock_not_required_cancel_if))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

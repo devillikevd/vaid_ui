@@ -32,6 +32,8 @@ import com.example.swastik.ui.theme.SwastikPrimaryLight
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +85,7 @@ fun RemindersTabContent(
                     .padding(horizontal = 16.dp, vertical = 20.dp)
             ) {
                 Text(
-                    text = "My Reminders",
+                    text = stringResource(R.string.my_reminders),
                     fontWeight = FontWeight.Bold,
                     fontSize = 24.sp,
                     color = MaterialTheme.colorScheme.onBackground
@@ -138,7 +140,7 @@ fun RemindersTabContent(
                         Icon(Icons.Filled.Alarm, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(64.dp))
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No upcoming reminders.",
+                            text = stringResource(R.string.no_upcoming_reminders),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -320,7 +322,7 @@ private fun ReminderCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Marked for today",
+                            text = stringResource(R.string.marked_for_today),
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -369,7 +371,7 @@ private fun ReminderCard(
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
-                        Text("Taken", fontSize = 12.sp, maxLines = 1)
+                        Text(stringResource(R.string.taken), fontSize = 12.sp, maxLines = 1)
                     }
                     var showSnoozeMenu by remember { mutableStateOf(false) }
                     Box(modifier = Modifier.weight(1f)) {
@@ -382,26 +384,26 @@ private fun ReminderCard(
                                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         ) {
-                            Text("Snooze", fontSize = 12.sp, maxLines = 1)
+                            Text(stringResource(R.string.snooze), fontSize = 12.sp, maxLines = 1)
                         }
                             DropdownMenu(
                                 expanded = showSnoozeMenu,
                                 onDismissRequest = { showSnoozeMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("5 minutes") },
+                                    text = { Text(stringResource(R.string.str_5_minutes)) },
                                     onClick = { onSnooze(reminder.id, reminder.time, 5); showSnoozeMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("15 minutes") },
+                                    text = { Text(stringResource(R.string.str_15_minutes)) },
                                     onClick = { onSnooze(reminder.id, reminder.time, 15); showSnoozeMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("30 minutes") },
+                                    text = { Text(stringResource(R.string.str_30_minutes)) },
                                     onClick = { onSnooze(reminder.id, reminder.time, 30); showSnoozeMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("1 hour") },
+                                    text = { Text(stringResource(R.string.str_1_hour)) },
                                     onClick = { onSnooze(reminder.id, reminder.time, 60); showSnoozeMenu = false }
                                 )
                             }
@@ -411,7 +413,7 @@ private fun ReminderCard(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Text("Skip", fontSize = 12.sp, maxLines = 1)
+                        Text(stringResource(R.string.skip), fontSize = 12.sp, maxLines = 1)
                     }
                 }
             }
@@ -450,19 +452,19 @@ fun CreateReminderBottomSheet(
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .verticalScroll(androidx.compose.foundation.rememberScrollState())
         ) {
-            Text("Create Reminder", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.create_reminder), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
 
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Reminder Title") },
+                label = { Text(stringResource(R.string.reminder_title)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
             
             Spacer(modifier = Modifier.height(20.dp))
-            Text("Category", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.category), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             
             // Type Chips
@@ -486,7 +488,7 @@ fun CreateReminderBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Select Time", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.select_time), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -494,7 +496,7 @@ fun CreateReminderBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Repeat Days", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.repeat_days), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -529,7 +531,7 @@ fun CreateReminderBottomSheet(
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("Notes (Optional)") },
+                label = { Text(stringResource(R.string.notes_optional_2)) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2,
                 maxLines = 4
@@ -546,7 +548,7 @@ fun CreateReminderBottomSheet(
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = title.isNotBlank()
             ) {
-                Text("Save Reminder")
+                Text(stringResource(R.string.save_reminder))
             }
             
             Spacer(modifier = Modifier.height(32.dp))

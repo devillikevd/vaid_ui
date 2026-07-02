@@ -833,7 +833,7 @@ private fun FilterBottomSheet(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Filters",
+                stringResource(R.string.filters),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -899,7 +899,7 @@ private fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Show only open facilities",
+                    stringResource(R.string.show_only_open_facilities),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
@@ -1004,7 +1004,7 @@ private fun FilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Only with emergency services",
+                    stringResource(R.string.only_with_emergency_services),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
@@ -1035,7 +1035,7 @@ private fun FilterBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Only hospitals with available beds",
+                        stringResource(R.string.only_hospitals_with_available_beds),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isDarkMode) MaterialTheme.colorScheme.outlineVariant else Color.DarkGray
@@ -1384,7 +1384,7 @@ private fun FacilityDetailSheet(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Address",
+                        stringResource(R.string.address),
                         fontSize = 12.sp,
                         color = subtextColor
                     )
@@ -1430,13 +1430,13 @@ private fun FacilityDetailSheet(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Emergency Services Available",
+                        stringResource(R.string.emergency_services_available),
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp
                     )
                     Text(
-                        "24/7 Emergency care with ambulance service",
+                        stringResource(R.string.str_247_emergency_care_with_ambulance),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
@@ -1447,7 +1447,7 @@ private fun FacilityDetailSheet(
         if (facility.departments.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Departments",
+                text = stringResource(R.string.departments),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = textColor,
@@ -1491,7 +1491,7 @@ private fun FacilityDetailSheet(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "Loading hospital team...",
+                    text = stringResource(R.string.loading_hospital_team),
                     fontSize = 13.sp,
                     color = subtextColor
                 )
@@ -1520,7 +1520,7 @@ private fun FacilityDetailSheet(
         if ((facility.type == FacilityType.HOSPITAL || facility.type == FacilityType.CLINIC) && facility.doctors.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "Available Doctors",
+                text = stringResource(R.string.available_doctors),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = textColor,
@@ -1548,14 +1548,14 @@ private fun FacilityDetailSheet(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "No doctors listed at this hospital yet",
+                    text = stringResource(R.string.no_doctors_listed_at_this),
                     fontSize = 14.sp,
                     color = subtextColor,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "You can still open details or contact the hospital directly.",
+                    text = stringResource(R.string.you_can_still_open_details),
                     fontSize = 12.sp,
                     color = subtextColor,
                     textAlign = TextAlign.Center
@@ -1828,7 +1828,7 @@ private fun MedicalStoreDetailSheet(
                                         color = if (isDarkMode) Color(0xFFE2E8F0) else Color(0xFF1E293B)
                                     )
                                     Text(
-                                        text = "Medical Store",
+                                        text = stringResource(R.string.medical_store),
                                         fontSize = 14.sp,
                                         color = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
                                     )
@@ -1981,7 +1981,7 @@ private fun MedicalStoreDetailSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF2196F3))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Details about Pharmacy", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text(stringResource(R.string.details_about_pharmacy), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                 }
                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = subtextColor, modifier = Modifier.size(16.dp))
             }
@@ -2002,7 +2002,7 @@ private fun MedicalStoreDetailSheet(
             ) {
                 Icon(Icons.Default.Medication, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Book Medicines", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(stringResource(R.string.book_medicines), fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
             Row(
@@ -2476,7 +2476,7 @@ private fun ClinicDetailSheet(
 
         // Clinic Doctors
         Text(
-            "Available Doctors",
+            stringResource(R.string.available_doctors),
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = textColor,
@@ -2821,7 +2821,7 @@ private fun DiagnosticCenterDetailSheet(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF2196F3))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Details about Diagnostic", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text(stringResource(R.string.details_about_diagnostic), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColor)
                 }
                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = subtextColor, modifier = Modifier.size(16.dp))
             }
@@ -2888,7 +2888,7 @@ private fun EmergencyTopBar(onExitEmergency: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    "EMERGENCY MODE",
+                    stringResource(R.string.emergency_mode),
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
@@ -2938,7 +2938,7 @@ private fun EmergencyFacilitiesList(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Need Emergency Help?",
+                    stringResource(R.string.need_emergency_help),
                     color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp
@@ -2969,7 +2969,7 @@ private fun EmergencyFacilitiesList(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        "Call Ambulance (108)",
+                        stringResource(R.string.call_ambulance_108_1),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -3083,7 +3083,7 @@ private fun EmergencyHospitalCard(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "24/7 Emergency Services",
+                        stringResource(R.string.str_247_emergency_services),
                         color = Color(0xFF4CAF50),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -3732,7 +3732,7 @@ private fun FacilityMapCard(
                                     .padding(horizontal = 4.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    "24/7",
+                                    stringResource(R.string.str_247),
                                     fontSize = 9.sp,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold
@@ -3834,7 +3834,7 @@ private fun FacilityMapCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Navigate",
+                            stringResource(R.string.navigate),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF2196F3)
@@ -3864,7 +3864,7 @@ private fun FacilityMapCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Details",
+                            stringResource(R.string.details),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = SwastikPrimary
@@ -4017,7 +4017,7 @@ private fun FacilityListCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "24/7 Emergency Available",
+                        text = stringResource(R.string.str_247_emergency_available),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium

@@ -310,7 +310,7 @@ fun PatientRegisterScreen(
                         singleLine = true,
                         isError = emailError != null,
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                        placeholder = { Text("you@example.com") },
+                        placeholder = { Text(stringResource(R.string.youexamplecom)) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Next
@@ -335,7 +335,7 @@ fun PatientRegisterScreen(
                         singleLine = true,
                         isError = phoneError != null,
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                        prefix = { Text("+91") },
+                        prefix = { Text(stringResource(R.string.str_91)) },
                         placeholder = { Text(stringResource(R.string.mobile_number_placeholder)) },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Phone,

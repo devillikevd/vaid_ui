@@ -160,7 +160,7 @@ private fun CancellationConfirmContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Cancel your doctor appointment?",
+            text = stringResource(R.string.cancel_your_doctor_appointment),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
@@ -169,7 +169,7 @@ private fun CancellationConfirmContent(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "There will be NO refundable fee! 😡",
+            text = stringResource(R.string.there_will_be_no_refundable),
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -183,7 +183,7 @@ private fun CancellationConfirmContent(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, Color(0xFFFFEBEE))
         ) {
-            Text("No, don't cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.no_dont_cancel), color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
@@ -196,7 +196,7 @@ private fun CancellationConfirmContent(
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
         ) {
-            Text("Yes, cancel")
+            Text(stringResource(R.string.yes_cancel))
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
         }
@@ -227,7 +227,7 @@ private fun CancellationReasonContent(
         }
         
         Text(
-            text = "Cancel This Appointment",
+            text = stringResource(R.string.cancel_this_appointment),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )
@@ -235,7 +235,7 @@ private fun CancellationReasonContent(
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "We understand life can get in the way. Cancelling or missing your appointment too many times will result being banned.",
+            text = stringResource(R.string.we_understand_life_can_get),
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight = 20.sp
@@ -272,7 +272,7 @@ private fun CancellationReasonContent(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text(text = "Please select the cancellation reason?", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Text(text = stringResource(R.string.please_select_the_cancellation_reason), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         
         Spacer(modifier = Modifier.height(12.dp))
         
@@ -309,7 +309,7 @@ private fun CancellationReasonContent(
                 value = otherReason,
                 onValueChange = onOtherReasonChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Please enter your detailed description here...", fontSize = 13.sp) },
+                placeholder = { Text(stringResource(R.string.please_enter_your_detailed_description), fontSize = 13.sp) },
                 shape = RoundedCornerShape(12.dp),
                 minLines = 3
             )
@@ -321,7 +321,7 @@ private fun CancellationReasonContent(
             onClick = onKeepAppointment,
             modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
-            Text("Keep Appointment", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.keep_appointment), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -333,7 +333,7 @@ private fun CancellationReasonContent(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
             enabled = selectedReason.isNotBlank() && (selectedReason != "Other" || otherReason.isNotBlank())
         ) {
-            Text("Continue Cancellation")
+            Text(stringResource(R.string.continue_cancellation))
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
         }
@@ -364,7 +364,7 @@ private fun CancellationSuccessContent(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.Block, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
-                    Text("CANCELLED", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
+                    Text(stringResource(R.string.cancelled_1), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp)
                 }
             }
         }
@@ -386,7 +386,7 @@ private fun CancellationSuccessContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "You cancelled your visit with",
+            text = stringResource(R.string.you_cancelled_your_visit_with),
             fontSize = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -415,7 +415,7 @@ private fun CancellationSuccessContent(
                 Icon(Icons.Default.LocationOn, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Office Location", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(R.string.office_location), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Text(
                         appointment.hospital?.name ?: appointment.clinic?.name ?: "Telemedicine Center",
                         fontSize = 13.sp,
@@ -431,7 +431,7 @@ private fun CancellationSuccessContent(
             onClick = onBookAgain,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Book Again", color = SwastikPrimary)
+            Text(stringResource(R.string.book_again), color = SwastikPrimary)
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.Replay, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(18.dp))
         }
@@ -444,7 +444,7 @@ private fun CancellationSuccessContent(
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
         ) {
-            Text("Find Another Specialist")
+            Text(stringResource(R.string.find_another_specialist))
             Spacer(Modifier.width(8.dp))
             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
         }
@@ -452,7 +452,7 @@ private fun CancellationSuccessContent(
         Spacer(modifier = Modifier.height(16.dp))
         
         TextButton(onClick = onDone) {
-            Text("Done")
+            Text(stringResource(R.string.done))
         }
     }
 }

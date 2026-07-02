@@ -22,6 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @AndroidEntryPoint
 class StepCounterService : Service(), SensorEventListener {
@@ -70,7 +72,7 @@ class StepCounterService : Service(), SensorEventListener {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Fitness Tracker Active")
-            .setContentText("Tracking your daily steps and activity")
+            .setContentText(getString(R.string.tracking_your_daily_steps_and))
             .setSmallIcon(android.R.drawable.ic_menu_directions)
             .setOngoing(true)
             .build()

@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun ConsultationPrepareScreen(
@@ -124,13 +126,13 @@ fun ConsultationPrepareScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Consultation Room",
+                        text = stringResource(R.string.consultation_room),
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Secure video session with live chat fallback",
+                        text = stringResource(R.string.secure_video_session_with_live),
                         color = Color.White.copy(alpha = 0.66f),
                         fontSize = 12.sp
                     )
@@ -143,7 +145,7 @@ fun ConsultationPrepareScreen(
                         .padding(horizontal = 12.dp, vertical = 7.dp)
                 ) {
                     Text(
-                        text = "Encrypted",
+                        text = stringResource(R.string.encrypted),
                         color = Color.White.copy(alpha = 0.82f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
@@ -191,7 +193,7 @@ fun ConsultationPrepareScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "Your consultation stays in one secure room. If the network weakens, we keep audio and chat available so the session does not break.",
+                        text = stringResource(R.string.your_consultation_stays_in_one),
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 15.sp,
                         lineHeight = 24.sp
@@ -243,7 +245,7 @@ fun ConsultationPrepareScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Consultation will open in video first, with voice and chat available whenever needed.",
+                                    text = stringResource(R.string.consultation_will_open_in_video),
                                     color = Color.White.copy(alpha = 0.66f),
                                     fontSize = 12.sp,
                                     lineHeight = 18.sp
@@ -349,7 +351,7 @@ fun ConsultationPrepareScreen(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Column {
                                         Text(
-                                            text = "Include Guardian Analytics",
+                                            text = stringResource(R.string.include_guardian_analytics),
                                             color = Color.White.copy(alpha = if (guardianAnalyticsSharingAllowed) 0.8f else 0.45f),
                                             fontSize = 13.sp
                                         )
@@ -377,7 +379,7 @@ fun ConsultationPrepareScreen(
                                             strokeWidth = 2.dp
                                         )
                                     } else {
-                                        Text("Share 24h record access")
+                                        Text(stringResource(R.string.share_24h_record_access))
                                     }
                                 }
                             } else {
@@ -393,7 +395,7 @@ fun ConsultationPrepareScreen(
                                             strokeWidth = 2.dp
                                         )
                                     } else {
-                                        Text("Revoke doctor access")
+                                        Text(stringResource(R.string.revoke_doctor_access))
                                     }
                                 }
                             }
@@ -428,13 +430,13 @@ fun ConsultationPrepareScreen(
                             Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Enable Real-time AI Vitals",
+                                    text = stringResource(R.string.enable_realtime_ai_vitals),
                                     color = Color.White,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "Allow your camera to securely analyze micro-movements for heart rate and breathing without recording.",
+                                    text = stringResource(R.string.allow_your_camera_to_securely),
                                     color = Color.White.copy(alpha = 0.68f),
                                     fontSize = 12.sp,
                                     lineHeight = 16.sp
@@ -498,7 +500,7 @@ fun ConsultationPrepareScreen(
                     )
                 } else {
                     Text(
-                        text = "Start Consultation",
+                        text = stringResource(R.string.start_consultation),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White

@@ -38,6 +38,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.swastik.data.model.Doctor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun GlobalSearchBar(
@@ -177,7 +179,7 @@ fun GlobalSearchBar(
                     Box(modifier = Modifier.weight(1f)) {
                         if (query.isEmpty()) {
                             Text(
-                                "Search doctors, specialities, symptoms...", 
+                                stringResource(R.string.search_doctors_specialities_symptoms), 
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, 
                                 fontSize = 14.sp,
                                 maxLines = 1,
@@ -231,7 +233,7 @@ fun GlobalSearchBar(
                     ) {
                         if (query.isEmpty()) {
                             item {
-                                Text("Suggested for you", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Text(stringResource(R.string.suggested_for_you), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             items(suggestions) { item ->
                                 SuggestionRow(item) {
@@ -247,7 +249,7 @@ fun GlobalSearchBar(
                         } else {
                             if (filteredServices.isNotEmpty()) {
                                 item {
-                                    Text("Services", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                    Text(stringResource(R.string.services), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredServices) { service ->
                                     SuggestionRow(service) {
@@ -260,7 +262,7 @@ fun GlobalSearchBar(
 
                             if (filteredSpecs.isNotEmpty()) {
                                 item {
-                                    Text("Specialities", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                    Text(stringResource(R.string.specialities), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredSpecs) { spec ->
                                     SuggestionRow(spec) {
@@ -273,7 +275,7 @@ fun GlobalSearchBar(
 
                             if (filteredDocs.isNotEmpty()) {
                                 item {
-                                    Text("Doctors", fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                    Text(stringResource(R.string.doctors), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredDocs) { doc ->
                                     Row(

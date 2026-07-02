@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.SwastikPrimary
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 enum class ButtonState {
     IDLE, LOADING, SUCCESS
@@ -73,7 +75,7 @@ fun AnimatedPrimaryButton(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Check, contentDescription = "Success")
                         Spacer(Modifier.width(8.dp))
-                        Text("Success!", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 16.sp)
+                        Text(stringResource(R.string.success_1), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             }

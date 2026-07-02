@@ -169,7 +169,7 @@ fun BookingHistoryScreen(
                             if (activeBooking != null) {
                                 Spacer(Modifier.height(16.dp))
                                 Button(onClick = { showHistoryOnly = false }) {
-                                    Text("Back to Active Booking")
+                                    Text(stringResource(R.string.back_to_active_booking))
                                 }
                             }
                         }
@@ -185,7 +185,7 @@ fun BookingHistoryScreen(
                             ) {
                                 Icon(Icons.Default.Map, null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Back to Active Tracking")
+                                Text(stringResource(R.string.back_to_active_tracking))
                             }
                         } else {
                             OutlinedButton(
@@ -195,7 +195,7 @@ fun BookingHistoryScreen(
                             ) {
                                 Icon(Icons.Default.History, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("See Your History")
+                                Text(stringResource(R.string.see_your_history))
                             }
                         }
                         LazyColumn(
@@ -479,7 +479,7 @@ private fun ActiveBookingTrackingView(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                                Text("Phlebotomist / Agent", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                Text(stringResource(R.string.phlebotomist_agent), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             IconButton(
                                 onClick = {
@@ -505,7 +505,7 @@ private fun ActiveBookingTrackingView(
                 ) {
                     Icon(Icons.Default.History, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("See Your History")
+                    Text(stringResource(R.string.see_your_history))
                 }
             }
         }
@@ -765,7 +765,7 @@ private fun BookingHistoryCard(
                         ) {
                             Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Track Agent")
+                            Text(stringResource(R.string.track_agent))
                         }
                     }
 
@@ -793,7 +793,7 @@ private fun BookingHistoryCard(
                             ) {
                                 Icon(Icons.Default.Directions, null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Navigate to Center")
+                                Text(stringResource(R.string.navigate_to_center))
                             }
                         }
                     }

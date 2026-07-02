@@ -19,6 +19,8 @@ import com.example.swastik.ui.components.OsmMapView
 import com.example.swastik.ui.components.MapMarkerData
 import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
 import org.osmdroid.util.GeoPoint
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,7 +87,7 @@ fun OrderTrackingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Track Delivery") },
+                title = { Text(stringResource(R.string.track_delivery)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -167,7 +169,7 @@ fun OrderTrackingScreen(
                                         )
                                     } else {
                                         Text(
-                                            "Live tracking is active",
+                                            stringResource(R.string.live_tracking_is_active),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -208,7 +210,7 @@ fun OrderTrackingScreen(
                         )
                     ) {
                         Text(
-                            "Waiting for agent location...",
+                            stringResource(R.string.waiting_for_agent_location),
                             modifier = Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodyMedium
                         )

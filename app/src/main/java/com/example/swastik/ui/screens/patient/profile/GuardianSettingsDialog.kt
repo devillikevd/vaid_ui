@@ -21,6 +21,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.swastik.data.local.AppSettingsStore
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun GuardianSettingsDialog(onDismiss: () -> Unit) {
@@ -51,7 +53,7 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Guardian Settings",
+                        text = stringResource(R.string.guardian_settings),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -70,13 +72,13 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                 ) {
                     // Sensitivity Level
                     Text(
-                        text = "Fall Detection Sensitivity",
+                        text = stringResource(R.string.fall_detection_sensitivity),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Adjust based on your daily activity level. 'Low' reduces false alarms during sports.",
+                        text = stringResource(R.string.adjust_based_on_your_daily),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -104,13 +106,13 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
 
                     // Grace Period Timer
                     Text(
-                        text = "Grace Period Timer",
+                        text = stringResource(R.string.grace_period_timer),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Time allowed to cancel the SOS before it is sent.",
+                        text = stringResource(R.string.time_allowed_to_cancel_the),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -150,8 +152,8 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                             Icon(Icons.Default.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Test Crash SOS Siren", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                                Text("Preview the sound used only for crash SOS.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.test_crash_sos_siren), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text(stringResource(R.string.preview_the_sound_used_only), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Button(
                                 onClick = {
@@ -164,7 +166,7 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("Test")
+                                Text(stringResource(R.string.test_1))
                             }
                         }
                     }
@@ -177,7 +179,7 @@ fun GuardianSettingsDialog(onDismiss: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Save Settings")
+                    Text(stringResource(R.string.save_settings))
                 }
             }
         }

@@ -89,7 +89,7 @@ fun EmergencyScreen(
                         Column {
                             Text(stringResource(R.string.emergency_network), fontWeight = FontWeight.Bold)
                             Text(
-                                "Ambulance dispatch and live response",
+                                stringResource(R.string.ambulance_dispatch_and_live_response),
                                 fontSize = 12.sp,
                                 color = Color.White.copy(alpha = 0.82f)
                             )
@@ -236,14 +236,14 @@ private fun EmergencyTypeSelection(
                     }
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        "Emergency ambulance, built for real response",
+                        stringResource(R.string.emergency_ambulance_built_for_real),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
                         lineHeight = 30.sp
                     )
                     Text(
-                        "Choose the emergency lane, share live GPS, and keep the dispatch journey visible from first alert to hospital handoff.",
+                        stringResource(R.string.choose_the_emergency_lane_share),
                         color = Color.White.copy(alpha = 0.86f),
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
@@ -309,7 +309,7 @@ private fun EmergencyTypeSelection(
 
         item {
             Text(
-                "Choose the emergency lane",
+                stringResource(R.string.choose_the_emergency_lane),
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = colorScheme.onSurface,
@@ -420,7 +420,7 @@ private fun EmergencyTypeSelection(
             title = { Text(stringResource(R.string.confirm_emergency_request)) },
             text = {
                 Text(
-                    "This will trigger the ambulance response flow with your current location so the nearest available vehicle can be routed to you."
+                    stringResource(R.string.this_will_trigger_the_ambulance)
                 )
             },
             confirmButton = {
@@ -550,13 +550,13 @@ private fun ActiveEmergencyView(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    "Live response tracking is active",
+                                    stringResource(R.string.live_response_tracking_is_active),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = colorScheme.onSecondaryContainer
                                 )
                                 Text(
-                                    "Dispatch, driver movement, and your pickup location will keep syncing here.",
+                                    stringResource(R.string.dispatch_driver_movement_and_your),
                                     fontSize = 12.sp,
                                     color = colorScheme.onSurfaceVariant
                                 )
@@ -640,7 +640,7 @@ private fun ActiveEmergencyView(
                                 ) {
                                     Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Expand Map", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.expand_map), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Box(modifier = Modifier.fillMaxWidth().height(240.dp)) {
@@ -688,7 +688,7 @@ private fun ActiveEmergencyView(
                                 ) {
                                     Icon(Icons.Default.OpenInFull, contentDescription = "Expand Map", modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Expand Map", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.expand_map), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
@@ -973,7 +973,7 @@ private fun PatientEmergencyOverviewCard(
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = "Emergency response in progress",
+                text = stringResource(R.string.emergency_response_in_progress),
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = colorScheme.onSurface
@@ -1148,13 +1148,13 @@ private fun EmergencyConfirmation(
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Emergency Request Sent!",
+            stringResource(R.string.emergency_request_sent),
             fontWeight = FontWeight.Bold,
             fontSize = 22.sp,
             color = colorScheme.onSurface
         )
         Text(
-            "An ambulance is being dispatched to your location",
+            stringResource(R.string.an_ambulance_is_being_dispatched),
             textAlign = TextAlign.Center,
             color = colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
@@ -1206,11 +1206,11 @@ private fun EmergencyCancellationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Cancel Emergency Request?") },
+        title = { Text(stringResource(R.string.cancel_emergency_request_1)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "This will cancel the ambulance dispatch and notify the ambulance team with your reason.",
+                    stringResource(R.string.this_will_cancel_the_ambulance),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 reasons.forEach { reason ->
@@ -1231,7 +1231,7 @@ private fun EmergencyCancellationDialog(
                     value = details,
                     onValueChange = { details = it.take(300) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Reason details") },
+                    label = { Text(stringResource(R.string.reason_details)) },
                     minLines = 2,
                     maxLines = 4
                 )
@@ -1246,7 +1246,7 @@ private fun EmergencyCancellationDialog(
                         onCheckedChange = { acceptedNotice = it }
                     )
                     Text(
-                        "I understand false or repeated SOS misuse can be reviewed and may lead to action under emergency-service policy.",
+                        stringResource(R.string.i_understand_false_or_repeated),
                         modifier = Modifier.padding(top = 12.dp),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1260,12 +1260,12 @@ private fun EmergencyCancellationDialog(
                 enabled = canConfirm,
                 colors = ButtonDefaults.textButtonColors(contentColor = EmergencyAlertStrong)
             ) {
-                Text("Confirm Cancel")
+                Text(stringResource(R.string.confirm_cancel))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Keep Request")
+                Text(stringResource(R.string.keep_request))
             }
         }
     )
@@ -1430,7 +1430,7 @@ private fun ActiveEmergencyHeroCard(
                                 shape = RoundedCornerShape(999.dp)
                             ) {
                                 Text(
-                                    text = "Live GPS Active",
+                                    text = stringResource(R.string.live_gps_active),
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,

@@ -35,6 +35,8 @@ import com.example.swastik.ui.viewmodel.CommunityViewModel
 import androidx.compose.material3.MaterialTheme
 
 import com.example.swastik.utils.navigateSafe
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +50,7 @@ fun CommunityQAScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Community Q&A", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.community_qa), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -65,7 +67,7 @@ fun CommunityQAScreen(
                 onClick = { navController.navigateSafe(com.example.swastik.navigation.Screen.AskQuestion.route) },
                 containerColor = SwastikPrimary
             ) {
-                Text("+ Ask", color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 16.dp))
+                Text(stringResource(R.string.ask), color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
     ) { paddingValues ->
@@ -140,8 +142,8 @@ fun QuestionCard(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Question?", fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently delete your question and all its answers. This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_question), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.this_will_permanently_delete_your_1)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -150,12 +152,12 @@ fun QuestionCard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

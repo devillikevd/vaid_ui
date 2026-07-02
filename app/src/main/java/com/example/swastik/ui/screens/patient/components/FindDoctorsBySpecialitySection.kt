@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun FindDoctorsBySpecialitySection(
@@ -53,7 +54,7 @@ fun FindDoctorsBySpecialitySection(
         ) {
             if (showTitle) {
                 Text(
-                    "Book Doctor by Speciality",
+                    stringResource(R.string.book_doctor_by_speciality),
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                     color = MaterialTheme.colorScheme.onSurface,

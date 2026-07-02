@@ -36,6 +36,8 @@ import com.example.swastik.data.remote.dto.PharmacyInventoryItemDto
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.theme.SwastikPrimaryDark
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,11 +257,11 @@ fun Step1Medicines(
     if (showCameraPermissionRationale) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showCameraPermissionRationale = false },
-            title = { Text("Permission Required") },
-            text = { Text("Camera permission is required to capture documents.") },
+            title = { Text(stringResource(R.string.permission_required)) },
+            text = { Text(stringResource(R.string.camera_permission_is_required_to)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { showCameraPermissionRationale = false }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok_1))
                 }
             }
         )
@@ -271,10 +273,10 @@ fun Step1Medicines(
             val prescriptions = uiState?.dashboard?.recentPrescriptions ?: emptyList()
             
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                Text("Select a Prescription Record", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.select_a_prescription_record), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
                 if (prescriptions.isEmpty()) {
-                    Text("No records found.", color = Color.Gray)
+                    Text(stringResource(R.string.no_records_found), color = Color.Gray)
                 } else {
                     prescriptions.forEach { prescription ->
                         Card(
@@ -306,7 +308,7 @@ fun Step1Medicines(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it; onSearch(it) },
-            label = { Text("Search Medicines") },
+            label = { Text(stringResource(R.string.search_medicines_1)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         )
@@ -314,7 +316,7 @@ fun Step1Medicines(
         
         Box(modifier = Modifier.weight(1f)) {
             if (items.isEmpty()) {
-                Text("No medicines found.", modifier = Modifier.align(Alignment.Center), color = Color.Gray)
+                Text(stringResource(R.string.no_medicines_found_1), modifier = Modifier.align(Alignment.Center), color = Color.Gray)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -333,7 +335,7 @@ fun Step1Medicines(
 
                             AlertDialog(
                                 onDismissRequest = { showQuantityDialog = false },
-                                title = { Text("Select Quantity") },
+                                title = { Text(stringResource(R.string.select_quantity)) },
                                 text = {
                                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                                         Text(
@@ -344,7 +346,7 @@ fun Step1Medicines(
                                         OutlinedTextField(
                                             value = quantityText,
                                             onValueChange = { quantityText = it },
-                                            label = { Text("Number of units") },
+                                            label = { Text(stringResource(R.string.number_of_units)) },
                                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                                         )
                                     }
@@ -355,12 +357,12 @@ fun Step1Medicines(
                                         onAdd(item, qty)
                                         showQuantityDialog = false
                                     }) {
-                                        Text("Add")
+                                        Text(stringResource(R.string.add))
                                     }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showQuantityDialog = false }) {
-                                        Text("Cancel")
+                                        Text(stringResource(R.string.cancel))
                                     }
                                 }
                             )
@@ -417,20 +419,20 @@ fun Step1Medicines(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
         
-        Text("Or Order via Prescription", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Text(stringResource(R.string.or_order_via_prescription), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
         
         if (isUploading) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = SwastikPrimary)
                 Spacer(modifier = Modifier.width(12.dp))
-                Text("Uploading...", color = SwastikPrimary)
+                Text(stringResource(R.string.uploading_1), color = SwastikPrimary)
             }
         } else if (uploadSuccess) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Uploaded Successfully!", color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
             }
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(1000)
@@ -445,7 +447,7 @@ fun Step1Medicines(
                 ) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Gallery", fontSize = 11.sp)
+                    Text(stringResource(R.string.gallery), fontSize = 11.sp)
                 }
                 OutlinedButton(
                     onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
@@ -454,7 +456,7 @@ fun Step1Medicines(
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Camera", fontSize = 11.sp)
+                    Text(stringResource(R.string.camera), fontSize = 11.sp)
                 }
                 OutlinedButton(
                     onClick = { showRecordsSheet = true },
@@ -463,7 +465,7 @@ fun Step1Medicines(
                 ) {
                     Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Records", fontSize = 11.sp)
+                    Text(stringResource(R.string.records), fontSize = 11.sp)
                 }
             }
         }
@@ -473,7 +475,7 @@ fun Step1Medicines(
 @Composable
 fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (PharmacyInventoryItemDto) -> Unit) {
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        Text("Your Cart", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.your_cart), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -515,7 +517,7 @@ fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (Ph
 @Composable
 fun Step3Location(address: String, phone: String, onAddressChange: (String) -> Unit, onPhoneChange: (String) -> Unit) {
     Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-        Text("Delivery Details", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.delivery_details), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         
         if (address.isBlank()) {
@@ -545,7 +547,7 @@ fun Step3Location(address: String, phone: String, onAddressChange: (String) -> U
                         onClick = { onAddressChange("") },
                         modifier = Modifier.padding(start = 8.dp)
                     ) {
-                        Text("Change Address", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.change_address), color = SwastikPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -555,7 +557,7 @@ fun Step3Location(address: String, phone: String, onAddressChange: (String) -> U
         OutlinedTextField(
             value = phone,
             onValueChange = onPhoneChange,
-            label = { Text("Phone Number *") },
+            label = { Text(stringResource(R.string.phone_number_1)) },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
             singleLine = true,
@@ -578,14 +580,14 @@ fun Step4Confirmation(
         price * qty.toDouble()
     }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        Text("Review Order", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.review_order), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Pharmacy: ${facility.name}", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 if (isPrescription) {
-                    Text("Order Method: Prescription Uploaded", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.order_method_prescription_uploaded), color = SwastikPrimary, fontWeight = FontWeight.Bold)
                 } else {
                     Text("Items: ${selected.size}", color = SwastikPrimary)
                     val total = totalPrice
@@ -601,7 +603,7 @@ fun Step4Confirmation(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CheckCircle, tint = Color(0xFF4CAF50), contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Prescription verified for processing.")
+                Text(stringResource(R.string.prescription_verified_for_processing))
             }
         }
     }

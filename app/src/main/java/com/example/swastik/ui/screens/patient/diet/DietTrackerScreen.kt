@@ -28,6 +28,8 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.swastik.data.remote.dto.CalculatedFoodItem
 import com.example.swastik.data.remote.dto.DietCalculationResponse
 import com.example.swastik.data.remote.dto.IdentifiedFoodItem
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +76,7 @@ fun DietTrackerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Diet & Nutrition Tracker", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.diet_nutrition_tracker), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -197,7 +199,7 @@ fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraC
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Track What You Eat",
+            text = stringResource(R.string.track_what_you_eat),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
@@ -206,7 +208,7 @@ fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraC
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Snap a photo of your meal or upload from gallery to calculate exact calories, protein, and macros.",
+            text = stringResource(R.string.snap_a_photo_of_your),
             fontSize = 16.sp,
             color = Color.Gray,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -232,7 +234,7 @@ fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraC
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Snap Meal", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.snap_meal), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
             
@@ -249,7 +251,7 @@ fun InitialUploadView(remainingQuota: Int, onGalleryClick: () -> Unit, onCameraC
                 ) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Upload Meal", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.upload_meal), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }
@@ -296,14 +298,14 @@ fun EditDetectedItemsView(
             }
             
             Text(
-                "Verify Detected Items",
+                stringResource(R.string.verify_detected_items),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "You can edit the items below if the AI made a mistake.",
+                stringResource(R.string.you_can_edit_the_items),
                 fontSize = 14.sp,
                 color = Color.Gray,
                 modifier = Modifier.fillMaxWidth()
@@ -327,7 +329,7 @@ fun EditDetectedItemsView(
                         OutlinedTextField(
                             value = item.name,
                             onValueChange = { onItemChange(index, item.copy(name = it)) },
-                            label = { Text("Item Name", fontSize = 12.sp) },
+                            label = { Text(stringResource(R.string.item_name), fontSize = 12.sp) },
                             modifier = Modifier.weight(1f).padding(end = 8.dp),
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
@@ -347,7 +349,7 @@ fun EditDetectedItemsView(
                                 val qty = it.toDoubleOrNull() ?: 1.0
                                 onItemChange(index, item.copy(quantity = qty)) 
                             },
-                            label = { Text("Quantity", fontSize = 12.sp) },
+                            label = { Text(stringResource(R.string.quantity), fontSize = 12.sp) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
@@ -356,7 +358,7 @@ fun EditDetectedItemsView(
                         OutlinedTextField(
                             value = item.unit,
                             onValueChange = { onItemChange(index, item.copy(unit = it)) },
-                            label = { Text("Unit (e.g. piece, katori)", fontSize = 12.sp) },
+                            label = { Text(stringResource(R.string.unit_eg_piece_katori), fontSize = 12.sp) },
                             modifier = Modifier.weight(2f),
                             singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal)
@@ -373,12 +375,12 @@ fun EditDetectedItemsView(
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Item")
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Missing Item", fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.add_missing_item), fontWeight = FontWeight.Medium)
             }
             Spacer(modifier = Modifier.height(16.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "Missed Anything?",
+                stringResource(R.string.missed_anything),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth()
@@ -388,7 +390,7 @@ fun EditDetectedItemsView(
                 value = notes,
                 onValueChange = onNotesChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("e.g. Added 1 spoon ghee, or 1 extra roti") },
+                placeholder = { Text(stringResource(R.string.eg_added_1_spoon_ghee)) },
                 shape = RoundedCornerShape(12.dp)
             )
             
@@ -401,7 +403,7 @@ fun EditDetectedItemsView(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00796B)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Calculate Nutrition", fontSize = 16.sp)
+                    Text(stringResource(R.string.calculate_nutrition), fontSize = 16.sp)
                 }
                 
                 OutlinedButton(
@@ -409,7 +411,7 @@ fun EditDetectedItemsView(
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Cancel", fontSize = 16.sp)
+                    Text(stringResource(R.string.cancel), fontSize = 16.sp)
                 }
             }
         }
@@ -426,7 +428,7 @@ fun NutritionReportView(
         modifier = Modifier.fillMaxSize().padding(16.dp)
     ) {
         item {
-            Text("Nutrition Report", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.nutrition_report), fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
             
             // Macro Cards
@@ -447,7 +449,7 @@ fun NutritionReportView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF2E7D32))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("AI Assessment", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                        Text(stringResource(R.string.ai_assessment), fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(result.advice.general_assessment, fontSize = 14.sp)
@@ -466,7 +468,7 @@ fun NutritionReportView(
             }
             
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Detailed Breakdown", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.detailed_breakdown), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
         }
         
@@ -489,7 +491,7 @@ fun NutritionReportView(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Done", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.done), fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -535,20 +537,20 @@ fun ErrorView(message: String, isExhausted: Boolean, onRetry: () -> Unit, onBack
     ) {
         Icon(Icons.Default.ErrorOutline, null, tint = Color(0xFFD32F2F), modifier = Modifier.size(64.dp))
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Oops!", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.oops), fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         Text(message, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
         
         if (!isExhausted) {
             Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(50.dp)) {
-                Text("Try Again")
+                Text(stringResource(R.string.try_again))
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
         
         OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(50.dp)) {
-            Text("Go Back")
+            Text(stringResource(R.string.go_back))
         }
     }
 }

@@ -498,7 +498,7 @@ fun ChatbotScreen(
                             Icon(Icons.Outlined.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Message limit reached. Start a new session or try again later.",
+                                stringResource(R.string.message_limit_reached_start_a),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.weight(1f)
@@ -682,7 +682,7 @@ private fun SessionStatusCard(
                         color = SwastikPrimary.copy(alpha = 0.08f)
                     ) {
                         Text(
-                            text = "Active",
+                            text = stringResource(R.string.status_active),
                             color = SwastikPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1042,7 +1042,7 @@ private fun SymptomCheckerSheet(
         ) {
             Text(stringResource(R.string.symptom_checker), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
-                "Share the symptoms you have right now. The assistant will suggest urgency, next steps, and a likely specialist.",
+                stringResource(R.string.share_the_symptoms_you_have),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 lineHeight = 18.sp

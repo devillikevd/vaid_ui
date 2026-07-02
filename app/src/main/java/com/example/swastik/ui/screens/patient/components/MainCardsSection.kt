@@ -89,13 +89,13 @@ fun MainCardsSection(
                             ) {
                                 Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(12.dp))
                                 Spacer(modifier = Modifier.width(2.dp))
-                                Text("Nearby", fontSize = 10.sp, color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.nearby), fontSize = 10.sp, color = SwastikPrimary, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Clinic Visit",
+                        text = stringResource(R.string.clinic_visit),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -103,7 +103,7 @@ fun MainCardsSection(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Find doctors near you",
+                        text = stringResource(R.string.find_doctors_near_you),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -113,7 +113,7 @@ fun MainCardsSection(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SwastikPrimary))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Slots available today", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.slots_available_today), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -160,13 +160,13 @@ fun MainCardsSection(
                             ) {
                                 Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Live", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.live), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Video Consult",
+                        text = stringResource(R.string.video_consult),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -174,14 +174,14 @@ fun MainCardsSection(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Connect instantly online",
+                        text = stringResource(R.string.connect_instantly_online),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Connect in 15 mins", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.connect_in_15_mins), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     }
                 }
             }

@@ -28,6 +28,8 @@ import com.example.swastik.data.model.CommunityQuestion
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.viewmodel.CommunityViewModel
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +48,7 @@ fun CommunityQADetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Question", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.question), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -116,8 +118,8 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Question?", fontWeight = FontWeight.Bold) },
-            text = { Text("This will permanently delete your question and all its answers globally. This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_question), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.this_will_permanently_delete_your)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -126,12 +128,12 @@ fun QuestionDetailsCard(question: CommunityQuestion, isOwner: Boolean = false, o
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -266,7 +268,7 @@ fun AnswerCard(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
-                            text = "Doctor Verified",
+                            text = stringResource(R.string.doctor_verified),
                             color = SwastikPrimary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,

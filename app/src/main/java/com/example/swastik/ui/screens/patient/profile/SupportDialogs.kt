@@ -322,7 +322,7 @@ fun QrCodeDialog(
                             colors = CheckboxDefaults.colors(checkedColor = SwastikPrimary)
                         )
                         Column {
-                            Text("Include Vaididea Guardian Analytics", fontSize = 12.sp)
+                            Text(stringResource(R.string.include_vaididea_guardian_analytics), fontSize = 12.sp)
                             Text(
                                 if (guardianShareAllowed) {
                                     "Attaches sources, reliability notes, and 30-day safety signals."

@@ -42,7 +42,7 @@ fun AllSpecialitiesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Find Doctors",
+                        stringResource(R.string.find_doctors),
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
@@ -70,7 +70,7 @@ fun AllSpecialitiesScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Most Searched Specialities",
+                text = stringResource(R.string.most_searched_specialities),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,

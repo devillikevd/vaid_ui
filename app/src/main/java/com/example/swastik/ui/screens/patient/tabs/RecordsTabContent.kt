@@ -621,7 +621,7 @@ private fun PrescriptionSummaryCard(prescription: Prescription) {
                 ) {
                     Icon(Icons.Outlined.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("View Prescription File")
+                    Text(stringResource(R.string.view_prescription_file))
                 }
             }
         }

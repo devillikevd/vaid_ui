@@ -38,6 +38,8 @@ import org.webrtc.EglBase
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @Composable
 fun VideoCallScreen(
@@ -233,7 +235,7 @@ fun VideoCallScreen(
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Text(
-                                            text = "You",
+                                            text = stringResource(R.string.you),
                                             color = Color.White,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Medium
@@ -407,7 +409,7 @@ private fun ConsultationAccessBanner(
                         Spacer(modifier = Modifier.width(4.dp))
                         Column {
                             Text(
-                                text = "Include Guardian Analytics",
+                                text = stringResource(R.string.include_guardian_analytics),
                                 color = Color.White.copy(alpha = if (guardianAnalyticsSharingAllowed) 0.8f else 0.45f),
                                 fontSize = 13.sp
                             )
@@ -435,7 +437,7 @@ private fun ConsultationAccessBanner(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Share 24h record access")
+                            Text(stringResource(R.string.share_24h_record_access))
                         }
                     }
                 } else {
@@ -451,7 +453,7 @@ private fun ConsultationAccessBanner(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Revoke doctor access")
+                            Text(stringResource(R.string.revoke_doctor_access))
                         }
                     }
                 }
@@ -663,11 +665,11 @@ private fun AudioModeScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(doctorName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("Voice Consultation", fontSize = 14.sp, color = Color(0xFF2DD4BF))
+            Text(stringResource(R.string.voice_consultation), fontSize = 14.sp, color = Color(0xFF2DD4BF))
             Spacer(modifier = Modifier.height(8.dp))
             Text(connectionStatus, fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
             Spacer(modifier = Modifier.height(4.dp))
-            Text("Low bandwidth or manual audio mode", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+            Text(stringResource(R.string.low_bandwidth_or_manual_audio), fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(20.dp))
             ConsultationModeSelector(currentMode = ConsultationMode.AUDIO, onSwitchMode = onSwitchMode)
             Spacer(modifier = Modifier.height(40.dp))
@@ -739,7 +741,7 @@ private fun ChatModeScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(doctorName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
-                Text("Chat Consultation", fontSize = 12.sp, color = Color(0xFF4C8DFF))
+                Text(stringResource(R.string.chat_consultation), fontSize = 12.sp, color = Color(0xFF4C8DFF))
             }
             FloatingActionButton(onClick = onEndCall, containerColor = Color(0xFFE57373), shape = CircleShape, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.CallEnd, contentDescription = "End", tint = Color.White, modifier = Modifier.size(20.dp))
@@ -770,7 +772,7 @@ private fun ChatModeScreen(
                             .padding(top = 48.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Send a message to continue", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
+                        Text(stringResource(R.string.send_a_message_to_continue), color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
                     }
                 }
             } else {
@@ -810,7 +812,7 @@ private fun ChatModeScreen(
             OutlinedTextField(
                 value = chatInput,
                 onValueChange = onChatInputChange,
-                placeholder = { Text("Type a message...", color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(stringResource(R.string.type_a_message), color = Color.White.copy(alpha = 0.4f)) },
                 modifier = Modifier.weight(1f),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFF4C8DFF),
@@ -973,7 +975,7 @@ private fun VideoCallControls(
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "AI Vitals",
+                text = stringResource(R.string.ai_vitals),
                 color = Color.White.copy(alpha = 0.86f),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold

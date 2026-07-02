@@ -106,7 +106,7 @@ fun NotificationPanelDialog(
                                     onClick = { onClearAll() },
                                     contentPadding = PaddingValues(horizontal = 12.dp)
                                 ) {
-                                    Text("Clear All", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.clear_all), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                             IconButton(onClick = onDismiss) {
