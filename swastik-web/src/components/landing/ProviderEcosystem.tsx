@@ -187,7 +187,7 @@ function GlassyImageFrame({ tab }: { tab: PortalTab }) {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-white font-bold text-sm">{tab.dashboardTitle}</h3>
-                  <p className="text-white/70 text-[9px] mt-0.5">Welcome back! Here's your overview.</p>
+                  <p className="text-white/70 text-[9px] mt-0.5">Welcome back! Here&apos;s your overview.</p>
                 </div>
                 <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white text-[10px]">
                   👤

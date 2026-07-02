@@ -52,7 +52,7 @@ export default function VisionSection() {
                   VAIDIDEA is committed to building a future where healthcare is not fragmented across multiple applications and providers, but unified into one intelligent ecosystem that empowers patients, supports healthcare professionals, improves clinical outcomes, and strengthens public health.
                 </p>
                 <p>
-                  Our long-term vision is to become the world's most trusted AI-powered Healthcare Operating System—driving innovation in digital medicine, preventive healthcare, emergency response, medical intelligence, and population health while keeping privacy, security, ethics, and patient ownership of health data at the center of everything we build.
+                  Our long-term vision is to become the world&apos;s most trusted AI-powered Healthcare Operating System—driving innovation in digital medicine, preventive healthcare, emergency response, medical intelligence, and population health while keeping privacy, security, ethics, and patient ownership of health data at the center of everything we build.
                 </p>
               </div>
             </div>
@@ -60,7 +60,7 @@ export default function VisionSection() {
             {/* Callout */}
             <div className="mt-12 pt-10 border-t border-vd-forest/10 text-center">
               <p className="font-heading text-2xl sm:text-3xl text-vd-forest italic">
-                "Healthcare should not begin when someone becomes sick. It should continuously work to keep people healthy."
+                &quot;Healthcare should not begin when someone becomes sick. It should continuously work to keep people healthy.&quot;
               </p>
               <p className="mt-4 text-sm font-semibold tracking-widest uppercase text-vd-sage">
                 That is the future VAIDIDEA is building.

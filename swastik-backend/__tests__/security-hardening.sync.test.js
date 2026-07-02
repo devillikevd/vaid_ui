@@ -10,7 +10,8 @@ describe('security hardening invariants', () => {
     expect(source).toContain("ownerId !== req.user.id");
     expect(source).toContain("agent.facility_id !== facilityId");
     expect(source).toContain("agent.facility_type !== facilityType");
-    expect(source.indexOf('agent.facility_id !== facilityId')).toBeLessThan(source.indexOf(".update({ \n                agent_id"));
+    const updateIndex = source.indexOf(".update({") !== -1 ? source.indexOf(".update({") : source.indexOf(".update( {");
+    expect(source.indexOf('agent.facility_id !== facilityId')).toBeLessThan(updateIndex);
   });
 
   test('vitals websocket performs backend participant authorization and fails closed without JWT config', () => {
