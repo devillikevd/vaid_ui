@@ -40,6 +40,7 @@ import com.example.swastik.data.model.Doctor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.utils.getTranslatedCategoryText
 
 @Composable
 fun GlobalSearchBar(
@@ -236,7 +237,8 @@ fun GlobalSearchBar(
                                 Text(stringResource(R.string.suggested_for_you), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             items(suggestions) { item ->
-                                SuggestionRow(item) {
+                                val translatedItem = getTranslatedCategoryText(item)
+                                SuggestionRow(translatedItem) {
                                     if (homeServices.contains(item)) {
                                         onServiceSelect(item)
                                     } else {
@@ -252,7 +254,8 @@ fun GlobalSearchBar(
                                     Text(stringResource(R.string.services), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredServices) { service ->
-                                    SuggestionRow(service) {
+                                    val translatedService = getTranslatedCategoryText(service)
+                                    SuggestionRow(translatedService) {
                                         onServiceSelect(service)
                                         query = ""
                                         focusManager.clearFocus()
@@ -265,7 +268,8 @@ fun GlobalSearchBar(
                                     Text(stringResource(R.string.specialities), fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                                 }
                                 items(filteredSpecs) { spec ->
-                                    SuggestionRow(spec) {
+                                    val translatedSpec = getTranslatedCategoryText(spec)
+                                    SuggestionRow(translatedSpec) {
                                         onSpecialitySelect(spec)
                                         query = ""
                                         focusManager.clearFocus()

@@ -367,7 +367,7 @@ fun ChatbotScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("AI \u2022 Voice \u2022 Vision", fontSize = 10.sp, color = Color(0xFF4CAF50))
+                                Text(stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
                             }
                         }
                     }

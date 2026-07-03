@@ -228,8 +228,8 @@ private fun ConsultationTypeCard(
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = "In-person\nConsultation",
-        subtitle = "Visit doctor at clinic",
+        title = stringResource(R.string.in_person_consultation_multiline),
+        subtitle = stringResource(R.string.visit_doctor_at_clinic),
         imageRes = R.drawable.inpersoncons,
         backgroundColor = Color(0xFFF1F8F7), // Light teal
         onClick = onClick
@@ -240,8 +240,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = "Video\nConsultation",
-        subtitle = "Consult doctor from home",
+        title = stringResource(R.string.video_consultation_multiline),
+        subtitle = stringResource(R.string.consult_doctor_from_home),
         imageRes = R.drawable.videocons,
         backgroundColor = Color(0xFFF6F3FF), // Light purple
         onClick = onClick

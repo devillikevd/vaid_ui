@@ -541,7 +541,7 @@ fun FindDoctorsCategoriesScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "View\nMore",
+                            stringResource(R.string.view_more_multiline),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SwastikPrimary,
@@ -610,7 +610,7 @@ fun FindDoctorsCategoriesScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             // ── Categories (Large Cards) ──
-            SectionHeader(title = "Categories")
+            SectionHeader(title = stringResource(R.string.categories))
             Spacer(modifier = Modifier.height(16.dp))
             
             val visibleCategories = categoryCards.take(8)
@@ -635,7 +635,7 @@ fun FindDoctorsCategoriesScreen(
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, SwastikPrimary)
                 ) {
                     Text(
-                        "View All ${categoryCards.size} Categories",
+                        stringResource(R.string.view_all_categories_format, categoryCards.size),
                         color = SwastikPrimary,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp

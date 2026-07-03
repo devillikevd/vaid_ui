@@ -294,7 +294,7 @@ fun Step1Medicines(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(prescription.diagnosis, fontWeight = FontWeight.Bold)
-                                Text("Date: ${prescription.createdAt}", fontSize = 12.sp, color = Color.Gray)
+                                Text(stringResource(R.string.date_format, prescription.createdAt), fontSize = 12.sp, color = Color.Gray)
                             }
                         }
                     }
@@ -386,12 +386,12 @@ fun Step1Medicines(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SwastikPrimaryDark)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text("₹${item.price ?: 0}", color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    if (packSize > 1) {
-                                        Text("Pack: $packSize $unitType", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
+                                    Text(stringResource(R.string.rupee_format, (item.price ?: 0).toString()), color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(stringResource(R.string.pack_format, packSize.toString(), unitType), fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
+                                        Text("|", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
+                                        Text(stringResource(R.string.stock_format, (item.quantity ?: 0).toString()), fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
                                     }
-                                    Text("Stock: ${item.quantity ?: 0}", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
                                 }
                                 if (isSelected) {
                                     Icon(
@@ -499,7 +499,7 @@ fun Step2Cart(selected: List<Pair<PharmacyInventoryItemDto, Int>>, onRemove: (Ph
                             Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             val itemTotalPrice = (item.price ?: 0f) * qty
-                            Text("Units: $qty x ₹${"%.2f".format(item.price ?: 0f)} = ₹${"%.2f".format(itemTotalPrice)}", color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.units_total_format, qty, "%.2f".format(item.price ?: 0f), "%.2f".format(itemTotalPrice)), color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
                         }
                         IconButton(
                             onClick = { onRemove(item) },
@@ -584,18 +584,18 @@ fun Step4Confirmation(
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Pharmacy: ${facility.name}", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.pharmacy_name_format, facility.name), fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 if (isPrescription) {
                     Text(stringResource(R.string.order_method_prescription_uploaded), color = SwastikPrimary, fontWeight = FontWeight.Bold)
                 } else {
-                    Text("Items: ${selected.size}", color = SwastikPrimary)
+                    Text(stringResource(R.string.items_count_format, selected.size), color = SwastikPrimary)
                     val total = totalPrice
-                    Text("Total: ₹${"%.2f".format(total)}", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.total_amount_format, "%.2f".format(total)), fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Delivery Address:\n$address", fontSize = 14.sp)
-                Text("Phone:\n$phone", fontSize = 14.sp)
+                Text(stringResource(R.string.delivery_address_format, address), fontSize = 14.sp)
+                Text(stringResource(R.string.phone_number_format, phone), fontSize = 14.sp)
             }
         }
         if (isPrescription) {

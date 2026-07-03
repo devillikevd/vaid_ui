@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import com.example.swastik.R
 
 @AndroidEntryPoint
 class EmergencyCountdownActivity : ComponentActivity() {
@@ -342,7 +344,7 @@ fun EmergencyCountdownScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = "$emergencyType!\nAuto-calling ambulance...",
+                text = stringResource(R.string.auto_calling_ambulance, emergencyType),
                 color = Color.White,
                 fontSize = 20.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -361,7 +363,7 @@ fun EmergencyCountdownScreen(
                     modifier = Modifier.weight(1f).height(64.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("I AM OK\n(Cancel)", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.text_i_am_okncancel), color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Bold)
                 }
                 
                 Spacer(modifier = Modifier.width(16.dp))
@@ -372,7 +374,7 @@ fun EmergencyCountdownScreen(
                     modifier = Modifier.weight(1f).height(64.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("SEND\nSOS NOW", color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.text_sendnsos_now), color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Bold)
                 }
             }
             

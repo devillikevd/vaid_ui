@@ -637,11 +637,11 @@ private fun OrderHistoryCard(
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Medication, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("${order.items?.size ?: 0} item(s)", fontSize = 13.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.item_count_format, order.items?.size ?: 0), fontSize = 13.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.width(8.dp))
                 order.totalAmount?.let {
-                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
+                    Text(stringResource(R.string.rupee_format, it.toInt().toString()), fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
                 }
             }
 
@@ -672,9 +672,9 @@ private fun OrderHistoryCard(
                                 modifier = Modifier.weight(1f)
                             )
                             item.subtotal?.let {
-                                Text("₹${it.toInt()}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.rupee_format, it.toInt().toString()), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } ?: item.price?.let {
-                                Text("₹${(it * item.quantity).toInt()}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.rupee_format, (it * item.quantity).toInt().toString()), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -695,7 +695,7 @@ private fun OrderHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Payment, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Payment: ${ps.replaceFirstChar { it.uppercase() }}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.payment_format, ps.replaceFirstChar { it.uppercase() }), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 

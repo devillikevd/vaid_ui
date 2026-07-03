@@ -158,37 +158,37 @@ private fun EmergencyTypeSelection(
     val emergencyTypes = listOf(
         EmergencyTypeItem(
             icon = Icons.Filled.LocalHospital,
-            label = "General",
+            label = stringResource(R.string.text_general),
             value = "general",
-            description = "Sudden illness, collapse, fever, breathlessness",
+            description = stringResource(R.string.text_general_desc),
             color = EmergencyAlertStrong
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.Warning,
-            label = "Accident",
+            label = stringResource(R.string.text_accident),
             value = "accident",
-            description = "Road trauma, bleeding, falls, fractures",
+            description = stringResource(R.string.text_accident_desc),
             color = EmergencyAccent
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.Favorite,
-            label = "Cardiac",
+            label = stringResource(R.string.text_cardiac),
             value = "cardiac",
-            description = "Chest pain, stroke signs, unconsciousness",
+            description = stringResource(R.string.text_cardiac_desc),
             color = colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.Person,
-            label = "Pregnancy",
+            label = stringResource(R.string.text_pregnancy),
             value = "pregnancy",
-            description = "Labour pain, urgent maternal transport",
+            description = stringResource(R.string.text_pregnancy_desc),
             color = colorScheme.onSurface
         ),
         EmergencyTypeItem(
             icon = Icons.Filled.MedicalServices,
-            label = "Other",
+            label = stringResource(R.string.text_other),
             value = "other",
-            description = "Any urgent condition needing ambulance pickup",
+            description = stringResource(R.string.text_other_desc),
             color = colorScheme.onSurface
         )
     )
@@ -254,9 +254,9 @@ private fun EmergencyTypeSelection(
                         modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        EmergencyFeatureChip("Live GPS")
-                        EmergencyFeatureChip("Driver contact")
-                        EmergencyFeatureChip("Hospital-ready")
+                        EmergencyFeatureChip(stringResource(R.string.text_live_gps))
+                        EmergencyFeatureChip(stringResource(R.string.text_driver_contact))
+                        EmergencyFeatureChip(stringResource(R.string.text_hospital_ready))
                     }
                 }
             }
@@ -289,15 +289,15 @@ private fun EmergencyTypeSelection(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            if (uiState.locationAvailable) "Location locked for dispatch" else "Live location still needed",
+                            if (uiState.locationAvailable) stringResource(R.string.text_location_locked_for_dispatch) else stringResource(R.string.text_live_location_still_needed),
                             fontWeight = FontWeight.SemiBold,
                             color = if (uiState.locationAvailable) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
                         )
                         Text(
                             if (uiState.locationAvailable) {
-                                "Your current GPS will keep updating so the responding ambulance follows you, not a stale pin."
+                                stringResource(R.string.text_your_current_gps_will_keep_updating)
                             } else {
-                                "Enable GPS so dispatch and the nearest driver can navigate to you accurately."
+                                stringResource(R.string.text_enable_gps_so_dispatch_and_the_nearest)
                             },
                             fontSize = 12.sp,
                             color = colorScheme.onSurfaceVariant
@@ -1366,7 +1366,7 @@ private fun EmergencyTypeCard(
                 minLines = 2
             )
             Text(
-                if (isSelected) "Selected for dispatch" else "Tap to choose",
+                if (isSelected) stringResource(R.string.text_selected_for_dispatch) else stringResource(R.string.text_tap_to_choose),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (isSelected) item.color else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)

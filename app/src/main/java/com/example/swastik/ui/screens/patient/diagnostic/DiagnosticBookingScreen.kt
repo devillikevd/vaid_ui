@@ -251,7 +251,7 @@ fun DiagnosticBookingScreen(
                     } else {
                         Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
                         uiState.selectedTest!!.price?.let {
-                            Text("Price: ₹${it.toInt()}", color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.price_format, it.toInt().toString()), color = SwastikPrimary, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -660,7 +660,7 @@ private fun CenterTestsView(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(testRecord.doctor?.name ?: "Prescription", fontWeight = FontWeight.Bold)
-                                Text("Date: ${testRecord.createdAt}", fontSize = 12.sp, color = Color.Gray)
+                                Text(stringResource(R.string.date_format, testRecord.createdAt), fontSize = 12.sp, color = Color.Gray)
                             }
                         }
                     }
@@ -817,7 +817,7 @@ private fun TestCard(
                 test.sampleType?.let { Text(stringResource(R.string.sample_label, it), color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }
             }
             test.price?.let {
-                Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)
+                Text(stringResource(R.string.rupee_format, it.toInt().toString()), fontWeight = FontWeight.Bold, color = SwastikPrimary, fontSize = 16.sp)
             }
             Spacer(Modifier.width(8.dp))
             if (isSelected) {

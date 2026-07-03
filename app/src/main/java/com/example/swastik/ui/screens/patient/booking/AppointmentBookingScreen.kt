@@ -854,7 +854,7 @@ private fun ConsultationDetailsStep(
                 modifier = if (showBothTypes) Modifier.weight(1f).fillMaxHeight() else Modifier.fillMaxWidth(0.48f).fillMaxHeight(),
                 icon = "📹",
                 title = stringResource(R.string.video_consultation),
-                subtitle = "Consult with doctor online",
+                subtitle = stringResource(R.string.consult_doctor_online),
                 price = "",
                 isSelected = selectedType == "video",
                 onClick = { onTypeChanged("video") }
@@ -866,7 +866,7 @@ private fun ConsultationDetailsStep(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     icon = "🏥",
                     title = stringResource(R.string.in_person_consultation),
-                    subtitle = "Visit doctor at clinic",
+                    subtitle = stringResource(R.string.visit_doctor_at_clinic),
                     price = "", // Hide price during selection as requested
                     isSelected = selectedType == "in_person",
                     onClick = { onTypeChanged("in_person") }

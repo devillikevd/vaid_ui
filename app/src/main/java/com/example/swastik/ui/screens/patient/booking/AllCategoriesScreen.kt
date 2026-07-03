@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.ui.theme.*
+import com.example.swastik.utils.getTranslatedCategoryText
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
@@ -143,7 +144,7 @@ fun CategoryGridCard(
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = item.title,
+                    text = getTranslatedCategoryText(item.title),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface, // Darker text for title
@@ -152,7 +153,7 @@ fun CategoryGridCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = item.description,
+                    text = getTranslatedCategoryText(item.description),
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurface, // Medium grey for description
                     lineHeight = 15.sp,

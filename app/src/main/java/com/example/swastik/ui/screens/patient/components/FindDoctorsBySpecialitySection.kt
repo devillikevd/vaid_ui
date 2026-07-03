@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
 import com.example.swastik.ui.theme.*
+import com.example.swastik.ui.theme.*
 import androidx.compose.ui.res.stringResource
+import com.example.swastik.utils.getTranslatedCategoryText
 
 @Composable
 fun FindDoctorsBySpecialitySection(
@@ -84,7 +86,7 @@ fun FindDoctorsBySpecialitySection(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = title,
+                            text = getTranslatedCategoryText(title),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (selectedTab == index) Color.White else Color(0xFF5F6B6A),
@@ -183,7 +185,7 @@ fun SpecialityCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = name,
+                    text = getTranslatedCategoryText(name),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -255,7 +257,7 @@ private fun SpecialityHomeCard(
                     .padding(bottom = 8.dp, top = 18.dp)
             ) {
                 Text(
-                    text = title,
+                    text = getTranslatedCategoryText(title),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1E293B),

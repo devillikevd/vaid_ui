@@ -1,7 +1,10 @@
 package com.example.swastik.ui.viewmodel
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import com.example.swastik.R
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.FacilityType
 import com.example.swastik.data.model.MedicalFacility
@@ -71,6 +74,7 @@ data class ChatbotUiState(
 
 @HiltViewModel
 class ChatbotViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val chatbotRepository: ChatbotRepository,
     private val hospitalRepository: HospitalRepository,
     private val locationHelper: LocationHelper
@@ -91,9 +95,9 @@ class ChatbotViewModel @Inject constructor(
 
     private fun buildWelcomeMessage(isConnected: Boolean): ChatUiMessage {
         val content = if (isConnected) {
-            "Namaste! I'm your VAIDIDEA Health Assistant.\n\nI can help you with:\n• Understanding your symptoms\n• Finding the right specialist\n• Health & wellness tips\n• First aid guidance\n• Analyzing a medical photo\n\nHow can I help you today?\n\nFor emergencies, call 102/108 immediately."
+            context.getString(R.string.chatbot_welcome_connected)
         } else {
-            "Hello! I'm your health assistant. I'm having trouble connecting right now, but feel free to try sending a message."
+            context.getString(R.string.chatbot_welcome_disconnected)
         }
 
         return ChatUiMessage(
