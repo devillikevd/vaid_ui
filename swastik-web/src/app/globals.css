@@ -587,3 +587,15 @@ body {
     opacity: 1;
     transform: translateY(0);
 }
+
+@layer base {
+  .dark input:not([type="checkbox"]):not([type="radio"]), 
+  .dark select, 
+  .dark textarea {
+    @apply bg-gray-800 text-gray-100 border-gray-700;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    @apply text-gray-400;
+  }
+}

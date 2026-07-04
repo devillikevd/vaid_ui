@@ -109,7 +109,7 @@ export default function AuditPage() {
                 const actionRaw = String(row.action || row.eventType || 'update');
                 const action = normalizeActionKey(actionRaw);
                 const timestamp = row.createdAt || row.timestamp || new Date().toISOString();
-                const user = row.user?.name || row.userName || row.actorName || row.user || row.userEmail || (row.userId ? `User ${String(row.userId).slice(0, 8)}` : 'System');
+                const user = row.user?.name || row.userName || row.actorName || (typeof row.user === 'string' ? row.user : null) || row.userEmail || (row.userId ? `User ${String(row.userId).slice(0, 8)}` : 'System');
                 const userRole = row.userRole || row.actorRole || row.role || 'unknown';
                 const description = row.description
                     || row.message
@@ -123,7 +123,9 @@ export default function AuditPage() {
                     user,
                     userEmail: row.user?.email || row.userEmail || null,
                     userRole,
-                    target: row.entityId || row.resourceId || row.target,
+                    target: typeof (row.entityId || row.resourceId || row.target) === 'object' 
+                        ? JSON.stringify(row.entityId || row.resourceId || row.target) 
+                        : (row.entityId || row.resourceId || row.target),
                     timestamp,
                     ip: row.ipAddress || row.ip,
                     resourceType: row.resourceType || row.entityType || undefined,

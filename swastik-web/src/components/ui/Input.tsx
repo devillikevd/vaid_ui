@@ -23,7 +23,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 {label && (
                     <label
                         htmlFor={inputId}
-                        className="block text-sm font-semibold text-gray-900 mb-1.5"
+                        className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-1.5"
                     >
                         {label}
                     </label>
@@ -41,10 +41,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         {...(error ? { 'aria-invalid': true } : {})}
                         aria-describedby={errorId}
                         className={cn(
-                            'w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 font-medium placeholder:text-gray-500',
-                            'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20',
+                            'w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium placeholder:text-gray-500 dark:placeholder:text-gray-400',
+                            'focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:focus:ring-primary-500/30',
                             'disabled:bg-gray-50 disabled:cursor-not-allowed dark:disabled:bg-gray-800/50',
-                            error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20',
+                            error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500 dark:focus:ring-red-500/30',
                             leftIcon && 'pl-10',
                             rightIcon && 'pr-10',
                             className
