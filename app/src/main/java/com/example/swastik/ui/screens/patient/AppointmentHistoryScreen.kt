@@ -159,7 +159,7 @@ fun AppointmentHistoryScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         val error = (pagedAppointments.loadState.refresh as LoadState.Error).error
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             error.message.orEmpty().ifBlank { stringResource(R.string.something_went_wrong) },
                             fontSize = 16.sp,
                             color = colorScheme.onSurfaceVariant,
@@ -231,15 +231,15 @@ fun AppointmentHistoryScreen(
                                                 title = { Text(stringResource(R.string.booking_status), fontWeight = FontWeight.Bold) },
                                                 text = {
                                                     Column {
-                                                        com.example.swastik.ui.components.TranslatedText("Appointment ID: ${selectedBookingStatusAppointment?.appointmentNumber ?: selectedBookingStatusAppointment?.id}")
+                                                        Text("Appointment ID: ${selectedBookingStatusAppointment?.appointmentNumber ?: selectedBookingStatusAppointment?.id}")
                                                         Spacer(modifier = Modifier.height(8.dp))
-                                                        com.example.swastik.ui.components.TranslatedText("Status: ${selectedBookingStatusAppointment?.status?.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold)
+                                                        Text("Status: ${selectedBookingStatusAppointment?.status?.replaceFirstChar { it.uppercase() }}", fontWeight = FontWeight.Bold)
                                                         Spacer(modifier = Modifier.height(8.dp))
-                                                        com.example.swastik.ui.components.TranslatedText("Date: ${selectedBookingStatusAppointment?.date}")
-                                                        com.example.swastik.ui.components.TranslatedText("Time: ${selectedBookingStatusAppointment?.timeSlot}")
+                                                        Text("Date: ${selectedBookingStatusAppointment?.date}")
+                                                        Text("Time: ${selectedBookingStatusAppointment?.timeSlot}")
                                                         if (selectedBookingStatusAppointment?.doctor != null) {
                                                             Spacer(modifier = Modifier.height(8.dp))
-                                                            com.example.swastik.ui.components.TranslatedText("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
+                                                            Text("Doctor: ${selectedBookingStatusAppointment?.doctor?.name}")
                                                         }
                                                         Spacer(modifier = Modifier.height(16.dp))
                                                         Text(stringResource(R.string.please_keep_this_information_for))
@@ -365,7 +365,7 @@ private fun FilterChipsRow(selectedFilter: AppointmentFilter, onFilterSelected: 
                 selected = selectedFilter == filter,
                 onClick = { onFilterSelected(filter) },
                 label = {
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         text = when (filter) {
                             AppointmentFilter.ALL -> stringResource(R.string.filter_all)
                             AppointmentFilter.UPCOMING -> stringResource(R.string.upcoming)
@@ -456,7 +456,7 @@ private fun AppointmentCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                         }
-                        com.example.swastik.ui.components.TranslatedText(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(text = statusText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = txtColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
@@ -472,8 +472,8 @@ private fun AppointmentCard(
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    com.example.swastik.ui.components.TranslatedText(text = doctorName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColorPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (doctorSpecialty.isNotEmpty()) com.example.swastik.ui.components.TranslatedText(text = doctorSpecialty, fontSize = 13.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = doctorName, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textColorPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (doctorSpecialty.isNotEmpty()) Text(text = doctorSpecialty, fontSize = 13.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!facilityName.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -484,7 +484,7 @@ private fun AppointmentCard(
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 text = "$facilityLabel • $facilityName",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary,
@@ -504,12 +504,12 @@ private fun AppointmentCard(
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    com.example.swastik.ui.components.TranslatedText(text = appointment.date, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = appointment.date, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.AccessTime, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    com.example.swastik.ui.components.TranslatedText(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = appointment.timeSlot, fontSize = 13.sp, color = colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 
@@ -535,7 +535,7 @@ private fun AppointmentCard(
                                 appointment.cancelledBy != null -> "Cancelled by Doctor/Hospital"
                                 else -> "Appointment Cancelled"
                             }
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 text = cancelledByText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -544,7 +544,7 @@ private fun AppointmentCard(
                         }
                         if (!appointment.cancellationReason.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 text = "Reason: ${appointment.cancellationReason}",
                                 fontSize = 13.sp,
                                 color = Color(0xFF434343),
@@ -569,7 +569,7 @@ private fun AppointmentCard(
                         Icon(Icons.Default.VideoCall, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         val buttonText = if (isInProgress) stringResource(R.string.resume_video_consultation) else stringResource(R.string.start_video_consultation)
-                        com.example.swastik.ui.components.TranslatedText(buttonText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(buttonText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Surface(
@@ -583,7 +583,7 @@ private fun AppointmentCard(
                         ) {
                             Icon(Icons.Default.EventAvailable, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(10.dp))
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 text = inPersonVisitLabel,
                                 fontSize = 13.sp,
                                 color = colorScheme.onPrimaryContainer,
@@ -619,7 +619,7 @@ private fun AppointmentCard(
                     ) {
                         Icon(Icons.Outlined.Description, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             stringResource(R.string.prescription), 
                             color = MaterialTheme.colorScheme.primary, 
                             fontSize = 12.sp,
@@ -641,7 +641,7 @@ private fun AppointmentCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             if (appointment.isReviewed) "Edit Review" else "Rate Doctor",
                             color = Color.White, 
                             fontSize = 12.sp,
@@ -662,7 +662,7 @@ private fun AppointmentCard(
                 ) {
                     Icon(Icons.Outlined.Replay, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         stringResource(R.string.book_again), 
                         color = MaterialTheme.colorScheme.primary, 
                         fontSize = 13.sp,
@@ -682,7 +682,7 @@ private fun AppointmentCard(
                 ) {
                     Icon(Icons.Outlined.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         stringResource(R.string.view_booking_status), 
                         color = MaterialTheme.colorScheme.primary, 
                         fontSize = 13.sp,
@@ -713,7 +713,7 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
     Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         AppointmentEmptyIcon()
         Spacer(modifier = Modifier.height(24.dp))
-        com.example.swastik.ui.components.TranslatedText(
+        Text(
             text = when (selectedFilter) {
                 AppointmentFilter.ALL -> "No Appointments Yet"
                 AppointmentFilter.UPCOMING -> "No Upcoming Appointments"
@@ -723,7 +723,7 @@ private fun EmptyAppointmentsView(selectedFilter: AppointmentFilter, onBookClick
             fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colorScheme.onSurface, textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(12.dp))
-        com.example.swastik.ui.components.TranslatedText(
+        Text(
             text = when (selectedFilter) {
                 AppointmentFilter.ALL -> "Book your first appointment with a doctor"
                 AppointmentFilter.UPCOMING -> "You don't have any scheduled appointments"

@@ -136,7 +136,7 @@ fun BookingHistoryScreen(
                     ) {
                         Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
-                        com.example.swastik.ui.components.TranslatedText(error, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        Text(error, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearBookingHistoryError() }) {
                             Text(stringResource(R.string.dismiss))
                         }
@@ -392,7 +392,7 @@ private fun ActiveBookingTrackingView(
                             .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
                     )
                     Spacer(Modifier.width(8.dp))
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         text = if (isWalkIn) "Visit Center" else if (isWaitingForAgent) "Locating Phlebotomist..." else "Agent on the way",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -426,12 +426,12 @@ private fun ActiveBookingTrackingView(
                     }
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             text = "Status: ${booking.status?.replaceFirstChar { it.uppercase() }}",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             text = booking.test?.name ?: "Diagnostic Test",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
@@ -478,7 +478,7 @@ private fun ActiveBookingTrackingView(
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                com.example.swastik.ui.components.TranslatedText(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                                 Text(stringResource(R.string.phlebotomist_agent), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             IconButton(
@@ -561,7 +561,7 @@ private fun BookingHistoryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         booking.test?.name ?: "Diagnostic Test",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
@@ -569,7 +569,7 @@ private fun BookingHistoryCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         booking.center?.name ?: "Diagnostic Center",
                         color = textColorSecondary,
                         fontSize = 13.sp,
@@ -578,7 +578,7 @@ private fun BookingHistoryCard(
                     )
                     booking.bookingNumber?.let { bookingNumber ->
                         Spacer(Modifier.height(4.dp))
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             bookingNumber,
                             color = textColorSecondary,
                             fontSize = 12.sp,
@@ -593,7 +593,7 @@ private fun BookingHistoryCard(
                         .background(statusColor.copy(alpha = 0.15f))
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    com.example.swastik.ui.components.TranslatedText(statusLabel, color = statusColor, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text(statusLabel, color = statusColor, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
             }
 
@@ -608,7 +608,7 @@ private fun BookingHistoryCard(
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CalendarMonth, null, tint = SwastikPrimary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    com.example.swastik.ui.components.TranslatedText(
+                    Text(
                         text = buildString {
                             append(formatBookingDate(booking.bookingDate))
                             if (booking.bookingTime != null) append(" at ${booking.bookingTime}")
@@ -621,7 +621,7 @@ private fun BookingHistoryCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 booking.test?.price?.let {
-                    com.example.swastik.ui.components.TranslatedText("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
+                    Text("₹${it.toInt()}", fontWeight = FontWeight.Bold, color = textColorPrimary, fontSize = 15.sp, maxLines = 1)
                 }
             }
 
@@ -636,7 +636,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocalShipping, null, tint = textColorSecondary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 "Collection: ${ct.replace("_", " ").replaceFirstChar { it.uppercase() }}",
                                 fontSize = 13.sp,
                                 color = textColorSecondary,
@@ -672,7 +672,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Assignment, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            com.example.swastik.ui.components.TranslatedText(
+                            Text(
                                 "Result: ${rs.replace("_", " ").replaceFirstChar { it.uppercase() }}",
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -695,7 +695,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Default.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            com.example.swastik.ui.components.TranslatedText(notes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(notes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -704,7 +704,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Default.Description, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            com.example.swastik.ui.components.TranslatedText(resultNotes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(resultNotes, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }
@@ -714,7 +714,7 @@ private fun BookingHistoryCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Phone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            com.example.swastik.ui.components.TranslatedText(phone, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(phone, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(4.dp))
                     }

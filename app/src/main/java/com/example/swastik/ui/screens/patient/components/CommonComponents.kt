@@ -153,7 +153,7 @@ private fun CompactBottomNavItem(
 
         Spacer(modifier = Modifier.height(2.dp))
         
-        com.example.swastik.ui.components.TranslatedText(
+        Text(
             text = item.label,
             fontSize = 9.sp, // Smaller label size
             fontWeight = fontWeight,

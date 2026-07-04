@@ -227,10 +227,10 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                com.example.swastik.ui.components.TranslatedText(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(2.dp))
                 if (report.doctorName != null) {
-                    com.example.swastik.ui.components.TranslatedText(text = report.doctorName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = report.doctorName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -240,7 +240,7 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
                 }
             }
             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                com.example.swastik.ui.components.TranslatedText(
+                Text(
                     text = report.type.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
                     fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

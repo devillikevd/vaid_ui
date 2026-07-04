@@ -85,7 +85,7 @@ fun FindDoctorsBySpecialitySection(
                             .clickable { selectedTab = index },
                         contentAlignment = Alignment.Center
                     ) {
-                        com.example.swastik.ui.components.TranslatedText(
+                        Text(
                             text = title,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -184,7 +184,7 @@ fun SpecialityCard(
                     .padding(bottom = 8.dp, top = 24.dp, start = 4.dp, end = 4.dp),
                 contentAlignment = Alignment.Center
             ) {
-                com.example.swastik.ui.components.TranslatedText(
+                Text(
                     text = name,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -256,7 +256,7 @@ private fun SpecialityHomeCard(
                     )
                     .padding(bottom = 8.dp, top = 18.dp)
             ) {
-                com.example.swastik.ui.components.TranslatedText(
+                Text(
                     text = title,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
