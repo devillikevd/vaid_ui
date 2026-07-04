@@ -49,19 +49,19 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# VULN-INF-04: Private Subnets and NAT Gateways
+# VULN-INF-04: Private Subnets and NAT Gateway (single, cost-optimised)
 resource "aws_eip" "nat" {
-  count  = length(var.public_subnet_cidrs)
+  count  = 1
   domain = "vpc"
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = length(var.public_subnet_cidrs)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  count         = 1
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
 
   tags = {
-    Name = "${local.name}-nat-${count.index + 1}"
+    Name = "${local.name}-nat"
   }
 }
 
@@ -83,7 +83,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[0].id
   }
 
   tags = {
@@ -259,50 +259,5 @@ resource "aws_lb_listener_rule" "ai_host_https" {
   }
 }
 
-# VULN-INF-17: VPC Flow Logs
-resource "aws_cloudwatch_log_group" "vpc_flow_log" {
-  name              = "/aws/vpc/${local.name}-flow-logs"
-  retention_in_days = var.log_retention_days
-}
-
-data "aws_iam_policy_document" "vpc_flow_log_assume_role" {
-  statement {
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["vpc-flow-logs.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "vpc_flow_log" {
-  name               = "${local.name}-vpc-flow-log-role"
-  assume_role_policy = data.aws_iam_policy_document.vpc_flow_log_assume_role.json
-}
-
-data "aws_iam_policy_document" "vpc_flow_log" {
-  statement {
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-      "logs:DescribeLogGroups",
-      "logs:DescribeLogStreams"
-    ]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_role_policy" "vpc_flow_log" {
-  name   = "${local.name}-vpc-flow-log-policy"
-  role   = aws_iam_role.vpc_flow_log.id
-  policy = data.aws_iam_policy_document.vpc_flow_log.json
-}
-
-resource "aws_flow_log" "main" {
-  iam_role_arn    = aws_iam_role.vpc_flow_log.arn
-  log_destination = aws_cloudwatch_log_group.vpc_flow_log.arn
-  traffic_type    = "ALL"
-  vpc_id          = aws_vpc.main.id
-}
+# NOTE: VPC Flow Logs removed to save CloudWatch ingestion costs.
+# Re-enable when needed for forensic investigation or compliance audits.

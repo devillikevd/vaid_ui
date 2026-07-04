@@ -244,11 +244,20 @@ router.get('/me/patients/vitals',
         *,
         patients!patient_vitals_patient_id_fkey (id, name, gender, blood_group, date_of_birth)
       `, { count: 'exact' })
-      .eq('recorded_by', req.user.id)
       .order('recorded_at', { ascending: false });
 
     if (patientId) {
+      // Security check: Verify doctor has access to this patient
+      const [{ data: hasAppt }, { data: hasConsult }] = await Promise.all([
+        supabaseAdmin.from('appointments').select('id').eq('doctor_id', doctor.id).eq('patient_id', patientId).limit(1).maybeSingle(),
+        supabaseAdmin.from('consultations').select('id').eq('doctor_id', doctor.id).eq('patient_id', patientId).limit(1).maybeSingle(),
+      ]);
+      if (!hasAppt && !hasConsult) {
+        return res.status(403).json({ success: false, message: 'You can only view vitals of your patients' });
+      }
       vitalsQuery = vitalsQuery.eq('patient_id', patientId);
+    } else {
+      vitalsQuery = vitalsQuery.eq('recorded_by', req.user.id);
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
