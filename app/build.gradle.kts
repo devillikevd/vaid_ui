@@ -186,6 +186,9 @@ dependencies {
     implementation("androidx.paging:paging-runtime-ktx:3.2.1")
     implementation("androidx.paging:paging-compose:3.2.1")
 
+    // ML Kit Translation
+    implementation("com.google.mlkit:translate:17.0.3")
+
 
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 

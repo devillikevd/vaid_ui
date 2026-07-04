@@ -72,19 +72,19 @@ fun FitnessTrackingCard(
                 FitnessStatItem(
                     icon = Icons.Default.DirectionsRun,
                     value = "${displayLog.totalSteps}",
-                    label = "Steps",
+                    label = stringResource(R.string.fitness_steps),
                     color = MaterialTheme.colorScheme.primary
                 )
                 FitnessStatItem(
                     icon = Icons.Default.Timer,
-                    value = "${displayLog.activeMinutes}m",
-                    label = "Active",
+                    value = "${displayLog.activeMinutes}${stringResource(R.string.fitness_minutes_suffix)}",
+                    label = stringResource(R.string.fitness_active),
                     color = SwastikOrange
                 )
                 FitnessStatItem(
                     icon = Icons.Default.LocalFireDepartment,
-                    value = "${displayLog.caloriesBurned.toInt()} kcal",
-                    label = "Burned",
+                    value = "${displayLog.caloriesBurned.toInt()} ${stringResource(R.string.fitness_kcal_suffix)}",
+                    label = stringResource(R.string.fitness_burned),
                     color = SwastikRed
                 )
             }

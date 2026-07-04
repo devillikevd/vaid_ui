@@ -165,7 +165,7 @@ fun OrderHistoryScreen(
                     ) {
                         Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
-                        Text(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
+                        com.example.swastik.ui.components.TranslatedText(error, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
                         TextButton(onClick = { viewModel.clearOrderHistoryError() }) {
                             Text(stringResource(R.string.dismiss))
                         }
@@ -445,7 +445,7 @@ private fun ActiveOrderTrackingView(
                             .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         text = if (isWaitingForAgent) "Locating Agent..." else "Agent on the way",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -480,12 +480,12 @@ private fun ActiveOrderTrackingView(
                     }
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
+                        com.example.swastik.ui.components.TranslatedText(
                             text = "Order ${order.status.replaceFirstChar { it.uppercase() }}",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
-                        Text(
+                        com.example.swastik.ui.components.TranslatedText(
                             text = order.pharmacy?.name ?: "Pharmacy",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
@@ -522,7 +522,7 @@ private fun ActiveOrderTrackingView(
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                com.example.swastik.ui.components.TranslatedText(agent.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                                 Text(stringResource(R.string.delivery_agent), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                             }
                             IconButton(
@@ -594,7 +594,7 @@ private fun OrderHistoryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         order.pharmacy?.name ?: "Pharmacy",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
@@ -602,7 +602,7 @@ private fun OrderHistoryCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         "Order #${order.id.take(8)}",
                         color = textColorSecondary,
                         fontSize = 12.sp,
@@ -617,7 +617,7 @@ private fun OrderHistoryCard(
                         .background(statusColor.copy(alpha = 0.15f))
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 ) {
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         order.status.replaceFirstChar { it.uppercase() },
                         color = statusColor,
                         fontWeight = FontWeight.SemiBold,
@@ -648,7 +648,7 @@ private fun OrderHistoryCard(
             // Date
             order.createdAt?.let {
                 Spacer(Modifier.height(4.dp))
-                Text(formatDateShort(it), fontSize = 12.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                com.example.swastik.ui.components.TranslatedText(formatDateShort(it), fontSize = 12.sp, color = textColorSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             // Expanded details
@@ -666,7 +666,7 @@ private fun OrderHistoryCard(
                                 .padding(vertical = 2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
+                            com.example.swastik.ui.components.TranslatedText(
                                 "${item.name ?: "Medicine"} × ${item.quantity}",
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -685,7 +685,7 @@ private fun OrderHistoryCard(
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text(addr, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            com.example.swastik.ui.components.TranslatedText(addr, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 

@@ -125,13 +125,13 @@ fun LiveStatusHeader(isActive: Boolean) {
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = if (isActive) "Live Monitoring Active" else "Monitoring Paused",
+                    text = if (isActive) stringResource(R.string.live_monitoring_active) else stringResource(R.string.monitoring_paused),
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = if (isActive) Color(0xFF2E7D32) else Color.Gray
                 )
                 Text(
-                    text = if (isActive) "Sensors are actively tracking your safety parameters." else "Turn on Guardian to resume live monitoring.",
+                    text = if (isActive) stringResource(R.string.sensors_are_actively) else stringResource(R.string.turn_on_guardian),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -173,8 +173,8 @@ fun LiveTelemetrySection(
                 if (features.fallDetection) {
                     TelemetryItem(
                         icon = Icons.Default.ScreenRotation,
-                        label = "Orientation",
-                        value = if (telemetry.isUpright) "Upright" else "Tilted",
+                        label = stringResource(R.string.telemetry_orientation),
+                        value = if (telemetry.isUpright) stringResource(R.string.telemetry_upright) else stringResource(R.string.telemetry_tilted),
                         color = Color(0xFF1976D2)
                     )
                 }
@@ -183,8 +183,8 @@ fun LiveTelemetrySection(
                     val speedVal = String.format("%.1f", telemetry.speedKmh)
                     TelemetryItem(
                         icon = Icons.Default.Speed,
-                        label = "Speed",
-                        value = "$speedVal km/h",
+                        label = stringResource(R.string.telemetry_speed),
+                        value = stringResource(R.string.telemetry_speed_val, speedVal),
                         color = Color(0xFFD32F2F)
                     )
                 }
@@ -192,7 +192,7 @@ fun LiveTelemetrySection(
                 if (features.mobilityAnalysis) {
                     TelemetryItem(
                         icon = Icons.Default.DirectionsRun,
-                        label = "Activity",
+                        label = stringResource(R.string.telemetry_activity),
                         value = telemetry.getActivityName(),
                         color = Color(0xFF388E3C)
                     )
@@ -229,22 +229,22 @@ private fun TelemetryItem(icon: ImageVector, label: String, value: String, color
 fun SettingsList(fallEnabled: Boolean, crashEnabled: Boolean, mobilityEnabled: Boolean, isActive: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingStatusCard(
-            title = "Fall Detection Alerts",
-            description = "Impact & tumble checking",
+            title = stringResource(R.string.fall_detection_alerts),
+            description = stringResource(R.string.impact_tumble_checking),
             icon = Icons.Default.PersonalInjury,
             isEnabled = fallEnabled,
             isActive = isActive
         )
         SettingStatusCard(
-            title = "Vehicle Crash Detection",
-            description = "High-speed collision checking",
+            title = stringResource(R.string.vehicle_crash_detection),
+            description = stringResource(R.string.high_speed_collision),
             icon = Icons.Default.CarCrash,
             isEnabled = crashEnabled,
             isActive = isActive
         )
         SettingStatusCard(
-            title = "Mobility Analysis",
-            description = "Gait and balance tracking",
+            title = stringResource(R.string.mobility_analysis),
+            description = stringResource(R.string.gait_balance_tracking),
             icon = Icons.Default.DirectionsWalk,
             isEnabled = mobilityEnabled,
             isActive = isActive
@@ -281,7 +281,7 @@ fun SettingStatusCard(title: String, description: String, icon: ImageVector, isE
                 Text(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
-                text = if (actuallyActive) "Active" else "Off",
+                text = if (actuallyActive) stringResource(R.string.status_active) else stringResource(R.string.status_off),
                 fontWeight = FontWeight.Bold,
                 color = if (actuallyActive) Color(0xFF2E7D32) else Color.Gray,
                 fontSize = 13.sp
@@ -300,7 +300,7 @@ fun InsightsSection(
     val recentEvents = events.filter { it.timestamp >= sevenDaysAgo }
     val falls = recentEvents.count { it.eventType == "FALL_DETECTED" }
     
-    val fallText = if (falls == 0) "✅ No falls detected in the last 7 days" else "⚠️ $falls fall(s) detected in the last 7 days"
+    val fallText = if (falls == 0) stringResource(R.string.no_falls_detected) else stringResource(R.string.falls_detected_format, falls)
     val fallColor = if (falls == 0) Color(0xFF2E7D32) else Color(0xFFD32F2F)
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -374,8 +374,8 @@ fun InsightsSection(
             
             com.example.swastik.ui.screens.patient.components.BezierCurveChart(
                 dataPoints = points,
-                title = "Gait Stability Score",
-                subtitle = "Last 7 Days (Higher is better)",
+                title = stringResource(R.string.gait_stability_score),
+                subtitle = stringResource(R.string.last_7_days_higher_is_better),
                 lineColor = Color(0xFF1976D2),
                 containerColor = MaterialTheme.colorScheme.surface,
                 yMin = 0f,

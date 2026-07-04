@@ -159,8 +159,8 @@ fun SwastikGuardianCard(
             ) {
                 GuardianFeatureItem(
                     icon = Icons.Default.Hiking,
-                    label = "Fall Alert",
-                    status = if (featurePreferences.fallDetection) "Allowed" else "Off",
+                    label = stringResource(R.string.guardian_fall_alert),
+                    status = if (featurePreferences.fallDetection) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.fallDetection,
                     contentColor = contentColor,
                     secondaryColor = secondaryColor,
@@ -169,8 +169,8 @@ fun SwastikGuardianCard(
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.DirectionsCar,
-                    label = "Crash SOS",
-                    status = if (featurePreferences.crashDetection) "Allowed" else "Off",
+                    label = stringResource(R.string.guardian_crash_sos),
+                    status = if (featurePreferences.crashDetection) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.crashDetection,
                     contentColor = contentColor,
                     secondaryColor = secondaryColor,
@@ -179,8 +179,8 @@ fun SwastikGuardianCard(
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.Man,
-                    label = "Mobility",
-                    status = if (featurePreferences.mobilityAnalysis) "Allowed" else "Off",
+                    label = stringResource(R.string.guardian_mobility),
+                    status = if (featurePreferences.mobilityAnalysis) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.mobilityAnalysis,
                     contentColor = contentColor,
                     secondaryColor = secondaryColor,
@@ -189,8 +189,8 @@ fun SwastikGuardianCard(
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
                 GuardianFeatureItem(
                     icon = Icons.Default.BarChart,
-                    label = "Data Sharing",
-                    status = if (featurePreferences.doctorQrSharing) "Allowed" else "Off",
+                    label = stringResource(R.string.guardian_data_sharing),
+                    status = if (featurePreferences.doctorQrSharing) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.doctorQrSharing,
                     contentColor = contentColor,
                     secondaryColor = secondaryColor,
@@ -347,46 +347,46 @@ fun GuardianLearnMoreDialog(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         ExplainerSection(
-                            title = "Vision Alignment",
-                            body = "Guardian is built for preventive-care: emergency response, telemedicine context, and patient-controlled sharing."
+                            title = stringResource(R.string.guardian_vision_alignment),
+                            body = stringResource(R.string.guardian_vision_alignment_body)
                         )
 
                         HorizontalDivider()
 
                         FeatureConsentItem(
                             icon = Icons.Default.Warning,
-                            title = "1. Fall Detection Alerts",
-                            reliability = "Firebase notification to emergency contacts only.",
+                            title = stringResource(R.string.guardian_fall_detection_alerts_numbered),
+                            reliability = stringResource(R.string.guardian_fall_detection_reliability),
                             checked = selectedFeatures.fallDetection,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(fallDetection = it) },
-                            description = "Uses motion sensors to detect verified falls and notifies your emergency contacts. It does not trigger SOS or ambulance dispatch."
+                            description = stringResource(R.string.guardian_fall_detection_desc)
                         )
 
                         FeatureConsentItem(
                             icon = Icons.Default.DirectionsCar,
-                            title = "2. Vehicle Crash Detection",
-                            reliability = "Tightened high-speed impact detection.",
+                            title = stringResource(R.string.guardian_vehicle_crash_numbered),
+                            reliability = stringResource(R.string.guardian_vehicle_crash_reliability),
                             checked = selectedFeatures.crashDetection,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(crashDetection = it) },
-                            description = "Monitors for severe impacts at vehicle speeds. If the countdown is not cancelled, it triggers SOS ambulance dispatch and notifies emergency contacts."
+                            description = stringResource(R.string.guardian_vehicle_crash_desc)
                         )
 
                         FeatureConsentItem(
                             icon = Icons.Default.DirectionsWalk,
-                            title = "3. Mobility Analysis",
-                            reliability = "Screening for walking pattern changes.",
+                            title = stringResource(R.string.guardian_mobility_analysis_numbered),
+                            reliability = stringResource(R.string.guardian_mobility_reliability),
                             checked = selectedFeatures.mobilityAnalysis,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(mobilityAnalysis = it) },
-                            description = "Analyzes your walking pattern to help doctors track recovery."
+                            description = stringResource(R.string.guardian_mobility_desc)
                         )
 
                         FeatureConsentItem(
                             icon = Icons.Default.Info,
-                            title = "Doctor Sharing",
-                            reliability = "Private data sharing.",
+                            title = stringResource(R.string.guardian_doctor_sharing),
+                            reliability = stringResource(R.string.guardian_doctor_reliability),
                             checked = selectedFeatures.doctorQrSharing,
                             onCheckedChange = { selectedFeatures = selectedFeatures.copy(doctorQrSharing = it) },
-                            description = "Allow your doctor to see analytics during a consultation."
+                            description = stringResource(R.string.guardian_doctor_desc)
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))

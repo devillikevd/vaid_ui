@@ -50,13 +50,18 @@ fun ReportsScreen(
     val reports = uiState.documents
     val context = LocalContext.current
 
-    var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Lab Reports", "Prescriptions", "Scans")
+    var selectedFilter by remember { mutableStateOf(context.getString(R.string.filter_all)) }
+    val filters = listOf(
+        stringResource(R.string.filter_all),
+        stringResource(R.string.filter_lab_reports),
+        stringResource(R.string.filter_prescriptions),
+        stringResource(R.string.filter_scans)
+    )
 
     val filteredReports = when (selectedFilter) {
-        "Lab Reports" -> reports.filter { it.type == DocumentType.LAB_REPORT }
-        "Prescriptions" -> reports.filter { it.type == DocumentType.PRESCRIPTION }
-        "Scans" -> reports.filter { it.type == DocumentType.SCAN }
+        stringResource(R.string.filter_lab_reports) -> reports.filter { it.type == DocumentType.LAB_REPORT }
+        stringResource(R.string.filter_prescriptions) -> reports.filter { it.type == DocumentType.PRESCRIPTION }
+        stringResource(R.string.filter_scans) -> reports.filter { it.type == DocumentType.SCAN }
         else -> reports
     }
 
@@ -88,9 +93,9 @@ fun ReportsScreen(
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    ReportSummaryItem(count = reports.size.toString(), label = "Total", color = MaterialTheme.colorScheme.primary)
-                    ReportSummaryItem(count = reports.count { it.type == DocumentType.LAB_REPORT }.toString(), label = "Lab", color = MaterialTheme.colorScheme.error)
-                    ReportSummaryItem(count = reports.count { it.type == DocumentType.SCAN }.toString(), label = "Scans", color = MaterialTheme.colorScheme.secondary)
+                    ReportSummaryItem(count = reports.size.toString(), label = stringResource(R.string.report_total), color = MaterialTheme.colorScheme.primary)
+                    ReportSummaryItem(count = reports.count { it.type == DocumentType.LAB_REPORT }.toString(), label = stringResource(R.string.report_lab), color = MaterialTheme.colorScheme.error)
+                    ReportSummaryItem(count = reports.count { it.type == DocumentType.SCAN }.toString(), label = stringResource(R.string.filter_scans), color = MaterialTheme.colorScheme.secondary)
                 }
             }
 
@@ -222,10 +227,10 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                com.example.swastik.ui.components.TranslatedText(text = report.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Spacer(modifier = Modifier.height(2.dp))
                 if (report.doctorName != null) {
-                    Text(text = report.doctorName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.example.swastik.ui.components.TranslatedText(text = report.doctorName, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,7 +240,7 @@ private fun ReportCard(report: MedicalDocument, onClick: () -> Unit) {
                 }
             }
             Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(
+                com.example.swastik.ui.components.TranslatedText(
                     text = report.type.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
                     fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)

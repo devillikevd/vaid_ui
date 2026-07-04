@@ -236,13 +236,13 @@ fun DoctorProfileContent(
             Spacer(modifier = Modifier.width(20.dp))
 
             Column {
-                Text(
+                com.example.swastik.ui.components.TranslatedText(
                     text = doctor.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 24.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
+                com.example.swastik.ui.components.TranslatedText(
                     text = doctor.specialization,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
@@ -462,7 +462,7 @@ fun DoctorProfileContent(
         // About
         Text(stringResource(R.string.about_doctor), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
         val bioText = doctor.bio ?: stringResource(R.string.profile_summary_not_added)
-        Text(
+        com.example.swastik.ui.components.TranslatedText(
             text = bioText,
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -502,7 +502,7 @@ fun DoctorProfileContent(
                         ) {
                             Icon(Icons.Outlined.MedicalServices, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(com.example.swastik.utils.getTranslatedCategoryText(spec), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            com.example.swastik.ui.components.TranslatedText(com.example.swastik.utils.getTranslatedCategoryText(spec), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                     if (rowSpecs.size == 1) {
@@ -522,7 +522,7 @@ fun DoctorProfileContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.School, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
-                    Text(edu, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    com.example.swastik.ui.components.TranslatedText(edu, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -544,7 +544,7 @@ fun DoctorProfileContent(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.LocalHospital, contentDescription = null, tint = SwastikPrimary)
                             Spacer(Modifier.width(8.dp))
-                            Text(clinic.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            com.example.swastik.ui.components.TranslatedText(clinic.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.Top) {

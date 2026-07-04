@@ -126,7 +126,7 @@ fun NotificationPanelDialog(
                             FilterChip(
                                 selected = selectedFilter == filter,
                                 onClick = { selectedFilter = filter },
-                                label = { Text(filter, fontSize = 12.sp) },
+                                label = { com.example.swastik.ui.components.TranslatedText(filter, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -243,7 +243,7 @@ private fun NotificationCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         text = notification.title,
                         fontSize = 14.sp,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.SemiBold,
@@ -260,7 +260,7 @@ private fun NotificationCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
+                com.example.swastik.ui.components.TranslatedText(
                     text = notification.message,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -286,7 +286,7 @@ private fun NotificationCard(
                             onClick = { onActionClick(notification) },
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            com.example.swastik.ui.components.TranslatedText(
                                 text = notification.actionLabel,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary,

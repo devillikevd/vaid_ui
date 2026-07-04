@@ -1033,7 +1033,7 @@ private fun ServiceCard(
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         text = title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -1043,7 +1043,7 @@ private fun ServiceCard(
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
-                    Text(
+                    com.example.swastik.ui.components.TranslatedText(
                         text = subtitle,
                         fontSize = 10.sp,
                         color = Color(0xFF64748B),

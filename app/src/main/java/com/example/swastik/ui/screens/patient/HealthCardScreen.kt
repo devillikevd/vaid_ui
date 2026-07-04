@@ -669,26 +669,26 @@ private fun HealthCardHowItWorks() {
             ) {
                 StepItem(
                     number = "1",
-                    title = "Generate Secure QR Code",
-                    description = "Tap Generate QR Code to create your unique, time-limited health identity QR.",
+                    title = stringResource(R.string.generate_secure_qr_code),
+                    description = stringResource(R.string.generate_secure_qr_code_desc),
                     isLast = false
                 )
                 StepItem(
                     number = "2",
-                    title = "Present at Check-In",
-                    description = "Show the QR code at the hospital, clinic, pharmacy, or healthcare desk.",
+                    title = stringResource(R.string.present_at_check_in),
+                    description = stringResource(R.string.present_at_check_in_desc),
                     isLast = false
                 )
                 StepItem(
                     number = "3",
-                    title = "Instant Identity Verification",
-                    description = "Staff scan the QR code to securely verify your health identity and profile.",
+                    title = stringResource(R.string.instant_identity_verification),
+                    description = stringResource(R.string.instant_identity_verification_desc),
                     isLast = false
                 )
                 StepItem(
                     number = "4",
-                    title = "Access Healthcare Services",
-                    description = "Receive appointments, prescriptions, medical records, insurance benefits, and healthcare services faster.",
+                    title = stringResource(R.string.access_healthcare_services),
+                    description = stringResource(R.string.access_healthcare_services_desc),
                     isLast = true
                 )
             }
@@ -766,29 +766,29 @@ private fun HealthConnectHowItWorks(fitnessLog: com.example.swastik.data.model.D
             ) {
                 StepItem(
                     number = "1",
-                    title = "Get Health Connect",
-                    description = "Make sure the 'Health Connect' app by Google is installed on your phone from the Play Store.",
+                    title = stringResource(R.string.get_health_connect),
+                    description = stringResource(R.string.get_health_connect_desc),
                     isLast = false,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )
                 StepItem(
                     number = "2",
-                    title = "Link your Smartwatch App",
-                    description = "Open your fitness app (like Samsung Health, Google Fit, or your watch's app) and connect it to Health Connect in its settings.",
+                    title = stringResource(R.string.link_your_smartwatch_app),
+                    description = stringResource(R.string.link_your_smartwatch_app_desc),
                     isLast = false,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )
                 StepItem(
                     number = "3",
-                    title = "Allow Access to VAIDIDEA",
-                    description = "Tap the 'Sync Now' button above. A screen will pop up asking for permissions. Please tap 'Allow All' so we can read your health data.",
+                    title = stringResource(R.string.allow_access_to_vaididea),
+                    description = stringResource(R.string.allow_access_to_vaididea_desc),
                     isLast = false,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )
                 StepItem(
                     number = "4",
-                    title = "See Your Daily Health",
-                    description = "That's it! Your daily steps, heart rate, and body temperature will now automatically show up here every day.",
+                    title = stringResource(R.string.see_your_daily_health),
+                    description = stringResource(R.string.see_your_daily_health_desc),
                     isLast = true,
                     accentColor = MaterialTheme.colorScheme.secondary
                 )

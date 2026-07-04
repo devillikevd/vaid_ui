@@ -759,11 +759,11 @@ private fun DoctorBookingCard(doctor: Doctor, onSelect: () -> Unit, onViewProfil
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(doctor.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    com.example.swastik.ui.components.TranslatedText(doctor.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(doctor.specialization, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    com.example.swastik.ui.components.TranslatedText(doctor.specialization, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = SwastikPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    com.example.swastik.ui.components.TranslatedText(doctor.experienceYears?.takeIf { it > 0 }?.let { "$it+ Yrs Exp" } ?: "Experience not listed", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Surface(color = Color(0xFFFFF8E1), shape = RoundedCornerShape(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
