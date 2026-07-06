@@ -675,18 +675,24 @@ class AppEventEmitter extends EventEmitter {
       data: { providerId: provider.id, providerType: type, status },
     });
   }
-
   emitNewCatalogRequest(requestData, pharmacyOwnerIds = []) {
     const payload = {
       ...requestData,
       timestamp: new Date().toISOString(),
     };
+    
+    // Determine title/message based on bundle items
+    const medicineItems = (requestData.items || []).filter(i => i._type !== 'delivery_info');
+    const medicineName = medicineItems.length === 1 
+      ? (medicineItems[0].name || 'a medicine')
+      : `a bundle of ${medicineItems.length} medicines`;
+      
     pharmacyOwnerIds.forEach((ownerId) => {
       this.notifyUser(ownerId, 'catalog:request:new', payload);
       this.notifyUser(ownerId, 'notification:new', {
         type: 'catalog_request',
         title: 'New Medicine Request',
-        message: `A patient is looking for ${requestData.medicine_name || requestData.medicine_generic_name}`,
+        message: `A patient is looking for ${medicineName}`,
         timestamp: payload.timestamp,
         data: { requestId: requestData.id },
       });

@@ -11,7 +11,9 @@ data class CatalogRequestItemDto(
 data class CreateCatalogRequestDto(
     val items: List<CatalogRequestItemDto>,
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    val deliveryAddress: String? = null,
+    val patientPhone: String? = null
 )
 
 data class CatalogRequestItemResponseDto(

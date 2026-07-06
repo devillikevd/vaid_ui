@@ -445,7 +445,7 @@ const createCatalogRequest = async (patientUserId, requestData) => {
 
   if (!patient) throw new ApiError(404, 'Patient not found');
 
-  const { items, latitude, longitude } = requestData;
+  const { items, latitude, longitude, deliveryAddress, patientPhone } = requestData;
 
   if (!items || items.length === 0) {
     throw new ApiError(400, 'Request must contain at least one item');
@@ -473,23 +473,42 @@ const createCatalogRequest = async (patientUserId, requestData) => {
     };
   });
 
+  // Embed delivery metadata inside items JSONB (no schema change needed)
+  // Add a special entry at the end for delivery info
+  const itemsWithDelivery = [
+    ...bundleItems,
+    {
+      _type: 'delivery_info',
+      delivery_address: deliveryAddress || null,
+      patient_phone: patientPhone || null,
+      latitude: latitude || null,
+      longitude: longitude || null,
+    }
+  ];
+
   const { data: request, error } = await supabaseAdmin
     .from('catalog_requests')
     .insert({
       patient_id: patient.id,
-      items: bundleItems,
+      items: itemsWithDelivery,
     })
     .select('*')
     .single();
 
   if (error) throw error;
 
-  // Broadcast to nearby pharmacies (e.g. 15km)
+  // Broadcast to nearby pharmacies (15km radius)
   const nearbyPharmacies = await getNearbyActivePharmacies(latitude, longitude, 15);
   const pharmacyOwnerIds = nearbyPharmacies.map(p => p.owner_id).filter(Boolean);
 
   if (pharmacyOwnerIds.length > 0) {
-    eventEmitter.emitNewCatalogRequest(request, pharmacyOwnerIds);
+    const enrichedRequest = {
+      ...request,
+      delivery_address: deliveryAddress,
+      patient_phone: patientPhone,
+      nearby_pharmacy_count: nearbyPharmacies.length
+    };
+    eventEmitter.emitNewCatalogRequest(enrichedRequest, pharmacyOwnerIds);
   }
 
   return request;
@@ -515,9 +534,13 @@ const acceptCatalogRequest = async (pharmacyOwnerId, requestId, acceptedPrice) =
     throw new ApiError(400, 'Request already accepted, expired, or not found');
   }
 
+  // Extract delivery info from items JSONB (embedded as _type: 'delivery_info')
+  const deliveryEntry = (requestToAccept.items || []).find(i => i._type === 'delivery_info');
+  const medicineItems = (requestToAccept.items || []).filter(i => i._type !== 'delivery_info');
+
   let totalMrp = 0;
-  if (requestToAccept.items && Array.isArray(requestToAccept.items)) {
-    totalMrp = requestToAccept.items.reduce((sum, item) => sum + ((item.mrp || 0) * (item.quantity || 1)), 0);
+  if (medicineItems.length > 0) {
+    totalMrp = medicineItems.reduce((sum, item) => sum + ((item.mrp || 0) * (item.quantity || 1)), 0);
   }
 
   if (totalMrp > 0 && acceptedPrice > totalMrp) {
@@ -541,13 +564,26 @@ const acceptCatalogRequest = async (pharmacyOwnerId, requestId, acceptedPrice) =
     throw new ApiError(400, 'Request already accepted, expired, or not found');
   }
 
-  // Notify patient
+  // Notify patient — include pharmacy name, price, and delivery info
   const patientUserId = request.patients?.user_id;
   if (patientUserId) {
     eventEmitter.emitCatalogRequestAccepted(request, pharmacy.name, patientUserId);
   }
 
-  return request;
+  // Build delivery info from the embedded entry
+  const deliveryInfo = {
+    patientPhone: deliveryEntry?.patient_phone || null,
+    deliveryAddress: deliveryEntry?.delivery_address || null,
+    latitude: deliveryEntry?.latitude || null,
+    longitude: deliveryEntry?.longitude || null,
+  };
+
+  // Generate Google Maps link for delivery
+  if (deliveryInfo.latitude && deliveryInfo.longitude) {
+    deliveryInfo.mapsLink = `https://www.google.com/maps?q=${deliveryInfo.latitude},${deliveryInfo.longitude}`;
+  }
+
+  return { ...request, delivery_info: deliveryInfo };
 };
 
 const getCatalogRequestsForPharmacy = async (pharmacyOwnerId) => {

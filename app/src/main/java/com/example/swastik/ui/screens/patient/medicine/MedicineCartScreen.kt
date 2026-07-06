@@ -81,7 +81,8 @@ private fun CheckoutStepper(currentStep: CheckoutStep) {
 }
 
 /**
- * Medicine Cart & Order Screen — review cart, enter address, place order.
+ * Medicine Cart & Order Screen — Full checkout flow for global catalogue requests.
+ * Steps: Review Cart → Delivery Address → Confirm & Broadcast
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +120,7 @@ fun MedicineCartScreen(
             title = { Text(if (isGlobalRequest) "Request Broadcasted!" else stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (isGlobalRequest) "Your medicine request has been broadcasted. Nearby pharmacies will review and accept it." else stringResource(R.string.your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly))
+                    Text(if (isGlobalRequest) "Your medicine request has been broadcasted to nearby pharmacies within 15km. They will review it and a pharmacy will accept & deliver to your address." else stringResource(R.string.your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly))
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
@@ -131,7 +132,7 @@ fun MedicineCartScreen(
                                 .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = if (isGlobalRequest) "Sent To" else stringResource(R.string.selected_pharmacy),
+                                text = if (isGlobalRequest) "Broadcasted To" else stringResource(R.string.selected_pharmacy),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -142,16 +143,32 @@ fun MedicineCartScreen(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            pharmacyPhone
-                                ?.takeIf { it.isNotBlank() }
-                                ?.let { phone ->
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = phone,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                            if (cartState.deliveryAddress.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "📍 ${cartState.deliveryAddress.take(60)}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    if (isGlobalRequest) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Once a pharmacy accepts, you'll receive a confirmation. The pharmacy will then dispatch delivery to your location.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    lineHeight = 16.sp
+                                )
+                            }
                         }
                     }
 
@@ -161,7 +178,7 @@ fun MedicineCartScreen(
                             color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                text = "Order ID: ${orderId.take(8)}",
+                                text = "Request ID: ${orderId.take(8)}",
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -212,7 +229,17 @@ fun MedicineCartScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.medicine_cart), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(onClick = {
+                        if (currentStep != CheckoutStep.CART) {
+                            currentStep = when (currentStep) {
+                                CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
+                                CheckoutStep.ADDRESS -> CheckoutStep.CART
+                                else -> currentStep
+                            }
+                        } else {
+                            onBackClick()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
@@ -247,9 +274,8 @@ fun MedicineCartScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                if (cartState.selectedPharmacyId != "GLOBAL_REQUEST") {
-                    CheckoutStepper(currentStep)
-                }
+                // Always show stepper now — global flow also has full steps
+                CheckoutStepper(currentStep)
                 
                 // Cart items
                 LazyColumn(
@@ -259,62 +285,23 @@ fun MedicineCartScreen(
                 ) {
                     when (currentStep) {
                         CheckoutStep.CART -> {
-                            // Pharmacy info
+                            // Broadcast info header
                             item {
-                                cartState.selectedPharmacyName?.let { name ->
-                                    if (cartState.selectedPharmacyId == "GLOBAL_REQUEST") {
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(Icons.Default.CellTower, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                                Spacer(Modifier.width(12.dp))
-                                                Column {
-                                                    Text(stringResource(R.string.items_for_broadcast), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                                    Spacer(Modifier.height(4.dp))
-                                                    Text(stringResource(R.string.pharmacies_will_review_your_request_and_confirm_availability_within_5_10_mins), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer, lineHeight = 18.sp)
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(stringResource(R.string.ready_to_checkout) + " - " + name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            }
-                                        }
-                                    }
-                                }
-                                if (cartState.selectedPharmacyName.isNullOrBlank()) {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(
-                                                stringResource(R.string.select_medicines_from_a_pharmacy),
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                fontSize = 13.sp
-                                            )
+                                        Icon(Icons.Default.CellTower, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text("Medicine Request", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            Spacer(Modifier.height(4.dp))
+                                            Text("Your request will be broadcasted to nearby pharmacies within 15km. A pharmacy will accept and deliver.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer, lineHeight = 18.sp)
                                         }
                                     }
                                 }
@@ -331,21 +318,24 @@ fun MedicineCartScreen(
                         }
                         
                         CheckoutStep.ADDRESS -> {
-                            // Delivery address
+                            // Delivery address step
                             item {
-                                Text(stringResource(R.string.delivery_address), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Spacer(Modifier.height(8.dp))
+                                Text("Delivery Details", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text("Enter your delivery address so the pharmacy knows where to deliver", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(16.dp))
                                 
                                 OutlinedTextField(
                                     value = cartState.patientPhone,
                                     onValueChange = { viewModel.setPatientPhone(it) },
-                                    label = { Text(stringResource(R.string.phone_number) + " *") },
+                                    label = { Text("Phone Number *") },
                                     modifier = Modifier.fillMaxWidth(),
                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
                                     singleLine = true,
-                                    isError = cartState.patientPhone.isBlank()
+                                    isError = cartState.patientPhone.isBlank(),
+                                    leadingIcon = { Icon(Icons.Default.Phone, null) }
                                 )
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(12.dp))
                                 
                                 if (cartState.deliveryAddress.isBlank()) {
                                     com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
@@ -355,12 +345,18 @@ fun MedicineCartScreen(
                                         }
                                     )
                                 } else {
-                                    androidx.compose.material3.Card(
+                                    Card(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                     ) {
                                         Column(Modifier.padding(16.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.LocationOn, null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("Delivery Address", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                            }
+                                            Spacer(Modifier.height(8.dp))
                                             Text(
                                                 text = cartState.deliveryAddress,
                                                 fontSize = 14.sp,
@@ -371,7 +367,7 @@ fun MedicineCartScreen(
                                                 onClick = { viewModel.setDeliveryAddress("") },
                                                 contentPadding = PaddingValues(0.dp)
                                             ) {
-                                                Text(stringResource(R.string.change_address), color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = FontWeight.Bold)
+                                                Text("Change Address", color = SwastikPrimary, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -381,7 +377,7 @@ fun MedicineCartScreen(
                         
                         CheckoutStep.PAYMENT -> {
                             item {
-                                Text(stringResource(R.string.order_summary), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("Confirm & Broadcast", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 Spacer(Modifier.height(16.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
@@ -390,21 +386,50 @@ fun MedicineCartScreen(
                                 ) {
                                     Column(Modifier.padding(16.dp)) {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.items), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("Items", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Text("${cartState.totalItems}")
                                         }
                                         Spacer(Modifier.height(8.dp))
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.delivery_address), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text(cartState.deliveryAddress.take(20) + if (cartState.deliveryAddress.length > 20) "..." else "", maxLines = 1)
+                                            Text("Phone", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(cartState.patientPhone)
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Delivery", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(cartState.deliveryAddress.take(25) + if (cartState.deliveryAddress.length > 25) "..." else "", maxLines = 1)
                                         }
                                         Spacer(Modifier.height(16.dp))
                                         HorizontalDivider()
                                         Spacer(Modifier.height(16.dp))
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text(stringResource(R.string.total), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                            Text("Estimated MRP", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                             Text("₹${cartState.totalPrice.toInt()}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SwastikPrimary)
                                         }
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            "Final price will be confirmed by the accepting pharmacy",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(16.dp))
+
+                                // How delivery works
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                                ) {
+                                    Column(Modifier.padding(16.dp)) {
+                                        Text("What happens next?", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Spacer(Modifier.height(8.dp))
+                                        DeliveryStep("1", "Nearby pharmacies within 15km receive your request")
+                                        DeliveryStep("2", "A pharmacy accepts and confirms the price")
+                                        DeliveryStep("3", "Pharmacy dispatches a delivery agent to your location")
+                                        DeliveryStep("4", "Delivery agent receives your address via WhatsApp link")
                                     }
                                 }
                             }
@@ -426,65 +451,52 @@ fun MedicineCartScreen(
                         }
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (cartState.selectedPharmacyId == "GLOBAL_REQUEST") {
-                                Button(
-                                    onClick = { viewModel.broadcastCartBundle() },
-                                    modifier = Modifier.weight(1f).height(52.dp),
-                                    enabled = !cartState.isOrdering && cartState.items.isNotEmpty(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    if (cartState.isOrdering) {
-                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        Icon(Icons.Default.CellTower, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.broadcast_request_to_pharmacies), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                    }
-                                }
-                            } else {
-                                if (currentStep != CheckoutStep.CART) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            currentStep = when (currentStep) {
-                                                CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
-                                                CheckoutStep.ADDRESS -> CheckoutStep.CART
-                                                else -> currentStep
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f).height(52.dp),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text(stringResource(R.string.back))
-                                    }
-                                }
-                                
-                                Button(
-                                    onClick = { 
-                                        when (currentStep) {
-                                            CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
-                                            CheckoutStep.ADDRESS -> {
-                                                if (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank()) {
-                                                    currentStep = CheckoutStep.PAYMENT
-                                                }
-                                            }
-                                            CheckoutStep.PAYMENT -> viewModel.placeOrder(context, null)
+                            if (currentStep != CheckoutStep.CART) {
+                                OutlinedButton(
+                                    onClick = {
+                                        currentStep = when (currentStep) {
+                                            CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
+                                            CheckoutStep.ADDRESS -> CheckoutStep.CART
+                                            else -> currentStep
                                         }
                                     },
-                                    modifier = Modifier.weight(2f).height(52.dp),
-                                    enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
-                                              (currentStep != CheckoutStep.ADDRESS || (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank())),
-                                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                                    shape = RoundedCornerShape(12.dp)
+                                    modifier = Modifier.weight(1f).height(56.dp),
+                                    shape = RoundedCornerShape(14.dp)
                                 ) {
-                                    if (cartState.isOrdering) {
-                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        if (currentStep == CheckoutStep.PAYMENT) {
-                                            Icon(Icons.Default.ShoppingCartCheckout, null)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                        } else {
+                                    Text(stringResource(R.string.back), fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            
+                            Button(
+                                onClick = { 
+                                    when (currentStep) {
+                                        CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
+                                        CheckoutStep.ADDRESS -> {
+                                            if (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank()) {
+                                                currentStep = CheckoutStep.PAYMENT
+                                            }
+                                        }
+                                        CheckoutStep.PAYMENT -> viewModel.broadcastCartBundle()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(if (currentStep != CheckoutStep.CART) 2f else 1f)
+                                    .height(56.dp),
+                                enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
+                                          (currentStep != CheckoutStep.ADDRESS || (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank())),
+                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                if (cartState.isOrdering) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                } else {
+                                    when (currentStep) {
+                                        CheckoutStep.PAYMENT -> {
+                                            Icon(Icons.Default.CellTower, null, tint = Color.White)
+                                            Spacer(Modifier.width(10.dp))
+                                            Text("Broadcast to Pharmacies", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+                                        }
+                                        else -> {
                                             Text(stringResource(R.string.str_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                             Spacer(Modifier.width(8.dp))
                                             Icon(Icons.Default.ArrowForward, null)
@@ -497,6 +509,22 @@ fun MedicineCartScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DeliveryStep(step: String, text: String) {
+    Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .background(SwastikPrimary.copy(alpha = 0.2f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(step, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 16.sp)
     }
 }
 
@@ -528,7 +556,7 @@ private fun CartItemCard(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(item.medicine.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                Text(item.medicine.price?.toInt()?.let { "₹$it each" } ?: "Price on request", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
             // Quantity controls
             Row(verticalAlignment = Alignment.CenterVertically) {

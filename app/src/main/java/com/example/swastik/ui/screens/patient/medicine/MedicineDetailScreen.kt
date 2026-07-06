@@ -2,8 +2,6 @@ package com.example.swastik.ui.screens.patient.medicine
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,11 +27,10 @@ import com.example.swastik.ui.theme.SwastikOrange
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikRed
-import java.util.Locale
 
 /**
- * Medicine Detail Screen
- * Shows detailed information about a specific medicine from API
+ * Medicine Detail Screen — Global Catalogue Only
+ * Shows detailed info about a medicine and allows adding to cart for broadcast request.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,28 +40,19 @@ fun MedicineDetailScreen(
     onNavigateToCart: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
-    // Load medicine detail + availability from API
     LaunchedEffect(medicineId) {
         viewModel.loadMedicineDetail(medicineId)
     }
 
     val detailState by viewModel.detailState.collectAsState()
+    val cartState by viewModel.cartState.collectAsState()
     val medicine = detailState.medicine
     val colorScheme = MaterialTheme.colorScheme
 
-    // Map API availability to PharmacyInfo for display
-    val pharmacies = detailState.availability.map { avail ->
-        PharmacyInfo(
-            id = avail.pharmacyId,
-            inventoryItemId = avail.inventoryItemId,
-            name = avail.pharmacyName,
-            distance = avail.distance?.let { "${String.format(Locale.US, "%.1f", it)} km" } ?: "N/A",
-            available = avail.inStock,
-            price = avail.price?.toInt()?.let { "₹$it" } ?: medicine?.price?.toInt()?.let { "₹$it" } ?: "Price unavailable"
-        )
-    }
+    var requestQuantity by remember { mutableIntStateOf(1) }
+    var addedToCart by remember { mutableStateOf(false) }
 
-    // Loading or error state when medicine not yet loaded
+    // Loading / not found state
     if (medicine == null) {
         Scaffold(
             topBar = {
@@ -97,31 +85,85 @@ fun MedicineDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        stringResource(R.string.medicine_details),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
+                title = { Text(stringResource(R.string.medicine_details), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = colorScheme.surface
-                )
+                actions = {
+                    if (cartState.totalItems > 0) {
+                        BadgedBox(
+                            badge = { Badge { Text("${cartState.totalItems}") } },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            IconButton(onClick = onNavigateToCart) {
+                                Icon(Icons.Outlined.ShoppingCart, contentDescription = "Cart", tint = SwastikPrimary)
+                            }
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colorScheme.surface)
             )
         },
         bottomBar = {
-            MedicineDetailBottomBar(
-                price = medicine.price?.toInt(),
-                inStock = medicine.inStock,
-                onViewCart = onNavigateToCart
-            )
+            // Bottom action bar — Add to Cart or View Cart
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorScheme.surface,
+                shadowElevation = 16.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("MRP", fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                        Text(
+                            medicine.price?.let { "₹${it.toInt()}" } ?: "On request",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SwastikPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    if (addedToCart || cartState.items.any { it.medicine.id == medicine.id }) {
+                        Button(
+                            onClick = onNavigateToCart,
+                            modifier = Modifier.height(50.dp).width(180.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                        ) {
+                            Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("View Cart", fontWeight = FontWeight.SemiBold)
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                viewModel.addToCart(
+                                    medicine = medicine,
+                                    pharmacyId = "GLOBAL_REQUEST",
+                                    pharmacyName = "Global Request",
+                                    quantity = requestQuantity
+                                )
+                                addedToCart = true
+                            },
+                            modifier = Modifier.height(50.dp).width(180.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                        ) {
+                            Icon(Icons.Default.AddShoppingCart, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add to Cart", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
         },
         containerColor = colorScheme.background
     ) { paddingValues ->
@@ -174,10 +216,7 @@ fun MedicineDetailScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
-                                    .background(
-                                        colorScheme.tertiaryContainer,
-                                        RoundedCornerShape(6.dp)
-                                    )
+                                    .background(colorScheme.tertiaryContainer, RoundedCornerShape(6.dp))
                                     .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Text(
@@ -201,7 +240,7 @@ fun MedicineDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Category and Stock Status
+                    // Category chip
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
@@ -212,9 +251,9 @@ fun MedicineDetailScreen(
                             color = SwastikPrimary
                         )
                         InfoChip(
-                            icon = if (medicine.inStock) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                            label = if (medicine.inStock) "In Stock" else "Out of Stock",
-                            color = if (medicine.inStock) colorScheme.primary else colorScheme.error
+                            icon = Icons.Default.CellTower,
+                            label = "Available on Request",
+                            color = colorScheme.secondary
                         )
                     }
                 }
@@ -248,123 +287,134 @@ fun MedicineDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Available at Pharmacies Header
-            Text(
-                stringResource(R.string.select_pharmacy_to_order),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = SwastikPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Pharmacy List
-            if (detailState.isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(24.dp))
-                }
-            } else if (pharmacies.isEmpty()) {
+            // Quantity Selector + How it works
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        stringResource(R.string.no_pharmacy_data),
-                        fontSize = 14.sp,
-                        color = colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        "Select Quantity",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = colorScheme.onSurface
                     )
-                    
-                    var requestQuantity by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(1) }
-                    
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("Quantity:", fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
-                        Spacer(Modifier.width(16.dp))
                         IconButton(
                             onClick = { if (requestQuantity > 1) requestQuantity-- },
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(40.dp)
                                 .background(colorScheme.surfaceVariant, CircleShape)
-                        ) { Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(16.dp)) }
-                        
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(20.dp))
+                        }
+
                         Text(
                             "$requestQuantity",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(horizontal = 24.dp)
+                            fontSize = 24.sp,
+                            modifier = Modifier.padding(horizontal = 32.dp)
                         )
-                        
+
                         IconButton(
                             onClick = { requestQuantity++ },
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(40.dp)
                                 .background(colorScheme.surfaceVariant, CircleShape)
-                        ) { Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp)) }
-                    }
-                    
-                    Text(
-                        stringResource(R.string.not_in_stock_nearby_request_all_pharmacies_to_check_availability),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    Button(
-                        onClick = { 
-                            viewModel.addToCart(
-                                medicine = medicine,
-                                pharmacyId = "GLOBAL_REQUEST",
-                                pharmacyName = "Global Request",
-                                quantity = requestQuantity
-                            )
-                            onNavigateToCart()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                    ) {
-                        Icon(
-                            Icons.Default.CellTower,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Request from Pharmacies")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
-            } else {
-                pharmacies.forEach { pharmacy ->
-                    PharmacyAvailabilityCard(
-                        pharmacy = pharmacy,
-                        onClick = {
-                            if (pharmacy.available) {
-                                viewModel.addToCart(
-                                    medicine.copy(
-                                        inventoryItemId = pharmacy.inventoryItemId,
-                                        nearbyPharmacyId = pharmacy.id,
-                                        nearbyPharmacy = pharmacy.name
-                                    ),
-                                    pharmacy.id,
-                                    pharmacy.name
-                                )
-                                onNavigateToCart()
-                            }
-                        }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // How it works card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = colorScheme.secondaryContainer.copy(alpha = 0.4f))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "How it works",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    HowItWorksStep(
+                        step = "1",
+                        title = "Add to Cart",
+                        description = "Add medicines you need to your cart",
+                        color = SwastikPrimary
+                    )
+                    HowItWorksStep(
+                        step = "2",
+                        title = "Set Delivery Address",
+                        description = "Enter your delivery location so pharmacies know where to deliver",
+                        color = SwastikOrange
+                    )
+                    HowItWorksStep(
+                        step = "3",
+                        title = "Broadcast Request",
+                        description = "Your request is sent to pharmacies within 15km",
+                        color = colorScheme.secondary
+                    )
+                    HowItWorksStep(
+                        step = "4",
+                        title = "Pharmacy Accepts & Delivers",
+                        description = "A pharmacy accepts your request, confirms pricing, and delivers to you",
+                        color = SwastikGreen
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+private fun HowItWorksStep(
+    step: String,
+    title: String,
+    description: String,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(color, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(step, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 16.sp)
         }
     }
 }
@@ -381,184 +431,11 @@ private fun InfoChip(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(18.dp)
-        )
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            label,
-            fontSize = 13.sp,
-            color = color,
-            fontWeight = FontWeight.Medium
-        )
+        Text(label, fontSize = 13.sp, color = color, fontWeight = FontWeight.Medium)
     }
 }
-
-@Composable
-private fun PharmacyAvailabilityCard(
-    pharmacy: PharmacyInfo,
-    onClick: () -> Unit
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Pharmacy Icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(colorScheme.secondaryContainer, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.LocalPharmacy,
-                    contentDescription = null,
-                    tint = colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Pharmacy Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    pharmacy.name,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    color = colorScheme.onSurface
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        " ${pharmacy.distance}",
-                        fontSize = 13.sp,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(
-                                if (pharmacy.available) colorScheme.primary else colorScheme.error,
-                                CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        if (pharmacy.available) "Available" else "Out of Stock",
-                        fontSize = 12.sp,
-                        color = if (pharmacy.available) colorScheme.primary else colorScheme.error
-                    )
-                }
-            }
-
-            // Price
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    pharmacy.price,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = SwastikPrimary
-                )
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MedicineDetailBottomBar(
-    price: Int?,
-    inStock: Boolean,
-    onViewCart: () -> Unit
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = colorScheme.surface,
-        shadowElevation = 16.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    stringResource(R.string.price),
-                    fontSize = 12.sp,
-                    color = colorScheme.onSurfaceVariant
-                )
-                Text(
-                    price?.let { "₹$it" } ?: stringResource(R.string.price_unavailable),
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SwastikPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = onViewCart,
-                enabled = true,
-                modifier = Modifier
-                    .height(50.dp)
-                    .width(180.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (inStock) SwastikPrimary else colorScheme.outline
-                )
-            ) {
-                Icon(
-                    Icons.Default.ShoppingCart,
-                    contentDescription = null
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.view_cart),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-// Helper data class
-private data class PharmacyInfo(
-    val id: String,
-    val inventoryItemId: String?,
-    val name: String,
-    val distance: String,
-    val available: Boolean,
-    val price: String
-)
 
 // Helper function to get emoji based on category
 private fun getMedicineCategoryEmoji(category: String): String {

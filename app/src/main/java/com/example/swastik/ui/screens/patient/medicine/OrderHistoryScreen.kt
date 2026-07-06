@@ -822,67 +822,121 @@ private fun CatalogRequestCard(
     request: com.example.swastik.data.remote.dto.CatalogRequestDto,
     onProceedToCheckout: () -> Unit
 ) {
+    // Filter out the delivery_info metadata entry from items
+    val medicineItems = request.items?.filter { item ->
+        !item.medicineId.isNullOrBlank()
+    } ?: emptyList()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = if (request.items?.size == 1) request.items[0].name ?: "Medicine" else "Bundle of ${request.items?.size ?: 0} items",
+                    text = if (medicineItems.size == 1) medicineItems[0].name ?: "Medicine" else "Bundle of ${medicineItems.size} items",
                     fontWeight = FontWeight.SemiBold, 
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    modifier = Modifier.weight(1f)
                 )
+                Spacer(Modifier.width(8.dp))
+                val statusColor = when (request.status) {
+                    "accepted" -> SwastikPrimary
+                    "expired" -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.secondary
+                }
                 Box(
                     modifier = Modifier.background(
-                        if (request.status == "accepted") SwastikPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                        statusColor.copy(alpha = 0.12f),
                         RoundedCornerShape(12.dp)
-                    ).padding(horizontal = 8.dp, vertical = 4.dp)
+                    ).padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         request.status.uppercase(),
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (request.status == "accepted") SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = statusColor
                     )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Render items
-            request.items?.forEach { item ->
+            // Render medicine items only
+            medicineItems.forEach { item ->
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("${item.quantity}x ${item.name}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text("₹${(item.mrp ?: 0.0) * item.quantity}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("₹${((item.mrp ?: 0.0) * item.quantity).toInt()}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
-            if (request.status == "accepted") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocalPharmacy, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(request.pharmacy?.name ?: "Unknown Pharmacy", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("Offered Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("₹${request.acceptedTotalPrice}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
+
+            when (request.status) {
+                "accepted" -> {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp), tint = SwastikPrimary)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Accepted by ${request.pharmacy?.name ?: "a pharmacy"}", fontSize = 14.sp, color = SwastikPrimary, fontWeight = FontWeight.Medium)
                     }
-                    Button(onClick = onProceedToCheckout, shape = RoundedCornerShape(8.dp)) {
-                        Text("Proceed to Checkout")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("Confirmed Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("₹${request.acceptedTotalPrice?.toInt() ?: "—"}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                        }
+                        Button(
+                            onClick = onProceedToCheckout, 
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                        ) {
+                            Icon(Icons.Default.ShoppingCart, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Checkout")
+                        }
                     }
                 }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = SwastikPrimary)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Finding a pharmacy for you... ⏳", fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.Medium)
+                "expired" -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.TimerOff, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Request expired — no pharmacy accepted in time", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                    }
                 }
+                else -> {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.08f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = SwastikPrimary)
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("Broadcasting to nearby pharmacies...", fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
+                                Text("A pharmacy will accept shortly", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Timestamp
+            request.createdAt?.let { ts ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Requested: ${ts.take(16).replace("T", " ")}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
+

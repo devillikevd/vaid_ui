@@ -169,12 +169,17 @@ class MedicineViewModel @Inject constructor(
         val cart = cartStore.value
         if (cart.items.isEmpty()) return
 
+        if (cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
+            cartStore.set(cart.copy(orderError = "Please provide delivery address and phone number"))
+            return
+        }
+
         cartStore.set(cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
         
         viewModelScope.launch {
             val location = locationHelper.getLastLocation()
             if (location == null) {
-                cartStore.set(cart.copy(isOrdering = false, orderError = "Location required to request medicine"))
+                cartStore.set(cart.copy(isOrdering = false, orderError = "Location required to broadcast request. Please enable GPS."))
                 return@launch
             }
             
@@ -188,7 +193,9 @@ class MedicineViewModel @Inject constructor(
             val request = com.example.swastik.data.remote.dto.CreateCatalogRequestDto(
                 items = requestItems,
                 latitude = location.latitude,
-                longitude = location.longitude
+                longitude = location.longitude,
+                deliveryAddress = cart.deliveryAddress,
+                patientPhone = cart.patientPhone
             )
             
             val result = medicineRepository.createCatalogRequest(request)
@@ -201,7 +208,7 @@ class MedicineViewModel @Inject constructor(
             } else {
                 cartStore.set(cartStore.value.copy(
                     isOrdering = false,
-                    orderError = (result as? Result.Error)?.message ?: "Failed to broadcast bundle"
+                    orderError = (result as? Result.Error)?.message ?: "Failed to broadcast request"
                 ))
             }
         }
@@ -472,13 +479,13 @@ class MedicineViewModel @Inject constructor(
         pharmacyId: String? = null,
         pharmacyName: String? = null,
         quantity: Int = 1
-    ) {
+    ): Boolean {
         val cart = cartStore.value
         if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
             cartStore.set(cart.copy(
                 pharmacyConflict = PharmacyConflict(pharmacyId, pharmacyName, medicine)
             ))
-            return
+            return false
         }
 
         val currentItems = cart.items.toMutableList()
@@ -497,6 +504,7 @@ class MedicineViewModel @Inject constructor(
             selectedPharmacyName = pharmacyName ?: cart.selectedPharmacyName,
             pharmacyConflict = null
         ))
+        return true
     }
 
     fun resolvePharmacyConflict(clearCartAndAdd: Boolean) {

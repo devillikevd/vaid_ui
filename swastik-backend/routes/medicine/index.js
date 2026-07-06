@@ -185,10 +185,11 @@ router.post('/orders',
 router.post('/catalog-requests',
   authenticate,
   [
-    body('medicineId').notEmpty().withMessage('Medicine ID is required'),
+    body('items').isArray({ min: 1 }).withMessage('At least one medicine item is required'),
+    body('items.*.medicineId').notEmpty().withMessage('Medicine ID is required for each item'),
+    body('items.*.quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     body('latitude').isFloat().withMessage('Valid latitude is required'),
     body('longitude').isFloat().withMessage('Valid longitude is required'),
-    body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   ],
   validate,
   asyncHandler(async (req, res) => {
