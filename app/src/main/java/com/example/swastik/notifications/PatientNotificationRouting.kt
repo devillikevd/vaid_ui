@@ -51,7 +51,7 @@ fun resolvePatientNotificationDestination(
     val medicineId = data["medicineId"] ?: data["medicine_id"]
     val doctorName = data["doctorName"] ?: data["doctor_name"] ?: "Doctor"
 
-    if (!medicineId.isNullOrBlank()) {
+    if (!medicineId.isNullOrBlank() && normalizedType != "catalog_request") {
         return PatientNotificationDestination(
             actionLabel = "View Medicine",
             route = Screen.MedicineDetail.createRoute(medicineId),
@@ -68,9 +68,9 @@ fun resolvePatientNotificationDestination(
             )
         }
 
-        normalizedType.contains("order") -> {
+        normalizedType.contains("order") || normalizedType == "catalog_request" -> {
             PatientNotificationDestination(
-                actionLabel = "View Orders",
+                actionLabel = if (normalizedType == "catalog_request") "View Requests" else "View Orders",
                 route = Screen.OrderHistory.route,
                 deepLink = "vaididea://orders"
             )

@@ -117,10 +117,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
-            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby pharmacies")
+            Log.w(TAG, "API error for pharmacies: ${parseApiErrorMessage(response.errorBody()) ?: response.body()?.message}")
+            return emptyList()
         } catch (e: Exception) {
             Log.w(TAG, "Network error for pharmacies: ${e.message}")
-            throw e
+            return emptyList()
         }
     }
 
@@ -158,10 +159,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
-            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby clinics")
+            Log.w(TAG, "API error for clinics: ${parseApiErrorMessage(response.errorBody()) ?: response.body()?.message}")
+            return emptyList()
         } catch (e: Exception) {
             Log.w(TAG, "Network error for clinics: ${e.message}")
-            throw e
+            return emptyList()
         }
     }
 
@@ -200,10 +202,11 @@ class HospitalRepository @Inject constructor(
                     )
                 } ?: emptyList()
             }
-            throw Exception(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Failed to load nearby diagnostic centers")
+            Log.w(TAG, "API error for diagnostic centers: ${parseApiErrorMessage(response.errorBody()) ?: response.body()?.message}")
+            return emptyList()
         } catch (e: Exception) {
             Log.w(TAG, "Network error for diagnostic centers: ${e.message}")
-            throw e
+            return emptyList()
         }
     }
 

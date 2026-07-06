@@ -956,7 +956,7 @@ const createOrder = async (patientUserId, orderData) => {
 
   let totalAmount = 0;
   const enrichedItems = [];
-  const allowUnmatchedItems = Boolean(orderData.prescriptionId);
+  const allowUnmatchedItems = Boolean(orderData.prescriptionId) || Boolean(orderData.isCatalogOrder);
   for (const item of (orderData.items || [])) {
     const reqItemId = item.inventoryItemId || item.medicineId || item.name || item.genericName;
     const invItem = await resolveInventoryRowForOrderItem(orderData.pharmacyId, item, inventoryMap);
@@ -970,7 +970,7 @@ const createOrder = async (patientUserId, orderData) => {
       throw new ApiError(400, `Item ${reqItemId || 'requested'} not available at this pharmacy`);
     }
 
-    const itemPrice = invItem?.price || 0;
+    const itemPrice = orderData.isCatalogOrder && item.price !== undefined ? item.price : (invItem?.price || 0);
     totalAmount += itemPrice * (item.quantity || 1);
 
     enrichedItems.push({

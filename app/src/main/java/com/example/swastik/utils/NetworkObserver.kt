@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +17,10 @@ import javax.inject.Singleton
 /**
  * Observes network connectivity changes using ConnectivityManager.
  * Provides a Flow<Boolean> that emits true when connected and false when offline.
+ *
+ * Uses debounce to avoid rapid-fire emissions during network transitions
+ * (e.g. switching between WiFi and cellular) which cause excessive
+ * UI recompositions and ConnectivityManager register/unregister churn.
  */
 @Singleton
 class NetworkObserver @Inject constructor(
@@ -49,7 +54,9 @@ class NetworkObserver @Inject constructor(
     /**
      * Observes connectivity changes as a Flow.
      * Emits true when connected, false when disconnected.
+     * Debounced at 500ms to avoid rapid state changes during network transitions.
      */
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     fun observe(): Flow<Boolean> = callbackFlow {
         fun emitCurrentState() {
             trySend(isConnected)
@@ -84,5 +91,6 @@ class NetworkObserver @Inject constructor(
         awaitClose {
             connectivityManager.unregisterNetworkCallback(callback)
         }
-    }.distinctUntilChanged()
+    }.debounce(500L).distinctUntilChanged()
 }
+

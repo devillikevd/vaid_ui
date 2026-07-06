@@ -103,7 +103,7 @@ const getNearbyActivePharmacies = async (latitude, longitude, radius = 10) => {
 
   const { data: pharmacies, error } = await supabaseAdmin
     .from('pharmacies')
-    .select('id, name, address, phone, latitude, longitude')
+    .select('id, name, address, phone, latitude, longitude, owner_id')
     .eq('is_active', true)
     .eq('is_approved', true)
     .gte('latitude', bounds.minLat)
@@ -132,16 +132,21 @@ const getCategories = async () => {
 };
 
 // Get popular medicines
-const getPopularMedicines = async (limit = 10) => {
-  const { data, error } = await supabaseAdmin
+const getPopularMedicines = async (page = 1, limit = 20) => {
+  const offset = (page - 1) * limit;
+  const { data, error, count } = await supabaseAdmin
     .from('medicines')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return (data || []).map(normalizeMedicineForClient);
+  const normalizedData = (data || []).map(normalizeMedicineForClient);
+  return {
+    data: normalizedData,
+    pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+  };
 };
 
 // Search medicines
@@ -428,6 +433,163 @@ const uploadPrescription = async (userId, file, orderId) => {
   return { url: fileUrl, message: 'Prescription uploaded successfully' };
 };
 
+// Catalog Requests Logic
+const eventEmitter = require('./eventEmitter');
+
+const createCatalogRequest = async (patientUserId, requestData) => {
+  const { data: patient } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('user_id', patientUserId)
+    .single();
+
+  if (!patient) throw new ApiError(404, 'Patient not found');
+
+  const { items, latitude, longitude } = requestData;
+
+  if (!items || items.length === 0) {
+    throw new ApiError(400, 'Request must contain at least one item');
+  }
+
+  const itemIds = items.map(item => item.medicineId);
+  const { data: medicines, error: medError } = await supabaseAdmin
+    .from('medicines')
+    .select('id, name, generic_name, price')
+    .in('id', itemIds);
+
+  if (medError || !medicines || medicines.length !== items.length) {
+    throw new ApiError(400, 'One or more medicines not found');
+  }
+
+  // Construct items JSONB array with full medicine details
+  const bundleItems = items.map(requestedItem => {
+    const med = medicines.find(m => m.id === requestedItem.medicineId);
+    return {
+      medicine_id: med.id,
+      name: med.name,
+      generic_name: med.generic_name,
+      quantity: requestedItem.quantity || 1,
+      mrp: med.price || 0
+    };
+  });
+
+  const { data: request, error } = await supabaseAdmin
+    .from('catalog_requests')
+    .insert({
+      patient_id: patient.id,
+      items: bundleItems,
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+
+  // Broadcast to nearby pharmacies (e.g. 15km)
+  const nearbyPharmacies = await getNearbyActivePharmacies(latitude, longitude, 15);
+  const pharmacyOwnerIds = nearbyPharmacies.map(p => p.owner_id).filter(Boolean);
+
+  if (pharmacyOwnerIds.length > 0) {
+    eventEmitter.emitNewCatalogRequest(request, pharmacyOwnerIds);
+  }
+
+  return request;
+};
+
+const acceptCatalogRequest = async (pharmacyOwnerId, requestId, acceptedPrice) => {
+  const { data: pharmacy } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, name')
+    .eq('owner_id', pharmacyOwnerId)
+    .single();
+
+  if (!pharmacy) throw new ApiError(404, 'Pharmacy not found');
+
+  // Fetch the request to validate price
+  const { data: requestToAccept } = await supabaseAdmin
+    .from('catalog_requests')
+    .select('*')
+    .eq('id', requestId)
+    .single();
+
+  if (!requestToAccept || requestToAccept.status !== 'pending') {
+    throw new ApiError(400, 'Request already accepted, expired, or not found');
+  }
+
+  let totalMrp = 0;
+  if (requestToAccept.items && Array.isArray(requestToAccept.items)) {
+    totalMrp = requestToAccept.items.reduce((sum, item) => sum + ((item.mrp || 0) * (item.quantity || 1)), 0);
+  }
+
+  if (totalMrp > 0 && acceptedPrice > totalMrp) {
+    throw new ApiError(400, `Offered price (₹${acceptedPrice}) cannot exceed the Maximum Retail Price of the bundle (₹${totalMrp})`);
+  }
+
+  // Try to accept the request
+  const { data: request, error } = await supabaseAdmin
+    .from('catalog_requests')
+    .update({
+      status: 'accepted',
+      accepted_pharmacy_id: pharmacy.id,
+      accepted_total_price: acceptedPrice,
+    })
+    .eq('id', requestId)
+    .eq('status', 'pending')
+    .select('*, patients(user_id)')
+    .single();
+
+  if (error || !request) {
+    throw new ApiError(400, 'Request already accepted, expired, or not found');
+  }
+
+  // Notify patient
+  const patientUserId = request.patients?.user_id;
+  if (patientUserId) {
+    eventEmitter.emitCatalogRequestAccepted(request, pharmacy.name, patientUserId);
+  }
+
+  return request;
+};
+
+const getCatalogRequestsForPharmacy = async (pharmacyOwnerId) => {
+  // Find pending requests and requests accepted by this pharmacy
+  const { data: pharmacy } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id')
+    .eq('owner_id', pharmacyOwnerId)
+    .single();
+
+  if (!pharmacy) return [];
+
+  // Active pending requests OR accepted by me
+  const { data, error } = await supabaseAdmin
+    .from('catalog_requests')
+    .select('*')
+    .or(`status.eq.pending,and(status.eq.accepted,accepted_pharmacy_id.eq.${pharmacy.id})`)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+const getCatalogRequestsForPatient = async (patientUserId) => {
+  const { data: patient } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('user_id', patientUserId)
+    .single();
+
+  if (!patient) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from('catalog_requests')
+    .select('*, pharmacies(name, address)')
+    .eq('patient_id', patient.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
 module.exports = {
   getCategories,
   getPopularMedicines,
@@ -440,4 +602,8 @@ module.exports = {
   checkPrescriptionRequirement,
   validatePrescribedMedicines,
   uploadPrescription,
+  createCatalogRequest,
+  acceptCatalogRequest,
+  getCatalogRequestsForPharmacy,
+  getCatalogRequestsForPatient,
 };

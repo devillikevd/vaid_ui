@@ -393,7 +393,16 @@ interface ApiService {
     suspend fun getMedicineCategories(): Response<ApiResponse<List<MedicineCategoryDto>>>
 
     @GET("medicines/popular")
-    suspend fun getPopularMedicines(): Response<PaginatedResponse<Medicine>>
+    suspend fun getPopularMedicines(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 20
+    ): Response<PaginatedResponse<Medicine>>
+
+    @POST("medicines/catalog-requests")
+    suspend fun createCatalogRequest(@Body request: com.example.swastik.data.remote.dto.CreateCatalogRequestDto): Response<ApiResponse<com.example.swastik.data.remote.dto.CatalogRequestDto>>
+
+    @GET("medicines/catalog-requests/patient")
+    suspend fun getPatientCatalogRequests(): Response<ApiResponse<List<com.example.swastik.data.remote.dto.CatalogRequestDto>>>
 
     @GET("medicines/nearby")
     suspend fun getNearbyMedicines(

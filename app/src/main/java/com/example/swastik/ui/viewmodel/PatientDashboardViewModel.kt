@@ -154,8 +154,13 @@ class PatientDashboardViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        pushNotificationCoordinator.registerCurrentDeviceIfPossible()
-        loadDashboard()
+        // Stagger init work slightly so the first UI frame can compose
+        // without competing with network I/O and database reads.
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(100)
+            pushNotificationCoordinator.registerCurrentDeviceIfPossible()
+            loadDashboard()
+        }
         collectRealtimeNotifications()
         collectProviderCatalogUpdates()
         collectPrescriptionUpdates()

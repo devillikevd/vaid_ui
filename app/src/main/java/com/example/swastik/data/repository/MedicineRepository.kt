@@ -106,14 +106,15 @@ class MedicineRepository @Inject constructor(
     /**
      * Get popular medicines — network-first with cache fallback.
      */
-    suspend fun getPopularMedicines(): Result<List<Medicine>> {
+    suspend fun getPopularMedicines(page: Int = 1, limit: Int = 20): Result<com.example.swastik.data.remote.dto.PaginatedResponse<Medicine>> {
         // Try network first
         try {
-            val response = apiService.getPopularMedicines()
+            val response = apiService.getPopularMedicines(page, limit)
             if (response.isSuccessful && response.body()?.success == true) {
-                val medicines = response.body()?.data ?: emptyList()
+                val paginatedResponse = response.body()!!
+                val medicines = paginatedResponse.data
                 // Cache popular medicines
-                if (medicines.isNotEmpty()) {
+                if (page == 1 && medicines.isNotEmpty()) {
                     try {
                         medicineDao.deleteStaleCache(System.currentTimeMillis() - CACHE_DURATION_MS)
                         val cached = medicines.map { it.toCachedMedicine() }
@@ -122,22 +123,50 @@ class MedicineRepository @Inject constructor(
                         Log.w(TAG, "Failed to cache popular medicines: ${e.message}")
                     }
                 }
-                return Result.Success(medicines)
+                return Result.Success(paginatedResponse)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Popular medicines network failed, using cache: ${e.message}")
         }
 
-        // Fallback to cache
+        // Fallback to cache (ignores pagination since offline)
         return try {
             val cached = medicineDao.getAllMedicinesSync()
             if (cached.isNotEmpty()) {
-                Result.Success(cached.map { it.toDomainMedicine() })
+                val medicines = cached.map { it.toDomainMedicine() }
+                val pagination = com.example.swastik.data.remote.dto.PaginationDto(page = 1, limit = cached.size, total = cached.size, totalPages = 1)
+                Result.Success(com.example.swastik.data.remote.dto.PaginatedResponse(success = true, data = medicines, pagination = pagination))
             } else {
                 Result.Error("No internet and no cached medicines")
             }
         } catch (e: Exception) {
             Result.Error("Failed to load popular medicines")
+        }
+    }
+    
+    suspend fun createCatalogRequest(request: com.example.swastik.data.remote.dto.CreateCatalogRequestDto): Result<com.example.swastik.data.remote.dto.CatalogRequestDto> {
+        return try {
+            val response = apiService.createCatalogRequest(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()!!.data!!)
+            } else {
+                Result.Error("Failed to create request")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
+    suspend fun getPatientCatalogRequests(): Result<List<com.example.swastik.data.remote.dto.CatalogRequestDto>> {
+        return try {
+            val response = apiService.getPatientCatalogRequests()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.Success(response.body()!!.data ?: emptyList())
+            } else {
+                Result.Error("Failed to fetch requests")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
         }
     }
 

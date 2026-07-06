@@ -143,28 +143,16 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 startDestination = startDestination,
                 modifier = Modifier.padding(paddingValues),
                 enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { it },
-                        animationSpec = tween(400)
-                    ) + fadeIn(animationSpec = tween(400))
+                    fadeIn(animationSpec = tween(200))
                 },
                 exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { -it },
-                        animationSpec = tween(400)
-                    ) + fadeOut(animationSpec = tween(400))
+                    fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { -it },
-                        animationSpec = tween(400)
-                    ) + fadeIn(animationSpec = tween(400))
+                    fadeIn(animationSpec = tween(150))
                 },
                 popExitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { it },
-                        animationSpec = tween(400)
-                    ) + fadeOut(animationSpec = tween(400))
+                    fadeOut(animationSpec = tween(150))
                 }
             ) {
 

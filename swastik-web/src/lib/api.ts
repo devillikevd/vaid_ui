@@ -445,6 +445,30 @@ export const adminApi = {
 
     getSystemHealth: () => fetchWithAuth('/admin/system/health'),
 
+    fetchMedicines: (page: number = 1, limit: number = 20, search?: string, category?: string) => {
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (search?.trim()) params.set('search', search.trim());
+        if (category) params.set('category', category);
+        return fetchWithAuth(`/admin/medicines?${params}`);
+    },
+
+    addMedicine: (data: Record<string, unknown>) =>
+        fetchWithAuth('/admin/medicines', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    updateMedicine: (id: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/admin/medicines/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    deleteMedicine: (id: string) =>
+        fetchWithAuth(`/admin/medicines/${id}`, {
+            method: 'DELETE',
+        }),
+
     addBulkMedicines: (medicines: any[]) =>
         fetchWithAuth('/admin/medicines/bulk', {
             method: 'POST',
@@ -859,6 +883,21 @@ export const pharmacyApi = {
         }),
 
     getAssociations: () => fetchWithAuth('/pharmacy/associations'),
+
+    getCatalogRequests: (params: { page?: number; limit?: number; status?: string } = {}) => {
+        const query = new URLSearchParams({
+            page: String(params.page ?? 1),
+            limit: String(params.limit ?? 10),
+        });
+        if (params.status) query.set('status', params.status);
+        return fetchWithAuth(`/medicine/catalog-requests/pharmacy?${query}`);
+    },
+    
+    acceptCatalogRequest: (id: string, data: { price: number }) =>
+        fetchWithAuth(`/medicine/catalog-requests/${id}/accept`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
 
 // ==================== CLINIC API ====================

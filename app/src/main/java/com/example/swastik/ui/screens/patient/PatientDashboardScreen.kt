@@ -122,6 +122,10 @@ fun PatientDashboardScreen(
 
 
     LaunchedEffect(Unit) {
+        // Allow the first frame to render before firing permission requests
+        // and system service calls that cause frame drops.
+        delay(200)
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 context,
@@ -215,7 +219,7 @@ fun PatientDashboardScreen(
             ) {
                 Crossfade(
                     targetState = selectedTab,
-                    animationSpec = tween(300),
+                    animationSpec = tween(150),
                     label = "tab_crossfade"
                 ) { tab ->
                     when (tab) {

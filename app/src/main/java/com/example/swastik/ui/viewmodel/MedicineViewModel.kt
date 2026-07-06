@@ -25,6 +25,7 @@ import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -84,7 +85,9 @@ data class OrderHistoryUiState(
     val error: String? = null,
     val filterStatus: String? = null,
     val cancelSuccess: Boolean = false,
-    val lastRealtimeUpdate: OrderUpdate? = null
+    val lastRealtimeUpdate: OrderUpdate? = null,
+    val requests: List<com.example.swastik.data.remote.dto.CatalogRequestDto> = emptyList(),
+    val requestsLoading: Boolean = false
 )
 
 @Singleton
@@ -157,6 +160,53 @@ class MedicineViewModel @Inject constructor(
         ).flow.cachedIn(viewModelScope)
     }
 
+    val pagedMedicines: Flow<PagingData<Medicine>> = Pager(
+        config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+        pagingSourceFactory = { MedicinePagingSource(medicineRepository) }
+    ).flow.cachedIn(viewModelScope)
+
+    fun broadcastCartBundle() {
+        val cart = cartStore.value
+        if (cart.items.isEmpty()) return
+
+        cartStore.set(cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
+        
+        viewModelScope.launch {
+            val location = locationHelper.getLastLocation()
+            if (location == null) {
+                cartStore.set(cart.copy(isOrdering = false, orderError = "Location required to request medicine"))
+                return@launch
+            }
+            
+            val requestItems = cart.items.map { item ->
+                com.example.swastik.data.remote.dto.CatalogRequestItemDto(
+                    medicineId = item.medicine.id,
+                    quantity = item.quantity
+                )
+            }
+
+            val request = com.example.swastik.data.remote.dto.CreateCatalogRequestDto(
+                items = requestItems,
+                latitude = location.latitude,
+                longitude = location.longitude
+            )
+            
+            val result = medicineRepository.createCatalogRequest(request)
+            if (result is Result.Success) {
+                cartStore.set(cartStore.value.copy(
+                    isOrdering = false,
+                    orderSuccess = true,
+                    items = emptyList() // Clear cart after successful broadcast
+                ))
+            } else {
+                cartStore.set(cartStore.value.copy(
+                    isOrdering = false,
+                    orderError = (result as? Result.Error)?.message ?: "Failed to broadcast bundle"
+                ))
+            }
+        }
+    }
+
     private fun collectProviderCatalogUpdates() {
         viewModelScope.launch {
             socketManager.providerCatalogUpdates.collect {
@@ -182,7 +232,7 @@ class MedicineViewModel @Inject constructor(
     private fun refreshMedicineDiscovery() {
         val currentQuery = _uiState.value.searchQuery
         if (currentQuery.isBlank()) {
-            loadPopularMedicines()
+            loadPopularMedicines(forceRefresh = true)
         } else {
             searchMedicines(currentQuery)
         }
@@ -195,39 +245,61 @@ class MedicineViewModel @Inject constructor(
         }
     }
 
-    fun loadPopularMedicines() {
+    fun loadPopularMedicines(forceRefresh: Boolean = false) {
+        // Skip redundant reloads if data already exists (e.g. tab switch)
+        if (!forceRefresh && _uiState.value.medicines.isNotEmpty() && !_uiState.value.isLoading) {
+            return
+        }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             
-            // 1. Fetch Global Popular
+            // Fire both requests in PARALLEL using async
+            val globalDeferred = async(kotlinx.coroutines.Dispatchers.IO) {
+                medicineRepository.getPopularMedicines()
+            }
+            val nearbyDeferred = async(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val location = locationHelper.getLastLocation()
+                    if (location != null) {
+                        medicineRepository.getNearbyMedicines(location.latitude, location.longitude)
+                    } else null
+                } catch (e: Exception) {
+                    null // Ignore location errors
+                }
+            }
+
+            // Await global catalog first (faster) and show it immediately
+            val globalResult = globalDeferred.await()
             var globalMedicines: List<Medicine>? = null
             var errorMsg: String? = null
-            when (val result = medicineRepository.getPopularMedicines()) {
-                is Result.Success -> globalMedicines = result.data
-                is Result.Error -> errorMsg = result.message
+            when (globalResult) {
+                is Result.Success -> globalMedicines = globalResult.data?.data
+                is Result.Error -> errorMsg = globalResult.message
                 else -> {}
             }
 
-            // 2. Fetch Nearby Inventory (Hybrid)
-            var nearbyItems: List<NearbyMedicineDto>? = null
-            try {
-                val location = locationHelper.getLastLocation()
-                if (location != null) {
-                    when (val result = medicineRepository.getNearbyMedicines(location.latitude, location.longitude)) {
-                        is Result.Success -> nearbyItems = result.data
-                        else -> {}
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore location errors
-            }
-
+            // Show global results immediately while nearby is still loading
             _uiState.value = _uiState.value.copy(
                 medicines = globalMedicines ?: _uiState.value.medicines,
-                nearbyMedicines = nearbyItems ?: _uiState.value.nearbyMedicines,
                 isLoading = false,
                 error = errorMsg
             )
+
+            // Await nearby results and merge in
+            val nearbyResult = nearbyDeferred.await()
+            var nearbyItems: List<NearbyMedicineDto>? = null
+            if (nearbyResult != null) {
+                when (nearbyResult) {
+                    is Result.Success -> nearbyItems = nearbyResult.data
+                    else -> {}
+                }
+            }
+            if (nearbyItems != null) {
+                _uiState.value = _uiState.value.copy(
+                    nearbyMedicines = nearbyItems
+                )
+            }
         }
     }
 
@@ -398,7 +470,8 @@ class MedicineViewModel @Inject constructor(
     fun addToCart(
         medicine: Medicine,
         pharmacyId: String? = null,
-        pharmacyName: String? = null
+        pharmacyName: String? = null,
+        quantity: Int = 1
     ) {
         val cart = cartStore.value
         if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
@@ -413,10 +486,10 @@ class MedicineViewModel @Inject constructor(
         val existingIndex = currentItems.indexOfFirst { cartItemKey(it.medicine) == incomingKey }
         if (existingIndex >= 0) {
             currentItems[existingIndex] = currentItems[existingIndex].copy(
-                quantity = currentItems[existingIndex].quantity + 1
+                quantity = currentItems[existingIndex].quantity + quantity
             )
         } else {
-            currentItems.add(CartItem(medicine = medicine, quantity = 1))
+            currentItems.add(CartItem(medicine = medicine, quantity = quantity))
         }
         cartStore.set(cart.copy(
             items = currentItems,
@@ -492,12 +565,14 @@ class MedicineViewModel @Inject constructor(
                         inventoryItemId = it.medicine.inventoryItemId,
                         name = it.medicine.name,
                         genericName = it.medicine.genericName,
-                        quantity = it.quantity
+                        quantity = it.quantity,
+                        price = it.medicine.price
                     )
                 },
                 deliveryAddress = cart.deliveryAddress,
                 patientPhone = cart.patientPhone,
-                isPrescriptionOrder = isRxOrder
+                isPrescriptionOrder = isRxOrder,
+                isCatalogOrder = cart.items.any { it.medicine.inventoryItemId == null && it.medicine.id.isNotBlank() }
             )
             when (val result = medicineRepository.createOrder(request)) {
                 is Result.Success -> {
@@ -603,5 +678,74 @@ class MedicineViewModel @Inject constructor(
 
     fun clearOrderHistoryError() {
         _orderHistoryState.value = _orderHistoryState.value.copy(error = null, cancelSuccess = false)
+    }
+
+    // ==================== CATALOG REQUESTS ====================
+
+    fun loadCatalogRequests() {
+        _orderHistoryState.value = _orderHistoryState.value.copy(requestsLoading = true, error = null)
+        viewModelScope.launch {
+            when (val result = medicineRepository.getPatientCatalogRequests()) {
+                is Result.Success -> {
+                    _orderHistoryState.value = _orderHistoryState.value.copy(
+                        requestsLoading = false,
+                        requests = result.data
+                    )
+                }
+                is Result.Error -> {
+                    _orderHistoryState.value = _orderHistoryState.value.copy(
+                        requestsLoading = false,
+                        error = result.message
+                    )
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
+    fun proceedToCheckoutWithRequest(request: com.example.swastik.data.remote.dto.CatalogRequestDto) {
+        if (request.status != "accepted" || request.acceptedPharmacyId == null || request.acceptedTotalPrice == null) return
+        
+        viewModelScope.launch {
+            _orderHistoryState.value = _orderHistoryState.value.copy(isLoading = true)
+            
+            // Distribute the accepted total price proportionally across items based on their MRP
+            val totalMrp = request.items?.sumOf { ((it.mrp ?: 0.0) * it.quantity) } ?: 0.0
+            val acceptedTotal = request.acceptedTotalPrice
+            
+            request.items?.forEach { item ->
+                val mrp = item.mrp ?: 0.0
+                // Calculate proportional price per unit
+                val itemTotalPrice = if (totalMrp > 0) {
+                    (mrp * item.quantity / totalMrp) * acceptedTotal
+                } else {
+                    acceptedTotal / (request.items.size)
+                }
+                val unitPrice = (itemTotalPrice / item.quantity).toFloat()
+                
+                // Construct Medicine object for cart
+                val customMedicine = com.example.swastik.data.model.Medicine(
+                    id = item.medicineId ?: "",
+                    name = item.name ?: "Medicine",
+                    genericName = item.genericName ?: "",
+                    manufacturer = "",
+                    price = unitPrice,
+                    requiresPrescription = false,
+                    description = "",
+                    category = com.example.swastik.data.model.MedicineCategory.TABLET,
+                    nearbyPharmacyId = request.acceptedPharmacyId,
+                    nearbyPharmacy = request.pharmacy?.name
+                )
+                
+                addToCart(
+                    medicine = customMedicine, 
+                    pharmacyId = request.acceptedPharmacyId, 
+                    pharmacyName = request.pharmacy?.name ?: "Pharmacy",
+                    quantity = item.quantity
+                )
+            }
+            
+            _orderHistoryState.value = _orderHistoryState.value.copy(isLoading = false)
+        }
     }
 }

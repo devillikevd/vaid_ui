@@ -106,7 +106,8 @@ fun MedicineCartScreen(
     // Order success dialog
     if (cartState.orderSuccess) {
         val orderResult = cartState.orderResult
-        val pharmacyName = orderResult?.pharmacy?.name ?: cartState.selectedPharmacyName ?: "Chosen pharmacy"
+        val isGlobalRequest = cartState.selectedPharmacyId == "GLOBAL_REQUEST"
+        val pharmacyName = orderResult?.pharmacy?.name ?: cartState.selectedPharmacyName ?: if (isGlobalRequest) "Nearby Pharmacies" else "Chosen pharmacy"
         val pharmacyPhone = orderResult?.pharmacy?.phone
 
         AlertDialog(
@@ -115,10 +116,10 @@ fun MedicineCartScreen(
                 onOrderComplete()
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(48.dp)) },
-            title = { Text(stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
+            title = { Text(if (isGlobalRequest) "Request Broadcasted!" else stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly))
+                    Text(if (isGlobalRequest) "Your medicine request has been broadcasted. Nearby pharmacies will review and accept it." else stringResource(R.string.your_medicine_order_has_been_placed_successfully_the_pharmacy_will_prepare_your_order_shortly))
 
                     Surface(
                         shape = RoundedCornerShape(14.dp),
@@ -130,7 +131,7 @@ fun MedicineCartScreen(
                                 .padding(horizontal = 14.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.selected_pharmacy),
+                                text = if (isGlobalRequest) "Sent To" else stringResource(R.string.selected_pharmacy),
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -246,7 +247,9 @@ fun MedicineCartScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                CheckoutStepper(currentStep)
+                if (cartState.selectedPharmacyId != "GLOBAL_REQUEST") {
+                    CheckoutStepper(currentStep)
+                }
                 
                 // Cart items
                 LazyColumn(
@@ -259,18 +262,39 @@ fun MedicineCartScreen(
                             // Pharmacy info
                             item {
                                 cartState.selectedPharmacyName?.let { name ->
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
+                                    if (cartState.selectedPharmacyId == "GLOBAL_REQUEST") {
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                                         ) {
-                                            Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text(name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Row(
+                                                modifier = Modifier.padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.CellTower, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                Spacer(Modifier.width(12.dp))
+                                                Column {
+                                                    Text(stringResource(R.string.items_for_broadcast), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(stringResource(R.string.pharmacies_will_review_your_request_and_confirm_availability_within_5_10_mins), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer, lineHeight = 18.sp)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.LocalPharmacy, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(stringResource(R.string.ready_to_checkout) + " - " + name, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            }
                                         }
                                     }
                                 }
@@ -402,51 +426,69 @@ fun MedicineCartScreen(
                         }
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (currentStep != CheckoutStep.CART) {
-                                OutlinedButton(
-                                    onClick = {
-                                        currentStep = when (currentStep) {
-                                            CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
-                                            CheckoutStep.ADDRESS -> CheckoutStep.CART
-                                            else -> currentStep
-                                        }
-                                    },
+                            if (cartState.selectedPharmacyId == "GLOBAL_REQUEST") {
+                                Button(
+                                    onClick = { viewModel.broadcastCartBundle() },
                                     modifier = Modifier.weight(1f).height(52.dp),
+                                    enabled = !cartState.isOrdering && cartState.items.isNotEmpty(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text(stringResource(R.string.back))
-                                }
-                            }
-                            
-                            Button(
-                                onClick = { 
-                                    when (currentStep) {
-                                        CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
-                                        CheckoutStep.ADDRESS -> {
-                                            if (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank()) {
-                                                currentStep = CheckoutStep.PAYMENT
-                                            }
-                                        }
-                                        CheckoutStep.PAYMENT -> viewModel.placeOrder(context, null)
-                                    }
-                                },
-                                modifier = Modifier.weight(2f).height(52.dp),
-                                enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
-                                          (currentStep != CheckoutStep.ADDRESS || (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank())),
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                if (cartState.isOrdering) {
-                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                } else {
-                                    if (currentStep == CheckoutStep.PAYMENT) {
-                                        Icon(Icons.Default.ShoppingCartCheckout, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    if (cartState.isOrdering) {
+                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                     } else {
-                                        Text(stringResource(R.string.str_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        Icon(Icons.Default.CellTower, null)
                                         Spacer(Modifier.width(8.dp))
-                                        Icon(Icons.Default.ArrowForward, null)
+                                        Text(stringResource(R.string.broadcast_request_to_pharmacies), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+                            } else {
+                                if (currentStep != CheckoutStep.CART) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            currentStep = when (currentStep) {
+                                                CheckoutStep.PAYMENT -> CheckoutStep.ADDRESS
+                                                CheckoutStep.ADDRESS -> CheckoutStep.CART
+                                                else -> currentStep
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f).height(52.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text(stringResource(R.string.back))
+                                    }
+                                }
+                                
+                                Button(
+                                    onClick = { 
+                                        when (currentStep) {
+                                            CheckoutStep.CART -> currentStep = CheckoutStep.ADDRESS
+                                            CheckoutStep.ADDRESS -> {
+                                                if (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank()) {
+                                                    currentStep = CheckoutStep.PAYMENT
+                                                }
+                                            }
+                                            CheckoutStep.PAYMENT -> viewModel.placeOrder(context, null)
+                                        }
+                                    },
+                                    modifier = Modifier.weight(2f).height(52.dp),
+                                    enabled = !cartState.isOrdering && cartState.items.isNotEmpty() && 
+                                              (currentStep != CheckoutStep.ADDRESS || (cartState.deliveryAddress.isNotBlank() && cartState.patientPhone.isNotBlank())),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    if (cartState.isOrdering) {
+                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.surface, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    } else {
+                                        if (currentStep == CheckoutStep.PAYMENT) {
+                                            Icon(Icons.Default.ShoppingCartCheckout, null)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(R.string.place_order), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        } else {
+                                            Text(stringResource(R.string.str_continue), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Spacer(Modifier.width(8.dp))
+                                            Icon(Icons.Default.ArrowForward, null)
+                                        }
                                     }
                                 }
                             }

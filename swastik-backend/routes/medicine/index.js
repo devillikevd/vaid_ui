@@ -176,5 +176,51 @@ router.post('/orders',
     res.status(201).json({ success: true, data: order });
   })
 );
+// Create a catalog request for a medicine
+router.post('/catalog-requests',
+  authenticate,
+  [
+    body('medicineId').notEmpty().withMessage('Medicine ID is required'),
+    body('latitude').isFloat().withMessage('Valid latitude is required'),
+    body('longitude').isFloat().withMessage('Valid longitude is required'),
+    body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const request = await medicineService.createCatalogRequest(req.user.id, req.body);
+    res.status(201).json({ success: true, data: request });
+  })
+);
+
+// Accept a catalog request (Pharmacy)
+router.post('/catalog-requests/:id/accept',
+  authenticate,
+  [
+    body('price').isFloat({ min: 0 }).withMessage('Valid price is required'),
+  ],
+  validate,
+  asyncHandler(async (req, res) => {
+    const request = await medicineService.acceptCatalogRequest(req.user.id, req.params.id, req.body.price);
+    res.json({ success: true, data: request });
+  })
+);
+
+// Get catalog requests for pharmacy
+router.get('/catalog-requests/pharmacy',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const requests = await medicineService.getCatalogRequestsForPharmacy(req.user.id);
+    res.json({ success: true, data: requests });
+  })
+);
+
+// Get catalog requests for patient
+router.get('/catalog-requests/patient',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const requests = await medicineService.getCatalogRequestsForPatient(req.user.id);
+    res.json({ success: true, data: requests });
+  })
+);
 
 module.exports = router;

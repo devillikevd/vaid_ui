@@ -33,6 +33,19 @@ class RecordsRepository @Inject constructor(
         const val PAGE_SIZE = 50
     }
 
+    private fun parseApiErrorMessage(errorBody: okhttp3.ResponseBody?, defaultMessage: String): String {
+        return try {
+            val raw = errorBody?.string()?.trim().orEmpty()
+            if (raw.isBlank()) return defaultMessage
+            val json = org.json.JSONObject(raw)
+            json.optString("message").ifBlank { null }
+                ?: json.optString("error").ifBlank { null }
+                ?: defaultMessage
+        } catch (_: Exception) {
+            defaultMessage
+        }
+    }
+
     /**
      * Fetch a page of consultations from the API.
      * @return Pair of (list of items, total pages)
@@ -44,7 +57,7 @@ class RecordsRepository @Inject constructor(
             val body = response.body()
             return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-        val errorMsg = response.errorBody()?.string() ?: "Failed to load consultations"
+        val errorMsg = parseApiErrorMessage(response.errorBody(), "Failed to load consultations")
         throw Exception(errorMsg)
     }
 
@@ -59,7 +72,7 @@ class RecordsRepository @Inject constructor(
             val body = response.body()
             return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-        val errorMsg = response.errorBody()?.string() ?: "Failed to load reports"
+        val errorMsg = parseApiErrorMessage(response.errorBody(), "Failed to load reports")
         throw Exception(errorMsg)
     }
 
@@ -74,7 +87,7 @@ class RecordsRepository @Inject constructor(
             val body = response.body()
             return Pair(body?.data.orEmpty(), body?.pagination?.totalPages ?: 1)
         }
-        val errorMsg = response.errorBody()?.string() ?: "Failed to load prescriptions"
+        val errorMsg = parseApiErrorMessage(response.errorBody(), "Failed to load prescriptions")
         throw Exception(errorMsg)
     }
 
@@ -101,7 +114,7 @@ class RecordsRepository @Inject constructor(
             return response.body()?.data.orEmpty().map { it.toMedicalStore() }
         }
 
-        val errorMsg = response.errorBody()?.string() ?: "Failed to load pharmacies"
+        val errorMsg = parseApiErrorMessage(response.errorBody(), "Failed to load pharmacies")
         throw Exception(errorMsg)
     }
 
@@ -123,7 +136,7 @@ class RecordsRepository @Inject constructor(
                 ?: throw Exception(response.body()?.message ?: "Failed to send prescription")
         }
 
-        val errorMsg = response.body()?.message ?: response.errorBody()?.string() ?: "Failed to send prescription"
+        val errorMsg = response.body()?.message ?: parseApiErrorMessage(response.errorBody(), "Failed to send prescription")
         throw Exception(errorMsg)
     }
 
@@ -179,7 +192,7 @@ class RecordsRepository @Inject constructor(
                 ?.toRequestBody(plainText)
         )
         if (!response.isSuccessful || response.body()?.success != true) {
-            val errorMsg = response.body()?.message ?: response.errorBody()?.string() ?: "Upload failed"
+            val errorMsg = response.body()?.message ?: parseApiErrorMessage(response.errorBody(), "Upload failed")
             throw Exception(errorMsg)
         }
 
@@ -196,7 +209,7 @@ class RecordsRepository @Inject constructor(
     suspend fun deleteReport(reportId: String) {
         val response = apiService.deleteReport(reportId)
         if (!response.isSuccessful) {
-            val errorMsg = response.errorBody()?.string() ?: "Failed to delete report"
+            val errorMsg = parseApiErrorMessage(response.errorBody(), "Failed to delete report")
             throw Exception(errorMsg)
         }
     }

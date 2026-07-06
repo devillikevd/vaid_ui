@@ -36,6 +36,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 import com.example.swastik.BuildConfig
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -55,14 +56,33 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
-        loggingInterceptor: HttpLoggingInterceptor
+        loggingInterceptor: HttpLoggingInterceptor,
+        @ApplicationContext context: android.content.Context
     ): OkHttpClient {
+        val appCache = okhttp3.Cache(java.io.File(context.cacheDir, "okhttpcache"), 10 * 1024 * 1024)
+        val bootstrapClient = OkHttpClient.Builder()
+            .cache(appCache)
+            .build()
+            
+        val dns = okhttp3.dnsoverhttps.DnsOverHttps.Builder().client(bootstrapClient)
+            .url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+            .bootstrapDnsHosts(
+                java.net.InetAddress.getByName("1.1.1.1"),
+                java.net.InetAddress.getByName("1.0.0.1"),
+                java.net.InetAddress.getByName("8.8.8.8"),
+                java.net.InetAddress.getByName("8.8.4.4")
+            )
+            .build()
+
         return OkHttpClient.Builder()
+            .dns(dns)
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .connectionPool(okhttp3.ConnectionPool(5, 5, TimeUnit.MINUTES))
             .build()
     }
 

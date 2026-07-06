@@ -55,9 +55,11 @@ fun OrderHistoryScreen(
     // Only show active tracking map if an agent is actually assigned and tracking
     val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         viewModel.loadOrderHistory()
+        viewModel.loadCatalogRequests()
     }
 
     // Cancel success snackbar
@@ -110,8 +112,12 @@ fun OrderHistoryScreen(
                 },
                 actions = {
                     IconButton(onClick = { 
-                        viewModel.loadOrderHistory() 
-                        pagedOrders.refresh()
+                        if (selectedTabIndex == 0) {
+                            viewModel.loadOrderHistory() 
+                            pagedOrders.refresh()
+                        } else {
+                            viewModel.loadCatalogRequests()
+                        }
                     }) {
                         Icon(Icons.Default.Refresh, "Refresh")
                     }
@@ -173,99 +179,129 @@ fun OrderHistoryScreen(
                 }
             }
 
-            when {
-                historyState.isLoading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = SwastikPrimary)
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(
+                    selected = selectedTabIndex == 0,
+                    onClick = { selectedTabIndex = 0 },
+                    text = { Text("My Orders") }
+                )
+                Tab(
+                    selected = selectedTabIndex == 1,
+                    onClick = { selectedTabIndex = 1 },
+                    text = { Text("My Requests") }
+                )
+            }
+
+            if (selectedTabIndex == 0) {
+                when {
+                    historyState.isLoading -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = SwastikPrimary)
+                        }
                     }
-                }
-                activeOrder != null && !showHistoryOnly -> {
-                    // Swiggy-style active order tracking
-                    ActiveOrderTrackingView(
-                        order = activeOrder,
-                        onViewHistory = { showHistoryOnly = true },
-                        onNavigateToTracking = onNavigateToTracking,
-                        trackingVm = trackingVm
-                    )
-                }
-                historyState.orders.isEmpty() -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.ShoppingBag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
-                            Spacer(Modifier.height(12.dp))
-                            Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                            
+                    activeOrder != null && !showHistoryOnly -> {
+                        // Swiggy-style active order tracking
+                        ActiveOrderTrackingView(
+                            order = activeOrder,
+                            onViewHistory = { showHistoryOnly = true },
+                            onNavigateToTracking = onNavigateToTracking,
+                            trackingVm = trackingVm
+                        )
+                    }
+                    historyState.orders.isEmpty() -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.ShoppingBag, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
+                                Spacer(Modifier.height(12.dp))
+                                Text(stringResource(R.string.no_orders_found), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.your_medicine_orders_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                
+                                if (activeOrder != null) {
+                                    Spacer(Modifier.height(16.dp))
+                                    Button(onClick = { showHistoryOnly = false }) {
+                                        Text(stringResource(R.string.back_to_active_order))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        Column {
                             if (activeOrder != null) {
-                                Spacer(Modifier.height(16.dp))
-                                Button(onClick = { showHistoryOnly = false }) {
-                                    Text(stringResource(R.string.back_to_active_order))
+                                Button(
+                                    onClick = { showHistoryOnly = false },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.Map, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.back_to_active_tracking))
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { /* Already in history view */ },
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.History, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.see_your_history))
                                 }
                             }
-                        }
-                    }
-                }
-                else -> {
-                    Column {
-                        if (activeOrder != null) {
-                            Button(
-                                onClick = { showHistoryOnly = false },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                            LazyColumn(
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Default.Map, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.back_to_active_tracking))
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { /* Already in history view */ },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.History, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.see_your_history))
-                            }
-                        }
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            items(count = pagedOrders.itemCount, key = { pagedOrders[it]?.id ?: it }) { index ->
-                                val order = pagedOrders[index]
-                                if (order != null) {
-                                    OrderHistoryCard(
-                                        order = order,
-                                        onCancel = { viewModel.cancelOrder(order.id) },
-                                        onTrack = {
-                                            if (!order.trackingToken.isNullOrEmpty()) {
-                                                onNavigateToTracking(
-                                                    order.trackingToken,
-                                                    0.0,
-                                                    0.0,
-                                                    order.deliveryAgent?.name,
-                                                    order.deliveryAgent?.phone
-                                                )
+                                items(count = pagedOrders.itemCount, key = { pagedOrders[it]?.id ?: it }) { index ->
+                                    val order = pagedOrders[index]
+                                    if (order != null) {
+                                        OrderHistoryCard(
+                                            order = order,
+                                            onCancel = { viewModel.cancelOrder(order.id) },
+                                            onTrack = {
+                                                if (!order.trackingToken.isNullOrEmpty()) {
+                                                    onNavigateToTracking(
+                                                        order.trackingToken,
+                                                        0.0,
+                                                        0.0,
+                                                        order.deliveryAgent?.name,
+                                                        order.deliveryAgent?.phone
+                                                    )
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
-                            }
-                            
-                            if (pagedOrders.loadState.append is LoadState.Loading) {
-                                item {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(modifier = Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
+                                
+                                if (pagedOrders.loadState.append is LoadState.Loading) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(modifier = Modifier.size(36.dp), color = MaterialTheme.colorScheme.primary)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+            } else {
+                CatalogRequestsView(
+                    requests = historyState.requests,
+                    isLoading = historyState.requestsLoading,
+                    onProceedToCheckout = { request ->
+                        viewModel.proceedToCheckoutWithRequest(request)
+                        // Note: actual navigation to cart could be triggered here or handled by the viewmodel updating state
+                        // The user will need to navigate to the Cart Tab. 
+                        // To keep it simple, we can just show a toast or rely on the bottom nav.
+                    }
+                )
             }
         }
     }
@@ -747,4 +783,106 @@ private fun formatDateShort(dateStr: String): String {
         val parts = dateStr.take(10).split("-")
         if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else dateStr.take(10)
     } catch (_: Exception) { dateStr.take(10) }
+}
+
+@Composable
+private fun CatalogRequestsView(
+    requests: List<com.example.swastik.data.remote.dto.CatalogRequestDto>,
+    isLoading: Boolean,
+    onProceedToCheckout: (com.example.swastik.data.remote.dto.CatalogRequestDto) -> Unit
+) {
+    if (isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = SwastikPrimary)
+        }
+    } else if (requests.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.HourglassEmpty, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
+                Spacer(Modifier.height(12.dp))
+                Text("No requests found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Your global medicine requests will appear here", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(requests, key = { it.id }) { request ->
+                CatalogRequestCard(request = request, onProceedToCheckout = { onProceedToCheckout(request) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogRequestCard(
+    request: com.example.swastik.data.remote.dto.CatalogRequestDto,
+    onProceedToCheckout: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (request.items?.size == 1) request.items[0].name ?: "Medicine" else "Bundle of ${request.items?.size ?: 0} items",
+                    fontWeight = FontWeight.SemiBold, 
+                    fontSize = 16.sp
+                )
+                Box(
+                    modifier = Modifier.background(
+                        if (request.status == "accepted") SwastikPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                        RoundedCornerShape(12.dp)
+                    ).padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        request.status.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (request.status == "accepted") SwastikPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Render items
+            request.items?.forEach { item ->
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${item.quantity}x ${item.name}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("₹${(item.mrp ?: 0.0) * item.quantity}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            if (request.status == "accepted") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocalPharmacy, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(4.dp))
+                    Text(request.pharmacy?.name ?: "Unknown Pharmacy", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Offered Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("₹${request.acceptedTotalPrice}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                    }
+                    Button(onClick = onProceedToCheckout, shape = RoundedCornerShape(8.dp)) {
+                        Text("Proceed to Checkout")
+                    }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = SwastikPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Finding a pharmacy for you... ⏳", fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+    }
 }

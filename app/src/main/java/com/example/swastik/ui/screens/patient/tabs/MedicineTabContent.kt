@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.swastik.R
 import com.example.swastik.data.model.*
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
@@ -128,21 +129,17 @@ fun MedicineTabContent(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                MedicineCategoryFilter(
-                    selectedCategory = state.selectedCategory,
-                    onCategorySelected = { viewModel.setCategory(it) }
-                )
+            
+            // Collect paginated medicines
+            val pagedMedicines = viewModel.pagedMedicines.collectAsLazyPagingItems()
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (state.isLoading) {
-                    MedicineListShimmer()
-                } else if (state.error != null) {
-                    // Error state with retry
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (state.isLoading && pagedMedicines.itemCount == 0) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = SwastikPrimary)
+                    }
+                } else if (!state.error.isNullOrBlank() && pagedMedicines.itemCount == 0) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 Icons.Outlined.Warning,
@@ -154,11 +151,12 @@ fun MedicineTabContent(
                             Text(
                                 text = state.error ?: "Something went wrong",
                                 fontSize = 14.sp,
-                                color = colorScheme.onSurfaceVariant
+                                color = colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
-                                onClick = { viewModel.loadPopularMedicines() },
+                                onClick = { pagedMedicines.refresh() },
                                 colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -167,10 +165,10 @@ fun MedicineTabContent(
                             }
                         }
                     }
-                } else if (filteredMedicines.isEmpty()) {
+                } else if (pagedMedicines.itemCount == 0 && state.medicines.isEmpty()) {
                     if (showNearbyHighlights) {
                         MedicineDiscoveryContent(
-                            medicines = filteredMedicines,
+                            medicines = pagedMedicines,
                             nearbyHighlights = nearbyHighlights,
                             onMedicineClick = onMedicineClick,
                             onPharmacyClick = onPharmacyClick
@@ -184,17 +182,18 @@ fun MedicineTabContent(
                                 viewModel.setCategory(null)
                                 viewModel.searchMedicines("")
                             },
-                            onReloadCatalog = { viewModel.loadPopularMedicines() }
+                            onReloadCatalog = { pagedMedicines.refresh() }
                         )
                     }
                 } else {
                     MedicineDiscoveryContent(
-                        medicines = filteredMedicines,
+                        medicines = pagedMedicines,
                         nearbyHighlights = if (showNearbyHighlights) nearbyHighlights else emptyList(),
                         onMedicineClick = onMedicineClick,
                         onPharmacyClick = onPharmacyClick
                     )
                 }
+            }
             }
         }
     }
@@ -382,28 +381,27 @@ private fun MedicineCategoryFilter(
 
 @Composable
 private fun MedicineDiscoveryContent(
-    medicines: List<Medicine>,
+    medicines: androidx.paging.compose.LazyPagingItems<Medicine>,
     nearbyHighlights: List<NearbyMedicineDto>,
     onMedicineClick: (String) -> Unit,
     onPharmacyClick: (String?, String?) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
         if (nearbyHighlights.isNotEmpty()) {
             item {
                 NearbyInventorySection(
                     nearbyHighlights = nearbyHighlights,
-                    hasCatalogResults = medicines.isNotEmpty(),
+                    hasCatalogResults = medicines.itemCount > 0,
                     onMedicineClick = onMedicineClick,
                     onPharmacyClick = onPharmacyClick
                 )
             }
         }
 
-        if (medicines.isNotEmpty()) {
+        if (medicines.itemCount > 0) {
             item {
                 Text(
                     text = if (nearbyHighlights.isNotEmpty()) "Popular catalog" else "Popular medicines",
@@ -415,13 +413,30 @@ private fun MedicineDiscoveryContent(
             }
         }
 
-        items(items = medicines, key = { it.id }) { medicine ->
-            MedicineListItem(
-                medicine = medicine,
-                onClick = { onMedicineClick(medicine.id) },
-                onPharmacyClick = { onPharmacyClick(medicine.nearbyPharmacyId, medicine.nearbyPharmacy) }
-            )
+        items(count = medicines.itemCount, key = { index -> medicines[index]?.id ?: index }) { index ->
+            val medicine = medicines[index]
+            if (medicine != null) {
+                MedicineListItem(
+                    medicine = medicine,
+                    onClick = { onMedicineClick(medicine.id) },
+                    onPharmacyClick = { onPharmacyClick(medicine.nearbyPharmacyId, medicine.nearbyPharmacy) }
+                )
+            }
         }
+
+        if (medicines.loadState.append is androidx.paging.LoadState.Loading) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = SwastikPrimary)
+                }
+            }
+        }
+
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }

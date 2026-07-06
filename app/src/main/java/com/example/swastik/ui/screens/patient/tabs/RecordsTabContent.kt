@@ -158,7 +158,8 @@ fun RecordsTabContent(
                             Text(
                                 text = state.error ?: stringResource(R.string.failed_to_load_records),
                                 fontSize = 14.sp,
-                                color = colorScheme.onSurfaceVariant
+                                color = colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(

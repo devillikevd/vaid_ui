@@ -18,6 +18,7 @@ import { useOrderUpdates } from '@/hooks/useSocket';
 
 const BASE_NAV: NavItem[] = [
     { name: 'Dashboard', href: '/pharmacy', icon: LayoutDashboard },
+    { name: 'Requests', href: '/pharmacy/requests', icon: Package },
     { name: 'Prescriptions', href: '/pharmacy/prescriptions', icon: FileText },
     { name: 'Inventory', href: '/pharmacy/inventory', icon: Package },
     { name: 'Orders', href: '/pharmacy/orders', icon: ShoppingCart },

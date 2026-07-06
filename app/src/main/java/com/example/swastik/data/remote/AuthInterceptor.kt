@@ -1,5 +1,6 @@
 package com.example.swastik.data.remote
 
+import android.util.Log
 import com.example.swastik.data.local.TokenManager
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -15,6 +16,10 @@ import kotlin.concurrent.withLock
  * OkHttp interceptor that automatically attaches JWT Bearer token
  * to all outgoing API requests and handles transparent token refresh.
  *
+ * Includes automatic retry with exponential backoff for transient
+ * network failures (IOException) to avoid showing "Unable to reach
+ * server" on brief connectivity hiccups.
+ *
  * Thread-safety: a [ReentrantLock] ensures that only one thread
  * performs a refresh at a time; concurrent 401s re-read the already-
  * refreshed token instead of duplicating the refresh call.
@@ -25,6 +30,12 @@ class AuthInterceptor @Inject constructor(
     private val socketManager: SocketManager
 ) : Interceptor {
 
+    companion object {
+        private const val TAG = "AuthInterceptor"
+        private const val MAX_RETRIES = 2
+        private val RETRY_DELAYS_MS = longArrayOf(500L, 1500L)
+    }
+
     private val refreshLock = ReentrantLock()
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -33,7 +44,13 @@ class AuthInterceptor @Inject constructor(
         // Skip auth header for login/register/public endpoints
         val path = originalRequest.url.encodedPath
         if (path.endsWith("auth/login") || path.endsWith("auth/register") || path.endsWith("auth/forgot-password") || path.endsWith("auth/resend-verification") || path.endsWith("auth/verify-email") || path.endsWith("auth/verify-email-otp")) {
-            return chain.proceed(originalRequest)
+            return proceedWithRetry(chain, originalRequest) ?: Response.Builder()
+                .request(originalRequest)
+                .protocol(okhttp3.Protocol.HTTP_1_1)
+                .code(503)
+                .message("Network error")
+                .body("""{"success":false,"message":"Unable to reach server. Please check your connection."}""".toResponseBody("application/json".toMediaTypeOrNull()))
+                .build()
         }
 
         val token = tokenManager.getAccessTokenSync()
@@ -46,13 +63,9 @@ class AuthInterceptor @Inject constructor(
             originalRequest
         }
 
-        val response: Response
-        try {
-            response = chain.proceed(request)
-        } catch (e: java.io.IOException) {
-            // Network unreachable / timeout / connection refused — return a
-            // synthetic error response so callers get a Result.Error instead
-            // of an unhandled crash on the main thread.
+        val response = proceedWithRetry(chain, request) ?: run {
+            // All retries exhausted — return synthetic 503
+            Log.w(TAG, "All retries exhausted for ${originalRequest.url.encodedPath}")
             return Response.Builder()
                 .request(originalRequest)
                 .protocol(okhttp3.Protocol.HTTP_1_1)
@@ -84,7 +97,13 @@ class AuthInterceptor @Inject constructor(
                 val retryRequest = originalRequest.newBuilder()
                     .header("Authorization", "Bearer $newToken")
                     .build()
-                return chain.proceed(retryRequest)
+                return proceedWithRetry(chain, retryRequest) ?: Response.Builder()
+                    .request(originalRequest)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(503)
+                    .message("Network error")
+                    .body("""{"success":false,"message":"Unable to reach server. Please check your connection."}""".toResponseBody("application/json".toMediaTypeOrNull()))
+                    .build()
             }
 
             // Refresh failed — return synthetic 401 so the UI can redirect to login
@@ -98,6 +117,35 @@ class AuthInterceptor @Inject constructor(
         }
 
         return response
+    }
+
+    /**
+     * Execute the request with automatic retry on transient IOExceptions.
+     * Returns the [Response] on success, or null if all retries are exhausted.
+     */
+    private fun proceedWithRetry(chain: Interceptor.Chain, request: okhttp3.Request): Response? {
+        var lastException: java.io.IOException? = null
+
+        for (attempt in 0..MAX_RETRIES) {
+            try {
+                return chain.proceed(request)
+            } catch (e: java.io.IOException) {
+                lastException = e
+                if (attempt < MAX_RETRIES) {
+                    val delay = RETRY_DELAYS_MS.getOrElse(attempt) { 1000L }
+                    Log.w(TAG, "Retry ${attempt + 1}/$MAX_RETRIES for ${request.url.encodedPath} after ${delay}ms (${e.javaClass.simpleName}: ${e.message})")
+                    try {
+                        Thread.sleep(delay)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        break
+                    }
+                } else {
+                    Log.e(TAG, "Final attempt failed for ${request.url.encodedPath}: ${e.javaClass.simpleName}: ${e.message}")
+                }
+            }
+        }
+        return null
     }
 
     /**
@@ -142,8 +190,10 @@ class AuthInterceptor @Inject constructor(
                 if (newAccessToken.isNotEmpty()) {
                     tokenManager.saveTokens(newAccessToken, newRefreshToken, expiresIn)
                     socketManager.reconnect()
+                    Log.i(TAG, "Token refresh successful")
                     newAccessToken
                 } else {
+                    Log.w(TAG, "Token refresh returned empty access token")
                     socketManager.disconnect()
                     tokenManager.clearAll(emitSessionExpired = true)
                     null
@@ -151,13 +201,15 @@ class AuthInterceptor @Inject constructor(
             } else {
                 val statusCode = refreshResponse.code
                 refreshResponse.close()
+                Log.w(TAG, "Token refresh failed with status $statusCode")
                 if (statusCode == 401 || statusCode == 403) {
                     socketManager.disconnect()
                     tokenManager.clearAll(emitSessionExpired = true)
                 }
                 null
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Token refresh exception: ${e.message}")
             socketManager.disconnect()
             null
         }

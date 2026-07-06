@@ -1052,7 +1052,8 @@ data class MedicineOrderRequest(
     val items: List<OrderItemRequest>,
     val deliveryAddress: String,
     val patientPhone: String? = null,
-    val isPrescriptionOrder: Boolean = false
+    val isPrescriptionOrder: Boolean = false,
+    val isCatalogOrder: Boolean = false
 )
 
 data class OrderItemRequest(
@@ -1060,7 +1061,8 @@ data class OrderItemRequest(
     @SerializedName("inventoryItemId") val inventoryItemId: String? = null,
     val name: String? = null,
     val genericName: String? = null,
-    val quantity: Int
+    val quantity: Int,
+    val price: Float? = null
 )
 
 data class MedicineOrderDto(
@@ -1287,3 +1289,5 @@ data class HospitalReviewDto(
     val patientImage: String?,
     val createdAt: String?
 )
+
+

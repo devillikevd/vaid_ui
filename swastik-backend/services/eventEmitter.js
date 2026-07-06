@@ -675,6 +675,38 @@ class AppEventEmitter extends EventEmitter {
       data: { providerId: provider.id, providerType: type, status },
     });
   }
+
+  emitNewCatalogRequest(requestData, pharmacyOwnerIds = []) {
+    const payload = {
+      ...requestData,
+      timestamp: new Date().toISOString(),
+    };
+    pharmacyOwnerIds.forEach((ownerId) => {
+      this.notifyUser(ownerId, 'catalog:request:new', payload);
+      this.notifyUser(ownerId, 'notification:new', {
+        type: 'catalog_request',
+        title: 'New Medicine Request',
+        message: `A patient is looking for ${requestData.medicine_name || requestData.medicine_generic_name}`,
+        timestamp: payload.timestamp,
+        data: { requestId: requestData.id },
+      });
+    });
+  }
+
+  emitCatalogRequestAccepted(requestData, pharmacyName, patientUserId) {
+    const payload = {
+      ...requestData,
+      timestamp: new Date().toISOString(),
+    };
+    this.notifyUser(patientUserId, 'catalog:request:accepted', payload);
+    this.notifyUser(patientUserId, 'notification:new', {
+      type: 'catalog_request',
+      title: 'Medicine Request Accepted',
+      message: `${pharmacyName} has accepted your request for ${requestData.medicine_name || requestData.medicine_generic_name} at ₹${requestData.accepted_price}`,
+      timestamp: payload.timestamp,
+      data: { requestId: requestData.id },
+    });
+  }
 }
 
 const eventEmitter = new AppEventEmitter();

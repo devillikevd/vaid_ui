@@ -638,6 +638,11 @@
     <string name="vital">Vital</string>
     
     <!-- Added UI Strings -->
+    <string name="not_in_stock_nearby_request_all_pharmacies_to_check_availability">Not in stock nearby. Request all pharmacies to check availability.</string>
+    <string name="items_for_broadcast">Items for Broadcast</string>
+    <string name="pharmacies_will_review_your_request_and_confirm_availability_within_5_10_mins">Pharmacies will review your request and confirm availability within 5-10 mins.</string>
+    <string name="broadcast_request_to_pharmacies">Broadcast Request to Pharmacies</string>
+    <string name="ready_to_checkout">Ready to Checkout</string>
     <string name="boarding_pass">BOARDING PASS</string>
     <string name="patient_uppercase">PATIENT</string>
     <string name="doctor_uppercase">DOCTOR</string>

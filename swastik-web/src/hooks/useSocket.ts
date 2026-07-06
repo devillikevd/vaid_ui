@@ -41,6 +41,15 @@ export interface OrderUpdate {
     timestamp: string;
 }
 
+export interface CatalogRequestUpdate {
+    requestId: string;
+    medicineId: string;
+    medicineName: string;
+    quantity: number;
+    status: string;
+    timestamp: string;
+}
+
 export interface DiagnosticBookingUpdate {
     id: string;
     status: string;
@@ -533,6 +542,34 @@ export function useOrderUpdates(onUpdate?: (update: OrderUpdate) => void, onNewO
     }, [on, onUpdate, onNewOrder]);
 
     return { lastUpdate, newOrders };
+}
+
+export function useCatalogRequestUpdates(onNewRequest?: (request: CatalogRequestUpdate) => void, onUpdate?: (update: CatalogRequestUpdate) => void) {
+    const { isConnected } = useSocket();
+
+    useEffect(() => {
+        if (!isConnected) return;
+
+        const handleNewRequest = (data: CatalogRequestUpdate) => {
+            console.log('Received new catalog request:', data);
+            if (onNewRequest) onNewRequest(data);
+        };
+        
+        const handleRequestUpdate = (data: CatalogRequestUpdate) => {
+            console.log('Received catalog request update:', data);
+            if (onUpdate) onUpdate(data);
+        };
+
+        addGlobalEventListener('catalog:request:new', handleNewRequest);
+        addGlobalEventListener('catalog:request:accepted', handleRequestUpdate);
+
+        return () => {
+            removeGlobalEventListener('catalog:request:new', handleNewRequest);
+            removeGlobalEventListener('catalog:request:accepted', handleRequestUpdate);
+        };
+    }, [isConnected, onNewRequest, onUpdate]);
+
+    return { isConnected };
 }
 
 /**

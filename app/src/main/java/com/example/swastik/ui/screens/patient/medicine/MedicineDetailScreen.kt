@@ -270,12 +270,78 @@ fun MedicineDetailScreen(
                     CircularProgressIndicator(color = SwastikPrimary, modifier = Modifier.size(24.dp))
                 }
             } else if (pharmacies.isEmpty()) {
-                Text(
-                    stringResource(R.string.no_pharmacy_data),
+                Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    fontSize = 14.sp,
-                    color = colorScheme.onSurfaceVariant
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        stringResource(R.string.no_pharmacy_data),
+                        fontSize = 14.sp,
+                        color = colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    var requestQuantity by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(1) }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+                        Text("Quantity:", fontWeight = FontWeight.Medium, color = colorScheme.onSurface)
+                        Spacer(Modifier.width(16.dp))
+                        IconButton(
+                            onClick = { if (requestQuantity > 1) requestQuantity-- },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(colorScheme.surfaceVariant, CircleShape)
+                        ) { Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(16.dp)) }
+                        
+                        Text(
+                            "$requestQuantity",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        
+                        IconButton(
+                            onClick = { requestQuantity++ },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(colorScheme.surfaceVariant, CircleShape)
+                        ) { Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp)) }
+                    }
+                    
+                    Text(
+                        stringResource(R.string.not_in_stock_nearby_request_all_pharmacies_to_check_availability),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Button(
+                        onClick = { 
+                            viewModel.addToCart(
+                                medicine = medicine,
+                                pharmacyId = "GLOBAL_REQUEST",
+                                pharmacyName = "Global Request",
+                                quantity = requestQuantity
+                            )
+                            onNavigateToCart()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Icon(
+                            Icons.Default.CellTower,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Request from Pharmacies")
+                    }
+                }
             } else {
                 pharmacies.forEach { pharmacy ->
                     PharmacyAvailabilityCard(

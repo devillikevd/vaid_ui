@@ -379,6 +379,151 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
 // ==================== MEDICINES CATALOG (ADMIN) ====================
 
 /**
+ * @route GET /api/admin/medicines
+ * @desc Paginated list of all medicines (including inactive) with search
+ */
+router.get('/medicines', asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20, search, category } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { supabaseAdmin } = require('../config/supabase');
+    const { sanitizeSearch } = require('../utils/sanitize');
+
+    let query = supabaseAdmin
+        .from('medicines')
+        .select('*', { count: 'exact' });
+
+    if (search) {
+        const q = sanitizeSearch(search);
+        if (q) query = query.or(`name.ilike.%${q}%,generic_name.ilike.%${q}%,manufacturer.ilike.%${q}%`);
+    }
+    if (category) {
+        query = query.eq('category', category);
+    }
+
+    const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    res.json({
+        success: true,
+        data: data || [],
+        pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: count || 0,
+            totalPages: Math.ceil((count || 0) / parseInt(limit)),
+        },
+    });
+}));
+
+/**
+ * @route POST /api/admin/medicines
+ * @desc Add a single medicine to the global catalog
+ */
+router.post('/medicines', [
+    body('name').trim().notEmpty().withMessage('Medicine name is required'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const m = req.body;
+
+    const medicine = {
+        name: m.name,
+        generic_name: m.generic_name || null,
+        manufacturer: m.manufacturer || null,
+        category: m.category || null,
+        subcategory: m.subcategory || null,
+        description: m.description || null,
+        form: m.form || null,
+        dosage_form: m.dosage_form || null,
+        strength: m.strength || null,
+        pack_size: m.pack_size || null,
+        price: parseFloat(m.price) || 0,
+        mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
+        requires_prescription: m.requires_prescription === true || m.requires_prescription === 'true' || false,
+        is_active: true,
+    };
+
+    const { data, error } = await supabaseAdmin
+        .from('medicines')
+        .insert(medicine)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ success: true, data });
+}));
+
+/**
+ * @route PUT /api/admin/medicines/:id
+ * @desc Update a medicine in the global catalog
+ */
+router.put('/medicines/:id', [
+    body('name').optional().trim().notEmpty().withMessage('Medicine name cannot be empty'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { id } = req.params;
+    const m = req.body;
+
+    const updates = {};
+    if (m.name !== undefined) updates.name = m.name;
+    if (m.generic_name !== undefined) updates.generic_name = m.generic_name || null;
+    if (m.manufacturer !== undefined) updates.manufacturer = m.manufacturer || null;
+    if (m.category !== undefined) updates.category = m.category || null;
+    if (m.subcategory !== undefined) updates.subcategory = m.subcategory || null;
+    if (m.description !== undefined) updates.description = m.description || null;
+    if (m.form !== undefined) updates.form = m.form || null;
+    if (m.dosage_form !== undefined) updates.dosage_form = m.dosage_form || null;
+    if (m.strength !== undefined) updates.strength = m.strength || null;
+    if (m.pack_size !== undefined) updates.pack_size = m.pack_size || null;
+    if (m.price !== undefined) updates.price = parseFloat(m.price) || 0;
+    if (m.mrp !== undefined) updates.mrp = parseFloat(m.mrp) || 0;
+    if (m.requires_prescription !== undefined) updates.requires_prescription = m.requires_prescription === true || m.requires_prescription === 'true';
+    if (m.is_active !== undefined) updates.is_active = m.is_active === true || m.is_active === 'true';
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from('medicines')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, message: 'Medicine not found' });
+
+    res.json({ success: true, data });
+}));
+
+/**
+ * @route DELETE /api/admin/medicines/:id
+ * @desc Soft-delete a medicine (sets is_active = false)
+ */
+router.delete('/medicines/:id', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+    const { id } = req.params;
+
+    const { data, error } = await supabaseAdmin
+        .from('medicines')
+        .update({ is_active: false })
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, message: 'Medicine not found' });
+
+    res.json({ success: true, message: 'Medicine deactivated successfully' });
+}));
+
+/**
  * @route POST /api/admin/medicines/bulk
  * @desc Bulk import global medicines catalog
  */
