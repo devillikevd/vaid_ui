@@ -19,9 +19,14 @@ router.get('/categories',
 // Get popular medicines
 router.get('/popular',
   asyncHandler(async (req, res) => {
-    const { limit = 10 } = req.query;
-    const medicines = await medicineService.getPopularMedicines(parseInt(limit));
-    res.json({ success: true, data: medicines });
+    try {
+      const { page = 1, limit = 10 } = req.query;
+      const medicines = await medicineService.getPopularMedicines(parseInt(page), parseInt(limit));
+      res.json({ success: true, ...medicines });
+    } catch (e) {
+      console.error("EXACT ERROR IN POPULAR:", e);
+      throw e;
+    }
   })
 );
 
