@@ -49,9 +49,7 @@ fun SwiggyAddressEditor(
     var streetAddress by remember { mutableStateOf(initialAddress) }
     var landmark by remember { mutableStateOf("") }
     var pincode by remember { mutableStateOf("") }
-    var selectedTag by remember { mutableStateOf("Home") }
 
-    val tags = listOf("Home", "Work", "Other")
 
     // Location Permission Launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -176,28 +174,7 @@ fun SwiggyAddressEditor(
             )
         }
 
-        // Save As Tags
-        Text(stringResource(R.string.save_as), fontWeight = FontWeight.Medium, fontSize = 14.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            tags.forEach { tag ->
-                val isSelected = selectedTag == tag
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (isSelected) SwastikPrimary else MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { selectedTag = tag }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = tag,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
+
 
         // Apply Button
         Button(
@@ -209,9 +186,7 @@ fun SwiggyAddressEditor(
                     if (pincode.isNotBlank()) append("Pincode: $pincode")
                 }.trimEnd(',', ' ')
                 
-                // Add the tag
-                val finalAddress = "[$selectedTag] $formattedAddress"
-                onAddressSaved(finalAddress)
+                onAddressSaved(formattedAddress)
             },
             modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),

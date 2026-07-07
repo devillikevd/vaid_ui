@@ -40,5 +40,6 @@ data class CatalogRequestDto(
 data class PharmacyBasicDto(
     val id: String?,
     val name: String?,
-    val address: String?
+    val address: String?,
+    val phone: String?
 )

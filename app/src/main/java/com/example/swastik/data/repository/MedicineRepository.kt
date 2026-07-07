@@ -170,6 +170,21 @@ class MedicineRepository @Inject constructor(
         }
     }
 
+    suspend fun cancelCatalogRequest(requestId: String): Result<com.example.swastik.data.remote.dto.CatalogRequestDto> {
+        return try {
+            val response = apiService.cancelCatalogRequest(requestId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                response.body()?.data?.let {
+                    Result.Success(it)
+                } ?: Result.Error("Failed to cancel request")
+            } else {
+                Result.Error(parseApiErrorMessage(response.errorBody()) ?: response.body()?.message ?: "Cannot cancel request")
+            }
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Network error")
+        }
+    }
+
     /**
      * Get nearby medicines from local pharmacies based on geolocation.
      */

@@ -586,6 +586,46 @@ const acceptCatalogRequest = async (pharmacyOwnerId, requestId, acceptedPrice) =
   return { ...request, delivery_info: deliveryInfo };
 };
 
+const cancelCatalogRequest = async (patientUserId, requestId) => {
+  const { data: patient } = await supabaseAdmin
+    .from('patients')
+    .select('id')
+    .eq('user_id', patientUserId)
+    .single();
+
+  if (!patient) throw new ApiError(404, 'Patient profile not found');
+
+  // Verify request belongs to patient and is still pending
+  const { data: requestToCancel } = await supabaseAdmin
+    .from('catalog_requests')
+    .select('*')
+    .eq('id', requestId)
+    .eq('patient_id', patient.id)
+    .single();
+
+  if (!requestToCancel) {
+    throw new ApiError(404, 'Request not found');
+  }
+
+  if (requestToCancel.status !== 'pending') {
+    throw new ApiError(400, `Cannot cancel request. Current status is '${requestToCancel.status}' (already accepted or expired).`);
+  }
+
+  const { data: request, error } = await supabaseAdmin
+    .from('catalog_requests')
+    .update({ status: 'cancelled' })
+    .eq('id', requestId)
+    .eq('status', 'pending')
+    .select()
+    .single();
+
+  if (error || !request) {
+    throw new ApiError(400, 'Failed to cancel request. It may have just been accepted by a pharmacy.');
+  }
+
+  return request;
+};
+
 const getCatalogRequestsForPharmacy = async (pharmacyOwnerId) => {
   // Find pending requests and requests accepted by this pharmacy
   const { data: pharmacy } = await supabaseAdmin
@@ -618,7 +658,7 @@ const getCatalogRequestsForPatient = async (patientUserId) => {
 
   const { data, error } = await supabaseAdmin
     .from('catalog_requests')
-    .select('*, pharmacies(name, address)')
+    .select('*, pharmacies(name, address, phone)')
     .eq('patient_id', patient.id)
     .order('created_at', { ascending: false });
 
@@ -639,6 +679,7 @@ module.exports = {
   validatePrescribedMedicines,
   uploadPrescription,
   createCatalogRequest,
+  cancelCatalogRequest,
   acceptCatalogRequest,
   getCatalogRequestsForPharmacy,
   getCatalogRequestsForPatient,

@@ -460,7 +460,7 @@ const deleteTest = async (centerId, testId) => {
 const getBookings = async (centerId, filters = {}, page = 1, limit = 20) => {
   let query = supabaseAdmin
     .from('diagnostic_bookings')
-    .select('*, patient:patients(name, user_id), test:diagnostic_tests(name, category, sample_type), center:diagnostic_centers(id, name, phone, address, latitude, longitude), prescription:prescriptions(file_url), delivery_agents(*)', {
+    .select('*, patient:patients(name, user_id, user:users(phone)), test:diagnostic_tests(name, category, sample_type), center:diagnostic_centers(id, name, phone, address, latitude, longitude), prescription:prescriptions(file_url), delivery_agents(*)', {
       count: 'exact',
     })
     .eq('center_id', centerId);

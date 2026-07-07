@@ -198,6 +198,15 @@ router.post('/catalog-requests',
   })
 );
 
+// Cancel a pending catalog request (Patient)
+router.post('/catalog-requests/:id/cancel',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const request = await medicineService.cancelCatalogRequest(req.user.id, req.params.id);
+    res.json({ success: true, data: request });
+  })
+);
+
 // Accept a catalog request (Pharmacy)
 router.post('/catalog-requests/:id/accept',
   authenticate,

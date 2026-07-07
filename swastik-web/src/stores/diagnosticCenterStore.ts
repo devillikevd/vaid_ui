@@ -29,6 +29,10 @@ export interface DiagnosticBooking {
     patient_id: string;
     patient_name?: string;
     patient_email?: string;
+    patient?: {
+        name?: string;
+        user?: { phone?: string; };
+    };
     center_id?: string;
     test_id: string;
     test_name?: string;

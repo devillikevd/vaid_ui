@@ -933,7 +933,11 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) {
             AuthGuard(navController, tokenManager) {
                 OrderHistoryScreen(
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToCart = {
+                        navController.popBackStack()
+                        navController.navigateSafe(Screen.MedicineCart.route)
+                    }
                 )
             }
         }

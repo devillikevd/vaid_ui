@@ -159,6 +159,7 @@ export default function PharmacyOrdersPage() {
                     const isExpanded = expandedOrderId === order.id;
                     const items = order.items || [];
                     const patientName = order.patient?.name || order.patientName || 'Patient';
+                    const patientPhone = order.patient?.user?.phone || 'No phone';
                     const total = order.total_amount || order.total || items.reduce((sum: number, item: any) => sum + (item.subtotal || (item.price || 0) * (item.quantity || 1)), 0);
                     const createdAt = order.created_at || order.time;
 
@@ -174,7 +175,7 @@ export default function PharmacyOrdersPage() {
                                             <p className="font-semibold text-gray-900 dark:text-gray-100">#{order.id?.slice(-6).toUpperCase()}</p>
                                             <StatusBadge status={order.status || 'pending'} size="sm" />
                                         </div>
-                                        <p className="truncate text-sm text-gray-500 dark:text-gray-400">{patientName} · {items.length} item{items.length !== 1 ? 's' : ''}</p>
+                                        <p className="truncate text-sm text-gray-500 dark:text-gray-400">{patientName} ({patientPhone}) · {items.length} item{items.length !== 1 ? 's' : ''}</p>
                                         <p className="text-xs text-gray-400">
                                             {createdAt ? new Date(createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                                         </p>

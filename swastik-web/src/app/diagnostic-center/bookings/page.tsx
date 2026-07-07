@@ -221,10 +221,11 @@ export default function BookingsPage() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{booking.patient_name || 'Patient'}</h3>
+                                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{booking.patient_name || booking.patient?.name || 'Patient'}</h3>
                                             <StatusBadge status={booking.status} size="sm" />
                                         </div>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                            {booking.patient?.user?.phone ? `📞 ${booking.patient.user.phone} • ` : ''}
                                             {booking.test_name || 'Test'} • {new Date(booking.booking_date).toLocaleDateString('en-IN')}
                                             {booking.booking_time && ` at ${booking.booking_time}`}
                                         </p>

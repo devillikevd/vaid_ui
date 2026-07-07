@@ -686,7 +686,7 @@ const getOrders = async (pharmacyId, filters = {}, page = 1, limit = 20) => {
   const safeLimit = Number(limit) > 0 ? Number(limit) : 20;
   const offset = (safePage - 1) * safeLimit;
   const search = sanitizeSearch(filters.search || '').toLowerCase();
-  const selectClause = '*, patient:patients(id, name), pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)';
+  const selectClause = '*, patient:patients(id, name, user:users(phone)), pharmacy:pharmacies(id, name, phone, address, latitude, longitude), delivery_agents(*)';
 
   let orders = [];
   let count = 0;

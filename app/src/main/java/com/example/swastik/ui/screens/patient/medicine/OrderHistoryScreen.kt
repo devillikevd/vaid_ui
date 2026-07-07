@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun OrderHistoryScreen(
     onBackClick: () -> Unit,
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
+    onNavigateToCart: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel(),
     trackingVm: OrderTrackingViewModel = hiltViewModel()
 ) {
@@ -60,6 +61,13 @@ fun OrderHistoryScreen(
     LaunchedEffect(Unit) {
         viewModel.loadOrderHistory()
         viewModel.loadCatalogRequests()
+    }
+
+    // Navigate to cart when checkout is triggered from accepted request
+    LaunchedEffect(Unit) {
+        viewModel.navigateToCart.collectLatest {
+            onNavigateToCart()
+        }
     }
 
     // Cancel success snackbar
@@ -293,13 +301,16 @@ fun OrderHistoryScreen(
                 }
             } else {
                 CatalogRequestsView(
-                    requests = historyState.requests,
                     isLoading = historyState.requestsLoading,
+                    requests = historyState.requests,
                     onProceedToCheckout = { request ->
                         viewModel.proceedToCheckoutWithRequest(request)
                         // Note: actual navigation to cart could be triggered here or handled by the viewmodel updating state
                         // The user will need to navigate to the Cart Tab. 
                         // To keep it simple, we can just show a toast or rely on the bottom nav.
+                    },
+                    onCancelRequest = { requestId ->
+                        viewModel.cancelCatalogRequest(requestId)
                     }
                 )
             }
@@ -789,7 +800,8 @@ private fun formatDateShort(dateStr: String): String {
 private fun CatalogRequestsView(
     requests: List<com.example.swastik.data.remote.dto.CatalogRequestDto>,
     isLoading: Boolean,
-    onProceedToCheckout: (com.example.swastik.data.remote.dto.CatalogRequestDto) -> Unit
+    onProceedToCheckout: (com.example.swastik.data.remote.dto.CatalogRequestDto) -> Unit,
+    onCancelRequest: (String) -> Unit
 ) {
     if (isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -811,7 +823,11 @@ private fun CatalogRequestsView(
             modifier = Modifier.fillMaxSize()
         ) {
             items(requests, key = { it.id }) { request ->
-                CatalogRequestCard(request = request, onProceedToCheckout = { onProceedToCheckout(request) })
+                CatalogRequestCard(
+                    request = request, 
+                    onProceedToCheckout = { onProceedToCheckout(request) },
+                    onCancelRequest = { onCancelRequest(request.id) }
+                )
             }
         }
     }
@@ -820,7 +836,8 @@ private fun CatalogRequestsView(
 @Composable
 private fun CatalogRequestCard(
     request: com.example.swastik.data.remote.dto.CatalogRequestDto,
-    onProceedToCheckout: () -> Unit
+    onProceedToCheckout: () -> Unit,
+    onCancelRequest: () -> Unit
 ) {
     // Filter out the delivery_info metadata entry from items
     val medicineItems = request.items?.filter { item ->
@@ -844,7 +861,7 @@ private fun CatalogRequestCard(
                 Spacer(Modifier.width(8.dp))
                 val statusColor = when (request.status) {
                     "accepted" -> SwastikPrimary
-                    "expired" -> MaterialTheme.colorScheme.error
+                    "expired", "cancelled" -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.secondary
                 }
                 Box(
@@ -877,12 +894,37 @@ private fun CatalogRequestCard(
                 "accepted" -> {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp), tint = SwastikPrimary)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Accepted by ${request.pharmacy?.name ?: "a pharmacy"}", fontSize = 14.sp, color = SwastikPrimary, fontWeight = FontWeight.Medium)
+                    
+                    // Accepted Pharmacy Info Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.05f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(20.dp), tint = SwastikPrimary)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Accepted by Pharmacy", fontSize = 14.sp, color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(request.pharmacy?.name ?: "Unknown Pharmacy", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            if (!request.pharmacy?.address.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(request.pharmacy?.address ?: "", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (!request.pharmacy?.phone.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Phone, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(request.pharmacy?.phone ?: "", fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text("Confirmed Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -906,6 +948,13 @@ private fun CatalogRequestCard(
                         Text("Request expired — no pharmacy accepted in time", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
                     }
                 }
+                "cancelled" -> {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Request was cancelled", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                }
                 else -> {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -918,11 +967,23 @@ private fun CatalogRequestCard(
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = SwastikPrimary)
                             Spacer(Modifier.width(10.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text("Broadcasting to nearby pharmacies...", fontSize = 13.sp, color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
                                 Text("A pharmacy will accept shortly", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onCancelRequest,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                    ) {
+                        Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Cancel Request")
                     }
                 }
             }

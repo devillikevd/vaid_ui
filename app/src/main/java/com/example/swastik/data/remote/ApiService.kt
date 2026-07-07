@@ -404,6 +404,9 @@ interface ApiService {
     @GET("medicines/catalog-requests/patient")
     suspend fun getPatientCatalogRequests(): Response<ApiResponse<List<com.example.swastik.data.remote.dto.CatalogRequestDto>>>
 
+    @POST("medicines/catalog-requests/{id}/cancel")
+    suspend fun cancelCatalogRequest(@Path("id") requestId: String): Response<ApiResponse<com.example.swastik.data.remote.dto.CatalogRequestDto>>
+
     @GET("medicines/nearby")
     suspend fun getNearbyMedicines(
         @Query("latitude") latitude: Double,

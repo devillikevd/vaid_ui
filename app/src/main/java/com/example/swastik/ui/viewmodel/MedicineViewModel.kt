@@ -125,6 +125,10 @@ class MedicineViewModel @Inject constructor(
     private val _realtimeOrderEvent = MutableSharedFlow<OrderUpdate>(replay = 0)
     val realtimeOrderEvent: SharedFlow<OrderUpdate> = _realtimeOrderEvent.asSharedFlow()
 
+    // Navigation event: emitted when checkout should navigate to cart
+    private val _navigateToCart = MutableSharedFlow<Unit>(replay = 0)
+    val navigateToCart: SharedFlow<Unit> = _navigateToCart.asSharedFlow()
+
     private var hasObservedSocketConnection = false
 
     init {
@@ -711,23 +715,58 @@ class MedicineViewModel @Inject constructor(
         }
     }
 
+    fun cancelCatalogRequest(requestId: String) {
+        viewModelScope.launch {
+            _orderHistoryState.value = _orderHistoryState.value.copy(requestsLoading = true, error = null)
+            when (val result = medicineRepository.cancelCatalogRequest(requestId)) {
+                is Result.Success -> {
+                    // Update the list by replacing the cancelled request
+                    val updatedRequests = _orderHistoryState.value.requests.map { 
+                        if (it.id == requestId) result.data else it 
+                    }
+                    _orderHistoryState.value = _orderHistoryState.value.copy(
+                        requestsLoading = false,
+                        requests = updatedRequests
+                    )
+                }
+                is Result.Error -> {
+                    _orderHistoryState.value = _orderHistoryState.value.copy(
+                        requestsLoading = false,
+                        error = result.message
+                    )
+                }
+                is Result.Loading -> {}
+            }
+        }
+    }
+
     fun proceedToCheckoutWithRequest(request: com.example.swastik.data.remote.dto.CatalogRequestDto) {
         if (request.status != "accepted" || request.acceptedPharmacyId == null || request.acceptedTotalPrice == null) return
         
         viewModelScope.launch {
             _orderHistoryState.value = _orderHistoryState.value.copy(isLoading = true)
             
+            // Filter out delivery_info metadata entries — only process real medicine items
+            val medicineItems = request.items?.filter { !it.medicineId.isNullOrBlank() } ?: emptyList()
+            if (medicineItems.isEmpty()) {
+                _orderHistoryState.value = _orderHistoryState.value.copy(isLoading = false, error = "No medicines found in this request")
+                return@launch
+            }
+            
             // Distribute the accepted total price proportionally across items based on their MRP
-            val totalMrp = request.items?.sumOf { ((it.mrp ?: 0.0) * it.quantity) } ?: 0.0
+            val totalMrp = medicineItems.sumOf { ((it.mrp ?: 0.0) * it.quantity) }
             val acceptedTotal = request.acceptedTotalPrice
             
-            request.items?.forEach { item ->
+            // Clear existing cart first to avoid conflicts
+            clearCart()
+            
+            medicineItems.forEach { item ->
                 val mrp = item.mrp ?: 0.0
                 // Calculate proportional price per unit
                 val itemTotalPrice = if (totalMrp > 0) {
                     (mrp * item.quantity / totalMrp) * acceptedTotal
                 } else {
-                    acceptedTotal / (request.items.size)
+                    acceptedTotal / medicineItems.size
                 }
                 val unitPrice = (itemTotalPrice / item.quantity).toFloat()
                 
@@ -754,6 +793,8 @@ class MedicineViewModel @Inject constructor(
             }
             
             _orderHistoryState.value = _orderHistoryState.value.copy(isLoading = false)
+            // Emit navigation event to go to the cart screen
+            _navigateToCart.emit(Unit)
         }
     }
 }

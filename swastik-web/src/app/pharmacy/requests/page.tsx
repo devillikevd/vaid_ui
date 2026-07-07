@@ -67,8 +67,7 @@ export default function PharmacyRequestsPage() {
         try {
             const res = await pharmacyApi.getCatalogRequests({
                 page,
-                limit: PAGE_SIZE,
-                status: 'pending'
+                limit: PAGE_SIZE
             });
             if (res.success) {
                 setRequests(res.data as any);
@@ -270,13 +269,20 @@ export default function PharmacyRequestsPage() {
 
                                 {/* Action */}
                                 <div className="flex justify-end">
-                                    <Button
-                                        onClick={() => handleAcceptRequest(request)}
-                                        disabled={actionLoading === request.id}
-                                        leftIcon={actionLoading === request.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                                    >
-                                        Accept & Price
-                                    </Button>
+                                    {request.status === 'accepted' ? (
+                                        <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-2 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                            <CheckCircle className="h-5 w-5" />
+                                            <span className="font-semibold">Accepted for ₹{request.accepted_total_price?.toFixed(0) || '0'}</span>
+                                        </div>
+                                    ) : (
+                                        <Button
+                                            onClick={() => handleAcceptRequest(request)}
+                                            disabled={actionLoading === request.id}
+                                            leftIcon={actionLoading === request.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                        >
+                                            Accept & Price
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                         </Card>
