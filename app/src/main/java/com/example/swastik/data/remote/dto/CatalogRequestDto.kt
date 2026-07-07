@@ -34,7 +34,7 @@ data class CatalogRequestDto(
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("expires_at") val expiresAt: String?,
     @SerializedName("updated_at") val updatedAt: String?,
-    @SerializedName("pharmacies") val pharmacy: PharmacyBasicDto? = null
+    @SerializedName("pharmacies") val pharmacy: PharmacyDto? = null
 )
 
 data class PharmacyBasicDto(

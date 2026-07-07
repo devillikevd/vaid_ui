@@ -608,7 +608,7 @@ const cancelCatalogRequest = async (patientUserId, requestId) => {
   }
 
   if (requestToCancel.status !== 'pending') {
-    throw new ApiError(400, `Cannot cancel request. Current status is '${requestToCancel.status}' (already accepted or expired).`);
+    throw new ApiError(400, `Sorry, a pharmacy has already accepted your request and it cannot be cancelled.`);
   }
 
   const { data: request, error } = await supabaseAdmin

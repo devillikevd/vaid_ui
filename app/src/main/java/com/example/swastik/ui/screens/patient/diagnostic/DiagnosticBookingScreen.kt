@@ -61,24 +61,9 @@ fun DiagnosticBookingScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showBookingDialog by remember { mutableStateOf(false) }
     var isPrescriptionBooking by remember { mutableStateOf(false) }
-    var bookingDate by remember { mutableStateOf("") }
-    var bookingTime by remember { mutableStateOf("") }
-    var collectionType by remember { mutableStateOf("walk_in") }
-    var collectionAddress by remember { mutableStateOf("") }
-    var patientPhone by remember { mutableStateOf("") }
-    
     LaunchedEffect(Unit) {
         patientDashboardViewModel.loadDashboard()
     }
-
-    LaunchedEffect(patientProfile) {
-        if (patientPhone.isBlank() && !patientProfile?.phoneNumber.isNullOrBlank()) {
-            patientPhone = patientProfile?.phoneNumber ?: ""
-        }
-    }
-
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
 
     // DC3: Use location-aware search on initial load when possible
     val context = LocalContext.current
@@ -234,149 +219,27 @@ fun DiagnosticBookingScreen(
 
     // Booking Dialog
     if (showBookingDialog && (uiState.selectedTest != null || isPrescriptionBooking)) {
-        AlertDialog(
-            onDismissRequest = { showBookingDialog = false },
-            title = { Text(if (isPrescriptionBooking) "Book via Prescription" else stringResource(R.string.book_test), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (isPrescriptionBooking) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.UploadFile, contentDescription = null, tint = SwastikPrimary)
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.prescription_uploaded), fontWeight = FontWeight.Bold, color = SwastikPrimary)
-                        }
-                    } else {
-                        Text(stringResource(R.string.test_label, uiState.selectedTest!!.name), fontWeight = FontWeight.SemiBold)
-                        uiState.selectedTest!!.price?.let {
-                            Text(stringResource(R.string.price_format, it.toInt().toString()), color = SwastikPrimary, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = bookingDate,
-                        onValueChange = { },
-                        label = { Text(stringResource(R.string.select_date)) },
-                        modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
-                        enabled = false,
-                        trailingIcon = {
-                            IconButton(onClick = { showDatePicker = true }) {
-                                Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = SwastikPrimary)
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                            disabledLabelColor = Color.Gray,
-                            disabledBorderColor = Color.Gray,
-                            disabledTrailingIconColor = SwastikPrimary
-                        ),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = bookingTime,
-                        onValueChange = { },
-                        label = { Text(stringResource(R.string.select_time)) },
-                        modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true },
-                        enabled = false,
-                        trailingIcon = {
-                            IconButton(onClick = { showTimePicker = true }) {
-                                Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPrimary)
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                            disabledLabelColor = Color.Gray,
-                            disabledBorderColor = Color.Gray,
-                            disabledTrailingIconColor = SwastikPrimary
-                        ),
-                        singleLine = true
-                    )
-
-                    Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = collectionType == "walk_in",
-                            onClick = { collectionType = "walk_in" },
-                            label = { Text(stringResource(R.string.walk_in)) }
-                        )
-                        FilterChip(
-                            selected = collectionType == "home_collection",
-                            onClick = { collectionType = "home_collection" },
-                            label = { Text(stringResource(R.string.home_collection)) }
-                        )
-                    }
-
-                    if (collectionType == "home_collection") {
-                        OutlinedTextField(
-                            value = patientPhone,
-                            onValueChange = { patientPhone = it },
-                            label = { Text(stringResource(R.string.phone_number) + " *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
-                            singleLine = true,
-                            isError = patientPhone.isBlank()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (collectionAddress.isBlank()) {
-                            com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
-                                initialAddress = "",
-                                onAddressSaved = { address ->
-                                    collectionAddress = address
-                                }
-                            )
-                        } else {
-                            androidx.compose.material3.Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                                elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = collectionAddress,
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    TextButton(
-                                        onClick = { collectionAddress = "" },
-                                        contentPadding = PaddingValues(0.dp)
-                                    ) {
-                                        Text(stringResource(R.string.change_address), color = com.example.swastik.ui.theme.SwastikPrimary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.bookTest(
-                            bookingDate = bookingDate,
-                            bookingTime = bookingTime.ifBlank { null },
-                            collectionType = collectionType,
-                            collectionAddress = if (collectionType == "home_collection") collectionAddress else null,
-                            patientPhone = if (collectionType == "home_collection") patientPhone else null,
-                            prescriptionId = if (isPrescriptionBooking) uiState.selectedPrescriptionId else null
-                        )
-                        showBookingDialog = false
-                        onNavigateToBookingHistory()
-                    },
-                    enabled = bookingDate.isNotBlank() && (collectionType != "home_collection" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank())),
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-                ) { Text(stringResource(R.string.confirm_booking)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showBookingDialog = false }) { Text(stringResource(R.string.cancel)) }
+        DiagnosticBookingFlow(
+            testName = uiState.selectedTest?.name,
+            testPrice = uiState.selectedTest?.price,
+            isPrescriptionBooking = isPrescriptionBooking,
+            prescriptionId = uiState.selectedPrescriptionId,
+            initialPhone = patientProfile?.phoneNumber ?: "",
+            onDismiss = { showBookingDialog = false },
+            onConfirm = { date, time, colType, address, phone, prescId ->
+                viewModel.bookTest(
+                    bookingDate = date,
+                    bookingTime = time,
+                    collectionType = colType,
+                    collectionAddress = address,
+                    patientPhone = phone,
+                    prescriptionId = prescId
+                )
+                showBookingDialog = false
+                onNavigateToBookingHistory()
             }
         )
     }
-
     // Error snackbar
     uiState.error?.let { error ->
         LaunchedEffect(error) {
@@ -388,54 +251,6 @@ fun DiagnosticBookingScreen(
         }
     }
 
-    // DatePicker Dialog
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
-                        bookingDate = String.format(
-                            Locale.US,
-                            "%04d-%02d-%02d",
-                            calendar.get(java.util.Calendar.YEAR),
-                            calendar.get(java.util.Calendar.MONTH) + 1,
-                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
-                        )
-                    }
-                    showDatePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    // TimePicker Dialog
-    if (showTimePicker) {
-        val timePickerState = rememberTimePickerState()
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text(stringResource(R.string.select_time)) },
-            text = {
-                TimePicker(state = timePickerState)
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
-                    showTimePicker = false
-                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }
-            }
-        )
-    }
 }
 
 @Composable
@@ -824,6 +639,382 @@ private fun TestCard(
                 Icon(Icons.Default.CheckCircle, null, tint = SwastikPrimary, modifier = Modifier.size(24.dp))
             } else {
                 Icon(Icons.Outlined.RadioButtonUnchecked, null, tint = SwastikPrimary.copy(alpha = 0.4f), modifier = Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DiagnosticBookingFlow(
+    testName: String?,
+    testPrice: Float?,
+    isPrescriptionBooking: Boolean,
+    prescriptionId: String?,
+    initialPhone: String,
+    onDismiss: () -> Unit,
+    onConfirm: (bookingDate: String, bookingTime: String?, collectionType: String, collectionAddress: String?, patientPhone: String?, prescriptionId: String?) -> Unit
+) {
+    var currentStep by remember { mutableIntStateOf(1) }
+    var bookingDate by remember { mutableStateOf("") }
+    var bookingTime by remember { mutableStateOf("") }
+    var collectionType by remember { mutableStateOf("walk_in") }
+    var collectionAddress by remember { mutableStateOf("") }
+    var patientPhone by remember { mutableStateOf(initialPhone) }
+    
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                TopAppBar(
+                    title = {
+                        val titleText = when (currentStep) {
+                            1 -> "Select Date & Time"
+                            2 -> "Collection Details"
+                            3 -> "Confirm Booking"
+                            else -> "Book Test"
+                        }
+                        Text(titleText, fontWeight = FontWeight.Bold)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            if (currentStep > 1) {
+                                currentStep--
+                            } else {
+                                onDismiss()
+                            }
+                        }) {
+                            Icon(Icons.Default.ArrowBack, "Back")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = SwastikPrimary, titleContentColor = Color.White, navigationIconContentColor = Color.White)
+                )
+
+                // Stepper
+                BookingStepperRedesigned(currentVisualStep = currentStep, isPrescription = false)
+
+                // Content
+                Box(modifier = Modifier.weight(1f).padding(16.dp)) {
+                    when (currentStep) {
+                        1 -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                if (isPrescriptionBooking) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.UploadFile, contentDescription = null, tint = SwastikPrimary)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.prescription_uploaded), fontWeight = FontWeight.Bold, color = SwastikPrimary)
+                                    }
+                                } else {
+                                    Text(stringResource(R.string.test_label, testName ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                                    testPrice?.let {
+                                        Text(stringResource(R.string.price_format, it.toInt().toString()), color = SwastikPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    }
+                                }
+                                
+                                OutlinedTextField(
+                                    value = bookingDate,
+                                    onValueChange = { },
+                                    label = { Text(stringResource(R.string.select_date)) },
+                                    modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                                    enabled = false,
+                                    trailingIcon = {
+                                        IconButton(onClick = { showDatePicker = true }) {
+                                            Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick Date", tint = SwastikPrimary)
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                        disabledTrailingIconColor = SwastikPrimary
+                                    ),
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = bookingTime,
+                                    onValueChange = { },
+                                    label = { Text(stringResource(R.string.select_time)) },
+                                    modifier = Modifier.fillMaxWidth().clickable { showTimePicker = true },
+                                    enabled = false,
+                                    trailingIcon = {
+                                        IconButton(onClick = { showTimePicker = true }) {
+                                            Icon(Icons.Outlined.AccessTime, contentDescription = "Pick Time", tint = SwastikPrimary)
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                        disabledTrailingIconColor = SwastikPrimary
+                                    ),
+                                    singleLine = true
+                                )
+                            }
+                        }
+                        2 -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(stringResource(R.string.collection_type), fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = collectionType == "walk_in",
+                                        onClick = { collectionType = "walk_in" },
+                                        label = { Text(stringResource(R.string.walk_in)) }
+                                    )
+                                    FilterChip(
+                                        selected = collectionType == "home_collection",
+                                        onClick = { collectionType = "home_collection" },
+                                        label = { Text(stringResource(R.string.home_collection)) }
+                                    )
+                                }
+                                
+                                if (collectionType == "home_collection") {
+                                    OutlinedTextField(
+                                        value = patientPhone,
+                                        onValueChange = { patientPhone = it },
+                                        label = { Text(stringResource(R.string.phone_number) + " *") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                                        singleLine = true,
+                                        isError = patientPhone.isBlank()
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    if (collectionAddress.isBlank()) {
+                                        com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
+                                            initialAddress = "",
+                                            onAddressSaved = { address ->
+                                                collectionAddress = address
+                                            }
+                                        )
+                                    } else {
+                                        androidx.compose.material3.Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                                            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.LocationOn, tint = SwastikPrimary, contentDescription = null)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = collectionAddress,
+                                                    modifier = Modifier.weight(1f),
+                                                    fontSize = 14.sp
+                                                )
+                                                TextButton(
+                                                    onClick = { collectionAddress = "" },
+                                                    modifier = Modifier.padding(start = 8.dp)
+                                                ) {
+                                                    Text(stringResource(R.string.change_address), color = SwastikPrimary, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        3 -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text("Order Summary", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Date & Time", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("$bookingDate, ${if(bookingTime.isNotBlank()) bookingTime else "Anytime"}", fontWeight = FontWeight.Medium)
+                                        }
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Collection Type", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(if (collectionType == "walk_in") "Walk In" else "Home Collection", fontWeight = FontWeight.Medium)
+                                        }
+                                        if (collectionType == "home_collection") {
+                                            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                                            Text("Delivery Address", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                            Text(collectionAddress, fontSize = 14.sp)
+                                            Text(patientPhone, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Bottom Bar Action
+                BottomAppBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentPadding = PaddingValues(16.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (currentStep == 3) {
+                                onConfirm(
+                                    bookingDate,
+                                    if(bookingTime.isNotBlank()) bookingTime else null,
+                                    collectionType,
+                                    if (collectionType == "home_collection") collectionAddress else null,
+                                    if (collectionType == "home_collection") patientPhone else null,
+                                    if (isPrescriptionBooking) prescriptionId else null
+                                )
+                            }
+                            else if (currentStep == 1 && bookingDate.isNotBlank()) currentStep++
+                            else if (currentStep == 2 && (collectionType == "walk_in" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank()))) currentStep++
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                        enabled = when (currentStep) {
+                            1 -> bookingDate.isNotBlank()
+                            2 -> collectionType == "walk_in" || (collectionAddress.isNotBlank() && patientPhone.isNotBlank())
+                            else -> true
+                        }
+                    ) {
+                        Text(if (currentStep == 3) stringResource(R.string.confirm_booking) else "Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    // DatePicker Dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+                        bookingDate = String.format(
+                            Locale.US,
+                            "%04d-%02d-%02d",
+                            calendar.get(java.util.Calendar.YEAR),
+                            calendar.get(java.util.Calendar.MONTH) + 1,
+                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        )
+                    }
+                    showDatePicker = false
+                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // TimePicker Dialog
+    if (showTimePicker) {
+        val timePickerState = rememberTimePickerState()
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text(stringResource(R.string.select_time)) },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    bookingTime = String.format(Locale.US, "%02d:%02d", timePickerState.hour, timePickerState.minute)
+                    showTimePicker = false
+                }) { Text(stringResource(R.string.ok), color = SwastikPrimary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun BookingStepperRedesigned(currentVisualStep: Int, isPrescription: Boolean) {
+    val stepLabels = listOf("Time", "Address", "Confirm")
+
+    val StepperGreen = Color(0xFF00796B)
+    val StepperGray = Color(0xFFE0E0E0)
+    val StepperTextGray = Color(0xFF9E9E9E)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        stepLabels.forEachIndexed { index, label ->
+            val stepNumber = index + 1
+            val isCompleted = stepNumber < currentVisualStep
+            val isActive = stepNumber == currentVisualStep
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (!isCompleted && !isActive) {
+                                Modifier.border(1.dp, StepperTextGray, CircleShape)
+                                        .background(MaterialTheme.colorScheme.surface)
+                            } else {
+                                Modifier.background(StepperGreen)
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isCompleted) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(
+                            "$stepNumber",
+                            color = if (isActive) Color.White else StepperTextGray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = if (isActive || isCompleted) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isActive || isCompleted) StepperGreen else StepperTextGray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (index < stepLabels.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .height(3.dp)
+                        .offset(y = (-8).dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(
+                            if (stepNumber < currentVisualStep) StepperGreen
+                            else StepperGray
+                        )
+                )
             }
         }
     }

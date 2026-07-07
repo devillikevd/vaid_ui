@@ -55,6 +55,7 @@ fun PharmacyDetailScreen(
 
     LaunchedEffect(pharmacyId) {
         viewModel.loadPharmacyDetails(pharmacyId)
+        hospitalViewModel.loadPharmacyInventory(pharmacyId)
     }
 
     Scaffold(

@@ -54,6 +54,7 @@ fun OsmMapView(
     showUserLocation: Boolean = false,
     userLatitude: Double = 0.0,
     userLongitude: Double = 0.0,
+    currentTrackerLocation: GeoPoint? = null,
     onMapReady: ((MapView) -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -115,14 +116,55 @@ fun OsmMapView(
             
             // Add route polyline if available
             if (route.isNotEmpty()) {
-                val polyline = Polyline(mapView).apply {
-                    setPoints(route)
-                    outlinePaint.color = android.graphics.Color.parseColor("#4F46E5") // Indigo
-                    outlinePaint.strokeWidth = 10f
-                    outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
-                    outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
+                if (currentTrackerLocation != null && route.size > 1) {
+                    // Swiggy-style trailing fade: find closest point on route to tracker
+                    var minDistance = Double.MAX_VALUE
+                    var closestIdx = 0
+                    for (i in route.indices) {
+                        val distance = route[i].distanceToAsDouble(currentTrackerLocation)
+                        if (distance < minDistance) {
+                            minDistance = distance
+                            closestIdx = i
+                        }
+                    }
+
+                    // Split the route:
+                    // 1. Traversed (from start to closest point) -> Fade
+                    if (closestIdx > 0) {
+                        val traversedRoute = route.subList(0, closestIdx + 1)
+                        val traversedPolyline = Polyline(mapView).apply {
+                            setPoints(traversedRoute)
+                            outlinePaint.color = android.graphics.Color.parseColor("#9E9E9E") // Faded Gray
+                            outlinePaint.strokeWidth = 10f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
+                        }
+                        mapView.overlays.add(traversedPolyline)
+                    }
+
+                    // 2. Remaining (from closest point to end) -> Solid
+                    if (closestIdx < route.size - 1) {
+                        val remainingRoute = route.subList(closestIdx, route.size)
+                        val remainingPolyline = Polyline(mapView).apply {
+                            setPoints(remainingRoute)
+                            outlinePaint.color = android.graphics.Color.parseColor("#4F46E5") // Indigo
+                            outlinePaint.strokeWidth = 10f
+                            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
+                        }
+                        mapView.overlays.add(remainingPolyline)
+                    }
+                } else {
+                    // Just draw solid route
+                    val polyline = Polyline(mapView).apply {
+                        setPoints(route)
+                        outlinePaint.color = android.graphics.Color.parseColor("#4F46E5") // Indigo
+                        outlinePaint.strokeWidth = 10f
+                        outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                        outlinePaint.strokeJoin = android.graphics.Paint.Join.ROUND
+                    }
+                    mapView.overlays.add(polyline)
                 }
-                mapView.overlays.add(polyline)
             }
 
             // Add facility markers

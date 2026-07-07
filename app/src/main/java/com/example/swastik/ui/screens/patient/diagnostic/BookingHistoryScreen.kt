@@ -340,63 +340,138 @@ private fun ActiveBookingTrackingView(
     }
 
     var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    var initialAgentStartPoint by remember { mutableStateOf<GeoPoint?>(null) }
 
     LaunchedEffect(trackingState.agentLocation, centerLat, centerLng, destLat, destLng, isWalkIn) {
-        if (!isWalkIn) {
-            val centerPoint = if (centerLat != 0.0 && centerLng != 0.0) GeoPoint(centerLat, centerLng) else null
-            val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
-            val destPoint = if (destLat != 0.0) GeoPoint(destLat, destLng) else null
+        val centerPoint = if (centerLat != 0.0 && centerLng != 0.0) GeoPoint(centerLat, centerLng) else null
+        val userPoint = if (destLat != 0.0) GeoPoint(destLat, destLng) else null
 
-            val startPoint = agentPoint ?: centerPoint
-            if (startPoint != null && destPoint != null) {
-                val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
+        if (isWalkIn) {
+            // User moving to center
+            if (userPoint != null && centerPoint != null && mapRoute.isEmpty()) {
+                val route = com.example.swastik.utils.RoutingUtils.fetchRoute(userPoint, centerPoint)
                 if (route.isNotEmpty()) {
                     mapRoute = route
                 } else {
-                    mapRoute = listOfNotNull(centerPoint, agentPoint, destPoint).distinct()
+                    mapRoute = listOfNotNull(userPoint, centerPoint).distinct()
+                }
+            }
+        } else {
+            // Agent moving to user
+            if (initialAgentStartPoint == null && trackingState.agentLocation != null) {
+                initialAgentStartPoint = GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude)
+            }
+            val startPoint = centerPoint ?: initialAgentStartPoint
+            if (startPoint != null && userPoint != null && mapRoute.isEmpty()) {
+                val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, userPoint)
+                if (route.isNotEmpty()) {
+                    mapRoute = route
+                } else {
+                    val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+                    mapRoute = listOfNotNull(centerPoint, agentPoint, userPoint).distinct()
                 }
             }
         }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            OsmMapView(
-                modifier = Modifier.fillMaxSize(),
-                center = mapCenter,
-                zoom = 15.0,
-                markers = markers,
-                route = mapRoute,
-                showUserLocation = isWalkIn // Show patient's location so they can see how far they are
-            )
-            
-            Card(
+        if (isWalkIn) {
+            // For Walk-In, just show a card with center info and a button to open Google Maps
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(16.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
-                elevation = CardDefaults.cardElevation(8.dp)
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
+                    Icon(
+                        Icons.Default.DirectionsWalk,
+                        contentDescription = "Walk In",
+                        modifier = Modifier.size(64.dp),
+                        tint = SwastikPrimary
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = if (isWalkIn) "Visit Center" else if (isWaitingForAgent) "Locating Phlebotomist..." else "Agent on the way",
+                        text = "Visit Diagnostic Center",
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = booking.center?.name ?: "Center",
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            val uri = Uri.parse("google.navigation:q=$centerLat,$centerLng")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                            mapIntent.setPackage("com.google.android.apps.maps")
+                            if (mapIntent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(mapIntent)
+                            } else {
+                                // Fallback to browser
+                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$centerLat,$centerLng"))
+                                context.startActivity(browserIntent)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                    ) {
+                        Icon(Icons.Default.Directions, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Navigate with Google Maps", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } else {
+            // Home Collection Tracking
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                OsmMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    center = mapCenter,
+                    zoom = 15.0,
+                    markers = markers,
+                    route = mapRoute,
+                    showUserLocation = false,
+                    currentTrackerLocation = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+                )
+                
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                    elevation = CardDefaults.cardElevation(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(if (isWaitingForAgent) Color(0xFFF59E0B) else SwastikPrimary, CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isWaitingForAgent) "Locating Phlebotomist..." else "Agent on the way",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }

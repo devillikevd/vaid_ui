@@ -63,6 +63,7 @@ fun PharmacyBookingFlow(
     
     LaunchedEffect(Unit) {
         patientDashboardViewModel.loadDashboard()
+        onInventorySearch("")
     }
 
     LaunchedEffect(patientProfile) {

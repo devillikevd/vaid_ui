@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
@@ -66,14 +68,15 @@ class PatientRepository @Inject constructor(
      * Fetch patient dashboard data
      * Fetches Dashboard Stats + Profile + Notifications
      */
-    suspend fun getDashboard(): Result<PatientDashboard> = try {
-        coroutineScope {
-            // Parallel execution of independent API calls with individual try-catches
-            val dashboardDeferred = async { try { apiService.getPatientDashboard() } catch (e: Exception) { null } }
-            val profileDeferred = async { try { apiService.getPatientProfile() } catch (e: Exception) { null } }
-            val notificationsDeferred = async { try { apiService.getNotifications() } catch (e: Exception) { null } }
-            val emergencyDeferred = async { try { apiService.getActiveEmergency() } catch (e: Exception) { null } }
-            val prescriptionsDeferred = async { try { apiService.getPatientPrescriptions(1, 5) } catch (e: Exception) { null } }
+    suspend fun getDashboard(): Result<PatientDashboard> = withContext(Dispatchers.IO) {
+        try {
+            coroutineScope {
+                // Parallel execution of independent API calls with individual try-catches
+                val dashboardDeferred = async { try { apiService.getPatientDashboard() } catch (e: Exception) { null } }
+                val profileDeferred = async { try { apiService.getPatientProfile() } catch (e: Exception) { null } }
+                val notificationsDeferred = async { try { apiService.getNotifications() } catch (e: Exception) { null } }
+                val emergencyDeferred = async { try { apiService.getActiveEmergency() } catch (e: Exception) { null } }
+                val prescriptionsDeferred = async { try { apiService.getPatientPrescriptions(1, 5) } catch (e: Exception) { null } }
 
             val dashboardResponse = dashboardDeferred.await()
             val profileResponse = profileDeferred.await()
@@ -202,6 +205,7 @@ class PatientRepository @Inject constructor(
     } catch (e: Exception) {
         Log.e("PatientRepository", "Dashboard load failed partially/fully", e)
         Result.Error("Unable to reach server. Showing cached data if available.")
+    }
     }
     
     /**

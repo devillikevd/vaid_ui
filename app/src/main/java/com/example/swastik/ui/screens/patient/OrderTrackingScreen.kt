@@ -70,16 +70,20 @@ fun OrderTrackingScreen(
     }
 
     var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    var initialStartPoint by remember { mutableStateOf<GeoPoint?>(null) }
 
     LaunchedEffect(state.agentLocation, destLat, destLng) {
-        val agentPoint = state.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+        if (initialStartPoint == null && state.agentLocation != null) {
+            initialStartPoint = GeoPoint(state.agentLocation!!.latitude, state.agentLocation!!.longitude)
+        }
+        val startPoint = initialStartPoint
         val destPoint = GeoPoint(destLat, destLng)
-        if (agentPoint != null) {
-            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(agentPoint, destPoint)
+        if (startPoint != null && mapRoute.isEmpty()) {
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
             if (route.isNotEmpty()) {
                 mapRoute = route
             } else {
-                mapRoute = listOf(agentPoint, destPoint)
+                mapRoute = listOf(startPoint, destPoint)
             }
         }
     }
@@ -116,7 +120,8 @@ fun OrderTrackingScreen(
                     zoom = 15.0,
                     markers = markers,
                     route = mapRoute,
-                    showUserLocation = false
+                    showUserLocation = false,
+                    currentTrackerLocation = state.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
                 )
                 
                 // Overlay for agent status

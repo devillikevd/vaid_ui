@@ -114,7 +114,7 @@ fun MedicineCartScreen(
         AlertDialog(
             onDismissRequest = {
                 viewModel.resetOrderSuccess()
-                onOrderComplete()
+                onNavigateToOrderHistory()
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(48.dp)) },
             title = { Text(if (isGlobalRequest) "Request Broadcasted!" else stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
@@ -192,7 +192,7 @@ fun MedicineCartScreen(
                 Button(
                     onClick = {
                         viewModel.resetOrderSuccess()
-                        onOrderComplete()
+                        onNavigateToOrderHistory()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.done)) }
@@ -286,22 +286,24 @@ fun MedicineCartScreen(
                     when (currentStep) {
                         CheckoutStep.CART -> {
                             // Broadcast info header
-                            item {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                            if (cartState.selectedPharmacyId == "GLOBAL_REQUEST") {
+                                item {
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                                     ) {
-                                        Icon(Icons.Default.CellTower, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                        Spacer(Modifier.width(12.dp))
-                                        Column {
-                                            Text("Medicine Request", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                            Spacer(Modifier.height(4.dp))
-                                            Text("Your request will be broadcasted to nearby pharmacies within 15km. A pharmacy will accept and deliver.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer, lineHeight = 18.sp)
+                                        Row(
+                                            modifier = Modifier.padding(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.CellTower, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            Spacer(Modifier.width(12.dp))
+                                            Column {
+                                                Text("Medicine Request", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                Spacer(Modifier.height(4.dp))
+                                                Text("Your request will be broadcasted to nearby pharmacies within 15km. A pharmacy will accept and deliver.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSecondaryContainer, lineHeight = 18.sp)
+                                            }
                                         }
                                     }
                                 }

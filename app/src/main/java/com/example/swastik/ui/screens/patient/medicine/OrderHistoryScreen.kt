@@ -39,6 +39,8 @@ import org.osmdroid.util.GeoPoint
 import com.example.swastik.ui.viewmodel.OrderTrackingViewModel
 import androidx.compose.foundation.shape.CircleShape
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +59,7 @@ fun OrderHistoryScreen(
     val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
     var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedPharmacyForDetails by remember { mutableStateOf<com.example.swastik.data.remote.dto.PharmacyDto?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadOrderHistory()
@@ -311,8 +314,128 @@ fun OrderHistoryScreen(
                     },
                     onCancelRequest = { requestId ->
                         viewModel.cancelCatalogRequest(requestId)
+                    },
+                    onPharmacyClick = { pharmacy ->
+                        selectedPharmacyForDetails = pharmacy
                     }
                 )
+            }
+        }
+    }
+
+    if (selectedPharmacyForDetails != null) {
+        val context = LocalContext.current
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { selectedPharmacyForDetails = null },
+            sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Pharmacy Avatar/Icon
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.LocalPharmacy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                Text(
+                    text = selectedPharmacyForDetails?.name ?: "Pharmacy",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 24.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(Modifier.height(8.dp))
+                
+                if (selectedPharmacyForDetails?.rating != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, contentDescription = null, tint = androidx.compose.ui.graphics.Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(String.format("%.1f", selectedPharmacyForDetails?.rating), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        if (selectedPharmacyForDetails?.totalReviews != null) {
+                            Spacer(Modifier.width(4.dp))
+                            Text("(${selectedPharmacyForDetails?.totalReviews} reviews)", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                
+                if (!selectedPharmacyForDetails?.address.isNullOrBlank()) {
+                    Spacer(Modifier.height(12.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocationOn, null, tint = SwastikPrimary)
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = selectedPharmacyForDetails?.address ?: "",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(24.dp))
+                
+                if (!selectedPharmacyForDetails?.phone.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${selectedPharmacyForDetails?.phone}"))
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.weight(1f).height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.Phone, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Call Now", fontWeight = FontWeight.Bold)
+                        }
+                        
+                        OutlinedButton(
+                            onClick = {
+                                val url = "https://api.whatsapp.com/send?phone=+91${selectedPharmacyForDetails?.phone}"
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    data = Uri.parse(url)
+                                }
+                                context.startActivity(intent)
+                            },
+                            modifier = Modifier.weight(1f).height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, androidx.compose.ui.graphics.Color(0xFF25D366)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = androidx.compose.ui.graphics.Color(0xFF25D366))
+                        ) {
+                            Icon(Icons.Default.Chat, contentDescription = "WhatsApp", modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("WhatsApp", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -420,20 +543,26 @@ private fun ActiveOrderTrackingView(
     }
 
     var mapRoute by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    var initialStartPoint by remember { mutableStateOf<GeoPoint?>(null) }
 
     LaunchedEffect(trackingState.agentLocation, order.pharmacy?.latitude, order.pharmacy?.longitude, destLat, destLng) {
         val pharmLat = order.pharmacy?.latitude
         val pharmLng = order.pharmacy?.longitude
         val pharmPoint = if (pharmLat != null && pharmLng != null && pharmLat != 0.0 && pharmLng != 0.0) GeoPoint(pharmLat, pharmLng) else null
-        val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
-        val destPoint = if (hasDestination) GeoPoint(destLat, destLng) else null
+        
+        if (initialStartPoint == null && trackingState.agentLocation != null) {
+            initialStartPoint = GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude)
+        }
 
-        val startPoint = agentPoint ?: pharmPoint
-        if (startPoint != null && destPoint != null) {
+        val destPoint = if (hasDestination) GeoPoint(destLat, destLng) else null
+        val startPoint = pharmPoint ?: initialStartPoint
+
+        if (startPoint != null && destPoint != null && mapRoute.isEmpty()) {
             val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
             if (route.isNotEmpty()) {
                 mapRoute = route
             } else {
+                val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
                 mapRoute = listOfNotNull(pharmPoint, agentPoint, destPoint).distinct()
             }
         }
@@ -464,7 +593,8 @@ private fun ActiveOrderTrackingView(
                     zoom = 15.0,
                     markers = markers,
                     route = mapRoute,
-                    showUserLocation = false
+                    showUserLocation = false,
+                    currentTrackerLocation = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
                 )
             } else {
                 // Loading state
@@ -801,7 +931,8 @@ private fun CatalogRequestsView(
     requests: List<com.example.swastik.data.remote.dto.CatalogRequestDto>,
     isLoading: Boolean,
     onProceedToCheckout: (com.example.swastik.data.remote.dto.CatalogRequestDto) -> Unit,
-    onCancelRequest: (String) -> Unit
+    onCancelRequest: (String) -> Unit,
+    onPharmacyClick: (com.example.swastik.data.remote.dto.PharmacyDto) -> Unit
 ) {
     if (isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -826,7 +957,8 @@ private fun CatalogRequestsView(
                 CatalogRequestCard(
                     request = request, 
                     onProceedToCheckout = { onProceedToCheckout(request) },
-                    onCancelRequest = { onCancelRequest(request.id) }
+                    onCancelRequest = { onCancelRequest(request.id) },
+                    onPharmacyClick = { it?.let(onPharmacyClick) }
                 )
             }
         }
@@ -837,7 +969,8 @@ private fun CatalogRequestsView(
 private fun CatalogRequestCard(
     request: com.example.swastik.data.remote.dto.CatalogRequestDto,
     onProceedToCheckout: () -> Unit,
-    onCancelRequest: () -> Unit
+    onCancelRequest: () -> Unit,
+    onPharmacyClick: (com.example.swastik.data.remote.dto.PharmacyDto?) -> Unit
 ) {
     // Filter out the delivery_info metadata entry from items
     val medicineItems = request.items?.filter { item ->
@@ -897,7 +1030,9 @@ private fun CatalogRequestCard(
                     
                     // Accepted Pharmacy Info Card
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPharmacyClick(request.pharmacy) },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = SwastikPrimary.copy(alpha = 0.05f))
                     ) {

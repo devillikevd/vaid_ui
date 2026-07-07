@@ -150,7 +150,8 @@ class MedicineRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.Success(response.body()!!.data!!)
             } else {
-                Result.Error("Failed to create request")
+                val errorMsg = parseApiErrorMessage(response.errorBody())
+                Result.Error(errorMsg ?: "Failed to create request")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Network error")

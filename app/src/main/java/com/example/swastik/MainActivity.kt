@@ -935,7 +935,6 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 OrderHistoryScreen(
                     onBackClick = { navController.popBackStack() },
                     onNavigateToCart = {
-                        navController.popBackStack()
                         navController.navigateSafe(Screen.MedicineCart.route)
                     }
                 )
