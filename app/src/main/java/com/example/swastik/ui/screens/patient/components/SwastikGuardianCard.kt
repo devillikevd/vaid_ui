@@ -1,7 +1,5 @@
 package com.example.swastik.ui.screens.patient.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -16,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
@@ -42,7 +41,6 @@ fun SwastikGuardianCard(
     secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     isActive: Boolean,
     consentAccepted: Boolean,
-    consentAcceptedAt: String?,
     featurePreferences: GuardianFeaturePreferences,
     onToggle: (Boolean) -> Unit,
     onConsentAccepted: (GuardianFeaturePreferences) -> Unit,
@@ -163,7 +161,6 @@ fun SwastikGuardianCard(
                     status = if (featurePreferences.fallDetection) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.fallDetection,
                     contentColor = contentColor,
-                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -173,7 +170,6 @@ fun SwastikGuardianCard(
                     status = if (featurePreferences.crashDetection) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.crashDetection,
                     contentColor = contentColor,
-                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -183,7 +179,6 @@ fun SwastikGuardianCard(
                     status = if (featurePreferences.mobilityAnalysis) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.mobilityAnalysis,
                     contentColor = contentColor,
-                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
                 Box(modifier = Modifier.height(40.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)))
@@ -193,7 +188,6 @@ fun SwastikGuardianCard(
                     status = if (featurePreferences.doctorQrSharing) stringResource(R.string.guardian_allowed) else stringResource(R.string.guardian_off),
                     isAllowed = featurePreferences.doctorQrSharing,
                     contentColor = contentColor,
-                    secondaryColor = secondaryColor,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -244,7 +238,6 @@ private fun GuardianFeatureItem(
     status: String,
     isAllowed: Boolean,
     contentColor: Color,
-    secondaryColor: Color,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -301,8 +294,8 @@ fun GuardianLearnMoreDialog(
                 .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
-            val widthFraction = if (maxWidth < 600.dp) 1f else 0.78f
-            val heightFraction = if (maxHeight < 720.dp) 1f else 0.9f
+            val widthFraction = if (this@BoxWithConstraints.maxWidth < 600.dp) 1f else 0.78f
+            val heightFraction = if (this@BoxWithConstraints.maxHeight < 720.dp) 1f else 0.9f
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(widthFraction)
@@ -372,7 +365,7 @@ fun GuardianLearnMoreDialog(
                         )
 
                         FeatureConsentItem(
-                            icon = Icons.Default.DirectionsWalk,
+                            icon = Icons.AutoMirrored.Filled.DirectionsWalk,
                             title = stringResource(R.string.guardian_mobility_analysis_numbered),
                             reliability = stringResource(R.string.guardian_mobility_reliability),
                             checked = selectedFeatures.mobilityAnalysis,
@@ -381,7 +374,7 @@ fun GuardianLearnMoreDialog(
                         )
 
                         FeatureConsentItem(
-                            icon = Icons.Default.Info,
+                            icon = Icons.Default.BarChart,
                             title = stringResource(R.string.guardian_doctor_sharing),
                             reliability = stringResource(R.string.guardian_doctor_reliability),
                             checked = selectedFeatures.doctorQrSharing,

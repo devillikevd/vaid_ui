@@ -319,7 +319,6 @@ fun HealthCardScreen(
                     containerColor = healthCardMainBg,
                     isActive = guardianEnabled,
                     consentAccepted = guardianSettings.guardianConsentAccepted,
-                    consentAcceptedAt = guardianSettings.guardianConsentAcceptedAt,
                     featurePreferences = guardianSettings.guardianFeatures,
                     onToggle = { enabled ->
                         if (enabled) {
