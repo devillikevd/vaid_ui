@@ -890,11 +890,11 @@ export const pharmacyApi = {
             limit: String(params.limit ?? 10),
         });
         if (params.status) query.set('status', params.status);
-        return fetchWithAuth(`/medicine/catalog-requests/pharmacy?${query}`);
+        return fetchWithAuth(`/medicines/catalog-requests/pharmacy?${query}`);
     },
     
     acceptCatalogRequest: (id: string, data: { price: number }) =>
-        fetchWithAuth(`/medicine/catalog-requests/${id}/accept`, {
+        fetchWithAuth(`/medicines/catalog-requests/${id}/accept`, {
             method: 'POST',
             body: JSON.stringify(data),
         }),
