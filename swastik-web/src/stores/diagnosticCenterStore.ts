@@ -22,6 +22,8 @@ export interface DiagnosticTest {
     preparation_instructions?: string;
     is_active: boolean;
     created_at: string;
+    updated_at: string;
+    master_test_id?: string;
 }
 
 export interface DiagnosticBooking {

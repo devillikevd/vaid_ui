@@ -49,7 +49,8 @@ fun OrderHistoryScreen(
     onNavigateToTracking: (String, Double, Double, String?, String?) -> Unit = { _, _, _, _, _ -> },
     onNavigateToCart: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel(),
-    trackingVm: OrderTrackingViewModel = hiltViewModel()
+    trackingVm: OrderTrackingViewModel = hiltViewModel(),
+    initialTab: Int = 0
 ) {
     val historyState by viewModel.orderHistoryState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -58,7 +59,7 @@ fun OrderHistoryScreen(
     // Only show active tracking map if an agent is actually assigned and tracking
     val activeOrder = historyState.orders.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by remember { mutableStateOf(initialTab) }
     var selectedPharmacyForDetails by remember { mutableStateOf<com.example.swastik.data.remote.dto.PharmacyDto?>(null) }
 
     LaunchedEffect(Unit) {
@@ -556,13 +557,23 @@ private fun ActiveOrderTrackingView(
 
         val destPoint = if (hasDestination) GeoPoint(destLat, destLng) else null
         val startPoint = pharmPoint ?: initialStartPoint
+        val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
 
-        if (startPoint != null && destPoint != null && mapRoute.isEmpty()) {
-            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
+        val shouldFetch = if (mapRoute.isEmpty()) {
+            true
+        } else if (agentPoint != null) {
+            val minDistance = mapRoute.minOfOrNull { it.distanceToAsDouble(agentPoint) } ?: 0.0
+            minDistance > 500.0
+        } else {
+            false
+        }
+
+        if (startPoint != null && destPoint != null && shouldFetch) {
+            val routeStart = if (mapRoute.isEmpty()) startPoint else (agentPoint ?: startPoint)
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(routeStart, destPoint)
             if (route.isNotEmpty()) {
                 mapRoute = route
-            } else {
-                val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+            } else if (mapRoute.isEmpty()) {
                 mapRoute = listOfNotNull(pharmPoint, agentPoint, destPoint).distinct()
             }
         }

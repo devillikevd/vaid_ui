@@ -75,7 +75,7 @@ const inferDosageFormCategory = (item = {}) => {
 const normalizeMedicineForClient = (medicine = {}) => ({
   ...medicine,
   therapeutic_category: medicine.category || null,
-  category: inferDosageFormCategory(medicine),
+  category: medicine.dosage_form || inferDosageFormCategory(medicine), // Use stored dosage_form, fallback to inference
 });
 
 const isDosageFormCategory = (category) =>
@@ -220,7 +220,7 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
   const [medicine, nearbyPharmacies] = await Promise.all([
     supabaseAdmin
       .from('medicines')
-      .select('id, name, generic_name')
+      .select('id, name, generic_name, dosage_form, image_url')
       .eq('id', medicineId)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -237,7 +237,7 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
 
   const { data: inventory, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price, pack_size, unit_type')
+    .select('id, pharmacy_id, medicine_id, name, generic_name, quantity, price, pack_size, unit_type, image_url')
     .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0);
 
@@ -261,6 +261,8 @@ const getMedicineAvailability = async (medicineId, latitude, longitude, radius =
       price: item.price,
       in_stock: (item.quantity || 0) > 0,
       distance: pharmacy.distance,
+      dosage_form: medicine.dosage_form,
+      image_url: medicine.image_url || item.image_url,
     };
 
     if (!existing || (candidate.price ?? Number.MAX_SAFE_INTEGER) < (existing.price ?? Number.MAX_SAFE_INTEGER)) {
@@ -282,7 +284,19 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
 
   const { data: inventoryItems, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .select('id, pharmacy_id, medicine_id, name, generic_name, category, price, quantity, pack_size, unit_type')
+    .select(`
+      id, 
+      pharmacy_id, 
+      medicine_id, 
+      name, 
+      generic_name, 
+      category, 
+      price, 
+      quantity, 
+      pack_size, 
+      unit_type, 
+      medicines!inner(dosage_form, image_url)
+    `)
     .in('pharmacy_id', pharmacyIds)
     .gt('quantity', 0)
     .limit(limit * 5);
@@ -296,11 +310,13 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
     if (!pharmacy) continue;
 
     const key = getInventoryDiscoveryKey(item);
+    // Use the global medicine's dosage_form if available, otherwise infer
+    const dosageForm = item.medicines?.dosage_form || inferDosageFormCategory(item);
     const candidate = {
       id: item.id,
       medicineId: item.medicine_id,
       name: getInventoryDisplayName(item),
-      category: inferDosageFormCategory(item),
+      category: dosageForm,
       therapeuticCategory: item.category || null,
       price: item.price || 0,
       pharmacyName: pharmacy.name,
@@ -308,6 +324,7 @@ const getNearbyMedicines = async (latitude, longitude, radius = 10, limit = 20) 
       inStock: (item.quantity || 0) > 0,
       quantity: item.quantity || 0,
       distance: pharmacy.distance,
+      image_url: item.medicines?.image_url || null,
     };
 
     const existing = uniqueMedicines.get(key);
@@ -499,16 +516,41 @@ const createCatalogRequest = async (patientUserId, requestData) => {
 
   // Broadcast to nearby pharmacies (15km radius)
   const nearbyPharmacies = await getNearbyActivePharmacies(latitude, longitude, 15);
-  const pharmacyOwnerIds = nearbyPharmacies.map(p => p.owner_id).filter(Boolean);
+  let targetOwnerIds = [];
 
-  if (pharmacyOwnerIds.length > 0) {
+  if (nearbyPharmacies.length > 0) {
+    const pharmacyIds = nearbyPharmacies.map(p => p.id);
+    
+    // Check which pharmacies have AT LEAST ONE of the requested medicines mapped
+    const { data: inventoryMatches } = await supabaseAdmin
+      .from('pharmacy_inventory')
+      .select('pharmacy_id')
+      .in('pharmacy_id', pharmacyIds)
+      .in('medicine_id', itemIds);
+
+    if (inventoryMatches && inventoryMatches.length > 0) {
+      // Find unique pharmacy IDs that have at least one matched item
+      const matchedPharmacyIds = [...new Set(inventoryMatches.map(inv => inv.pharmacy_id))];
+      targetOwnerIds = nearbyPharmacies
+        .filter(p => matchedPharmacyIds.includes(p.id))
+        .map(p => p.owner_id)
+        .filter(Boolean);
+    }
+
+    // Hybrid Fallback Rule: If no one has the stock mapped, broadcast to ALL nearby pharmacies
+    if (targetOwnerIds.length === 0) {
+      targetOwnerIds = nearbyPharmacies.map(p => p.owner_id).filter(Boolean);
+    }
+  }
+
+  if (targetOwnerIds.length > 0) {
     const enrichedRequest = {
       ...request,
       delivery_address: deliveryAddress,
       patient_phone: patientPhone,
-      nearby_pharmacy_count: nearbyPharmacies.length
+      nearby_pharmacy_count: targetOwnerIds.length
     };
-    eventEmitter.emitNewCatalogRequest(enrichedRequest, pharmacyOwnerIds);
+    eventEmitter.emitNewCatalogRequest(enrichedRequest, targetOwnerIds);
   }
 
   return request;

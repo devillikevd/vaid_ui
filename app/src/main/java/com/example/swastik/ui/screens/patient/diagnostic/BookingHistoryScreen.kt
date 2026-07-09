@@ -53,7 +53,7 @@ fun BookingHistoryScreen(
     val pagedBookings = viewModel.getPagedBookings().collectAsLazyPagingItems()
     
     // Only show active tracking map if an agent is actually assigned and tracking
-    val activeBooking = historyState.bookings.firstOrNull { it.status in listOf("assigned", "on_the_way") && !it.trackingToken.isNullOrEmpty() }
+    val activeBooking = historyState.bookings.firstOrNull { it.status in listOf("dispatched", "out_for_delivery") && !it.trackingToken.isNullOrEmpty() }
     var showHistoryOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -252,18 +252,20 @@ private fun ActiveBookingTrackingView(
     val context = androidx.compose.ui.platform.LocalContext.current
     val trackingState by trackingVm.state.collectAsState()
     
-    LaunchedEffect(booking.trackingToken) {
-        if (!booking.trackingToken.isNullOrEmpty()) {
-            trackingVm.startTracking(booking.trackingToken, 0.0, 0.0)
-        }
-    }
-
     val isWalkIn = booking.collectionType == "walk_in" || booking.collectionType == "other"
     val centerLat = booking.center?.latitude ?: 0.0
     val centerLng = booking.center?.longitude ?: 0.0
 
     var destLat by remember { mutableStateOf(if (isWalkIn) centerLat else 0.0) }
     var destLng by remember { mutableStateOf(if (isWalkIn) centerLng else 0.0) }
+    
+    var hasResolvedDestination by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(booking.trackingToken, hasResolvedDestination) {
+        if (!booking.trackingToken.isNullOrEmpty() && hasResolvedDestination) {
+            trackingVm.startTracking(booking.trackingToken, destLat, destLng)
+        }
+    }
 
     LaunchedEffect(isWalkIn) {
         if (!isWalkIn) {
@@ -273,11 +275,19 @@ private fun ActiveBookingTrackingView(
                     if (location != null) {
                         destLat = location.latitude
                         destLng = location.longitude
+                    } else {
+                        destLat = 20.5937
+                        destLng = 78.9629
                     }
+                    hasResolvedDestination = true
                 }
             } catch (e: SecurityException) {
-                // Ignore if permission denied
+                destLat = 20.5937
+                destLng = 78.9629
+                hasResolvedDestination = true
             }
+        } else {
+            hasResolvedDestination = true
         }
     }
 
@@ -356,20 +366,34 @@ private fun ActiveBookingTrackingView(
                     mapRoute = listOfNotNull(userPoint, centerPoint).distinct()
                 }
             }
+            return@LaunchedEffect
+        }
+        
+        // Agent tracking flow
+        if (initialAgentStartPoint == null && trackingState.agentLocation != null) {
+            initialAgentStartPoint = GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude)
+        }
+
+        val destPoint = GeoPoint(destLat, destLng)
+        val startPoint = centerPoint ?: initialAgentStartPoint
+        val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+        
+        val shouldFetch = if (mapRoute.isEmpty()) {
+            true
+        } else if (agentPoint != null) {
+            val minDistance = mapRoute.minOfOrNull { it.distanceToAsDouble(agentPoint) } ?: 0.0
+            minDistance > 500.0
         } else {
-            // Agent moving to user
-            if (initialAgentStartPoint == null && trackingState.agentLocation != null) {
-                initialAgentStartPoint = GeoPoint(trackingState.agentLocation!!.latitude, trackingState.agentLocation!!.longitude)
-            }
-            val startPoint = centerPoint ?: initialAgentStartPoint
-            if (startPoint != null && userPoint != null && mapRoute.isEmpty()) {
-                val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, userPoint)
-                if (route.isNotEmpty()) {
-                    mapRoute = route
-                } else {
-                    val agentPoint = trackingState.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
-                    mapRoute = listOfNotNull(centerPoint, agentPoint, userPoint).distinct()
-                }
+            false
+        }
+
+        if (startPoint != null && shouldFetch) {
+            val routeStart = if (mapRoute.isEmpty()) startPoint else (agentPoint ?: startPoint)
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(routeStart, destPoint)
+            if (route.isNotEmpty()) {
+                mapRoute = route
+            } else if (mapRoute.isEmpty()) {
+                mapRoute = listOfNotNull(centerPoint, agentPoint, destPoint).distinct()
             }
         }
     }

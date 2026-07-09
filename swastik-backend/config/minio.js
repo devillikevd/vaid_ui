@@ -52,6 +52,8 @@ const STORAGE_FOLDERS = {
   VIDEOS: 'videos',
   LICENSES: 'licenses',
   ENTITIES: 'entities',
+  MEDICINES: 'medicines',
+  MASTER_TESTS: 'master-tests',
   THUMBNAILS: 'thumbnails',
   MEDIUM: 'medium',
 
@@ -384,7 +386,7 @@ const uploadBuffer = async (objectName, buffer, contentType) => {
   };
 
   if (isImage) {
-    generateImageVariants(finalObjectName, buffer).catch((err) => {
+    generateImageVariants(finalObjectName, finalBuffer).catch((err) => {
       console.warn(`[Storage] Variant generation failed for ${finalObjectName}:`, err.message);
     });
   }
@@ -478,7 +480,15 @@ const uploadEntityImage = async (file, entityId, entityType) => {
   return uploadBuffer(objectName, file.buffer, file.mimetype);
 };
 
+const uploadMedicineImage = async (file, medicineId) => {
+  const objectName = generateObjectName(STORAGE_FOLDERS.MEDICINES, medicineId, file.originalname);
+  return uploadBuffer(objectName, file.buffer, file.mimetype);
+};
 
+const uploadMasterTestImage = async (file, testId) => {
+  const objectName = generateObjectName(STORAGE_FOLDERS.MASTER_TESTS, testId, file.originalname);
+  return uploadBuffer(objectName, file.buffer, file.mimetype);
+};
 
 const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpirySeconds || 3600) => {
   if (!isStorageAvailable()) throw new Error('File storage is not available');
@@ -497,6 +507,23 @@ const getPresignedUrl = async (objectName, expiry = storageConfig.signedUrlExpir
   return minioClient.presignedGetObject(storageConfig.bucketName, objectName, expiry);
 };
 
+// ==================== Global Signed URL Cache ====================
+// Avoids redundant S3 presigning calls for the same object across requests.
+// A 5-minute TTL is safe because signed URLs themselves last 24 hours.
+const SIGN_CACHE_TTL_MS = 5 * 60 * 1000;
+const SIGN_CACHE_MAX_SIZE = 500;
+const signedUrlGlobalCache = new Map(); // key: objectName, value: { url, expiresAt }
+
+const pruneSignedUrlCache = () => {
+  if (signedUrlGlobalCache.size <= SIGN_CACHE_MAX_SIZE) return;
+  const now = Date.now();
+  for (const [key, entry] of signedUrlGlobalCache) {
+    if (entry.expiresAt <= now || signedUrlGlobalCache.size > SIGN_CACHE_MAX_SIZE) {
+      signedUrlGlobalCache.delete(key);
+    }
+  }
+};
+
 const signStorageUrl = async (
   fileUrl,
   expiry = storageConfig.signedReadUrlExpirySeconds || storageConfig.signedUrlExpirySeconds || 86400,
@@ -509,13 +536,23 @@ const signStorageUrl = async (
   const objectName = extractObjectNameFromUrl(fileUrl);
   if (!objectName) return fileUrl;
 
+  // Per-request dedup (same URL appearing multiple times in one response)
   if (memo.has(objectName)) {
     return memo.get(objectName);
+  }
+
+  // Global process-wide cache with TTL
+  const cached = signedUrlGlobalCache.get(objectName);
+  if (cached && cached.expiresAt > Date.now()) {
+    memo.set(objectName, cached.url);
+    return cached.url;
   }
 
   try {
     const signedUrl = await getPresignedUrl(objectName, expiry);
     memo.set(objectName, signedUrl);
+    signedUrlGlobalCache.set(objectName, { url: signedUrl, expiresAt: Date.now() + SIGN_CACHE_TTL_MS });
+    pruneSignedUrlCache();
     return signedUrl;
   } catch (error) {
     console.warn(`[Storage] Failed to sign object URL for ${objectName}:`, error.message);
@@ -564,8 +601,21 @@ const signStorageUrlsInPayload = async (value, options = {}) => {
   }
 
   if (typeof value === 'object') {
+    // Automatically inject variant URLs for image_url and icon_url
+    const objectWithVariants = { ...value };
+    for (const key of ['image_url', 'icon_url']) {
+      if (typeof objectWithVariants[key] === 'string' && isStorageObjectUrl(objectWithVariants[key])) {
+        const objectName = extractObjectNameFromUrl(objectWithVariants[key]);
+        if (objectName && !objectName.startsWith(STORAGE_FOLDERS.THUMBNAILS) && !objectName.startsWith(STORAGE_FOLDERS.MEDIUM)) {
+          const baseName = objectName.replace(/\.[^.]+$/, '.webp');
+          objectWithVariants[`${key}_thumb`] = buildObjectUrl(`thumbnails/${baseName}`);
+          objectWithVariants[`${key}_medium`] = buildObjectUrl(`medium/${baseName}`);
+        }
+      }
+    }
+
     const entries = await Promise.all(
-      Object.entries(value).map(async ([key, nestedValue]) => {
+      Object.entries(objectWithVariants).map(async ([key, nestedValue]) => {
         if (skipKeys.has(key)) return [key, nestedValue];
         return [key, await signStorageUrlsInPayload(nestedValue, { expiry, memo, skipKeys })];
       })
@@ -603,6 +653,21 @@ const deleteFile = async (objectName) => {
   }
 
   await Promise.allSettled([...deleteTargets].map((target) => deleteObject(target)));
+};
+
+/**
+ * Safely delete the old image when a URL is replaced in the DB.
+ * Accepts a raw storageUrl; silently no-ops for null/empty/non-storage URLs.
+ */
+const deleteOldImageUrl = async (oldUrl) => {
+  if (!oldUrl || typeof oldUrl !== 'string') return;
+  const objectName = extractObjectNameFromUrl(oldUrl);
+  if (!objectName) return;
+  try {
+    await deleteFile(objectName);
+  } catch (err) {
+    console.warn(`[Storage] Failed to clean up old image ${objectName}:`, err.message);
+  }
 };
 
 const listFiles = async (folder, userId) => {
@@ -668,6 +733,8 @@ module.exports = {
   uploadVideo,
   uploadLicenseDocument,
   uploadEntityImage,
+  uploadMedicineImage,
+  uploadMasterTestImage,
 
   getPresignedUrl,
   getPresignedUploadUrl,
@@ -676,6 +743,7 @@ module.exports = {
   getPublicObjectUrl: buildObjectUrl,
   extractObjectNameFromUrl,
   deleteFile,
+  deleteOldImageUrl,
   listFiles,
   generateImageVariants,
   getThumbnailUrl,

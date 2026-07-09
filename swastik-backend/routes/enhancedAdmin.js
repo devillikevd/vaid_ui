@@ -9,7 +9,8 @@ const { validate } = require('../middleware/validate');
 const enhancedAdminService = require('../services/enhancedAdminService');
 const { authenticate } = require('../middleware/auth');
 const { requireRole, ROLES } = require('../middleware/rbac');
-const { asyncHandler } = require('../middleware/errorHandler');
+const { asyncHandler, ApiError } = require('../middleware/errorHandler');
+const { deleteOldImageUrl } = require('../config/minio');
 
 // All admin routes require authentication and admin role
 router.use(authenticate);
@@ -443,6 +444,7 @@ router.post('/medicines', [
         price: parseFloat(m.price) || 0,
         mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
         requires_prescription: m.requires_prescription === true || m.requires_prescription === 'true' || false,
+        image_url: m.image_url || null,
         is_active: true,
     };
 
@@ -484,9 +486,19 @@ router.put('/medicines/:id', [
     if (m.mrp !== undefined) updates.mrp = parseFloat(m.mrp) || 0;
     if (m.requires_prescription !== undefined) updates.requires_prescription = m.requires_prescription === true || m.requires_prescription === 'true';
     if (m.is_active !== undefined) updates.is_active = m.is_active === true || m.is_active === 'true';
+    if (m.image_url !== undefined) updates.image_url = m.image_url || null;
 
     if (Object.keys(updates).length === 0) {
         return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
+
+    // Clean up old image from storage if image_url is being replaced
+    if (updates.image_url !== undefined) {
+        const { data: existing } = await supabaseAdmin
+            .from('medicines').select('image_url').eq('id', id).maybeSingle();
+        if (existing?.image_url && existing.image_url !== updates.image_url) {
+            deleteOldImageUrl(existing.image_url).catch(() => {});
+        }
     }
 
     const { data, error } = await supabaseAdmin
@@ -539,12 +551,6 @@ router.post('/medicines/bulk', [
         generic_name: m.generic_name || m.genericname || m.genericName || null,
         manufacturer: m.manufacturer || null,
         category: m.category || null,
-        subcategory: m.subcategory || null,
-        description: m.description || null,
-        form: m.form || null,
-        dosage_form: m.dosage_form || m.dosageform || m.dosageForm || null,
-        strength: m.strength || null,
-        pack_size: m.pack_size || m.packsize || m.packSize || null,
         price: parseFloat(m.price) || 0,
         mrp: parseFloat(m.mrp) || parseFloat(m.price) || 0,
         requires_prescription: m.requires_prescription === 'true' || m.requiresprescription === 'true' || m.requiresPrescription === true || false,
@@ -605,6 +611,216 @@ router.get('/fleet', asyncHandler(async (req, res) => {
     }
 
     res.json({ success: true, data: ambulances });
+}));
+
+
+// ==================== MASTER DIAGNOSTIC TESTS ====================
+
+/**
+ * @route GET /api/admin/master-tests
+ * @desc Get all master diagnostic tests
+ */
+router.get('/master-tests', asyncHandler(async (req, res) => {
+    const { search, category, is_active, page = 1, limit = 20 } = req.query;
+    
+    let query = enhancedAdminService.rawSupabaseAdmin
+        .from('master_diagnostic_tests')
+        .select('*', { count: 'exact' });
+
+    if (search) {
+        query = query.ilike('name', `%${search}%`);
+    }
+    if (category) {
+        query = query.eq('category', category);
+    }
+    if (is_active !== undefined) {
+        query = query.eq('is_active', is_active === 'true');
+    }
+
+    const from = (parseInt(page) - 1) * parseInt(limit);
+    const to = from + parseInt(limit) - 1;
+
+    query = query.range(from, to).order('name', { ascending: true });
+
+    const { data, count, error } = await query;
+
+    if (error) throw new ApiError(500, error.message);
+
+    res.json({
+        success: true,
+        data,
+        pagination: {
+            total: count,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            totalPages: Math.ceil(count / parseInt(limit))
+        }
+    });
+}));
+
+/**
+ * @route POST /api/admin/master-tests
+ * @desc Create a new master diagnostic test
+ */
+router.post('/master-tests', [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('category').trim().notEmpty().withMessage('Category is required'),
+    body('price').optional().isNumeric(),
+], validate, asyncHandler(async (req, res) => {
+    const testData = req.body;
+    
+    const { data, error } = await enhancedAdminService.rawSupabaseAdmin
+        .from('master_diagnostic_tests')
+        .insert([testData])
+        .select()
+        .single();
+
+    if (error) {
+        if (error.code === '23505') {
+            throw new ApiError(400, 'Test with this name already exists');
+        }
+        throw new ApiError(500, error.message);
+    }
+
+    res.status(201).json({ success: true, data });
+}));
+
+/**
+ * @route PUT /api/admin/master-tests/:id
+ * @desc Update a master diagnostic test
+ */
+router.put('/master-tests/:id', validate, asyncHandler(async (req, res) => {
+    const m = req.body;
+
+    // Whitelist allowed fields to prevent mass-assignment attacks
+    const ALLOWED_FIELDS = ['name', 'category', 'description', 'sample_type',
+        'preparation_instructions', 'icon_url', 'price'];
+    const safeUpdates = {};
+    for (const key of ALLOWED_FIELDS) {
+        if (m[key] !== undefined) safeUpdates[key] = m[key];
+    }
+    // Support common camelCase aliases from web payloads
+    if (m.sampleType !== undefined) safeUpdates.sample_type = m.sampleType;
+    if (m.preparationInstructions !== undefined) safeUpdates.preparation_instructions = m.preparationInstructions;
+    if (m.iconUrl !== undefined) safeUpdates.icon_url = m.iconUrl;
+
+    if (Object.keys(safeUpdates).length === 0) {
+        return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
+
+    // Clean up old icon from storage if icon_url is being replaced
+    if (safeUpdates.icon_url !== undefined) {
+        const { data: existing } = await enhancedAdminService.rawSupabaseAdmin
+            .from('master_diagnostic_tests').select('icon_url').eq('id', req.params.id).maybeSingle();
+        if (existing?.icon_url && existing.icon_url !== safeUpdates.icon_url) {
+            deleteOldImageUrl(existing.icon_url).catch(() => {});
+        }
+    }
+
+    const { data, error } = await enhancedAdminService.rawSupabaseAdmin
+        .from('master_diagnostic_tests')
+        .update(safeUpdates)
+        .eq('id', req.params.id)
+        .select()
+        .single();
+
+    if (error) throw new ApiError(500, error.message);
+    if (!data) throw new ApiError(404, 'Test not found');
+
+    res.json({ success: true, data });
+}));
+
+/**
+ * @route DELETE /api/admin/master-tests/:id
+ * @desc Delete a master diagnostic test
+ */
+router.delete('/master-tests/:id', asyncHandler(async (req, res) => {
+    const { error } = await enhancedAdminService.rawSupabaseAdmin
+        .from('master_diagnostic_tests')
+        .delete()
+        .eq('id', req.params.id);
+
+    if (error) throw new ApiError(500, error.message);
+
+    res.json({ success: true, message: 'Test deleted successfully' });
+}));
+
+/**
+ * @route POST /api/admin/master-tests/bulk
+ * @desc Bulk import master diagnostic tests
+ */
+router.post('/master-tests/bulk', [
+    body('tests').isArray().withMessage('tests must be an array'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const { tests } = req.body;
+
+    const validTests = tests.filter(t => t.name).map(t => ({
+        name: t.name,
+        category: t.category || null,
+        description: t.description || null,
+        sample_type: t.sample_type || t.sampletype || t.sampleType || null,
+        preparation_instructions: t.preparation_instructions || t.preparationinstructions || t.preparationInstructions || null,
+        icon_url: t.icon_url || t.iconurl || t.iconUrl || null,
+    }));
+
+    if (validTests.length === 0) {
+        return res.status(400).json({ success: false, message: 'No valid tests found to import' });
+    }
+
+    const { data, error } = await enhancedAdminService.rawSupabaseAdmin
+        .from('master_diagnostic_tests')
+        .insert(validTests)
+        .select();
+
+    if (error) {
+        throw new ApiError(500, error.message);
+    }
+
+    res.status(201).json({ success: true, data, count: data?.length || 0 });
+}));
+
+// ==================== IMAGE HEALTH CHECK ====================
+
+/**
+ * @route GET /api/admin/image-health
+ * @desc Dashboard showing medicines/tests missing images
+ */
+router.get('/image-health', asyncHandler(async (req, res) => {
+    const { supabaseAdmin } = require('../config/supabase');
+
+    const [
+        { count: totalMedicines },
+        { count: medicinesWithImage },
+        { count: totalTests },
+        { count: testsWithIcon },
+    ] = await Promise.all([
+        supabaseAdmin.from('medicines').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabaseAdmin.from('medicines').select('*', { count: 'exact', head: true }).eq('is_active', true).not('image_url', 'is', null),
+        supabaseAdmin.from('master_diagnostic_tests').select('*', { count: 'exact', head: true }),
+        supabaseAdmin.from('master_diagnostic_tests').select('*', { count: 'exact', head: true }).not('icon_url', 'is', null),
+    ]);
+
+    const missingMedicineImages = (totalMedicines || 0) - (medicinesWithImage || 0);
+    const missingTestIcons = (totalTests || 0) - (testsWithIcon || 0);
+
+    res.json({
+        success: true,
+        data: {
+            medicines: {
+                total: totalMedicines || 0,
+                withImage: medicinesWithImage || 0,
+                missingImage: missingMedicineImages,
+                coveragePercent: totalMedicines ? Math.round((medicinesWithImage / totalMedicines) * 100) : 0,
+            },
+            tests: {
+                total: totalTests || 0,
+                withIcon: testsWithIcon || 0,
+                missingIcon: missingTestIcons,
+                coveragePercent: totalTests ? Math.round((testsWithIcon / totalTests) * 100) : 0,
+            },
+        },
+    });
 }));
 
 module.exports = router;

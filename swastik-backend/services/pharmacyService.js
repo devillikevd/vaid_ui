@@ -497,7 +497,7 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('pharmacy_inventory')
-    .select('*', { count: 'exact' })
+    .select('*, medicine:medicines(image_url)', { count: 'exact' })
     .eq('pharmacy_id', pharmacyId);
 
   if (filters.search) {
@@ -533,9 +533,19 @@ const getInventory = async (pharmacyId, filters = {}, page = 1, limit = 50) => {
 
   if (error) throw error;
 
+  // Map joined image_url to top level for frontend/app consumption
+  const mappedData = (data || []).map(row => {
+    const mapped = { ...row };
+    if (mapped.medicine && mapped.medicine.image_url) {
+      mapped.image_url = mapped.medicine.image_url;
+    }
+    delete mapped.medicine; // Clean up the nested object
+    return mapped;
+  });
+
   return {
-    data: data || [],
-    items: data || [], // Alias for route compatibility
+    data: mappedData,
+    items: mappedData, // Alias for route compatibility
     pagination: buildPagination(page, limit, count || 0),
   };
 };
@@ -580,28 +590,57 @@ const addBulkInventoryItems = async (pharmacyId, userId, itemsArray) => {
     throw new ApiError(400, 'Items array is empty or invalid');
   }
 
-  // To avoid hitting DB for every item's catalog match, we just use the provided names
-  // This is acceptable for bulk imports to be fast.
-  const recordsToInsert = itemsArray.map((itemData) => ({
-    pharmacy_id: pharmacyId,
-    name: itemData.name || itemData.generic_name || itemData.genericname || itemData.genericName || 'Unknown',
-    generic_name: itemData.generic_name || itemData.genericname || itemData.genericName || null,
-    category: itemData.category || 'Tablet',
-    quantity: parseInt(itemData.quantity) || 0,
-    price: parseFloat(itemData.price) || 0,
-    mrp: parseFloat(itemData.mrp) || parseFloat(itemData.price) || 0,
-    batch_number: itemData.batch_number || itemData.batchnumber || itemData.batchNumber || null,
-    requires_prescription: itemData.requires_prescription || itemData.requiresprescription || itemData.requiresPrescription || false,
-    manufacturer: itemData.manufacturer || null,
-    expiry_date: itemData.expiryDate || itemData.expirydate || itemData.expiry_date || null,
-    reorder_level: parseInt(itemData.reorder_level) || parseInt(itemData.minQuantity) || parseInt(itemData.minquantity) || 10,
-    pack_size: parseInt(itemData.packSize) || parseInt(itemData.packsize) || parseInt(itemData.pack_size) || 1,
-    unit_type: itemData.unitType || itemData.unittype || itemData.unit_type || 'unit',
+  // Resolve each item against master catalog in parallel
+  const resolvedItems = await Promise.all(itemsArray.map(async (itemData) => {
+    let catalogMedicine = await resolveCatalogMedicine({
+      medicineId: itemData.medicine_id,
+      name: itemData.name,
+      genericName: itemData.generic_name || itemData.genericname || itemData.genericName,
+    });
+
+    // If no match in master catalog, auto-create a basic entry so pharmacy gets a medicine_id link
+    // This ensures image, dosage_form etc. can be added later by admin
+    if (!catalogMedicine && itemData.name) {
+      const { data: newMedicine, error: createError } = await supabaseAdmin
+        .from('medicines')
+        .insert({
+          name: itemData.name,
+          generic_name: itemData.generic_name || itemData.genericname || itemData.genericName || null,
+          manufacturer: itemData.manufacturer || null,
+          category: itemData.category || null,
+          price: parseFloat(itemData.price) || 0,
+          mrp: parseFloat(itemData.mrp) || parseFloat(itemData.price) || 0,
+        })
+        .select('id, name, generic_name, requires_prescription')
+        .single();
+
+      if (!createError && newMedicine) {
+        catalogMedicine = newMedicine;
+      }
+    }
+
+    return {
+      pharmacy_id: pharmacyId,
+      medicine_id: catalogMedicine?.id || null,
+      name: itemData.name || catalogMedicine?.name || itemData.generic_name || itemData.genericname || itemData.genericName || 'Unknown',
+      generic_name: itemData.generic_name || itemData.genericname || itemData.genericName || catalogMedicine?.generic_name || null,
+      category: itemData.category || null,
+      quantity: parseInt(itemData.quantity) || 0,
+      price: parseFloat(itemData.price) || 0,
+      mrp: parseFloat(itemData.mrp) || parseFloat(itemData.price) || 0,
+      batch_number: itemData.batch_number || itemData.batchnumber || itemData.batchNumber || null,
+      requires_prescription: itemData.requires_prescription || itemData.requiresprescription || itemData.requiresPrescription || catalogMedicine?.requires_prescription || false,
+      manufacturer: itemData.manufacturer || null,
+      expiry_date: itemData.expiryDate || itemData.expirydate || itemData.expiry_date || null,
+      reorder_level: parseInt(itemData.reorder_level) || parseInt(itemData.minQuantity) || parseInt(itemData.minquantity) || 10,
+      pack_size: parseInt(itemData.packSize) || parseInt(itemData.packsize) || parseInt(itemData.pack_size) || 1,
+      unit_type: itemData.unitType || itemData.unittype || itemData.unit_type || 'unit',
+    };
   }));
 
   const { data, error } = await supabaseAdmin
     .from('pharmacy_inventory')
-    .insert(recordsToInsert)
+    .insert(resolvedItems)
     .select('*');
 
   if (error) throw error;

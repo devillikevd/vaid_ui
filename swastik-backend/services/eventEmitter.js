@@ -557,6 +557,8 @@ class AppEventEmitter extends EventEmitter {
       this.notifyUser(pharmacyOwnerId, 'inventory:updated', payload);
     }
     this.emitDistributed('inventory:updated', payload);
+    // Notify patient catalog refresh so MedicineScreen updates
+    this.emitProviderCatalogUpdated({ providerId: pharmacyId, providerType: 'pharmacy', status: 'inventory_updated' });
   }
 
   // ── Backward-compatible aliases used by tests/legacy callers ────

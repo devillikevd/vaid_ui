@@ -113,16 +113,10 @@ class GuardianService : Service(), SensorEventListener {
                     
                     // Fix for false positive GPS multipath drift (e.g., speed spikes indoors while stationary)
                     val isPoorAccuracy = !loc.hasAccuracy() || loc.accuracy > 40f
-                    val isStill = currentActivityType == DetectedActivity.STILL
                     val isVehicle = currentActivityType == DetectedActivity.IN_VEHICLE || currentActivityType == DetectedActivity.ON_BICYCLE
 
-                    if (isStill) {
-                        finalSpeedMps = 0f
-                    } else if (isPoorAccuracy && !isVehicle) {
-                        // Poor accuracy (indoors) + not driving = likely a GPS bounce. Clamp to 0.
-                        finalSpeedMps = 0f
-                    } else if (!isVehicle && finalSpeedMps > 10f) {
-                        // Not driving, but speed > 36 km/h. Unrealistic for walking/running. Clamp.
+                    // Clamp only if accuracy is extremely poor and speed is negligible (< 3 m/s) and we are not in a vehicle
+                    if (isPoorAccuracy && !isVehicle && finalSpeedMps < 3f) {
                         finalSpeedMps = 0f
                     }
 
@@ -154,7 +148,7 @@ class GuardianService : Service(), SensorEventListener {
         private const val CRASH_TUMBLE_THRESHOLD = 6.0f
         private const val CRASH_SPEED_KMH = 45f
         private const val FALL_MAX_SPEED_KMH = 12f
-        private const val FALL_MIN_IMPACT_DELTA = 38f
+        private const val FALL_MIN_IMPACT_DELTA = 48f
         private const val CRASH_MIN_IMPACT_DELTA = 55f
         private const val MIN_ALERT_INTERVAL_MS = 2 * 60 * 1000L
         private const val TABLE_LIGHT_LUX = 80f

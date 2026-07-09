@@ -240,6 +240,10 @@ class MedicineViewModel @Inject constructor(
         }
     }
 
+    fun refresh() {
+        refreshMedicineDiscovery()
+    }
+
     private fun refreshMedicineDiscovery() {
         val currentQuery = _uiState.value.searchQuery
         if (currentQuery.isBlank()) {

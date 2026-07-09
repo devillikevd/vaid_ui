@@ -287,7 +287,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 },
                 onNavigateToVitals = { /* handled internally or unused */ },
                 onNavigateToHealthCard = { navController.navigateSafe(Screen.HealthCard.route) },
-                onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) },
+                onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) },
                 onNavigateToDietTracker = { navController.navigateSafe(Screen.DietTracker.route) },
                 onNavigateToMedicineDetail = { medicineId ->
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
@@ -608,7 +608,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.MedicineCart.route)
                     },
                     onNavigateToOrders = {
-                        navController.navigateSafe(Screen.OrderHistory.route)
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
                     },
                     onNavigateToDiagnosticBooking = { centerId ->
                         navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
@@ -686,7 +686,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onBackClick = { navController.popBackStack() },
                     onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
                     onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
-                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
+                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) }
                 )
             }
         }
@@ -821,7 +821,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             PrescriptionsScreen(
                 initialAppointmentId = appointmentId,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
+                onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) }
             )
             }
         }
@@ -919,24 +919,32 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 MedicineCartScreen(
                     onBackClick = { navController.popBackStack() },
                     onOrderComplete = { navController.popBackStack() },
-                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.route) }
+                    onNavigateToOrderHistory = { tab -> navController.navigateSafe(Screen.OrderHistory.createRoute(tab)) }
                 )
             }
         }
 
         composable(
             route = Screen.OrderHistory.route,
+            arguments = listOf(
+                navArgument("tab") { 
+                    type = NavType.IntType 
+                    defaultValue = 0 
+                }
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "vaididea://orders" },
                 navDeepLink { uriPattern = "https://vaididea.in/orders" }
             )
-        ) {
+        ) { backStackEntry ->
+            val tab = backStackEntry.arguments?.getInt("tab") ?: 0
             AuthGuard(navController, tokenManager) {
                 OrderHistoryScreen(
                     onBackClick = { navController.popBackStack() },
                     onNavigateToCart = {
                         navController.navigateSafe(Screen.MedicineCart.route)
-                    }
+                    },
+                    initialTab = tab
                 )
             }
         }

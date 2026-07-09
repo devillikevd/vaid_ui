@@ -712,7 +712,7 @@ class AmbulanceService {
     const { data, error } = await supabaseAdmin
       .from('hospital_ambulance_invites')
       .select('*, hospital:hospitals(name, address, city)')
-      .eq('driver_email', user.email)
+      .ilike('driver_email', user.email)
       .eq('status', 'pending');
 
     if (error) throw error;
@@ -735,7 +735,7 @@ class AmbulanceService {
       .single();
 
     if (!invite) throw new ApiError(404, 'Invite not found or already processed');
-    if (invite.driver_email !== user.email) throw new ApiError(403, 'Unauthorized to accept this invite');
+    if (invite.driver_email.toLowerCase() !== user.email.toLowerCase()) throw new ApiError(403, 'Unauthorized to accept this invite');
 
     // Find the ambulance associated with this driver
     const { data: ambulance } = await supabaseAdmin
@@ -781,7 +781,7 @@ class AmbulanceService {
       .single();
 
     if (!invite) throw new ApiError(404, 'Invite not found or already processed');
-    if (invite.driver_email !== user.email) throw new ApiError(403, 'Unauthorized to reject this invite');
+    if (invite.driver_email.toLowerCase() !== user.email.toLowerCase()) throw new ApiError(403, 'Unauthorized to reject this invite');
 
     await supabaseAdmin
       .from('hospital_ambulance_invites')

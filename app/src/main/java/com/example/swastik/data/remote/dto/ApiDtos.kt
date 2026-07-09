@@ -272,7 +272,8 @@ data class NearbyMedicineDto(
     val pharmacyName: String?,
     val pharmacyId: String?,
     val inStock: Boolean,
-    val quantity: Int
+    val quantity: Int,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 data class EmergencyContactDto(
@@ -1113,7 +1114,8 @@ data class DiagnosticTestDto(
     @SerializedName("report_time") val reportTime: String?,
     @SerializedName("turnaround_hours") val turnaroundHours: Int?,
     @SerializedName("sample_type") val sampleType: String?,
-    @SerializedName("is_active") val isActive: Boolean?
+    @SerializedName("is_active") val isActive: Boolean?,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 data class DiagnosticBookingRequest(
@@ -1271,7 +1273,8 @@ data class PharmacyInventoryItemDto(
     val manufacturer: String?,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean?,
     @SerializedName("expiry_date") val expiryDate: String?,
-    val unit: String?
+    val unit: String?,
+    @SerializedName("image_url") val imageUrl: String? = null
 ) {
     /** Unified display name */
     val displayName: String get() = name ?: medicineName ?: "Unknown"

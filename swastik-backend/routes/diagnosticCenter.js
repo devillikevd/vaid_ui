@@ -66,6 +66,42 @@ router.get('/:id([0-9a-fA-F-]{36})/tests', asyncHandler(async (req, res) => {
     res.json({ success: true, ...result });
 }));
 
+// Search master diagnostic tests (Public)
+router.get('/master-tests', asyncHandler(async (req, res) => {
+    const { search, category, page = 1, limit = 20 } = req.query;
+    const { supabaseAdmin } = require('../config/supabase'); // Import locally
+
+    let query = supabaseAdmin
+        .from('master_diagnostic_tests')
+        .select('*', { count: 'exact' });
+
+    if (search) {
+        query = query.ilike('name', `%${search}%`);
+    }
+    if (category) {
+        query = query.eq('category', category);
+    }
+
+    const from = (parseInt(page) - 1) * parseInt(limit);
+    const to = from + parseInt(limit) - 1;
+
+    query = query.range(from, to).order('name');
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    res.json({
+        success: true,
+        data,
+        pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: count,
+            totalPages: Math.ceil(count / parseInt(limit)),
+        }
+    });
+}));
+
 // ==================== Protected Routes ====================
 router.use(authenticate);
 
@@ -227,18 +263,24 @@ router.get('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireAp
 router.post('/owner/tests', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const test = await diagnosticCenterService.addTest(center.id, req.body);
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitProviderCatalogUpdated({ providerId: center.id, providerType: 'diagnostic', status: 'test_added' });
     res.status(201).json({ success: true, data: test });
 }));
 
 router.put('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     const updated = await diagnosticCenterService.updateTest(center.id, req.params.testId, req.body);
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitProviderCatalogUpdated({ providerId: center.id, providerType: 'diagnostic', status: 'test_updated' });
     res.json({ success: true, data: updated });
 }));
 
 router.delete('/owner/tests/:testId', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     await diagnosticCenterService.deleteTest(center.id, req.params.testId);
+    const eventEmitter = require('../services/eventEmitter');
+    eventEmitter.emitProviderCatalogUpdated({ providerId: center.id, providerType: 'diagnostic', status: 'test_deleted' });
     res.json({ success: true, message: 'Test removed' });
 }));
 

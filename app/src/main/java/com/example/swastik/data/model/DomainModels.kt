@@ -324,7 +324,8 @@ data class Medicine(
     @SerializedName("stock_count") val stockCount: Int = 0,
     @SerializedName("nearby_pharmacy_id") val nearbyPharmacyId: String? = null,
     @SerializedName("nearby_pharmacy") val nearbyPharmacy: String? = null,
-    @SerializedName("pharmacy_distance") val pharmacyDistance: String? = null
+    @SerializedName("pharmacy_distance") val pharmacyDistance: String? = null,
+    @SerializedName("image_url") val imageUrl: String? = null
 )
 
 enum class MedicineCategory {

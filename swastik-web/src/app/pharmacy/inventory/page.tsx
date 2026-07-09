@@ -1,7 +1,7 @@
 'use client';
 
-import { useDeferredValue, useEffect, useState, useRef } from 'react';
-import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download, Upload } from 'lucide-react';
+import { useDeferredValue, useEffect, useState, useRef, useCallback } from 'react';
+import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download, Upload, ChevronDown } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,6 +11,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { useToast } from '@/components/ui/Toast';
 import { downloadCSV } from '@/utils/export';
 import { parseCSV } from '@/utils/csvParser';
+import { MasterCatalogSearch } from '@/components/pharmacy/MasterCatalogSearch';
 
 const PAGE_SIZE = 10;
 
@@ -48,11 +49,47 @@ export default function PharmacyInventoryPage() {
         expiryDate: '',
         minQuantity: '10',
         requiresPrescription: false,
+        medicine_id: '',
     });
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
     const toast = useToast();
+
+    // CSV Import state
+    const [showCsvMapping, setShowCsvMapping] = useState(false);
+    const [csvRawData, setCsvRawData] = useState<any[]>([]);
+    const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+    const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
+    const [csvPreview, setCsvPreview] = useState<any[]>([]);
+
+    const CSV_FIELDS = [
+        { key: 'name', label: 'Medicine Name *', required: true },
+        { key: 'quantity', label: 'Quantity (stock count)' },
+        { key: 'price', label: 'Selling Price' },
+        { key: 'mrp', label: 'MRP' },
+        { key: 'batchNumber', label: 'Batch Number' },
+        { key: 'expiryDate', label: 'Expiry Date' },
+    ];
+
+    const guessMapping = useCallback((headers: string[]): Record<string, string> => {
+        const mapping: Record<string, string> = {};
+        const headerLower = headers.map(h => h.toLowerCase().trim());
+        CSV_FIELDS.forEach(field => {
+            const fieldLower = field.key.toLowerCase();
+            const idx = headerLower.findIndex(h =>
+                h === fieldLower ||
+                h === field.key.toLowerCase().replace(/([A-Z])/g, '_$1').toLowerCase() ||
+                h.replace(/[\s_-]/g, '') === fieldLower.replace(/[\s_-]/g, '') ||
+                fieldLower.includes(h.replace(/[\s_-]/g, '')) ||
+                h.replace(/[\s_-]/g, '').includes(fieldLower)
+            );
+            if (idx !== -1) {
+                mapping[headers[idx]] = field.key;
+            }
+        });
+        return mapping;
+    }, []);
 
     useEffect(() => {
         void fetchInventory({
@@ -71,7 +108,7 @@ export default function PharmacyInventoryPage() {
         setForm({ 
             name: '', genericName: '', category: 'Tablet', quantity: '', packSize: '1', unitType: 'unit', 
             price: '', mrp: '', batchNumber: '', manufacturer: '', expiryDate: '', minQuantity: '10', 
-            requiresPrescription: false 
+            requiresPrescription: false, medicine_id: ''
         });
         setShowAdd(false);
         setShowAdvanced(false);
@@ -159,21 +196,46 @@ export default function PharmacyInventoryPage() {
                 return;
             }
 
-            // Optional: validate headers or map them strictly if needed
-            // For now, we trust the CSV has matching headers: name, quantity, price, etc.
-            setActionLoading('import');
-            const success = await addBulkInventoryItems(parsedData);
-            if (success) {
-                toast.success('Import Successful', `Successfully imported ${parsedData.length} items`);
-            }
-            setActionLoading(null);
-            
-            // Reset file input
+            const headers = Object.keys(parsedData[0]);
+            setCsvHeaders(headers);
+            setCsvRawData(parsedData);
+            setCsvPreview(parsedData.slice(0, 5));
+            setCsvMapping(guessMapping(headers));
+            setShowCsvMapping(true);
+
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         };
         reader.readAsText(file);
+    };
+
+    const handleConfirmCSVImport = async () => {
+        const mappedData = csvRawData.map(row => {
+            const mapped: any = {};
+            for (const [header, field] of Object.entries(csvMapping)) {
+                mapped[field] = row[header];
+            }
+            // Pass through any unmapped but potentially useful fields
+            const unmappedHeaders = csvHeaders.filter(h => !csvMapping[h]);
+            for (const h of unmappedHeaders) {
+                mapped[h] = row[h];
+            }
+            return mapped;
+        });
+
+        if (!mappedData.some(item => item.name)) {
+            toast.error('Missing Mapping', 'Please map at least the Medicine Name field');
+            return;
+        }
+
+        setActionLoading('import');
+        const success = await addBulkInventoryItems(mappedData);
+        if (success) {
+            toast.success('Import Successful', `Successfully imported ${mappedData.length} items`);
+        }
+        setActionLoading(null);
+        setShowCsvMapping(false);
     };
 
     const openEdit = (item: any) => {
@@ -190,9 +252,11 @@ export default function PharmacyInventoryPage() {
             batchNumber: item.batchNumber || '',
             manufacturer: item.manufacturer || '',
             expiryDate: item.expiryDate || '',
-            minQuantity: String(item.minQuantity ?? 10),
-            requiresPrescription: item.requiresPrescription ?? false,
+            minQuantity: String(item.minQuantity || 10),
+            requiresPrescription: item.requiresPrescription || false,
+            medicine_id: item.medicine_id || '',
         });
+        setEditId(item.id);
         setShowAdd(true);
     };
 
@@ -462,6 +526,96 @@ export default function PharmacyInventoryPage() {
                 itemsPerPage={PAGE_SIZE}
             />
             <ConfirmDialog {...dialogProps} />
+
+            {showCsvMapping && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <Card padding="lg" className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold">Map CSV Columns</h2>
+                            <button onClick={() => setShowCsvMapping(false)}><X className="h-5 w-5 text-gray-400" /></button>
+                        </div>
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            Map your CSV columns. Only <strong>Medicine Name</strong> is required — category, manufacturer, etc. auto-fill from the master catalog. {csvRawData.length} rows detected.
+                        </p>
+
+                        <div className="overflow-x-auto mb-4">
+                            <table className="w-full">
+                                <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">CSV Column</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Maps To</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sample Values</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {csvHeaders.map(header => (
+                                        <tr key={header}>
+                                            <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{header}</td>
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={csvMapping[header] || ''}
+                                                    onChange={(e) => setCsvMapping(prev => ({ ...prev, [header]: e.target.value }))}
+                                                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                >
+                                                    <option value="">— Skip —</option>
+                                                    {CSV_FIELDS.map(f => (
+                                                        <option key={f.key} value={f.key}>
+                                                            {f.label}{f.required ? ' *' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-[200px]">
+                                                {csvPreview.map((row, i) => (
+                                                    <span key={i} className="mr-2">{row[header]}{i < csvPreview.length - 1 ? ', ' : ''}</span>
+                                                ))}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Preview rows */}
+                        {csvPreview.length > 0 && (
+                            <div className="mb-4">
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Preview (first {csvPreview.length} rows)</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                                            <tr>
+                                                {csvHeaders.filter(h => csvMapping[h]).map(h => (
+                                                    <th key={h} className="px-2 py-1 text-left font-medium text-gray-500">{csvMapping[h]}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {csvPreview.map((row, i) => (
+                                                <tr key={i}>
+                                                    {csvHeaders.filter(h => csvMapping[h]).map(h => (
+                                                        <td key={h} className="px-2 py-1 text-gray-700 dark:text-gray-300">{row[h]}</td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowCsvMapping(false)}>Cancel</Button>
+                            <Button
+                                onClick={handleConfirmCSVImport}
+                                isLoading={actionLoading === 'import'}
+                                disabled={!csvHeaders.some(h => csvMapping[h] === 'name')}
+                            >
+                                Import {csvRawData.length} Rows
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

@@ -392,7 +392,8 @@ class MedicineRepository @Inject constructor(
         price = price?.toDouble(),
         category = category.name,
         description = description,
-        requiresPrescription = requiresPrescription
+        requiresPrescription = requiresPrescription,
+        imageUrl = imageUrl
     )
 
     private fun CachedMedicine.toDomainMedicine() = Medicine(
@@ -407,6 +408,7 @@ class MedicineRepository @Inject constructor(
         inStock = true,
         stockCount = 0,
         nearbyPharmacy = null,
-        pharmacyDistance = null
+        pharmacyDistance = null,
+        imageUrl = imageUrl
     )
 }

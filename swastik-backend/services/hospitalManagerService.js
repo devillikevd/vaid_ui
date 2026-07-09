@@ -930,15 +930,17 @@ const getAffiliatedAmbulances = async (hospitalId, userId) => {
 
 // Invite an ambulance driver
 const inviteAmbulance = async (hospitalId, userId, data) => {
-  const { email } = data;
+  let { email } = data;
   if (!email) throw new ApiError(400, 'Email is required');
+  
+  email = email.trim().toLowerCase();
 
   // Check if an invite is already pending for this email
   const { data: existingInvite } = await supabaseAdmin
     .from('hospital_ambulance_invites')
     .select('id')
     .eq('hospital_id', hospitalId)
-    .eq('driver_email', email)
+    .ilike('driver_email', email)
     .eq('status', 'pending')
     .maybeSingle();
 

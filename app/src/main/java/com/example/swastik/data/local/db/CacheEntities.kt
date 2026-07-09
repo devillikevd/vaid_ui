@@ -84,6 +84,7 @@ data class CachedMedicine(
     val category: String,
     val description: String?,
     val requiresPrescription: Boolean,
+    val imageUrl: String? = null,
     val cachedAt: Long = System.currentTimeMillis()
 )
 

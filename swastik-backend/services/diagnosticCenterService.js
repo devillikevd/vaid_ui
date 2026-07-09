@@ -364,7 +364,7 @@ const getTests = async (centerId, filters = {}, page = 1, limit = 50) => {
   const offset = (page - 1) * limit;
   let query = supabaseAdmin
     .from('diagnostic_tests')
-    .select('*', { count: 'exact' })
+    .select('*, master_test:master_diagnostic_tests(icon_url)', { count: 'exact' })
     .eq('center_id', centerId);
 
   if (filters.search) {
@@ -383,8 +383,19 @@ const getTests = async (centerId, filters = {}, page = 1, limit = 50) => {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
+
+  // Map joined icon_url to top level for frontend/app consumption
+  const mappedData = (data || []).map(row => {
+    const mapped = { ...row };
+    if (mapped.master_test && mapped.master_test.icon_url) {
+      mapped.icon_url = mapped.master_test.icon_url;
+    }
+    delete mapped.master_test; // Clean up nested object
+    return mapped;
+  });
+
   return {
-    data: data || [],
+    data: mappedData,
     pagination: buildPagination(page, limit, count || 0),
   };
 };
@@ -403,6 +414,7 @@ const addTest = async (centerId, testData) => {
       turnaround_hours: testData.turnaroundHours || testData.turnaround_hours || 24,
       sample_type: testData.sampleType || testData.sample_type || null,
       preparation_instructions: testData.preparationInstructions || testData.preparation_instructions,
+      master_test_id: testData.master_test_id || testData.masterTestId || null,
       is_active: true,
     })
     .select('*')
@@ -417,7 +429,7 @@ const updateTest = async (centerId, testId, updates) => {
   // Fix #16: Whitelist allowed fields instead of spreading raw updates
   const ALLOWED_TEST_FIELDS = [
     'name', 'category', 'description', 'price', 'discounted_price',
-    'turnaround_hours', 'sample_type', 'preparation_instructions', 'is_active',
+    'turnaround_hours', 'sample_type', 'preparation_instructions', 'is_active', 'master_test_id'
   ];
   const safeUpdates = {};
   for (const key of ALLOWED_TEST_FIELDS) {
@@ -428,6 +440,7 @@ const updateTest = async (centerId, testId, updates) => {
   if (updates.turnaroundHours !== undefined) safeUpdates.turnaround_hours = updates.turnaroundHours;
   if (updates.sampleType !== undefined) safeUpdates.sample_type = updates.sampleType;
   if (updates.preparationInstructions !== undefined) safeUpdates.preparation_instructions = updates.preparationInstructions;
+  if (updates.masterTestId !== undefined) safeUpdates.master_test_id = updates.masterTestId;
 
   safeUpdates.updated_at = new Date().toISOString();
 

@@ -8,10 +8,13 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -38,6 +41,7 @@ import com.example.swastik.ui.theme.SwastikPrimaryLight
 import com.example.swastik.ui.theme.SwastikPrimaryDark
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.ui.components.shimmerEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,6 +119,7 @@ fun PharmacyBookingFlow(
                         1 -> Step1Medicines(
                             items = inventoryItems,
                             selected = selectedItems,
+                            isInventoryLoading = isInventoryLoading,
                             onAdd = { item, qty -> selectedItems = selectedItems + (item to qty) },
                             onRemove = { item -> selectedItems = selectedItems.filter { it.first.id != item.id } },
                             onSearch = onInventorySearch,
@@ -197,6 +202,7 @@ fun StepIndicator(step: Int, currentStep: Int, label: String, modifier: Modifier
 fun Step1Medicines(
     items: List<PharmacyInventoryItemDto>,
     selected: List<Pair<PharmacyInventoryItemDto, Int>>,
+    isInventoryLoading: Boolean = false,
     onAdd: (PharmacyInventoryItemDto, Int) -> Unit,
     onRemove: (PharmacyInventoryItemDto) -> Unit,
     onSearch: (String) -> Unit,
@@ -316,12 +322,39 @@ fun Step1Medicines(
         Spacer(modifier = Modifier.height(16.dp))
         
         Box(modifier = Modifier.weight(1f)) {
-            if (items.isEmpty()) {
-                Text(stringResource(R.string.no_medicines_found_1), modifier = Modifier.align(Alignment.Center), color = Color.Gray)
-            } else {
-                LazyColumn(
+            if (isInventoryLoading && items.isEmpty()) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    items(6) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().height(220.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                                Box(modifier = Modifier.fillMaxWidth().height(100.dp).clip(RoundedCornerShape(8.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(modifier = Modifier.fillMaxWidth().height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(modifier = Modifier.fillMaxWidth(0.5f).height(14.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                            }
+                        }
+                    }
+                }
+            } else if (items.isEmpty()) {
+                Text(stringResource(R.string.no_medicines_found_1), modifier = Modifier.align(Alignment.Center), color = Color.Gray)
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     items(items) { item ->
@@ -371,44 +404,75 @@ fun Step1Medicines(
 
                         Card(
                             onClick = { if (isSelected) onRemove(item) else showQuantityDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                             shape = RoundedCornerShape(14.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = SwastikPrimaryLight
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
                         ) {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(12.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = SwastikPrimaryDark)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(stringResource(R.string.rupee_format, (item.price ?: 0).toString()), color = SwastikPrimary, fontWeight = FontWeight.SemiBold)
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(stringResource(R.string.pack_format, packSize.toString(), unitType), fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
-                                        Text("|", fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
-                                        Text(stringResource(R.string.stock_format, (item.quantity ?: 0).toString()), fontSize = 12.sp, color = SwastikPrimary.copy(alpha = 0.7f))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(100.dp)
+                                        .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
+                                ) {
+                                    if (!item.imageUrl.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = item.imageUrl,
+                                            contentDescription = item.displayName,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier.fillMaxSize().padding(8.dp)
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = item.displayName.take(1).uppercase(),
+                                                fontSize = 40.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SwastikPrimary.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                    if (isSelected) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Selected",
+                                            tint = SwastikPrimary,
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(4.dp)
+                                                .size(24.dp)
+                                                .background(Color.White, CircleShape)
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Outlined.AddCircleOutline,
+                                            contentDescription = "Add",
+                                            tint = SwastikPrimary,
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(4.dp)
+                                                .size(24.dp)
+                                                .background(Color.White, CircleShape)
+                                        )
                                     }
                                 }
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = "Selected",
-                                        tint = SwastikPrimary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Outlined.RadioButtonUnchecked,
-                                        contentDescription = "Not selected",
-                                        tint = SwastikPrimary.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(item.displayName, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SwastikPrimaryDark, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(stringResource(R.string.rupee_format, (item.price ?: 0).toString()), color = SwastikPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(stringResource(R.string.pack_format, packSize.toString(), unitType), fontSize = 11.sp, color = Color.Gray)
+                                Text(stringResource(R.string.stock_format, (item.quantity ?: 0).toString()), fontSize = 11.sp, color = if ((item.quantity ?: 0) > 0) Color(0xFF4CAF50) else Color.Red)
                             }
                         }
                     }

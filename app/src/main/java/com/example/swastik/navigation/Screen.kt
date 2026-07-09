@@ -112,7 +112,9 @@ sealed class Screen(val route: String) {
     object GuardianDashboard : Screen("guardian_dashboard")
     object HealthConnectSetup : Screen("health_connect_setup")
     object MedicineCart : Screen("medicine_cart")
-    object OrderHistory : Screen("order_history")
+    object OrderHistory : Screen("order_history?tab={tab}") {
+        fun createRoute(tab: Int) = "order_history?tab=$tab"
+    }
     object BookingHistory : Screen("booking_history")
     object DietTracker : Screen("diet_tracker")
     

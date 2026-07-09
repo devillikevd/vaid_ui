@@ -1,13 +1,14 @@
 'use client';
 
-import { useDeferredValue, useEffect, useState, useRef } from 'react';
-import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download, Upload, CheckCircle, XCircle } from 'lucide-react';
+import { useDeferredValue, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { Package, Search, Loader2, RefreshCw, Plus, Trash2, Edit2, AlertCircle, X, Download, Upload, CheckCircle, XCircle, Image } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
 import { downloadCSV } from '@/utils/export';
 import { parseCSV } from '@/utils/csvParser';
+import { uploadApi } from '@/lib/api';
 import { useAdminMedicinesStore, type Medicine } from '@/stores/adminMedicinesStore';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
@@ -40,14 +41,59 @@ export default function AdminMedicinesPage() {
 
     const [page, setPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
+    const [imageFilter, setImageFilter] = useState<'all' | 'noimage'>('all');
     const deferredSearchQuery = useDeferredValue(searchQuery.trim());
     const [showAdd, setShowAdd] = useState(false);
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
+    const filteredMedicines = useMemo(() =>
+        imageFilter === 'noimage' ? medicines.filter(m => !m.image_url) : medicines,
+        [medicines, imageFilter]
+    );
+
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
     const toast = useToast();
+
+    // CSV Import state
+    const [showCsvMapping, setShowCsvMapping] = useState(false);
+    const [csvRawData, setCsvRawData] = useState<any[]>([]);
+    const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+    const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
+    const [csvPreview, setCsvPreview] = useState<any[]>([]);
+
+    // Sirf essential fields for bulk import — baaki (dosage_form, strength, image etc.)
+    // admin add/edit form mein manually set karega per medicine
+    const CSV_FIELDS = [
+        { key: 'name', label: 'Medicine Name *', required: true },
+        { key: 'generic_name', label: 'Generic Name' },
+        { key: 'manufacturer', label: 'Manufacturer' },
+        { key: 'category', label: 'Category' },
+        { key: 'price', label: 'Price' },
+        { key: 'mrp', label: 'MRP' },
+        { key: 'requires_prescription', label: 'Requires Prescription (true/false)' },
+    ];
+
+    const guessMapping = useCallback((headers: string[]): Record<string, string> => {
+        const mapping: Record<string, string> = {};
+        const headerLower = headers.map(h => h.toLowerCase().trim());
+        CSV_FIELDS.forEach(field => {
+            const fieldLower = field.key.toLowerCase();
+            const idx = headerLower.findIndex(h =>
+                h === fieldLower ||
+                h.replace(/[\s_-]/g, '') === fieldLower.replace(/[\s_-]/g, '') ||
+                fieldLower.includes(h.replace(/[\s_-]/g, '')) ||
+                h.replace(/[\s_-]/g, '').includes(fieldLower)
+            );
+            if (idx !== -1) {
+                mapping[headers[idx]] = field.key;
+            }
+        });
+        return mapping;
+    }, []);
 
     const [form, setForm] = useState({
         name: '',
@@ -63,6 +109,8 @@ export default function AdminMedicinesPage() {
         price: '',
         mrp: '',
         requires_prescription: false,
+        image_url: '', // This will hold the signed URL for preview
+        image_storage_url: '', // This will hold the raw storage URL for saving
     });
 
     useEffect(() => {
@@ -77,7 +125,7 @@ export default function AdminMedicinesPage() {
         setForm({
             name: '', generic_name: '', manufacturer: '', category: '', subcategory: '',
             description: '', form: '', dosage_form: '', strength: '', pack_size: '',
-            price: '', mrp: '', requires_prescription: false,
+            price: '', mrp: '', requires_prescription: false, image_url: '', image_storage_url: '',
         });
         setShowAdd(false);
         setShowAdvanced(false);
@@ -99,10 +147,37 @@ export default function AdminMedicinesPage() {
             price: String(med.price || ''),
             mrp: String(med.mrp || ''),
             requires_prescription: med.requires_prescription || false,
+            image_url: med.image_url || '',
+            image_storage_url: med.image_url || '', // API sends signed URL, but it gets stripped on save below
         });
         setEditId(med.id);
         setShowAdd(true);
         setShowAdvanced(true);
+    };
+
+    const handleImageUpload = async (file: File) => {
+        setUploadingImage(true);
+        try {
+            const fields: Record<string, string> = {};
+            if (editId) fields.medicineId = editId;
+            const res = (await uploadApi.uploadFile(file, 'medicine', fields)) as any;
+            const json: any = await res.json();
+            if (json.success && (json.data?.storageUrl || json.data?.url)) {
+                setForm(c => ({ 
+                    ...c, 
+                    image_url: json.data.url || json.data.resolvedUrl || json.data.storageUrl, // preview
+                    image_storage_url: json.data.storageUrl // what gets saved to db
+                }));
+                toast.success('Image uploaded successfully');
+            } else {
+                toast.error('Upload failed', json.error || 'Could not upload image');
+            }
+        } catch {
+            toast.error('Upload failed', 'Network error while uploading image');
+        } finally {
+            setUploadingImage(false);
+        }
+        if (imageInputRef.current) imageInputRef.current.value = '';
     };
 
     const handleAdd = async () => {
@@ -122,6 +197,7 @@ export default function AdminMedicinesPage() {
             price: form.price ? parseFloat(form.price) : 0,
             mrp: form.mrp ? parseFloat(form.mrp) : undefined,
             requires_prescription: form.requires_prescription,
+            image_url: form.image_storage_url ? form.image_storage_url.trim().split('?')[0] : (form.image_url.trim().split('?')[0] || undefined),
         });
         setActionLoading(null);
         if (success) {
@@ -147,6 +223,7 @@ export default function AdminMedicinesPage() {
             price: form.price ? parseFloat(form.price) : 0,
             mrp: form.mrp ? parseFloat(form.mrp) : 0,
             requires_prescription: form.requires_prescription,
+            image_url: form.image_storage_url ? form.image_storage_url.trim().split('?')[0] : (form.image_url.trim().split('?')[0] || null),
         });
         setActionLoading(null);
         if (success) {
@@ -186,18 +263,45 @@ export default function AdminMedicinesPage() {
                 return;
             }
 
-            setActionLoading('import');
-            const success = await addBulkMedicines(parsedData);
-            if (success) {
-                toast.success('Import Successful', `Successfully imported ${parsedData.length} medicines into the global catalog.`);
-            }
-            setActionLoading(null);
+            const headers = Object.keys(parsedData[0]);
+            setCsvHeaders(headers);
+            setCsvRawData(parsedData);
+            setCsvPreview(parsedData.slice(0, 5));
+            setCsvMapping(guessMapping(headers));
+            setShowCsvMapping(true);
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         };
         reader.readAsText(file);
+    };
+
+    const handleConfirmCSVImport = async () => {
+        const mappedData = csvRawData.map(row => {
+            const mapped: any = {};
+            for (const [header, field] of Object.entries(csvMapping)) {
+                mapped[field] = row[header];
+            }
+            const unmappedHeaders = csvHeaders.filter(h => !csvMapping[h]);
+            for (const h of unmappedHeaders) {
+                mapped[h] = row[h];
+            }
+            return mapped;
+        });
+
+        if (!mappedData.some(item => item.name)) {
+            toast.error('Missing Mapping', 'Please map at least the Medicine Name field');
+            return;
+        }
+
+        setActionLoading('import');
+        const success = await addBulkMedicines(mappedData);
+        if (success) {
+            toast.success('Import Successful', `Successfully imported ${mappedData.length} medicines into the global catalog.`);
+        }
+        setActionLoading(null);
+        setShowCsvMapping(false);
     };
 
     if (loading && medicines.length === 0) {
@@ -245,12 +349,6 @@ export default function AdminMedicinesPage() {
                             { key: 'generic_name', label: 'generic_name' },
                             { key: 'manufacturer', label: 'manufacturer' },
                             { key: 'category', label: 'category' },
-                            { key: 'subcategory', label: 'subcategory' },
-                            { key: 'description', label: 'description' },
-                            { key: 'form', label: 'form' },
-                            { key: 'dosage_form', label: 'dosage_form' },
-                            { key: 'strength', label: 'strength' },
-                            { key: 'pack_size', label: 'pack_size' },
                             { key: 'price', label: 'price' },
                             { key: 'mrp', label: 'mrp' },
                             { key: 'requires_prescription', label: 'requires_prescription' },
@@ -358,6 +456,47 @@ export default function AdminMedicinesPage() {
                                         <Input label="Pack Size" value={form.pack_size} onChange={(e) => setForm(c => ({ ...c, pack_size: e.target.value }))} placeholder="e.g. 10 tablets" />
                                     </div>
                                     <Input label="Description" value={form.description} onChange={(e) => setForm(c => ({ ...c, description: e.target.value }))} placeholder="Brief description of the medicine" />
+                                    <div>
+                                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Medicine Image</label>
+                                        <div className="flex items-center gap-3">
+                                            {form.image_url ? (
+                                                <div className="relative group">
+                                                    <img src={form.image_url} alt="Preview" className="h-16 w-16 rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setForm(c => ({ ...c, image_url: '', image_storage_url: '' }))}
+                                                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                                                    <Image className="h-6 w-6 text-gray-400" />
+                                                </div>
+                                            )}
+                                            <div className="flex flex-col gap-1">
+                                                <input
+                                                    type="file"
+                                                    ref={imageInputRef}
+                                                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImageUpload(f); }}
+                                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                                    className="hidden"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => imageInputRef.current?.click()}
+                                                    isLoading={uploadingImage}
+                                                    leftIcon={!uploadingImage ? <Upload className="h-4 w-4" /> : undefined}
+                                                >
+                                                    {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                                                </Button>
+                                                <span className="text-xs text-gray-400">JPEG, PNG, GIF, WebP</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className="flex items-center gap-2 pt-2">
                                         <input
                                             type="checkbox"
@@ -383,8 +522,29 @@ export default function AdminMedicinesPage() {
                 </div>
             )}
 
-            {/* Search */}
+            {/* Search + Filters */}
             <div className="flex items-center gap-4">
+                <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
+                    {([
+                        { key: 'all', label: `All (${medicines.length})` },
+                        { key: 'noimage', label: `Missing Images (${medicines.filter(m => !m.image_url).length})` },
+                    ] as const).map((t) => (
+                        <button
+                            key={t.key}
+                            onClick={() => setImageFilter(t.key as 'all' | 'noimage')}
+                            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                imageFilter === t.key
+                                    ? 'bg-white text-gray-900 shadow dark:bg-gray-900 dark:text-gray-100'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                            }`}
+                        >
+                            {t.key === 'noimage' && (
+                                <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1.5 align-middle" />
+                            )}
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
                 <div className="flex-1">
                     <Input
                         placeholder="Search by name, generic name, or manufacturer..."
@@ -403,6 +563,7 @@ export default function AdminMedicinesPage() {
                         <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
                             <tr>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">Medicine</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">Image</th>
                                 <th className="hidden px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400 sm:table-cell">Category</th>
                                 <th className="hidden px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400 md:table-cell">Form</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">Price</th>
@@ -412,9 +573,11 @@ export default function AdminMedicinesPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                            {medicines.length === 0 ? (
-                                <tr><td colSpan={7} className="py-8 text-center text-gray-500 dark:text-gray-400">No medicines found in the catalog.</td></tr>
-                            ) : medicines.map((med) => (
+                            {filteredMedicines.length === 0 ? (
+                                <tr><td colSpan={8} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                                    {imageFilter === 'noimage' ? 'All medicines have images! 🎉' : 'No medicines found in the catalog.'}
+                                </td></tr>
+                            ) : filteredMedicines.map((med) => (
                                 <tr key={med.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
@@ -434,6 +597,15 @@ export default function AdminMedicinesPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {med.image_url ? (
+                                            <img src={med.image_url} alt={med.name} className="h-10 w-10 rounded object-cover border border-gray-200 dark:border-gray-700" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class=\"text-xs text-red-500\">Broken</span>'; }} />
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                                                <XCircle className="h-3 w-3" /> No Image
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="hidden px-4 py-3 text-sm text-gray-600 dark:text-gray-400 sm:table-cell">
                                         {med.category ? (
@@ -494,6 +666,95 @@ export default function AdminMedicinesPage() {
                 itemsPerPage={PAGE_SIZE}
             />
             <ConfirmDialog {...dialogProps} />
+
+            {showCsvMapping && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <Card padding="lg" className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold">Map CSV Columns</h2>
+                            <button onClick={() => setShowCsvMapping(false)}><X className="h-5 w-5 text-gray-400" /></button>
+                        </div>
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            Map your CSV columns to medicine catalog fields. Only <strong>Medicine Name</strong> is required. {csvRawData.length} rows detected.
+                        </p>
+
+                        <div className="overflow-x-auto mb-4">
+                            <table className="w-full">
+                                <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">CSV Column</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Maps To</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sample Values</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                    {csvHeaders.map(header => (
+                                        <tr key={header}>
+                                            <td className="px-3 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{header}</td>
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={csvMapping[header] || ''}
+                                                    onChange={(e) => setCsvMapping(prev => ({ ...prev, [header]: e.target.value }))}
+                                                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                >
+                                                    <option value="">— Skip —</option>
+                                                    {CSV_FIELDS.map(f => (
+                                                        <option key={f.key} value={f.key}>
+                                                            {f.label}{f.required ? ' *' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                            <td className="px-3 py-2 text-sm text-gray-500 truncate max-w-[200px]">
+                                                {csvPreview.map((row, i) => (
+                                                    <span key={i} className="mr-2">{row[header]}{i < csvPreview.length - 1 ? ', ' : ''}</span>
+                                                ))}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {csvPreview.length > 0 && (
+                            <div className="mb-4">
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Preview (first {csvPreview.length} rows)</h3>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                                            <tr>
+                                                {csvHeaders.filter(h => csvMapping[h]).map(h => (
+                                                    <th key={h} className="px-2 py-1 text-left font-medium text-gray-500">{csvMapping[h]}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {csvPreview.map((row, i) => (
+                                                <tr key={i}>
+                                                    {csvHeaders.filter(h => csvMapping[h]).map(h => (
+                                                        <td key={h} className="px-2 py-1 text-gray-700 dark:text-gray-300">{row[h]}</td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowCsvMapping(false)}>Cancel</Button>
+                            <Button
+                                onClick={handleConfirmCSVImport}
+                                isLoading={actionLoading === 'import'}
+                                disabled={!csvHeaders.some(h => csvMapping[h] === 'name')}
+                            >
+                                Import {csvRawData.length} Rows
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

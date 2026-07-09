@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
@@ -24,13 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import com.example.swastik.ui.screens.patient.components.shimmerEffect
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Medicine
@@ -38,6 +41,8 @@ import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.data.model.MedicineCategory
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPrimary
+import com.example.swastik.ui.theme.SwastikPrimaryLight
+import coil.compose.AsyncImage
 import java.util.Locale
 
 /**
@@ -85,6 +90,20 @@ fun MedicineScreen(
         )
     }
 
+    val isRefreshing = state.isLoading
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(pullToRefreshState) {
+            viewModel.refresh()
+        }
+    }
+    LaunchedEffect(isRefreshing) {
+        if (!isRefreshing && pullToRefreshState.isRefreshing) {
+            kotlinx.coroutines.delay(250)
+            pullToRefreshState.endRefresh()
+        }
+    }
+
     Scaffold(
         containerColor = bgColor,
         bottomBar = {
@@ -102,111 +121,144 @@ fun MedicineScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
-            // Header with User Profile
-            MedicineScreenHeader(
-                userName = userName,
-                onBackClick = onBackClick,
-                onCartClick = onNavigateToCart,
-                cartItemCount = viewModel.cartState.collectAsState().value.totalItems
-            )
-
-            // Main Content Card
-            Card(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 8.dp),
-                shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Column(
+                // Header with User Profile
+                MedicineScreenHeader(
+                    userName = userName,
+                    onBackClick = onBackClick,
+                    onCartClick = onNavigateToCart,
+                    cartItemCount = viewModel.cartState.collectAsState().value.totalItems
+                )
+
+                // Main Content Card
+                Card(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 24.dp)
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
-                    // Title
-                    Text(
-                        text = stringResource(id = R.string.medicine_finder),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 24.dp)
+                    ) {
+                        // Title
+                        Text(
+                            text = stringResource(id = R.string.medicine_finder),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    // Voice search launcher
-                    val speechLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.StartActivityForResult()
-                    ) { result ->
-                        if (result.resultCode == Activity.RESULT_OK) {
-                            val spokenText = result.data
-                                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                                ?.firstOrNull() ?: ""
-                            if (spokenText.isNotBlank()) {
-                                searchQuery = spokenText
-                                viewModel.searchMedicines(spokenText)
+                        // Voice search launcher
+                        val speechLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.StartActivityForResult()
+                        ) { result ->
+                            if (result.resultCode == Activity.RESULT_OK) {
+                                val spokenText = result.data
+                                    ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                                    ?.firstOrNull() ?: ""
+                                if (spokenText.isNotBlank()) {
+                                    searchQuery = spokenText
+                                    viewModel.searchMedicines(spokenText)
+                                }
                             }
                         }
-                    }
 
-                    // Search Bar
-                    MedicineSearchBar(
-                        searchQuery = searchQuery,
-                        onSearchChange = {
-                            searchQuery = it
-                            viewModel.searchMedicines(it)
-                        },
-                        onVoiceSearch = {
-                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a medicine name...")
-                            }
-                            try { speechLauncher.launch(intent) } catch (_: Exception) { }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Category Filter
-                    MedicineCategoryFilter(
-                        selectedCategory = state.selectedCategory,
-                        onCategorySelected = { viewModel.setCategory(it) }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Medicine List
-                    if (state.isLoading) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            repeat(5) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(100.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .shimmerEffect()
-                                )
-                            }
-                        }
-                    } else if (filteredMedicines.isEmpty() && filteredNearbyMedicines.isEmpty()) {
-                        MedicineEmptyState(
-                            onResetFilters = {
-                                searchQuery = ""
-                                viewModel.setCategory(null)
-                                viewModel.loadPopularMedicines()
+                        // Search Bar
+                        MedicineSearchBar(
+                            searchQuery = searchQuery,
+                            onSearchChange = {
+                                searchQuery = it
+                                viewModel.searchMedicines(it)
+                            },
+                            onVoiceSearch = {
+                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a medicine name...")
+                                }
+                                try { speechLauncher.launch(intent) } catch (_: Exception) { }
                             }
                         )
-                    } else {
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Category Filter
+                        MedicineCategoryFilter(
+                            selectedCategory = state.selectedCategory,
+                            onCategorySelected = { viewModel.setCategory(it) }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Error State
+                        if (state.error != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 20.dp, vertical = 32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    Icons.Outlined.ErrorOutline,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = state.error ?: "",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Button(
+                                    onClick = { viewModel.refresh() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                                ) {
+                                    Text(stringResource(R.string.retry))
+                                }
+                            }
+                        } else if (state.isLoading) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                repeat(5) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(100.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .shimmerEffect()
+                                    )
+                                }
+                            }
+                        } else if (filteredMedicines.isEmpty() && filteredNearbyMedicines.isEmpty()) {
+                            MedicineEmptyState(
+                                onResetFilters = {
+                                    searchQuery = ""
+                                    viewModel.setCategory(null)
+                                    viewModel.loadPopularMedicines()
+                                }
+                            )
+                        } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
@@ -266,11 +318,19 @@ fun MedicineScreen(
                             }
                         }
                     }
+                    }
                 }
-            }
-        }
-    }
-}
+            } // closes Column (151)
+        } // closes Card (143)
+    } // closes Column (130)
+
+        PullToRefreshContainer(
+            state = pullToRefreshState,
+            modifier = Modifier,
+            containerColor = SwastikPrimaryLight,
+        contentColor = SwastikPrimary
+    )
+} // closes Box (124)
 
 // ==================== HEADER ====================
 @Composable
@@ -596,6 +656,34 @@ private fun NearbyMedicineCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Medicine Image
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                if (!nearbyMed.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = nearbyMed.imageUrl,
+                        contentDescription = "Medicine image",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(getMedicineEmoji(nearbyMed.category ?: "tablet"), fontSize = 48.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

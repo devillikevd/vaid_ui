@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.sp
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.ui.theme.SwastikPrimary
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import com.example.swastik.R
+import coil.compose.AsyncImage
 
 /**
  * Reusable components for Medicine screens
@@ -52,17 +54,36 @@ fun MedicineCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Medicine Icon and Name
+            // Medicine Icon/Image and Name
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Medicine Image or Emoji fallback
                 Box(
                     modifier = Modifier
                         .size(50.dp)
-                        .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(getMedicineEmoji(medicine.category.name), fontSize = 24.sp)
+                    if (!medicine.imageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = medicine.imageUrl,
+                            contentDescription = "Medicine image",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(getMedicineEmoji(medicine.category.name), fontSize = 24.sp)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -147,14 +168,32 @@ fun CompactMedicineItem(
             .padding(vertical = 12.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Medicine Icon
+        // Medicine Image or Icon
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                .clip(RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(getMedicineEmoji(medicine.category.name), fontSize = 20.sp)
+            if (!medicine.imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = medicine.imageUrl,
+                    contentDescription = "Medicine image",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(10.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(getMedicineEmoji(medicine.category.name), fontSize = 20.sp)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))

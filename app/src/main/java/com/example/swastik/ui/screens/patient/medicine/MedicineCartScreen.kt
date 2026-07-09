@@ -89,7 +89,7 @@ private fun CheckoutStepper(currentStep: CheckoutStep) {
 fun MedicineCartScreen(
     onBackClick: () -> Unit,
     onOrderComplete: () -> Unit = {},
-    onNavigateToOrderHistory: () -> Unit = {},
+    onNavigateToOrderHistory: (Int) -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel(),
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = hiltViewModel()
 ) {
@@ -114,7 +114,7 @@ fun MedicineCartScreen(
         AlertDialog(
             onDismissRequest = {
                 viewModel.resetOrderSuccess()
-                onNavigateToOrderHistory()
+                onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(48.dp)) },
             title = { Text(if (isGlobalRequest) "Request Broadcasted!" else stringResource(R.string.order_placed), fontWeight = FontWeight.Bold) },
@@ -192,7 +192,7 @@ fun MedicineCartScreen(
                 Button(
                     onClick = {
                         viewModel.resetOrderSuccess()
-                        onNavigateToOrderHistory()
+                        onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
                 ) { Text(stringResource(R.string.done)) }
@@ -214,7 +214,7 @@ fun MedicineCartScreen(
                     TextButton(
                         onClick = {
                             viewModel.resetOrderSuccess()
-                            onNavigateToOrderHistory()
+                            onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
                         }
                     ) {
                         Text(stringResource(R.string.view_my_orders))

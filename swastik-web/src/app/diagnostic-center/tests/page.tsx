@@ -18,6 +18,8 @@ import { Input } from '@/components/ui/Input';
 import { Pagination } from '@/components/ui/Pagination';
 import { useDiagnosticCenterStore, type DiagnosticTest } from '@/stores/diagnosticCenterStore';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { DiagnosticMasterCatalogSearch } from '@/components/diagnostic-center/DiagnosticMasterCatalogSearch';
+import { useToast } from '@/components/ui/Toast';
 
 const DEFAULT_CATEGORIES = [
     'Pathology',
@@ -40,6 +42,7 @@ type TestFormState = {
     sample_type: string;
     preparation_instructions: string;
     is_active: boolean;
+    master_test_id: string;
 };
 
 const emptyForm = (): TestFormState => ({
@@ -52,6 +55,7 @@ const emptyForm = (): TestFormState => ({
     sample_type: '',
     preparation_instructions: '',
     is_active: true,
+    master_test_id: '',
 });
 
 export default function DiagnosticCenterTestsPage() {
@@ -76,6 +80,7 @@ export default function DiagnosticCenterTestsPage() {
     const [form, setForm] = useState<TestFormState>(emptyForm);
     const [saving, setSaving] = useState(false);
     const pageSize = 10;
+    const toast = useToast();
 
     useEffect(() => {
         const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -131,6 +136,7 @@ export default function DiagnosticCenterTestsPage() {
             sample_type: test.sample_type || '',
             preparation_instructions: test.preparation_instructions || '',
             is_active: test.is_active,
+            master_test_id: test.master_test_id || '',
         });
         setShowForm(true);
     };
@@ -149,6 +155,7 @@ export default function DiagnosticCenterTestsPage() {
             sample_type: form.sample_type.trim() || undefined,
             preparation_instructions: form.preparation_instructions.trim() || undefined,
             is_active: form.is_active,
+            master_test_id: form.master_test_id || undefined,
         };
 
         const success = editingTest
@@ -274,13 +281,32 @@ export default function DiagnosticCenterTestsPage() {
             {showForm && (
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle>{editingTest ? 'Edit Test' : 'Add Test'}</CardTitle>
+                        <CardTitle>{editingTest ? 'Edit Test' : 'Add New Test'}</CardTitle>
                         <Button variant="outline" size="sm" onClick={resetForm}>
                             Cancel
                         </Button>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {!editingTest && (
+                            <DiagnosticMasterCatalogSearch
+                                onSelect={(test) => {
+                                    setForm(prev => ({
+                                        ...prev,
+                                        master_test_id: test.id,
+                                        name: test.name,
+                                        category: test.category || 'Other',
+                                        description: test.description || '',
+                                        price: String(test.suggested_price || ''),
+                                        preparation_instructions: test.preparation_instructions || '',
+                                        turnaround_hours: String(test.turnaround_hours || 24),
+                                        sample_type: test.sample_type || '',
+                                    }));
+                                    toast.success('Auto-filled from Master Catalog!');
+                                }}
+                            />
+                        )}
+                        <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(); }} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input label="Test Name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
                             <Input label="Category" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} />
                             <Input label="Price (₹)" type="number" value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} />
@@ -319,9 +345,11 @@ export default function DiagnosticCenterTestsPage() {
                         </div>
                         <div className="mt-4">
                             <Button onClick={handleSubmit} isLoading={saving} disabled={!form.name.trim() || !form.category.trim() || !form.price.trim()}>
-                                {editingTest ? 'Save Changes' : 'Create Test'}
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                {editingTest ? 'Update Test' : 'Save Test'}
                             </Button>
                         </div>
+                        </form>
                     </CardContent>
                 </Card>
             )}

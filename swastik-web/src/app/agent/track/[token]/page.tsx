@@ -164,9 +164,9 @@ export default function AgentTrackingPage({ params }: { params: Promise<{ token:
                     <div className="flex items-start gap-3">
                         <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
                         <div>
-                            <p className="font-medium text-gray-900 dark:text-gray-100">Patient Address</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{order.patient_name ? `${order.patient_name}'s Address` : 'Patient Address'}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{addressStr}</p>
-                            {addressPhone && <p className="text-sm font-medium text-purple-600 mt-2">📞 {addressPhone}</p>}
+                            {(order.patient_phone || addressPhone) && <p className="text-sm font-medium text-purple-600 mt-2">📞 {order.patient_phone || addressPhone}</p>}
                         </div>
                     </div>
 

@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
@@ -38,6 +40,7 @@ import com.example.swastik.ui.viewmodel.DiagnosticViewModel
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import com.example.swastik.ui.components.shimmerEffect
 import androidx.compose.material3.MaterialTheme
 
 private val SwastikPrimary = Color(0xFF00695C)
@@ -167,8 +170,28 @@ fun DiagnosticBookingScreen(
             )
 
             if (uiState.isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = SwastikPrimary)
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    repeat(5) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().height(100.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Row(modifier = Modifier.fillMaxSize().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(8.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(modifier = Modifier.fillMaxWidth(0.4f).height(12.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                }
+                            }
+                        }
+                    }
                 }
             } else if (uiState.selectedCenter != null) {
                 // Show tests for selected center
@@ -621,6 +644,34 @@ private fun TestCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!test.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = test.imageUrl,
+                        contentDescription = test.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().padding(4.dp)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = test.name.take(1).uppercase(),
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SwastikPrimary.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(test.name, fontWeight = FontWeight.SemiBold, color = SwastikPrimaryDark)
                 test.category?.let { Text(it, color = SwastikPrimary.copy(alpha = 0.7f), fontSize = 12.sp) }

@@ -26,6 +26,8 @@ const {
     uploadVideo,
     uploadLicenseDocument,
     uploadEntityImage,
+    uploadMedicineImage,
+    uploadMasterTestImage,
 
     getPresignedUrl,
     signStorageUrl,
@@ -288,6 +290,62 @@ router.post('/entity', authenticateToken, requireRole(ROLES.HOSPITAL_OWNER, ROLE
         const result = await uploadEntityImage(req.file, entityId, entityType);
 
         // Include thumbnail + medium variant URLs for bandwidth optimization
+        const variants = result.objectName ? getImageVariants(result.objectName) : {};
+
+        res.json({
+            success: true,
+            data: await buildUploadResponseData(result, variants),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ==================== MEDICINE IMAGES ====================
+
+/**
+ * @route POST /api/uploads/medicine
+ * @desc Upload medicine catalog image
+ * @access Private (Admin only)
+ */
+router.post('/medicine', authenticateToken, requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN), upload.single('file'), validateMagicBytes(ALLOWED_IMAGE_MIMES), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            throw new ApiError(400, 'No file uploaded');
+        }
+
+        const medicineId = req.body.medicineId || `temp_${req.user.id}_${Date.now()}`;
+
+        const result = await uploadMedicineImage(req.file, medicineId);
+
+        const variants = result.objectName ? getImageVariants(result.objectName) : {};
+
+        res.json({
+            success: true,
+            data: await buildUploadResponseData(result, variants),
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// ==================== MASTER TEST ICONS ====================
+
+/**
+ * @route POST /api/uploads/master-test
+ * @desc Upload master diagnostic test icon
+ * @access Private (Admin only)
+ */
+router.post('/master-test', authenticateToken, requireRole(ROLES.ADMIN, ROLES.SUPER_ADMIN), upload.single('file'), validateMagicBytes(ALLOWED_IMAGE_MIMES), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            throw new ApiError(400, 'No file uploaded');
+        }
+
+        const testId = req.body.testId || `temp_${req.user.id}_${Date.now()}`;
+
+        const result = await uploadMasterTestImage(req.file, testId);
+
         const variants = result.objectName ? getImageVariants(result.objectName) : {};
 
         res.json({

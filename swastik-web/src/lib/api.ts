@@ -475,6 +475,12 @@ export const adminApi = {
             body: JSON.stringify({ medicines }),
         }),
 
+    addBulkMasterTests: (tests: any[]) =>
+        fetchWithAuth('/admin/master-tests/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ tests }),
+        }),
+
     getEmergencies: (page: number = 1, limit: number = 20, status: string = 'active') =>
         fetchWithAuth(`/admin/emergencies?page=${page}&limit=${limit}&status=${encodeURIComponent(status)}`),
 
@@ -1021,6 +1027,13 @@ export const diagnosticCenterApi = {
         if (params.search) query.set('search', params.search);
         if (params.category) query.set('category', params.category);
         return fetchWithAuth(`/diagnostic-centers/owner/tests?${query}`);
+    },
+
+    searchMasterTests: (search: string, category?: string, page: number = 1) => {
+        const params = new URLSearchParams({ page: String(page) });
+        if (search) params.set('search', search);
+        if (category) params.set('category', category);
+        return fetchWithAuth(`/diagnostic-centers/master-tests?${params}`);
     },
 
     addTest: (data: Record<string, unknown>) =>

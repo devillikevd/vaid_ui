@@ -78,12 +78,24 @@ fun OrderTrackingScreen(
         }
         val startPoint = initialStartPoint
         val destPoint = GeoPoint(destLat, destLng)
-        if (startPoint != null && mapRoute.isEmpty()) {
-            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(startPoint, destPoint)
+        val agentPoint = state.agentLocation?.let { GeoPoint(it.latitude, it.longitude) }
+        
+        val shouldFetch = if (mapRoute.isEmpty()) {
+            true
+        } else if (agentPoint != null) {
+            val minDistance = mapRoute.minOfOrNull { it.distanceToAsDouble(agentPoint) } ?: 0.0
+            minDistance > 500.0
+        } else {
+            false
+        }
+
+        if (startPoint != null && shouldFetch) {
+            val routeStart = if (mapRoute.isEmpty()) startPoint else (agentPoint ?: startPoint)
+            val route = com.example.swastik.utils.RoutingUtils.fetchRoute(routeStart, destPoint)
             if (route.isNotEmpty()) {
                 mapRoute = route
-            } else {
-                mapRoute = listOf(startPoint, destPoint)
+            } else if (mapRoute.isEmpty()) {
+                mapRoute = listOf(routeStart, destPoint)
             }
         }
     }
