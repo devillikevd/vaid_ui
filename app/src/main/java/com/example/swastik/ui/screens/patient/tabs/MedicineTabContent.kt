@@ -1,6 +1,7 @@
 package com.example.swastik.ui.screens.patient.tabs
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -17,9 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -54,11 +58,15 @@ fun MedicineTabContent(
     onPharmacyClick: (String?, String?) -> Unit = { _, _ -> },
     onNotificationClick: () -> Unit = {},
     onNavigateToCart: () -> Unit = {},
+    onNavigateToFavorites: () -> Unit = {},
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
     val cartState by viewModel.cartState.collectAsState()
+    val favorites by viewModel.favoriteMedicines.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var isGridView by remember { mutableStateOf(true) }
+    var isCategoriesExpanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
     val filteredMedicines = viewModel.getFilteredMedicines()
     val pagedMedicines = viewModel.pagedMedicines.collectAsLazyPagingItems()
@@ -121,6 +129,36 @@ fun MedicineTabContent(
                             color = colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 2.dp)
                         )
+                    }
+                    // Favorites Button
+                    val favCount = favorites.size
+                    if (favCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = SwastikPrimary) {
+                                    Text("$favCount", color = Color.White, fontSize = 11.sp)
+                                }
+                            },
+                            modifier = Modifier.padding(end = 12.dp)
+                        ) {
+                            IconButton(onClick = onNavigateToFavorites) {
+                                Icon(
+                                    Icons.Filled.Favorite,
+                                    contentDescription = "Favorites",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = onNavigateToFavorites) {
+                            Icon(
+                                Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Favorites",
+                                tint = colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                     if (cartState.totalItems > 0) {
                         BadgedBox(
@@ -208,46 +246,117 @@ fun MedicineTabContent(
                         )
                     } else {
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
+                            columns = GridCells.Fixed(if (isGridView) 2 else 1),
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            // Category Row (full width span)
+                            // Category Expandable Grid (full width span)
                             item(span = { GridItemSpan(2) }) {
-                                LazyRow(
+                                Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 4.dp)
+                                        .padding(bottom = 4.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color.White,
+                                    shadowElevation = 2.dp
                                 ) {
-                                    items(categoryLabels) { cat ->
-                                        val isSelected = state.selectedCategory?.name?.equals(cat, ignoreCase = true) == true
-                                        CategoryChip(
-                                            label = cat.replaceFirstChar { it.uppercase() },
-                                            icon = categoryIcons[cat] ?: Icons.Default.Medication,
-                                            isSelected = isSelected,
-                                            onClick = {
-                                                if (isSelected) {
-                                                    viewModel.setCategory(null)
-                                                } else {
-                                                    val mc = try { MedicineCategory.valueOf(cat.uppercase()) } catch (_: Exception) { null }
-                                                    viewModel.setCategory(mc)
-                                                }
-                                            }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 16.dp)
+                                            .animateContentSize()
+                                    ) {
+                                        Text(
+                                            text = "Order by Category",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 17.sp,
+                                            color = colorScheme.onSurface,
+                                            modifier = Modifier.padding(bottom = 16.dp)
                                         )
+                                    
+                                    // Row 1 (first 5 categories)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        categoryLabels.take(5).forEach { cat ->
+                                            val isSelected = state.selectedCategory?.name?.equals(cat, ignoreCase = true) == true
+                                            CategoryChip(
+                                                label = cat.replaceFirstChar { it.uppercase() },
+                                                icon = categoryIcons[cat] ?: Icons.Default.Medication,
+                                                isSelected = isSelected,
+                                                onClick = {
+                                                    if (isSelected) {
+                                                        viewModel.setCategory(null)
+                                                    } else {
+                                                        val mc = try { MedicineCategory.valueOf(cat.uppercase()) } catch (_: Exception) { null }
+                                                        viewModel.setCategory(mc)
+                                                    }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                            }
+                                    
+                                    // Row 2 (remaining categories)
+                                    if (isCategoriesExpanded) {
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            categoryLabels.drop(5).take(5).forEach { cat ->
+                                                val isSelected = state.selectedCategory?.name?.equals(cat, ignoreCase = true) == true
+                                                CategoryChip(
+                                                    label = cat.replaceFirstChar { it.uppercase() },
+                                                    icon = categoryIcons[cat] ?: Icons.Default.Medication,
+                                                    isSelected = isSelected,
+                                                    onClick = {
+                                                        if (isSelected) {
+                                                            viewModel.setCategory(null)
+                                                        } else {
+                                                            val mc = try { MedicineCategory.valueOf(cat.uppercase()) } catch (_: Exception) { null }
+                                                            viewModel.setCategory(mc)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Explore More / Show Less Button
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { isCategoriesExpanded = !isCategoriesExpanded }
+                                            .padding(top = 16.dp, bottom = 4.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isCategoriesExpanded) "Show Less" else "Explore More",
+                                            fontSize = 12.sp,
+                                            color = SwastikPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Icon(
+                                            imageVector = if (isCategoriesExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = SwastikPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    } // End Row
+                                } // End Column
+                            } // End Surface
+                        } // End item
 
                             // Section header
                             if (itemCount > 0) {
                                 item(span = { GridItemSpan(2) }) {
                                     Column(modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)) {
                                         Text(
-                                            text = if (isSearchActive) "Search Results" else "Browse & Request Medicines",
+                                            text = if (isSearchActive) "Search Results" else "Most Frequently Ordered Medicines",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 17.sp,
                                             color = colorScheme.onSurface
@@ -269,21 +378,45 @@ fun MedicineTabContent(
                                 val medicine = displayMedicines?.get(index) ?: displayPaged?.get(index)
                                 if (medicine != null) {
                                     val isInCart = cartState.items.any { it.medicine.id == medicine.id }
-                                    GlobalMedicineCard(
-                                        medicine = medicine,
-                                        isInCart = isInCart,
-                                        cartQuantity = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0,
-                                        onClick = { onMedicineClick(medicine.id) },
-                                        onAddToCart = {
-                                            viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
-                                        },
-                                        onIncrement = {
-                                            viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
-                                        },
-                                        onDecrement = {
-                                            viewModel.removeFromCart(medicine.id)
-                                        }
-                                    )
+                                    val isFav = viewModel.favoriteMedicines.collectAsState().value.any { it.id == medicine.id }
+                                    val toggleFav = { viewModel.toggleFavorite(medicine) }
+                                    if (isGridView) {
+                                        GlobalMedicineCard(
+                                            medicine = medicine,
+                                            isInCart = isInCart,
+                                            cartQuantity = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0,
+                                            isFavorite = isFav,
+                                            onToggleFavorite = toggleFav,
+                                            onClick = { onMedicineClick(medicine.id) },
+                                            onAddToCart = {
+                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                            },
+                                            onIncrement = {
+                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                            },
+                                            onDecrement = {
+                                                viewModel.removeFromCart(medicine.id)
+                                            }
+                                        )
+                                    } else {
+                                        GlobalMedicineListCard(
+                                            medicine = medicine,
+                                            isInCart = isInCart,
+                                            cartQuantity = cartState.items.find { it.medicine.id == medicine.id }?.quantity ?: 0,
+                                            isFavorite = isFav,
+                                            onToggleFavorite = toggleFav,
+                                            onClick = { onMedicineClick(medicine.id) },
+                                            onAddToCart = {
+                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                            },
+                                            onIncrement = {
+                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                            },
+                                            onDecrement = {
+                                                viewModel.removeFromCart(medicine.id)
+                                            }
+                                        )
+                                    }
                                 }
                             }
 
@@ -351,6 +484,33 @@ private fun CategoryChip(
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    
+    // Generate vibrant colors based on the label
+    val bgColors = listOf(
+        Color(0xFFE8F5E9), // Light Green
+        Color(0xFFE3F2FD), // Light Blue
+        Color(0xFFFFF3E0), // Light Orange
+        Color(0xFFFCE4EC), // Light Pink
+        Color(0xFFF3E5F5), // Light Purple
+        Color(0xFFE0F2F1), // Light Teal
+        Color(0xFFFFF8E1), // Light Yellow
+        Color(0xFFFFEBEE)  // Light Red
+    )
+    val iconColors = listOf(
+        Color(0xFF2E7D32), // Dark Green
+        Color(0xFF1565C0), // Dark Blue
+        Color(0xFFEF6C00), // Dark Orange
+        Color(0xFFC2185B), // Dark Pink
+        Color(0xFF6A1B9A), // Dark Purple
+        Color(0xFF00695C), // Dark Teal
+        Color(0xFFF57F17), // Dark Yellow
+        Color(0xFFC62828)  // Dark Red
+    )
+    
+    val colorIndex = kotlin.math.abs(label.hashCode()) % bgColors.size
+    val bgColor = bgColors[colorIndex]
+    val iconColor = iconColors[colorIndex]
+    
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -361,16 +521,16 @@ private fun CategoryChip(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isSelected) SwastikPrimary.copy(alpha = 0.15f)
-                    else colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                .background(if (isSelected) SwastikPrimary else bgColor)
+                .then(
+                    if (isSelected) Modifier.shadow(4.dp, CircleShape) else Modifier
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 icon,
                 contentDescription = label,
-                tint = if (isSelected) SwastikPrimary else colorScheme.onSurfaceVariant,
+                tint = if (isSelected) Color.White else iconColor,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -378,8 +538,8 @@ private fun CategoryChip(
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) SwastikPrimary else colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+            color = if (isSelected) SwastikPrimary else colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -478,32 +638,250 @@ private fun EmptyMedicineState(
  * Displays image from backend (or category-based fallback), name, manufacturer, price, and inline cart stepper.
  */
 @Composable
-private fun GlobalMedicineCard(
+fun GlobalMedicineCard(
     medicine: Medicine,
     isInCart: Boolean,
     cartQuantity: Int,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     onAddToCart: () -> Unit,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val isAvailable = true
+    val alpha = if (isAvailable) 1f else 0.5f
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Image Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+            ) {
+                if (!medicine.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = medicine.imageUrl,
+                        contentDescription = medicine.name,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .alpha(alpha),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = getMedicineCategoryEmoji(medicine.category.name),
+                            fontSize = 48.sp,
+                            modifier = Modifier.alpha(alpha)
+                        )
+                    }
+                }
+
+                // Discount Tag (Top Left)
+                val currentPrice = medicine.price?.toDouble() ?: 0.0
+                val mrpPrice = currentPrice * 1.12
+                if (currentPrice > 0) {
+                    val discountPercent = ((mrpPrice - currentPrice) / mrpPrice * 100).toInt()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = (-12).dp, y = (-12).dp)
+                            .background(SwastikPrimary, shape = RoundedCornerShape(topStart = 12.dp, bottomEnd = 12.dp))
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$discountPercent%\nOFF",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            lineHeight = 11.sp
+                        )
+                    }
+                }
+
+                // Heart icon
+                IconButton(
+                    onClick = { 
+                        onToggleFavorite()
+                        if (!isFavorite) {
+                            Toast.makeText(context, "Added to favorites. View fav medicines", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(32.dp)
+                        .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color.Red else colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                
+                // Rx Badge at bottom center
+                if (medicine.requiresPrescription) {
+                    Text(
+                        text = "Rx",
+                        fontSize = 12.sp,
+                        color = Color(0xFF00897B),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Medicine Name
+            Text(
+                text = medicine.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+                modifier = Modifier.defaultMinSize(minHeight = 32.dp)
+            )
+
+            Text(
+                text = medicine.manufacturer ?: medicine.genericName ?: "Unknown",
+                fontSize = 11.sp,
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Price and Add Button row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    val currentPrice = medicine.price?.toDouble() ?: 0.0
+                    val mrpPrice = currentPrice * 1.12
+                    
+                    if (currentPrice > 0) {
+                        Text(
+                            text = "₹${currentPrice.toInt()}",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "₹${mrpPrice.toInt()}",
+                            fontSize = 11.sp,
+                            color = Color.Gray,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                        )
+                    } else {
+                        Text("Request", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+
+                // Green Add Button
+                val buttonModifier = Modifier.height(30.dp).width(75.dp)
+                if (isInCart && cartQuantity > 0) {
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = SwastikPrimary,
+                        modifier = buttonModifier
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        ) {
+                            IconButton(onClick = onDecrement, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                            Text(
+                                "$cartQuantity",
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 13.sp
+                            )
+                            IconButton(onClick = onIncrement, modifier = Modifier.size(24.dp), enabled = isAvailable) {
+                                Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = onAddToCart,
+                        modifier = buttonModifier,
+                        shape = RoundedCornerShape(50),
+                        enabled = isAvailable,
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = SwastikPrimary,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Add", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GlobalMedicineListCard(
+    medicine: Medicine,
+    isInCart: Boolean,
+    cartQuantity: Int,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onClick: () -> Unit,
+    onAddToCart: () -> Unit,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isAvailable = true
+    val alpha = if (isAvailable) 1f else 0.5f
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // Image / Icon section
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Image Box
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
+                    .size(100.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(SwastikPrimary.copy(alpha = 0.06f)),
+                    .background(colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
                 if (!medicine.imageUrl.isNullOrBlank()) {
@@ -512,120 +890,205 @@ private fun GlobalMedicineCard(
                         contentDescription = medicine.name,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .alpha(alpha),
                         contentScale = ContentScale.Fit
                     )
                 } else {
-                    // Fallback: category-based emoji
                     Text(
                         text = getMedicineCategoryEmoji(medicine.category.name),
-                        fontSize = 40.sp
+                        fontSize = 36.sp,
+                        modifier = Modifier.alpha(alpha)
                     )
                 }
 
-                // Rx badge
+                // Rx Badge
                 if (medicine.requiresPrescription) {
                     Surface(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
+                            .align(Alignment.TopStart)
                             .padding(4.dp),
-                        color = colorScheme.tertiaryContainer,
+                        color = colorScheme.errorContainer,
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             text = "Rx",
-                            fontSize = 9.sp,
-                            color = colorScheme.onTertiaryContainer,
+                            fontSize = 8.sp,
+                            color = colorScheme.onErrorContainer,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-            // Medicine name
-            Text(
-                text = medicine.name,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp
-            )
+            // Details section
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Text(
+                        text = medicine.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { 
+                            onToggleFavorite()
+                            if (!isFavorite) {
+                                Toast.makeText(context, "Added to favorites. View fav medicines", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) Color.Red else colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
-            // Manufacturer
-            Text(
-                text = medicine.manufacturer ?: medicine.genericName ?: "",
-                fontSize = 12.sp,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Price + Cart action
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
                 Text(
-                    text = medicine.price?.let { "₹${it.toInt()}" } ?: "On request",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SwastikPrimary
+                    text = medicine.manufacturer ?: medicine.genericName ?: "Unknown",
+                    fontSize = 12.sp,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
 
-                if (isInCart && cartQuantity > 0) {
-                    // Inline stepper
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = SwastikPrimary,
-                        modifier = Modifier.height(32.dp)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Genuine tag
+                Surface(
+                    color = SwastikPrimary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        ) {
-                            IconButton(
-                                onClick = onDecrement,
-                                modifier = Modifier.size(24.dp)
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Genuine",
+                            tint = SwastikPrimary,
+                            modifier = Modifier.size(10.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Genuine Medicine",
+                            fontSize = 9.sp,
+                            color = SwastikPrimary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        val currentPrice = medicine.price?.toDouble() ?: 0.0
+                        val mrpPrice = currentPrice * 1.12
+                        val discount = mrpPrice - currentPrice
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                color = SwastikPrimary,
+                                shape = RoundedCornerShape(6.dp)
                             ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = Color.White, modifier = Modifier.size(14.dp))
+                                Text(
+                                    text = if (currentPrice > 0) "₹${currentPrice.toInt()}" else "Request",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                            Text(
-                                "$cartQuantity",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(horizontal = 6.dp)
-                            )
-                            IconButton(
-                                onClick = onIncrement,
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            if (currentPrice > 0) {
+                                Text(
+                                    text = "₹${mrpPrice.toInt()}",
+                                    fontSize = 11.sp,
+                                    color = colorScheme.onSurfaceVariant,
+                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                                )
                             }
                         }
+                        if (currentPrice > 0) {
+                            Text(
+                                text = "₹${discount.toInt()} OFF",
+                                fontSize = 10.sp,
+                                color = SwastikPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
-                } else {
-                    // Add button
-                    FilledTonalButton(
-                        onClick = onAddToCart,
-                        modifier = Modifier.height(32.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = SwastikPrimary.copy(alpha = 0.12f),
-                            contentColor = SwastikPrimary
-                        )
-                    ) {
-                        Text("ADD", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                    val buttonModifier = Modifier.height(34.dp).width(80.dp)
+                    
+                    if (isInCart && cartQuantity > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = SwastikPrimary,
+                            modifier = buttonModifier
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.padding(horizontal = 2.dp)
+                            ) {
+                                IconButton(onClick = onDecrement, modifier = Modifier.size(26.dp)) {
+                                    Icon(Icons.Default.Remove, contentDescription = "-", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                                Text(
+                                    "$cartQuantity",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp
+                                )
+                                IconButton(onClick = onIncrement, modifier = Modifier.size(26.dp), enabled = isAvailable) {
+                                    Icon(Icons.Default.Add, contentDescription = "+", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = onAddToCart,
+                            modifier = buttonModifier,
+                            shape = RoundedCornerShape(50),
+                            enabled = isAvailable,
+                            contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SwastikPrimary,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text(
+                                text = if (isAvailable) "Add" else "N/A", 
+                                fontSize = 13.sp, 
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
             }

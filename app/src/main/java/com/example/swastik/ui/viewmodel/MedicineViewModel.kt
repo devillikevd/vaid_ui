@@ -38,6 +38,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 data class MedicineUiState(
     val medicines: List<Medicine> = emptyList(), // Popular/Global
@@ -45,7 +49,8 @@ data class MedicineUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
-    val selectedCategory: MedicineCategory? = null
+    val selectedCategory: MedicineCategory? = null,
+    val favoriteMedicineIds: Set<String> = emptySet()
 )
 
 data class MedicineDetailUiState(
@@ -101,13 +106,53 @@ class MedicineCartStore @Inject constructor() {
     }
 }
 
+@Singleton
+class FavoriteMedicinesStore @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val prefs = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    
+    private val _favorites = MutableStateFlow<Set<Medicine>>(loadFavorites())
+    val favorites: StateFlow<Set<Medicine>> = _favorites.asStateFlow()
+
+    private fun loadFavorites(): Set<Medicine> {
+        val json = prefs.getString("fav_list", null) ?: return emptySet()
+        val type = object : TypeToken<List<Medicine>>() {}.type
+        return try {
+            val list: List<Medicine> = gson.fromJson(json, type)
+            list.toSet()
+        } catch (e: Exception) {
+            emptySet()
+        }
+    }
+
+    private fun saveFavorites(favs: Set<Medicine>) {
+        val json = gson.toJson(favs.toList())
+        prefs.edit().putString("fav_list", json).apply()
+    }
+
+    fun toggleFavorite(medicine: Medicine) {
+        val current = _favorites.value.toMutableSet()
+        val existing = current.find { it.id == medicine.id }
+        if (existing != null) {
+            current.remove(existing)
+        } else {
+            current.add(medicine)
+        }
+        _favorites.value = current
+        saveFavorites(current)
+    }
+}
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class MedicineViewModel @Inject constructor(
     private val medicineRepository: MedicineRepository,
     private val locationHelper: LocationHelper,
     private val socketManager: SocketManager,
-    private val cartStore: MedicineCartStore
+    private val cartStore: MedicineCartStore,
+    private val favoriteStore: FavoriteMedicinesStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MedicineUiState())
@@ -117,6 +162,7 @@ class MedicineViewModel @Inject constructor(
     val detailState: StateFlow<MedicineDetailUiState> = _detailState.asStateFlow()
 
     val cartState: StateFlow<CartUiState> = cartStore.cartState
+    val favoriteMedicines: StateFlow<Set<Medicine>> = favoriteStore.favorites
 
     private val _orderHistoryState = MutableStateFlow(OrderHistoryUiState())
     val orderHistoryState: StateFlow<OrderHistoryUiState> = _orderHistoryState.asStateFlow()
@@ -258,6 +304,10 @@ class MedicineViewModel @Inject constructor(
                 loadAvailability(detailMedicineId)
             }
         }
+    }
+
+    fun toggleFavorite(medicine: Medicine) {
+        favoriteStore.toggleFavorite(medicine)
     }
 
     fun loadPopularMedicines(forceRefresh: Boolean = false) {

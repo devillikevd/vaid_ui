@@ -66,6 +66,7 @@ fun PatientDashboardScreen(
 
     onNavigateToMedicineDetail: (String) -> Unit = {},
     onNavigateToMedicineCart: () -> Unit = {},
+    onNavigateToFavoriteMedicines: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
     onStartInPersonConsultation: () -> Unit = {},
     onStartVideoConsultation: () -> Unit = {},
@@ -297,7 +298,8 @@ fun PatientDashboardScreen(
                             onMedicineClick = onNavigateToMedicineDetail,
                             onPharmacyClick = onNavigateToPharmacy,
                             onNotificationClick = { showNotificationPanel = true },
-                            onNavigateToCart = onNavigateToMedicineCart
+                            onNavigateToCart = onNavigateToMedicineCart,
+                            onNavigateToFavorites = onNavigateToFavoriteMedicines
                         )
                         3 -> RecordsTabContent(
                             modifier = Modifier.padding(paddingValues),

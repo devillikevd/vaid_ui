@@ -56,6 +56,7 @@ sealed class Screen(val route: String) {
         }
     }
     object MedicineFinder : Screen("medicine_finder")
+    object FavoriteMedicines : Screen("favorite_medicines")
     object MedicineDetail : Screen("medicine_detail/{medicineId}") {
         fun createRoute(medicineId: String): String = "medicine_detail/$medicineId"
     }

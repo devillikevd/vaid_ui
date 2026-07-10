@@ -293,6 +293,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                 },
                 onNavigateToMedicineCart = { navController.navigateSafe(Screen.MedicineCart.route) },
+                onNavigateToFavoriteMedicines = { navController.navigateSafe(Screen.FavoriteMedicines.route) },
                 onSearchClick = { navController.navigateSafe(Screen.FindDoctorsCategories.createRoute("in_person")) },
                 onNotificationActionRoute = { route -> navController.navigateSafe(route) },
                 onFindDoctorSpecialityClick = { speciality ->
@@ -310,6 +311,18 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     navController.navigateSafe(Screen.AppointmentBooking.createRoute(consultationMode = "recommended"))
                 }
             )
+            }
+        }
+
+        composable(Screen.FavoriteMedicines.route) {
+            AuthGuard(navController, tokenManager) {
+                com.example.swastik.ui.screens.patient.FavoriteMedicinesScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToMedicineDetail = { medicineId ->
+                        navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
+                    },
+                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.route) }
+                )
             }
         }
 
