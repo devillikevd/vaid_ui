@@ -328,7 +328,15 @@ fun QuickStatsSection(stats: PatientStats) {
     ) {
         QuickStatCard(Icons.Outlined.CalendarMonth, stats.totalConsultations.toString(), stringResource(R.string.consultations), colorScheme.primaryContainer, colorScheme.onPrimaryContainer, colorScheme.primary, Modifier.weight(1f))
         QuickStatCard(Icons.Outlined.Receipt, stats.totalPrescriptions.toString(), stringResource(R.string.prescriptions), colorScheme.secondaryContainer, colorScheme.onSecondaryContainer, colorScheme.secondary, Modifier.weight(1f))
-        QuickStatCard(Icons.Outlined.Science, stats.totalReports.toString(), stringResource(R.string.reports), colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer, colorScheme.tertiary, Modifier.weight(1f))
+        QuickStatCard(
+            Icons.Outlined.Description, 
+            stats.totalReports.toString(), 
+            stringResource(R.string.reports), 
+            Color(0xFFE1F5FE), // Light Sky Blue Container
+            Color(0xFF01579B), // Dark Blue Content
+            Color(0xFF0288D1), // Medium Blue Icon
+            Modifier.weight(1f)
+        )
     }
 }
 
@@ -397,8 +405,11 @@ fun SectionTitleWithBadge(title: String, badge: String, badgeColor: Color) {
 fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
     val colorScheme = MaterialTheme.colorScheme
     val hasAbha = profile?.abhaNumber?.isNotEmpty() == true
-    val accentColor = if (hasAbha) colorScheme.primary else colorScheme.tertiary
-    val accentTextColor = if (hasAbha) colorScheme.onSecondaryContainer else colorScheme.onTertiaryContainer
+    // Use green theme consistently for all cards
+    val containerBgColor = Color(0xFFE8F5E9) // Light Green
+    val iconBgColor = Color(0xFFC8E6C9) // Slightly darker Green for icon BG
+    val accentColor = Color(0xFF2E7D32) // Dark Green for accents
+    val accentTextColor = Color.Black // Force dark text for contrast on light BG
 
     Card(
         modifier = Modifier
@@ -406,11 +417,7 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (hasAbha) {
-                colorScheme.secondaryContainer.copy(alpha = 0.55f)
-            } else {
-                colorScheme.tertiaryContainer.copy(alpha = 0.55f)
-            }
+            containerColor = containerBgColor
         )
     ) {
         Row(
@@ -421,9 +428,7 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
                 modifier = Modifier
                     .size(50.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        accentColor.copy(alpha = 0.18f)
-                    ),
+                    .background(iconBgColor),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -437,7 +442,7 @@ fun HealthIdCard(profile: PatientProfile?, onClick: () -> Unit = {}) {
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.abha_number), fontSize = 12.sp, color = Color.DarkGray)
                 Text(
                     if (hasAbha) {
                         val abha = profile?.abhaNumber ?: ""

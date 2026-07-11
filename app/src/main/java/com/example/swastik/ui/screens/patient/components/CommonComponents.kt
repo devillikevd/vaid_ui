@@ -76,18 +76,20 @@ fun PatientBottomNavigation(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp) // Adding padding for floating effect
             .navigationBarsPadding()
             .height(68.dp)
             .shadow(
-                elevation = 8.dp,
-                spotColor = Color.Black.copy(alpha = 0.05f),
+                elevation = 12.dp,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                spotColor = Color.Black.copy(alpha = 0.1f),
                 ambientColor = Color.Transparent
             )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 1.dp)
             Row(
                 modifier = Modifier
                     .fillMaxSize()

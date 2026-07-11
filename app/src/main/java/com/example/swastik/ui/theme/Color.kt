@@ -20,8 +20,8 @@ val SwastikOrange = Color(0xFFE07A5F) // Warnings, pending
 val SwastikBlue = Color(0xFF3A86FF) // Info, highlights
 
 // Background & Surface
-val BackgroundLight = Color(0xFFF4FBF9) // Cleaner mint background
-val SurfaceLight = Color(0xFFF7FCFA) // Premium mint surface
+val BackgroundLight = Color(0xFFF8FAFC) // Light Gray Background
+val SurfaceLight = Color(0xFFFFFFFF) // White surface for contrast
 val BackgroundDark = Color(0xFF121212)
 val SurfaceDark = Color(0xFF1E1E1E)
 

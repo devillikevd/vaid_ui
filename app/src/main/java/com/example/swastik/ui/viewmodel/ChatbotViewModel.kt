@@ -114,7 +114,7 @@ class ChatbotViewModel @Inject constructor(
                     isLoading = false,
                     sessionStarted = true,
                     activeSessionId = result.data.sessionId,
-                    messages = listOf(buildWelcomeMessage(isConnected = true)),
+                    messages = emptyList(),
                     error = null,
                     rateLimited = false
                 )
@@ -205,7 +205,7 @@ class ChatbotViewModel @Inject constructor(
                         isLoading = false,
                         sessionStarted = true,
                         activeSessionId = sessionId,
-                        messages = if (restoredMessages.isEmpty()) listOf(buildWelcomeMessage(isConnected = true)) else restoredMessages,
+                        messages = restoredMessages,
                         rateLimited = false
                     )
                 }

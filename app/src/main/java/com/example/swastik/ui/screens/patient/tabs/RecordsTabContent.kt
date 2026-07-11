@@ -61,6 +61,10 @@ fun RecordsTabContent(
     var selectedFilter by remember { mutableStateOf(RecordFilter.ALL) }
     var showUploadDialog by remember { mutableStateOf(false) }
 
+    androidx.activity.compose.BackHandler(enabled = selectedFilter != RecordFilter.ALL) {
+        selectedFilter = RecordFilter.ALL
+    }
+
     val state by viewModel.uiState.collectAsState()
     val consultations = state.consultations
     val prescriptions = state.prescriptions
@@ -102,11 +106,10 @@ fun RecordsTabContent(
 
         Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 8.dp),
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+                .fillMaxSize(),
+            shape = androidx.compose.ui.graphics.RectangleShape,
             colors = CardDefaults.cardColors(containerColor = colorScheme.background),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -189,6 +192,18 @@ fun RecordsTabContent(
                         }
                     }
                 } else {
+                    var prescriptionSubFilter by remember { mutableStateOf("All") }
+                    val filteredPrescriptions = remember(prescriptions, prescriptionSubFilter) {
+                        if (prescriptionSubFilter != "All") {
+                            prescriptions.filter { 
+                                val status = (it.status ?: "active").lowercase()
+                                if (prescriptionSubFilter == "Active") status == "active" || status == "pending"
+                                else status == "completed" || status == "fulfilled"
+                            }
+                        } else {
+                            prescriptions
+                        }
+                    }
                     val listState = rememberLazyListState()
                     val isAtEnd by remember {
                         derivedStateOf {
@@ -238,7 +253,7 @@ fun RecordsTabContent(
                                 SectionHeader(
                                     stringResource(R.string.recent_prescriptions),
                                     if (prescriptions.isNotEmpty()) stringResource(R.string.see_all) else null
-                                ) { onNavigateToPrescriptions() }
+                                ) { selectedFilter = RecordFilter.PRESCRIPTIONS }
                             }
                             if (prescriptions.isEmpty()) {
                                 item { EmptySectionMessage(stringResource(R.string.no_prescriptions_yet)) }
@@ -267,11 +282,32 @@ fun RecordsTabContent(
                             }
                         }
                         RecordFilter.PRESCRIPTIONS -> {
-                            item { SectionHeader(stringResource(R.string.all_prescriptions), null) }
-                            if (prescriptions.isEmpty()) {
-                                item { EmptySectionMessage(stringResource(R.string.no_prescriptions_yet)) }
+                            item { 
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    SectionHeader(stringResource(R.string.all_prescriptions), null)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(listOf("All", "Active", "Completed")) { filter ->
+                                            FilterChip(
+                                                selected = prescriptionSubFilter == filter,
+                                                onClick = { prescriptionSubFilter = filter },
+                                                label = { Text(filter, fontSize = 12.sp) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                                    containerColor = MaterialTheme.colorScheme.surface,
+                                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                }
+                            }
+                            if (filteredPrescriptions.isEmpty()) {
+                                item { EmptySectionMessage(if (prescriptions.isEmpty()) stringResource(R.string.no_prescriptions_yet) else "No prescriptions found in this filter.") }
                             } else {
-                                items(prescriptions) { PrescriptionSummaryCard(it) }
+                                items(filteredPrescriptions) { PrescriptionSummaryCard(it) }
                             }
                         }
                         RecordFilter.REPORTS -> {

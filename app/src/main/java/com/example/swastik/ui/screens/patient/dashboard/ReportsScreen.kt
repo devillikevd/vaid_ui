@@ -54,13 +54,11 @@ fun ReportsScreen(
     val filters = listOf(
         stringResource(R.string.filter_all),
         stringResource(R.string.filter_lab_reports),
-        stringResource(R.string.filter_prescriptions),
         stringResource(R.string.filter_scans)
     )
 
     val filteredReports = when (selectedFilter) {
         stringResource(R.string.filter_lab_reports) -> reports.filter { it.type == DocumentType.LAB_REPORT }
-        stringResource(R.string.filter_prescriptions) -> reports.filter { it.type == DocumentType.PRESCRIPTION }
         stringResource(R.string.filter_scans) -> reports.filter { it.type == DocumentType.SCAN }
         else -> reports
     }

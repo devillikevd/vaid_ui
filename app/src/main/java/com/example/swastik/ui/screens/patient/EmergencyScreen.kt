@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
@@ -42,6 +43,7 @@ import com.example.swastik.utils.NavigationHelper
 import org.osmdroid.util.GeoPoint
 import androidx.compose.ui.res.stringResource
 import com.example.swastik.R
+import kotlinx.coroutines.launch
 
 private val EmergencyAlert = Color(0xFFB91C1C)
 private val EmergencyAlertStrong = Color(0xFFDC2626)
@@ -150,6 +152,8 @@ private fun EmergencyTypeSelection(
     var selectedType by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
 
@@ -194,6 +198,7 @@ private fun EmergencyTypeSelection(
     )
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(colorScheme.background)
@@ -201,62 +206,50 @@ private fun EmergencyTypeSelection(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Box(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFF7F1D1D),
-                                EmergencyAlertStrong,
-                                EmergencyAccent
-                            )
-                        )
-                    )
+                    .clickable { NavigationHelper.openDialer(context, "108") },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F2)), // Soft Rose Background
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFBE123C).copy(alpha = 0.3f)),
+                elevation = CardDefaults.cardElevation(2.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color.White.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.LocalHospital,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(30.dp)
-                        )
+                Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(52.dp).background(Color(0xFFFFE4E6), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFFBE123C), modifier = Modifier.size(28.dp))
                     }
-                    Spacer(modifier = Modifier.height(18.dp))
-                    Text(
-                        stringResource(R.string.emergency_ambulance_built_for_real),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                        lineHeight = 30.sp
-                    )
-                    Text(
-                        stringResource(R.string.choose_the_emergency_lane_share),
-                        color = Color.White.copy(alpha = 0.86f),
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                    Spacer(modifier = Modifier.height(18.dp))
-                    Row(
-                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        EmergencyFeatureChip(stringResource(R.string.text_live_gps))
-                        EmergencyFeatureChip(stringResource(R.string.text_driver_contact))
-                        EmergencyFeatureChip(stringResource(R.string.text_hospital_ready))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(stringResource(R.string.call_108_directly), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF9F1239))
+                        Text("Govt. ambulance helpline", fontSize = 13.sp, color = Color(0xFF9F1239).copy(alpha = 0.8f))
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(3)
+                        }
+                    },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(2.dp, EmergencyAlertStrong.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(52.dp).background(EmergencyAlertStrong.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.LocalHospital, contentDescription = null, tint = EmergencyAlertStrong, modifier = Modifier.size(28.dp))
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Vaididea Ambulance", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = colorScheme.onSurface)
+                        Text("Live-tracking & auto-dispatch", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -308,108 +301,173 @@ private fun EmergencyTypeSelection(
         }
 
         item {
-            Text(
-                stringResource(R.string.choose_the_emergency_lane),
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        items(emergencyTypes.chunked(2)) { rowItems ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                rowItems.forEach { item ->
-                    EmergencyTypeCard(
-                        item = item,
-                        isSelected = selectedType == item.value,
-                        onClick = { selectedType = item.value },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                if (rowItems.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text(stringResource(R.string.tell_dispatch)) },
-                placeholder = { Text(stringResource(R.string.dispatch_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EmergencyAlertStrong,
-                    unfocusedBorderColor = colorScheme.outline.copy(alpha = 0.6f),
-                    focusedTextColor = colorScheme.onSurface,
-                    unfocusedTextColor = colorScheme.onSurface,
-                    cursorColor = EmergencyAlertStrong,
-                    focusedContainerColor = colorScheme.surface,
-                    unfocusedContainerColor = colorScheme.surface
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    stringResource(R.string.choose_the_emergency_lane),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = colorScheme.onSurface
                 )
-            )
+
+                emergencyTypes.chunked(2).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowItems.forEach { item ->
+                            EmergencyTypeCard(
+                                item = item,
+                                isSelected = selectedType == item.value,
+                                onClick = {
+                                    selectedType = item.value
+                                    coroutineScope.launch {
+                                        listState.animateScrollToItem(4)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowItems.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
         }
 
-        if (uiState.error != null) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer.copy(alpha = 0.85f)),
-                    shape = RoundedCornerShape(14.dp)
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (uiState.error != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = colorScheme.errorContainer.copy(alpha = 0.85f)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            uiState.error!!,
+                            color = colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(14.dp),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = { showConfirmDialog = true },
+                    enabled = selectedType.isNotBlank() && !uiState.isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmergencyAlertStrong),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Filled.LocalHospital, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.dispatch_ambulance_now), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(stringResource(R.string.tell_dispatch)) },
+                    placeholder = { Text(stringResource(R.string.dispatch_placeholder)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = EmergencyAlertStrong,
+                        unfocusedBorderColor = colorScheme.outline.copy(alpha = 0.6f),
+                        focusedTextColor = colorScheme.onSurface,
+                        unfocusedTextColor = colorScheme.onSurface,
+                        cursorColor = EmergencyAlertStrong,
+                        focusedContainerColor = colorScheme.surface,
+                        unfocusedContainerColor = colorScheme.surface
+                    )
+                )
+            }
+        }
+
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                Color(0xFFEFF6FF), // Blue 50
+                                Color(0xFFDBEAFE)  // Blue 100
+                            )
+                        )
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFFBFDBFE)), // Blue 200
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.LocalHospital,
+                            contentDescription = null,
+                            tint = Color(0xFF1E40AF), // Blue 800
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
                     Text(
-                        uiState.error!!,
-                        color = colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(14.dp),
-                        fontSize = 14.sp
+                        stringResource(R.string.emergency_ambulance_built_for_real),
+                        color = Color(0xFF1E3A8A), // Blue 900
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp
                     )
-                }
-            }
-        }
-
-        item {
-            Button(
-                onClick = { showConfirmDialog = true },
-                enabled = selectedType.isNotBlank() && !uiState.isLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = EmergencyAlertStrong),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                    Text(
+                        stringResource(R.string.choose_the_emergency_lane_share),
+                        color = Color(0xFF1E3A8A).copy(alpha = 0.86f),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                } else {
-                    Icon(Icons.Filled.LocalHospital, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.dispatch_ambulance_now), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-            }
-        }
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        @Composable
+                        fun BlueHeroChip(label: String) {
+                            Surface(
+                                color = Color(0xFFBFDBFE).copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(999.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = Color(0xFF1E40AF),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
 
-        item {
-            OutlinedButton(
-                onClick = { NavigationHelper.openDialer(context, "108") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmergencyAlert),
-                border = androidx.compose.foundation.BorderStroke(1.dp, EmergencyAlert.copy(alpha = 0.24f)),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Call, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.call_108_directly), fontWeight = FontWeight.SemiBold)
+                        BlueHeroChip(stringResource(R.string.text_live_gps))
+                        BlueHeroChip(stringResource(R.string.text_driver_contact))
+                        BlueHeroChip(stringResource(R.string.text_hospital_ready))
+                    }
+                }
             }
         }
     }

@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import com.example.swastik.ui.theme.ShadowTint
@@ -98,23 +99,28 @@ fun GlobalSearchBar(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        // Redesigned with BasicTextField for perfect vertical centering
-        BasicTextField(
-            value = query,
-            onValueChange = { query = it },
-            interactionSource = interactionSource,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-                .shadow(
-                    elevation = 4.dp,
-                    shape = RoundedCornerShape(23.dp),
-                    spotColor = ShadowTint,
-                    ambientColor = Color.Transparent
-                )
-                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(23.dp))
-                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(23.dp)),
-            singleLine = true,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Redesigned with BasicTextField for perfect vertical centering
+            BasicTextField(
+                value = query,
+                onValueChange = { query = it },
+                interactionSource = interactionSource,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(46.dp)
+                    .shadow(
+                        elevation = 2.dp,
+                        shape = RoundedCornerShape(12.dp),
+                        spotColor = Color.Black.copy(alpha = 0.05f),
+                        ambientColor = Color.Transparent
+                    )
+                    .background(Color(0xFFFFFFFF), RoundedCornerShape(12.dp)) // White background
+                    .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp)), // Premium gray border
+                singleLine = true,
             textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
@@ -214,8 +220,9 @@ fun GlobalSearchBar(
                 }
             }
         )
-        
-        if (isFocused || query.isNotEmpty()) {
+    } // End of Row
+    
+    if (isFocused || query.isNotEmpty()) {
             val displayList = if (query.isEmpty()) suggestions else emptyList()
             
             if (displayList.isNotEmpty() || filteredDocs.isNotEmpty() || filteredSpecs.isNotEmpty() || filteredServices.isNotEmpty()) {
