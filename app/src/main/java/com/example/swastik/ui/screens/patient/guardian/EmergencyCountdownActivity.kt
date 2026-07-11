@@ -317,7 +317,7 @@ fun EmergencyCountdownScreen(
                 text = "VAIDIDEA\nGUARDIAN",
                 color = Color.White,
                 fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Medium,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 letterSpacing = 2.sp
             )
@@ -337,7 +337,7 @@ fun EmergencyCountdownScreen(
                     text = "${timeLeft}s",
                     color = Color.White,
                     fontSize = 64.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.Bold
                 )
             }
             

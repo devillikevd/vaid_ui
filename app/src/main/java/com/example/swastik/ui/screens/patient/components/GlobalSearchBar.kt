@@ -70,18 +70,48 @@ fun GlobalSearchBar(
     }
 
     val homeServices = listOf(
-        "Hospitals", "Clinics", "Pharmacy", "Diagnostics", "Lab Tests", 
-        "Appointments", "Reports", "Prescriptions", "Vitals", 
-        "Health Card", "Emergency", "SOS", "Ambulance", "AI Assistant", "Chatbot"
+        stringResource(R.string.search_term_hospitals),
+        stringResource(R.string.search_term_clinics),
+        stringResource(R.string.search_term_pharmacy),
+        stringResource(R.string.search_term_diagnostics),
+        stringResource(R.string.search_term_lab_tests),
+        stringResource(R.string.search_term_appointments),
+        stringResource(R.string.search_term_reports),
+        stringResource(R.string.search_term_prescriptions),
+        stringResource(R.string.search_term_vitals),
+        stringResource(R.string.search_term_health_card),
+        stringResource(R.string.search_term_emergency),
+        stringResource(R.string.search_term_sos),
+        stringResource(R.string.search_term_ambulance),
+        stringResource(R.string.search_term_ai_assistant),
+        stringResource(R.string.search_term_chatbot)
     )
 
-    val suggestions = searchSuggestions.ifEmpty { 
-        listOf("Hospitals", "Fever", "Headache", "Dermatologist", "Gynecologist", "Ambulance", "Dentist")
-    }
+    val fallbackSuggestions = listOf(
+        stringResource(R.string.search_term_hospitals),
+        stringResource(R.string.search_term_fever),
+        stringResource(R.string.search_term_headache),
+        stringResource(R.string.category_dermatologist),
+        stringResource(R.string.category_gynecologist),
+        stringResource(R.string.search_term_ambulance),
+        stringResource(R.string.category_dentist)
+    )
+    val suggestions = searchSuggestions.ifEmpty { fallbackSuggestions }
 
     val filteredServices = if (query.isEmpty()) emptyList() else homeServices.filter { it.contains(query, ignoreCase = true) }
     val filteredDocs = if (query.isEmpty()) emptyList() else doctors.filter { it.name.contains(query, ignoreCase = true) || it.specialization.contains(query, ignoreCase = true) }
-    val specialitiesList = listOf("General Physician", "Dermatologist", "Gynecologist", "Orthopedist", "Pediatrician", "ENT Specialist", "Cardiologist", "Neurologist", "Psychiatrist", "Gastroenterologist")
+    val specialitiesList = listOf(
+        stringResource(R.string.category_general_physician),
+        stringResource(R.string.category_dermatologist),
+        stringResource(R.string.category_gynecologist),
+        stringResource(R.string.category_orthopedist),
+        stringResource(R.string.category_pediatrician),
+        stringResource(R.string.category_ent_specialist),
+        stringResource(R.string.category_cardiologist),
+        stringResource(R.string.category_neurologist),
+        stringResource(R.string.category_psychiatrist),
+        stringResource(R.string.category_gastroenterologist)
+    )
     val filteredSpecs = if (query.isEmpty()) emptyList() else specialitiesList.filter { it.contains(query, ignoreCase = true) }
 
     if (isFocused || query.isNotEmpty()) {

@@ -126,9 +126,9 @@ fun ChatbotScreen(
     }
 
     // Auto-speak AI responses when ttsEnabled
-    LaunchedEffect(uiState.lastAiMessageToSpeak) {
+    LaunchedEffect(uiState.lastAiMessageToSpeak, uiState.ttsEnabled) {
         val msgId = uiState.lastAiMessageToSpeak
-        if (msgId != null && ttsReady && tts != null) {
+        if (msgId != null && uiState.ttsEnabled && ttsReady && tts != null) {
             val msg = messages.find { it.id == msgId }
             if (msg != null && !msg.isUser) {
                 tts.stop()
@@ -303,38 +303,72 @@ fun ChatbotScreen(
         }
     }
 
-    val quickActions = remember {
-        listOf(
-            ChatQuickAction(Icons.Outlined.Thermostat, "I have fever", "I'm experiencing fever symptoms"),
-            ChatQuickAction(Icons.Outlined.Favorite, "Chest pain", "I'm having chest pain"),
-            ChatQuickAction(Icons.Outlined.Event, "Book appointment", "I want to book an appointment"),
-            ChatQuickAction(Icons.Outlined.Medication, "Medicine info", "I need information about medicines"),
-            ChatQuickAction(Icons.Outlined.Description, "View reports", "I want to see my medical reports"),
-            ChatQuickAction(Icons.Outlined.LocalHospital, "Find hospital", "Help me find a nearby hospital")
-        )
+    val quickActions = remember(selectedLanguage) {
+        if (selectedLanguage == ChatLanguage.HINDI) {
+            listOf(
+                ChatQuickAction(Icons.Outlined.Thermostat, "मुझे बुखार है", "मुझे बुखार है"),
+                ChatQuickAction(Icons.Outlined.Favorite, "सीने में दर्द", "मुझे सीने में दर्द है"),
+                ChatQuickAction(Icons.Outlined.Event, "अपॉइंटमेंट बुक करें", "मैं अपॉइंटमेंट बुक करना चाहता हूँ"),
+                ChatQuickAction(Icons.Outlined.Medication, "दवा की जानकारी", "मुझे दवाओं के बारे में जानकारी चाहिए"),
+                ChatQuickAction(Icons.Outlined.Description, "रिपोर्ट देखें", "मैं अपनी मेडिकल रिपोर्ट देखना चाहता हूँ"),
+                ChatQuickAction(Icons.Outlined.LocalHospital, "अस्पताल खोजें", "मुझे पास का अस्पताल खोजने में मदद करें")
+            )
+        } else {
+            listOf(
+                ChatQuickAction(Icons.Outlined.Thermostat, "I have fever", "I'm experiencing fever symptoms"),
+                ChatQuickAction(Icons.Outlined.Favorite, "Chest pain", "I'm having chest pain"),
+                ChatQuickAction(Icons.Outlined.Event, "Book appointment", "I want to book an appointment"),
+                ChatQuickAction(Icons.Outlined.Medication, "Medicine info", "I need information about medicines"),
+                ChatQuickAction(Icons.Outlined.Description, "View reports", "I want to see my medical reports"),
+                ChatQuickAction(Icons.Outlined.LocalHospital, "Find hospital", "Help me find a nearby hospital")
+            )
+        }
     }
 
-    val featureActions = remember {
-        listOf(
-            ChatFeatureAction(
-                icon = Icons.Outlined.Thermostat,
-                label = "Symptom check",
-                helper = "Structured triage",
-                onClick = { showSymptomChecker = true }
-            ),
-            ChatFeatureAction(
-                icon = Icons.Outlined.Lightbulb,
-                label = "Health tips",
-                helper = "Daily guidance",
-                onClick = { showTipsSheet = true }
-            ),
-            ChatFeatureAction(
-                icon = Icons.Outlined.History,
-                label = "Chat history",
-                helper = "Resume older chat",
-                onClick = { showHistorySheet = true }
+    val featureActions = remember(selectedLanguage) {
+        if (selectedLanguage == ChatLanguage.HINDI) {
+            listOf(
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Thermostat,
+                    label = "लक्षण जांचें",
+                    helper = "संरचित ट्राइएज",
+                    onClick = { showSymptomChecker = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Lightbulb,
+                    label = "स्वास्थ्य सुझाव",
+                    helper = "दैनिक मार्गदर्शन",
+                    onClick = { showTipsSheet = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.History,
+                    label = "चैट इतिहास",
+                    helper = "पुरानी चैट देखें",
+                    onClick = { showHistorySheet = true }
+                )
             )
-        )
+        } else {
+            listOf(
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Thermostat,
+                    label = "Symptom check",
+                    helper = "Structured triage",
+                    onClick = { showSymptomChecker = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Lightbulb,
+                    label = "Health tips",
+                    helper = "Daily guidance",
+                    onClick = { showTipsSheet = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.History,
+                    label = "Chat history",
+                    helper = "Resume older chat",
+                    onClick = { showHistorySheet = true }
+                )
+            )
+        }
     }
 
     fun sendMessage(text: String, messageType: String = "text") {
@@ -366,11 +400,11 @@ fun ChatbotScreen(
                         ) { Text(stringResource(R.string.ud83e_udd16), fontSize = 18.sp) }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(if (selectedLanguage == ChatLanguage.HINDI) "स्वास्थ्य सहायक" else stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
+                                Text(if (selectedLanguage == ChatLanguage.HINDI) "एआई • वॉइस • विजन" else stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
                             }
                         }
                     }
@@ -1574,7 +1608,7 @@ private fun ChatInputBar(
                             if (value.isEmpty()) {
                                 Text(
                                     text = if (!inputEnabled) {
-                                        "Start a new chat to continue"
+                                        if (language == ChatLanguage.HINDI) "जारी रखने के लिए नई चैट शुरू करें" else "Start a new chat to continue"
                                     } else if (language == ChatLanguage.HINDI) {
                                         "टाइप करें, बोलें या फ़ोटो..."
                                     } else {
@@ -1633,7 +1667,7 @@ private fun startVoiceRecognition(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechCode)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, speechCode)
-        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, speechCode)
+        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
     }

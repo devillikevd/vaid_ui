@@ -176,7 +176,8 @@ const FORBIDDEN_PATTERNS = [
   /\d+\s*(?:tablet|capsule|pill)s?\s+(?:a day|daily|per day|twice|thrice)/gi,
 ];
 
-const DISCLAIMER = '\n\n⚕️ *This is AI-generated health information, not a medical diagnosis. Please consult a qualified healthcare professional for proper evaluation and treatment.*';
+const DISCLAIMER_EN = '\n\n⚕️ *This is AI-generated health information, not a medical diagnosis. Please consult a qualified healthcare professional for proper evaluation and treatment.*';
+const DISCLAIMER_HI = '\n\n⚕️ *यह AI द्वारा उत्पन्न स्वास्थ्य जानकारी है, कोई चिकित्सीय निदान नहीं। उचित मूल्यांकन और उपचार के लिए कृपया किसी योग्य स्वास्थ्य देखभाल पेशेवर से परामर्श लें।*';
 
 // ==================== PUBLIC API ====================
 
@@ -229,7 +230,7 @@ function checkEmergency(message) {
 /**
  * Post-process AI response: strip forbidden content + add disclaimer.
  */
-function sanitizeResponse(aiResponse) {
+function sanitizeResponse(aiResponse, language = 'en') {
   if (!aiResponse) return aiResponse;
 
   let sanitized = aiResponse;
@@ -237,7 +238,7 @@ function sanitizeResponse(aiResponse) {
   for (const pattern of FORBIDDEN_PATTERNS) {
     sanitized = sanitized.replace(pattern, (match) => {
       // Replace dosage-specific content with safe alternative
-      return '[consult your doctor for specific dosage]';
+      return language === 'hi' ? '[खुराक के लिए अपने डॉक्टर से परामर्श लें]' : '[consult your doctor for specific dosage]';
     });
   }
 
@@ -247,9 +248,11 @@ function sanitizeResponse(aiResponse) {
     sanitized.includes('not a medical diagnosis') ||
     sanitized.includes('consult a qualified healthcare professional') ||
     sanitized.includes('Please consult a doctor') ||
-    sanitized.includes('consult your doctor for');
+    sanitized.includes('consult your doctor for') ||
+    sanitized.includes('यह AI द्वारा उत्पन्न स्वास्थ्य जानकारी है') ||
+    sanitized.includes('कोई चिकित्सीय निदान नहीं');
   if (!hasDisclaimer) {
-    sanitized += DISCLAIMER;
+    sanitized += (language === 'hi' ? DISCLAIMER_HI : DISCLAIMER_EN);
   }
 
   return sanitized;

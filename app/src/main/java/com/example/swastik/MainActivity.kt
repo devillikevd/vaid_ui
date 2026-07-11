@@ -292,7 +292,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onNavigateToMedicineDetail = { medicineId ->
                     navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                 },
-                onNavigateToMedicineCart = { navController.navigateSafe(Screen.MedicineCart.route) },
+                onNavigateToMedicineCart = { cartType -> navController.navigateSafe(Screen.MedicineCart.createRoute(cartType)) },
                 onNavigateToFavoriteMedicines = { navController.navigateSafe(Screen.FavoriteMedicines.route) },
                 onSearchClick = { navController.navigateSafe(Screen.FindDoctorsCategories.createRoute("in_person")) },
                 onNotificationActionRoute = { route -> navController.navigateSafe(route) },
@@ -321,7 +321,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToMedicineDetail = { medicineId ->
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
-                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.route) }
+                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) }
                 )
             }
         }
@@ -618,7 +618,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                         navController.navigateSafe(Screen.MedicineDetail.createRoute(medicineId))
                     },
                     onNavigateToCart = {
-                        navController.navigateSafe(Screen.MedicineCart.route)
+                        navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL"))
                     },
                     onNavigateToOrders = {
                         navController.navigateSafe(Screen.OrderHistory.createRoute(0))
@@ -745,7 +745,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                     onNavigateToHome = { navController.popBackStack() },
                     onNavigateToRecords = { navController.navigateSafe(Screen.Reports.route) },
                     onNavigateToProfile = { navController.navigateSafe(Screen.PatientDashboard.createRoute(4)) },
-                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.route) }
+                    onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) }
                 )
             }
         }
@@ -765,7 +765,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             MedicineDetailScreen(
                 medicineId = medicineId,
                 onBackClick = { navController.popBackStack() },
-                onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.route) }
+                onNavigateToCart = { navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL")) }
             )
             }
         }
@@ -903,7 +903,18 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 com.example.swastik.ui.screens.patient.HealthCardScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToGuardianDashboard = { navController.navigateSafe(Screen.GuardianDashboard.route) },
+                    onNavigateToHealthConnectDashboard = { navController.navigateSafe(Screen.HealthConnectDashboard.route) },
                     dashboardViewModel = dashboardViewModel,
+                    recordsViewModel = recordsViewModel
+                )
+            }
+        }
+
+        composable(Screen.HealthConnectDashboard.route) {
+            AuthGuard(navController, tokenManager) {
+                val recordsViewModel: com.example.swastik.ui.viewmodel.RecordsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                com.example.swastik.ui.screens.patient.HealthConnectDashboardScreen(
+                    onNavigateBack = { navController.popBackStack() },
                     recordsViewModel = recordsViewModel
                 )
             }
@@ -927,9 +938,24 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             }
         }
 
-        composable(Screen.MedicineCart.route) {
+        composable(
+            route = Screen.MedicineCart.route,
+            arguments = listOf(
+                navArgument("type") {
+                    type = NavType.StringType
+                    defaultValue = "PHARMACY"
+                }
+            )
+        ) { backStackEntry ->
+            val typeStr = backStackEntry.arguments?.getString("type") ?: "PHARMACY"
+            val cartType = try {
+                com.example.swastik.ui.viewmodel.CartType.valueOf(typeStr)
+            } catch (e: Exception) {
+                com.example.swastik.ui.viewmodel.CartType.PHARMACY
+            }
             AuthGuard(navController, tokenManager) {
                 MedicineCartScreen(
+                    cartType = cartType,
                     onBackClick = { navController.popBackStack() },
                     onOrderComplete = { navController.popBackStack() },
                     onNavigateToOrderHistory = { tab -> navController.navigateSafe(Screen.OrderHistory.createRoute(tab)) }
@@ -955,7 +981,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 OrderHistoryScreen(
                     onBackClick = { navController.popBackStack() },
                     onNavigateToCart = {
-                        navController.navigateSafe(Screen.MedicineCart.route)
+                        navController.navigateSafe(Screen.MedicineCart.createRoute("GLOBAL"))
                     },
                     initialTab = tab
                 )

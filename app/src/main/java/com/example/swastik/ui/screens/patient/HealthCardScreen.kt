@@ -74,6 +74,7 @@ private val HealthCardMainBg = Color(0xFFE3F2FD) // Light bluish background for 
 fun HealthCardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToGuardianDashboard: () -> Unit,
+    onNavigateToHealthConnectDashboard: () -> Unit,
     dashboardViewModel: PatientDashboardViewModel,
     recordsViewModel: RecordsViewModel
 ) {
@@ -568,28 +569,27 @@ fun HealthCardScreen(
                         Spacer(modifier = Modifier.height(20.dp))
                         
                         HealthConnectHowItWorks()
+                        
                     }
                 }
             }
-
+            
             item {
-                // Dynamic Charts Section
-                BezierCurveChart(
-                    dataPoints = vitalsData?.recentHeartRates?.map { it.value.toFloat() } ?: emptyList(),
-                    title = "Heart Rate Trend",
-                    subtitle = "BPM over last 7 days",
-                    containerColor = healthCardMainBg,
-                    lineColor = MaterialTheme.colorScheme.primary
-                )
-            }
-            item {
-                BezierCurveChart(
-                    dataPoints = vitalsData?.recentTemperatures?.map { it.value.toFloat() } ?: emptyList(),
-                    title = "Body Temperature Trend",
-                    subtitle = "Celsius over last 7 days",
-                    containerColor = healthCardMainBg,
-                    lineColor = MaterialTheme.colorScheme.primary
-                )
+                OutlinedButton(
+                    onClick = onNavigateToHealthConnectDashboard,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF6A5AE0)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6A5AE0).copy(alpha = 0.5f))
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("View Health Dashboard", fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                }
             }
 
             // Fitness Tracking Fallback Section (Removing duplicates)

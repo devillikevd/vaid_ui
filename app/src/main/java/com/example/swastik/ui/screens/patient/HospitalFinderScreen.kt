@@ -482,26 +482,7 @@ fun HospitalFinderScreen(
                 } else {
                     facility
                 }
-                val cartState by medicineViewModel.cartState.collectAsState()
-                cartState.pharmacyConflict?.let { conflict ->
-                    AlertDialog(
-                        onDismissRequest = { medicineViewModel.resolvePharmacyConflict(false) },
-                        title = { Text(stringResource(R.string.change_pharmacy_title), fontWeight = FontWeight.Bold) },
-                        text = {
-                            Text(stringResource(R.string.pharmacy_conflict_message, conflict.newPharmacyName ?: stringResource(R.string.pharmacy_conflict_fallback)))
-                        },
-                        confirmButton = {
-                            Button(
-                                onClick = { medicineViewModel.resolvePharmacyConflict(true) },
-                                colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-                            ) { Text(stringResource(R.string.clear_and_add)) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { medicineViewModel.resolvePharmacyConflict(false) }) { Text(stringResource(R.string.cancel)) }
-                        }
-                    )
-                }
-
+                val cartState by medicineViewModel.pharmacyCartState.collectAsState()
                 if (isEmergencyMode && facility.isEmergencyAvailable) {
                     EmergencyFacilityDetailSheet(
                         facility = facility,
@@ -513,9 +494,9 @@ fun HospitalFinderScreen(
                         LaunchedEffect(facility.id) {
                             viewModel.loadPharmacyInventory(facility.id)
                             // Pre-set the pharmacy in cart so orders go to this store
-                            medicineViewModel.setPharmacy(facility.id, facility.name)
+                            medicineViewModel.setPharmacy(com.example.swastik.ui.viewmodel.CartType.PHARMACY, facility.id, facility.name)
                         }
-                        val pharmacyCartState by medicineViewModel.cartState.collectAsState()
+                        val pharmacyCartState by medicineViewModel.pharmacyCartState.collectAsState()
                         MedicalStoreDetailSheet(
                             facility = facility,
                             inventoryItems = hospitalState.pharmacyInventory,
@@ -538,7 +519,7 @@ fun HospitalFinderScreen(
                                     nearbyPharmacy = facility.name,
                                     pharmacyDistance = facility.distance
                                 )
-                                medicineViewModel.addToCart(medicine, facility.id, facility.name)
+                                medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, facility.id, facility.name)
                             },
                             cartItemCount = pharmacyCartState.totalItems,
                             onViewCart = {
@@ -675,10 +656,10 @@ fun HospitalFinderScreen(
                 onDismiss = { showPharmacyBookingDialog = false },
                 onConfirmOrder = { address, phone, items, isRx, bitmap ->
                     // Actually place the order via MedicineViewModel
-                    medicineViewModel.clearCart()
-                    medicineViewModel.setPharmacy(selectedFacility!!.id, selectedFacility!!.name)
-                    medicineViewModel.setDeliveryAddress(address)
-                    medicineViewModel.setPatientPhone(phone)
+                    medicineViewModel.clearCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY)
+                    medicineViewModel.setPharmacy(com.example.swastik.ui.viewmodel.CartType.PHARMACY, selectedFacility!!.id, selectedFacility!!.name)
+                    medicineViewModel.setDeliveryAddress(com.example.swastik.ui.viewmodel.CartType.PHARMACY, address)
+                    medicineViewModel.setPatientPhone(com.example.swastik.ui.viewmodel.CartType.PHARMACY, phone)
                     // If not prescription, add selected items to cart
                     if (!isRx) {
                         items.forEach { (item, orderQuantity) ->
@@ -692,11 +673,11 @@ fun HospitalFinderScreen(
                                 inStock = true,
                                 stockCount = item.quantity ?: 0
                             )
-                            medicineViewModel.addToCart(medicine, selectedFacility!!.id, selectedFacility!!.name)
-                            medicineViewModel.updateCartQuantity(item.id, orderQuantity)
+                            medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, selectedFacility!!.id, selectedFacility!!.name)
+                            medicineViewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, item.id, orderQuantity)
                         }
                     }
-                    medicineViewModel.placeOrder(appContext, bitmap)
+                    medicineViewModel.placeOrder(com.example.swastik.ui.viewmodel.CartType.PHARMACY, appContext, bitmap)
                     showPharmacyBookingDialog = false
                     viewModel.closeFacilitySheet()
                     onNavigateToOrders()

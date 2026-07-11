@@ -62,7 +62,7 @@ fun MedicineTabContent(
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
-    val cartState by viewModel.cartState.collectAsState()
+    val cartState by viewModel.globalCartState.collectAsState()
     val favorites by viewModel.favoriteMedicines.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var isGridView by remember { mutableStateOf(true) }
@@ -94,6 +94,8 @@ fun MedicineTabContent(
     val categoryLabels = remember {
         listOf("general", "antibiotic", "painkiller", "vitamin", "cardiac", "diabetes", "skin", "respiratory", "digestive", "ayurvedic")
     }
+
+    // Pharmacy conflict dialog removed since carts are now completely decoupled
 
     Box(
         modifier = modifier
@@ -389,13 +391,13 @@ fun MedicineTabContent(
                                             onToggleFavorite = toggleFav,
                                             onClick = { onMedicineClick(medicine.id) },
                                             onAddToCart = {
-                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                                viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
                                             },
                                             onIncrement = {
-                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                                viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
                                             },
                                             onDecrement = {
-                                                viewModel.removeFromCart(medicine.id)
+                                                viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id)
                                             }
                                         )
                                     } else {
@@ -407,13 +409,13 @@ fun MedicineTabContent(
                                             onToggleFavorite = toggleFav,
                                             onClick = { onMedicineClick(medicine.id) },
                                             onAddToCart = {
-                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                                viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
                                             },
                                             onIncrement = {
-                                                viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request")
+                                                viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request")
                                             },
                                             onDecrement = {
-                                                viewModel.removeFromCart(medicine.id)
+                                                viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id)
                                             }
                                         )
                                     }

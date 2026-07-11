@@ -29,7 +29,7 @@ fun FavoriteMedicinesScreen(
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     val favorites by viewModel.favoriteMedicines.collectAsState()
-    val cartState by viewModel.cartState.collectAsState()
+    val cartState by viewModel.globalCartState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -111,9 +111,9 @@ fun FavoriteMedicinesScreen(
                             isFavorite = true,
                             onToggleFavorite = { viewModel.toggleFavorite(medicine) },
                             onClick = { onNavigateToMedicineDetail(medicine.id) },
-                            onAddToCart = { viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request") },
-                            onIncrement = { viewModel.addToCart(medicine, "GLOBAL_REQUEST", "Global Request") },
-                            onDecrement = { viewModel.removeFromCart(medicine.id) }
+                            onAddToCart = { viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request") },
+                            onIncrement = { viewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine, "GLOBAL_REQUEST", "Global Request") },
+                            onDecrement = { viewModel.removeFromCart(com.example.swastik.ui.viewmodel.CartType.GLOBAL, medicine.id) }
                         )
                     }
                 }

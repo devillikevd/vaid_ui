@@ -65,7 +65,7 @@ fun PatientDashboardScreen(
     onNavigateToDietTracker: () -> Unit = {},
 
     onNavigateToMedicineDetail: (String) -> Unit = {},
-    onNavigateToMedicineCart: () -> Unit = {},
+    onNavigateToMedicineCart: (String) -> Unit = {},
     onNavigateToFavoriteMedicines: () -> Unit = {},
     onNavigateToVitals: () -> Unit = {},
     onStartInPersonConsultation: () -> Unit = {},
@@ -298,7 +298,7 @@ fun PatientDashboardScreen(
                             onMedicineClick = onNavigateToMedicineDetail,
                             onPharmacyClick = onNavigateToPharmacy,
                             onNotificationClick = { showNotificationPanel = true },
-                            onNavigateToCart = onNavigateToMedicineCart,
+                            onNavigateToCart = { onNavigateToMedicineCart("GLOBAL") },
                             onNavigateToFavorites = onNavigateToFavoriteMedicines
                         )
                         3 -> RecordsTabContent(

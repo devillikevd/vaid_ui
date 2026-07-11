@@ -87,6 +87,7 @@ private fun CheckoutStepper(currentStep: CheckoutStep) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicineCartScreen(
+    cartType: com.example.swastik.ui.viewmodel.CartType,
     onBackClick: () -> Unit,
     onOrderComplete: () -> Unit = {},
     onNavigateToOrderHistory: (Int) -> Unit = {},
@@ -94,13 +95,13 @@ fun MedicineCartScreen(
     patientDashboardViewModel: com.example.swastik.ui.viewmodel.PatientDashboardViewModel = hiltViewModel()
 ) {
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
-    val cartState by viewModel.cartState.collectAsState()
+    val cartState by (if (cartType == com.example.swastik.ui.viewmodel.CartType.GLOBAL) viewModel.globalCartState else viewModel.pharmacyCartState).collectAsState()
     var currentStep by remember { mutableStateOf(CheckoutStep.CART) }
     val context = LocalContext.current
     
     LaunchedEffect(patientProfile) {
         if (cartState.patientPhone.isBlank() && !patientProfile?.phoneNumber.isNullOrBlank()) {
-            viewModel.setPatientPhone(patientProfile?.phoneNumber ?: "")
+            viewModel.setPatientPhone(cartType, patientProfile?.phoneNumber ?: "")
         }
     }
 
@@ -113,7 +114,7 @@ fun MedicineCartScreen(
 
         AlertDialog(
             onDismissRequest = {
-                viewModel.resetOrderSuccess()
+                viewModel.resetOrderSuccess(cartType)
                 onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
             },
             icon = { Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(48.dp)) },
@@ -191,7 +192,7 @@ fun MedicineCartScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.resetOrderSuccess()
+                        viewModel.resetOrderSuccess(cartType)
                         onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
@@ -213,7 +214,7 @@ fun MedicineCartScreen(
                     }
                     TextButton(
                         onClick = {
-                            viewModel.resetOrderSuccess()
+                            viewModel.resetOrderSuccess(cartType)
                             onNavigateToOrderHistory(if (isGlobalRequest) 1 else 0)
                         }
                     ) {
@@ -313,8 +314,8 @@ fun MedicineCartScreen(
                                 val itemKey = item.medicine.inventoryItemId ?: item.medicine.id
                                 CartItemCard(
                                     item = item,
-                                    onQuantityChange = { viewModel.updateCartQuantity(itemKey, it) },
-                                    onRemove = { viewModel.removeFromCart(itemKey) }
+                                    onQuantityChange = { viewModel.updateCartQuantity(cartType, itemKey, it) },
+                                    onRemove = { viewModel.removeFromCart(cartType, itemKey) }
                                 )
                             }
                         }
@@ -329,7 +330,7 @@ fun MedicineCartScreen(
                                 
                                 OutlinedTextField(
                                     value = cartState.patientPhone,
-                                    onValueChange = { viewModel.setPatientPhone(it) },
+                                    onValueChange = { viewModel.setPatientPhone(cartType, it) },
                                     label = { Text("Phone Number *") },
                                     modifier = Modifier.fillMaxWidth(),
                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
@@ -343,7 +344,7 @@ fun MedicineCartScreen(
                                     com.example.swastik.ui.screens.patient.components.SwiggyAddressEditor(
                                         initialAddress = "",
                                         onAddressSaved = { address ->
-                                            viewModel.setDeliveryAddress(address)
+                                            viewModel.setDeliveryAddress(cartType, address)
                                         }
                                     )
                                 } else {
@@ -366,7 +367,7 @@ fun MedicineCartScreen(
                                             )
                                             Spacer(Modifier.height(8.dp))
                                             TextButton(
-                                                onClick = { viewModel.setDeliveryAddress("") },
+                                                onClick = { viewModel.setDeliveryAddress(cartType, "") },
                                                 contentPadding = PaddingValues(0.dp)
                                             ) {
                                                 Text("Change Address", color = SwastikPrimary, fontWeight = FontWeight.Bold)

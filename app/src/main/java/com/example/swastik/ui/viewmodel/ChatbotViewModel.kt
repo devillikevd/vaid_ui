@@ -68,7 +68,7 @@ data class ChatbotUiState(
     val emergencyTriggered: Boolean = false,
     val rateLimited: Boolean = false,
     val selectedLanguage: ChatLanguage = ChatLanguage.ENGLISH,
-    val ttsEnabled: Boolean = true,
+    val ttsEnabled: Boolean = false,
     val lastAiMessageToSpeak: String? = null
 )
 

@@ -68,27 +68,10 @@ fun MedicineScreen(
     val state by viewModel.uiState.collectAsState()
     val filteredMedicines = viewModel.getFilteredMedicines()
     val filteredNearbyMedicines = viewModel.getFilteredNearbyMedicines()
-    val cartState by viewModel.cartState.collectAsState()
+    val cartState by viewModel.globalCartState.collectAsState()
     val isDarkMode = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val bgColor = if (isDarkMode) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface
     val cardColor = if (isDarkMode) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
-
-    cartState.pharmacyConflict?.let { conflict ->
-        AlertDialog(
-            onDismissRequest = { viewModel.resolvePharmacyConflict(false) },
-            title = { Text(stringResource(R.string.change_pharmacy_title), fontWeight = FontWeight.Bold) },
-            text = { Text(stringResource(R.string.pharmacy_conflict_message, conflict.newPharmacyName ?: stringResource(R.string.pharmacy_conflict_fallback))) },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.resolvePharmacyConflict(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
-                ) { Text(stringResource(R.string.clear_and_add)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.resolvePharmacyConflict(false) }) { Text(stringResource(R.string.cancel)) }
-            }
-        )
-    }
 
     val isRefreshing = state.isLoading
     val pullToRefreshState = rememberPullToRefreshState()
@@ -136,7 +119,7 @@ fun MedicineScreen(
                     userName = userName,
                     onBackClick = onBackClick,
                     onCartClick = onNavigateToCart,
-                    cartItemCount = viewModel.cartState.collectAsState().value.totalItems
+                    cartItemCount = viewModel.globalCartState.collectAsState().value.totalItems
                 )
 
                 // Main Content Card

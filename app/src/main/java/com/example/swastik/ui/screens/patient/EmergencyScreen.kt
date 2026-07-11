@@ -8,6 +8,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -221,7 +222,7 @@ private fun EmergencyTypeSelection(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text(stringResource(R.string.call_108_directly), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF9F1239))
+                        Text(stringResource(R.string.call_108_directly), fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = Color(0xFF9F1239))
                         Text("Govt. ambulance helpline", fontSize = 13.sp, color = Color(0xFF9F1239).copy(alpha = 0.8f))
                     }
                 }
@@ -248,7 +249,7 @@ private fun EmergencyTypeSelection(
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
-                        Text("Vaididea Ambulance", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = colorScheme.onSurface)
+                        Text("Vaididea Ambulance", fontWeight = FontWeight.SemiBold, fontSize = 20.sp, color = colorScheme.onSurface)
                         Text("Live-tracking & auto-dispatch", fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
                     }
                 }
@@ -319,9 +320,13 @@ private fun EmergencyTypeSelection(
                                 item = item,
                                 isSelected = selectedType == item.value,
                                 onClick = {
-                                    selectedType = item.value
-                                    coroutineScope.launch {
-                                        listState.animateScrollToItem(4)
+                                    if (selectedType == item.value) {
+                                        selectedType = ""
+                                    } else {
+                                        selectedType = item.value
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem(4)
+                                        }
                                     }
                                 },
                                 modifier = Modifier.weight(1f)
@@ -399,14 +404,7 @@ private fun EmergencyTypeSelection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFFEFF6FF), // Blue 50
-                                Color(0xFFDBEAFE)  // Blue 100
-                            )
-                        )
-                    )
+                    .background(MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(
                     modifier = Modifier
@@ -430,22 +428,23 @@ private fun EmergencyTypeSelection(
                     Spacer(modifier = Modifier.height(18.dp))
                     Text(
                         stringResource(R.string.emergency_ambulance_built_for_real),
-                        color = Color(0xFF1E3A8A), // Blue 900
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
                         fontSize = 24.sp,
                         lineHeight = 30.sp
                     )
                     Text(
                         stringResource(R.string.choose_the_emergency_lane_share),
-                        color = Color(0xFF1E3A8A).copy(alpha = 0.86f),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
                         modifier = Modifier.padding(top = 8.dp)
                     )
                     Spacer(modifier = Modifier.height(18.dp))
-                    Row(
-                        modifier = Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         @Composable
                         fun BlueHeroChip(label: String) {
