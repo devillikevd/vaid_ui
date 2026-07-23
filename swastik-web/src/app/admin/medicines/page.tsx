@@ -160,17 +160,17 @@ export default function AdminMedicinesPage() {
         try {
             const fields: Record<string, string> = {};
             if (editId) fields.medicineId = editId;
-            const res = (await uploadApi.uploadFile(file, 'medicine', fields)) as any;
-            const json: any = await res.json();
-            if (json.success && (json.data?.storageUrl || json.data?.url)) {
+            const res = await uploadApi.uploadFile(file, 'medicine', fields);
+            const data = res.data as any;
+            if (res.success && (data?.storageUrl || data?.url)) {
                 setForm(c => ({ 
                     ...c, 
-                    image_url: json.data.url || json.data.resolvedUrl || json.data.storageUrl, // preview
-                    image_storage_url: json.data.storageUrl // what gets saved to db
+                    image_url: data.url || data.resolvedUrl || data.storageUrl, // preview
+                    image_storage_url: data.storageUrl // what gets saved to db
                 }));
                 toast.success('Image uploaded successfully');
             } else {
-                toast.error('Upload failed', json.error || 'Could not upload image');
+                toast.error('Upload failed', res.error || 'Could not upload image');
             }
         } catch {
             toast.error('Upload failed', 'Network error while uploading image');
