@@ -1,8 +1,10 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -20,6 +22,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.zIndex
@@ -193,87 +196,29 @@ private val HealthIdTeal = Color(0xFF00796B)
 
 @Composable
 private fun ConsultationTypeCard(
-    title: String,
-    subtitle: String,
     imageRes: Int,
+    bgColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    backgroundColor: Color,
-    imageOffsetX: androidx.compose.ui.unit.Dp = 0.dp
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
-            .height(190.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .fillMaxWidth()
+            .height(115.dp) // Slightly taller to prevent excessive cropping, while still keeping it compact
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Image Layer
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .fillMaxHeight(0.65f)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = imageOffsetX)
-                    .padding(end = 4.dp, bottom = 4.dp),
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomEnd
-            )
-
-            // Text and Action Layer
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.Top
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1E293B),
-                    lineHeight = 16.sp,
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B),
-                    lineHeight = 14.sp,
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Book Now",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF00796B) // Primary color (Dark Green)
-                    )
-                    Icon(
-                        androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Book",
-                        tint = Color(0xFF00796B),
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            }
-        }
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop, // Fills the card perfectly
+            alignment = Alignment.TopCenter // Ensures the top of the image (where the text is) is NEVER cropped!
+        )
     }
 }
 
@@ -281,10 +226,8 @@ private fun ConsultationTypeCard(
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = stringResource(R.string.in_person_consultation_multiline),
-        subtitle = stringResource(R.string.visit_doctor_at_clinic),
-        imageRes = R.drawable.inpersoncons,
-        backgroundColor = Color(0xFFE0F2FE), // Soft Sky Blue so it stands out from the green background
+        imageRes = R.drawable.inpersonconsultation_new, // New webp image
+        bgColor = Color(0xFFDDF2FF),
         onClick = onClick
     )
 }
@@ -293,11 +236,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = stringResource(R.string.video_consultation_multiline),
-        subtitle = stringResource(R.string.consult_doctor_from_home),
-        imageRes = R.drawable.videocons,
-        backgroundColor = Color(0xFFF6F3FF), // Light purple
-        imageOffsetX = 36.dp, // Shifting the image further to the right as requested
+        imageRes = R.drawable.videoconsultation_new, // New webp image
+        bgColor = Color(0xFFE2EEFF), // Assuming #2EEFF meant #E2EEFF
         onClick = onClick
     )
 }
@@ -957,6 +897,81 @@ private fun HealthcareServiceCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TopHealthcareServicesRow(
+    onHospitalsClick: () -> Unit,
+    onClinicsClick: () -> Unit,
+    onPharmacyClick: () -> Unit,
+    onDiagnosticsClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.find_hospital,
+            backgroundColor = Color(0xFFE3F2FD), // Light blue
+            imageAlignment = Alignment.TopCenter, // Anchor to top so it doesn't get cut off
+            onClick = onHospitalsClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.clinic_visit,
+            backgroundColor = Color(0xFFE8F5E9), // Light green
+            onClick = onClinicsClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.order_medicine,
+            backgroundColor = Color(0xFFFFF3E0), // Light orange
+            onClick = onPharmacyClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.book_test_lab,
+            backgroundColor = Color(0xFFF3E5F5), // Light purple
+            onClick = onDiagnosticsClick
+        )
+    }
+}
+
+@Composable
+fun TopServiceIconCard(
+    modifier: Modifier = Modifier,
+    imageRes: Int,
+    backgroundColor: Color = Color.White,
+    imageAlignment: Alignment = Alignment.Center,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .aspectRatio(1.3f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop, // Kept Crop for full size as requested
+                alignment = imageAlignment,
+                colorFilter = ColorFilter.tint(backgroundColor, BlendMode.Multiply), 
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

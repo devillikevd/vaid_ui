@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,9 +57,33 @@ fun NotificationPanelDialog(
         }
     }
 
+    // Match home screen background color
+    val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+        MaterialTheme.colorScheme.background
+    } else {
+        Color(0xFFF8FAFC) // Light Gray
+    }
+
+    var isAnimating by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isAnimating = true
+    }
+
+    val handleDismiss = {
+        isAnimating = false
+    }
+
+    LaunchedEffect(isAnimating) {
+        if (!isAnimating) {
+            kotlinx.coroutines.delay(300)
+            onDismiss()
+        }
+    }
+
     // Side Sheet Implementation
     androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = handleDismiss,
         properties = androidx.compose.ui.window.DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false
@@ -67,17 +92,28 @@ fun NotificationPanelDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { onDismiss() },
+                .background(Color.Black.copy(alpha = if (isAnimating) 0.5f else 0f))
+                .clickable { handleDismiss() },
             contentAlignment = Alignment.CenterEnd
         ) {
-            Surface(
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isAnimating,
+                enter = androidx.compose.animation.slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                ),
+                exit = androidx.compose.animation.slideOutHorizontally(
+                    targetOffsetX = { it },
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)
+                )
+            ) {
+                Surface(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(0.85f)
                     .clickable(enabled = false) {}, // prevent click-through
                 shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = homeBgColor,
                 tonalElevation = 8.dp
             ) {
                 Column(
@@ -191,6 +227,7 @@ fun NotificationPanelDialog(
                         Text(stringResource(R.string.close))
                     }
                 }
+            }
             }
         }
     }

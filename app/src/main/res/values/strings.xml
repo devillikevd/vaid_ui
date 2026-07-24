@@ -128,6 +128,7 @@
 
     
     <string name="records">Records</string>
+    <string name="my_care">My Care</string>
     <string name="reports">Reports</string>
     <string name="prescriptions">Prescriptions</string>
     <string name="medical_records_title">Medical Records</string>
@@ -696,7 +697,7 @@
     <string name="healthcare_reimagined">Healthcare Reimagined</string>
     <string name="your_health_journey_starts_here">Your health journey starts here</string>
     <string name="login_as_patient">Login as Patient</string>
-    <string name="are_you_a_doctor_hospital">Are you a Doctor, Hospital, Clinic or Lab?</string>
+    <string name="are_you_a_doctor_hospital">Are you a Doctor, Hospital, Clinic, Pharmacy or Lab?</string>
     <string name="login_to_your_portal_on">Login to your portal on the website.</string>
     <string name="login_on_website">Login on Website</string>
     <string name="by_continuing_you_agree_to">By continuing, you agree to our Terms &amp; Privacy Policy</string>

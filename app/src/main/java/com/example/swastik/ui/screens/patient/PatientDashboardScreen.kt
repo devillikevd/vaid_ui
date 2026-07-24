@@ -206,6 +206,7 @@ fun PatientDashboardScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
+            contentWindowInsets = WindowInsets(0.dp), // Fix: Prevents Scaffold from consuming status bar insets!
             bottomBar = {
                 PatientBottomNavigation(
                     selectedTab = selectedTab,
@@ -279,7 +280,7 @@ fun PatientDashboardScreen(
                         )
                         }
                         1 -> RemindersTabContent(
-                            modifier = Modifier.padding(paddingValues),
+                            modifier = Modifier.padding(paddingValues).statusBarsPadding(),
                             profile = profile,
                             reminders = reminders,
                             isLoading = uiState.isLoading,
@@ -292,7 +293,7 @@ fun PatientDashboardScreen(
                             onDelete = { id -> viewModel.deleteReminder(id) }
                         )
                         2 -> MedicineTabContent(
-                            modifier = Modifier.padding(paddingValues),
+                            modifier = Modifier.padding(paddingValues).statusBarsPadding(),
                             profile = profile,
                             unreadNotificationsCount = unreadCount,
                             onMedicineClick = onNavigateToMedicineDetail,
@@ -301,17 +302,22 @@ fun PatientDashboardScreen(
                             onNavigateToCart = { onNavigateToMedicineCart("GLOBAL") },
                             onNavigateToFavorites = onNavigateToFavoriteMedicines
                         )
-                        3 -> RecordsTabContent(
-                            modifier = Modifier.padding(paddingValues),
+                        3 -> MyCareTabContent(
+                            modifier = Modifier.padding(paddingValues).statusBarsPadding(),
                             profile = profile,
+                            stats = stats,
+                            reminders = reminders,
                             unreadNotificationsCount = unreadCount,
                             onNotificationClick = { showNotificationPanel = true },
                             onNavigateToPrescriptions = onNavigateToPrescriptions,
-                            onNavigateToReports = onNavigateToReports
+                            onNavigateToReports = onNavigateToReports,
+                            onNavigateToAppointments = onNavigateToAppointments,
+                            onNavigateToOrderHistory = onNavigateToOrderHistory,
+                            onNavigateToBookingHistory = onNavigateToBookingHistory
                         )
                         4 -> {
                             ProfileTabContent(
-                                modifier = Modifier.padding(paddingValues),
+                                modifier = Modifier.padding(paddingValues).statusBarsPadding(),
                                 profile = profile,
                                 stats = stats,
                                 unreadNotificationsCount = unreadCount,

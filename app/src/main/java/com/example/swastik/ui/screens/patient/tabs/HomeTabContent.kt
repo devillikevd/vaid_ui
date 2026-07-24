@@ -80,30 +80,62 @@ fun HomeTabContent(
         Color(0xFFF8FAFC) // Light Gray
     }
 
+    val topTeal = Color(0xFF00695C).copy(alpha = 0.22f) // Slightly darker teal at top
+    val midTeal = Color(0xFF00695C).copy(alpha = 0.08f) // Lighter teal
+    val gradientBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
+        colors = listOf(topTeal, midTeal, Color.Transparent),
+        startY = 0f,
+        endY = 600f // Bound the gradient so it doesn't stretch infinitely
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(homeBgColor)
-            .padding(paddingValues)
     ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize()
+        // Static gradient background behind everything so it draws under the status bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .background(gradientBrush)
+        )
+
+        // LazyColumn wrapped in a Box with statusBarsPadding so it starts entirely below the status bar
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())
+            ) {
         // Redesigned Header for Home Tab
         item {
-            DashboardHeader(
-                profile = profile,
-                unreadNotificationsCount = unreadNotificationsCount,
-                onNotificationClick = onNotificationClick,
-                onProfileClick = onProfileClick,
-                onLocationUpdate = onLocationUpdate,
-                onAddAddressClick = onAddAddressClick,
-                isHomeTab = true,
-                onEmergencyClick = onNavigateToEmergency,
-                onChatbotClick = onNavigateToChatbot
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                DashboardHeader(
+                    profile = profile,
+                    unreadNotificationsCount = unreadNotificationsCount,
+                    onNotificationClick = onNotificationClick,
+                    onProfileClick = onProfileClick,
+                    onLocationUpdate = onLocationUpdate,
+                    onAddAddressClick = onAddAddressClick,
+                    isHomeTab = true,
+                    onEmergencyClick = onNavigateToEmergency,
+                    onChatbotClick = onNavigateToChatbot
+                )
+                
+                // Top Healthcare Services Row (Hospitals, Clinics, Pharmacy, Diagnostics)
+                TopHealthcareServicesRow(
+                    onHospitalsClick = onNavigateToHospitals,
+                    onClinicsClick = onNavigateToClinics,
+                    onPharmacyClick = onNavigateToPharmacies,
+                    onDiagnosticsClick = onNavigateToDiagnostic
+                )
+            }
         }
         
         // Search Bar sticky header
@@ -116,7 +148,7 @@ fun HomeTabContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp)
+                        .padding(top = 12.dp, bottom = 12.dp)
                 ) {
                     GlobalSearchBar(
                         doctors = doctors,
@@ -175,41 +207,9 @@ fun HomeTabContent(
                 // Diet & Nutrition Tracker Card
                 DietTrackerCard(onClick = onNavigateToDietTracker)
 
-
-
-                // My Activity Section Title
-                Text(
-                    text = stringResource(R.string.my_activity),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 12.dp, top = 0.dp)
-                )
-
-                // Secondary Actions (Reports, Appointments)
-                SecondaryActionsGrid(
-                    onReportsClick = onNavigateToReports,
-                    onAppointmentsClick = onNavigateToAppointments
-                )
-                
-                // Tertiary Actions (Orders, Bookings)
-                TertiaryActionsGrid(
-                    onOrdersClick = onNavigateToOrderHistory,
-                    onBookingsClick = onNavigateToBookingHistory
-                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 3. Quick Actions Group
-            HealthcareServicesSection(
-                onClinicsClick = onNavigateToClinics,
-                onPharmacyClick = onNavigateToPharmacies,
-                onDiagnosticsClick = onNavigateToDiagnostic,
-                onHospitalsClick = onNavigateToHospitals
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp)) // Reduced from 16.dp
 
             // Recommended Doctors
             RecommendedDoctorsSection(
@@ -220,13 +220,13 @@ fun HomeTabContent(
                 onRetry = onRefresh
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp)) // Reduced from 16.dp
             
             // 4. Book Doctor by Speciality Group
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp), // Reduced vertical padding from 8.dp
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -242,14 +242,13 @@ fun HomeTabContent(
                 showTitle = false
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
-            
             // Community Q&A Banner (Moved to the bottom)
             CommunityQABanner(onClick = onNavigateToCommunityQA)
             
             Spacer(modifier = Modifier.height(32.dp)) // Extra space at bottom
         }
-    }
+        } // Closes inner statusBarsPadding Box
+    } // Closes outer Box
     
     // Pulse Animation for AI Button
     val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "Pulse")
@@ -291,16 +290,19 @@ fun HomeTabContent(
     // Floating AI Chatbot Button (Bottom-Right)
     Box(
         modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .size(72.dp),
-            contentAlignment = Alignment.Center
-        ) {
+            .align(Alignment.BottomEnd)
+            .padding(
+                end = 16.dp,
+                bottom = paddingValues.calculateBottomPadding() + 4.dp
+            )
+            .size(72.dp),
+        contentAlignment = Alignment.Center
+    ) {
             // Hallo Effect & Pulse
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .border(2.dp, Color(0xFF00796B).copy(alpha = 0.2f), androidx.compose.foundation.shape.CircleShape)
+                    .border(2.dp, Color(0xFF3949AB).copy(alpha = 0.3f), androidx.compose.foundation.shape.CircleShape)
             )
             
             // Pulsing Ring
@@ -308,14 +310,14 @@ fun HomeTabContent(
                 modifier = Modifier
                     .size(56.dp)
                     .scale(pulseScale)
-                    .background(Color(0xFF00796B).copy(alpha = pulseAlpha), androidx.compose.foundation.shape.CircleShape)
+                    .background(Color(0xFF3949AB).copy(alpha = pulseAlpha), androidx.compose.foundation.shape.CircleShape)
             )
             
             Box(contentAlignment = Alignment.TopEnd) {
                 androidx.compose.material3.FloatingActionButton(
                     onClick = onNavigateToChatbot,
                     modifier = Modifier.size(56.dp),
-                    containerColor = Color(0xFF00796B),
+                    containerColor = Color(0xFF3949AB),
                     contentColor = Color.White,
                     shape = androidx.compose.foundation.shape.CircleShape,
                     elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(6.dp)

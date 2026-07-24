@@ -3,6 +3,7 @@ package com.example.swastik.navigation
 import com.example.swastik.data.model.FacilityType
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
     // Auth Screens
     object Home : Screen("home")
     object PatientRegister : Screen("patient_register")

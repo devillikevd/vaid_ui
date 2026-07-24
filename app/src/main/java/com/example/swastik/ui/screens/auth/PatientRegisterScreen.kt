@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -109,7 +111,7 @@ fun PatientRegisterScreen(
         else -> null
     }
     val phoneError = when {
-        normalizedPhoneDigits.isBlank() -> "Enter your mobile number."
+        normalizedPhoneDigits.isBlank() -> null
         else -> phoneValidationMessage(normalizedPhoneDigits)
     }
     val confirmPasswordError = when {
@@ -125,6 +127,7 @@ fun PatientRegisterScreen(
         phoneError == null &&
         password.isNotBlank() &&
         confirmPassword.isNotBlank() &&
+        normalizedPhoneDigits.isNotBlank() &&
         !uiState.isLoading
 
     LaunchedEffect(uiState.registrationComplete) {
@@ -137,138 +140,77 @@ fun PatientRegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(SwastikPrimary, SwastikPrimary.copy(alpha = 0.78f), Color(0xFF6A5AE0))
-                )
-            )
+            .background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 28.dp, bottom = 16.dp, start = 12.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Back Button
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp)
         ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.create_patient_account),
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = MaterialTheme.colorScheme.surface
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.get_started),
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.register_description),
-                            fontSize = 14.sp,
-                            color = Color(0xFF6B7280),
-                            lineHeight = 20.sp
-                        )
-                    }
-
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .background(Color(0xFFF3F4F6), RoundedCornerShape(12.dp))
-                                .clickable { languageExpanded = true }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedTag)),
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
-                        }
-
-                        DropdownMenu(
-                            expanded = languageExpanded,
-                            onDismissRequest = { languageExpanded = false }
-                        ) {
-                            languageOptions.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(lang.labelResId)) },
-                                    onClick = {
-                                        AppSettingsStore.updateLanguage(lang.tag)
-                                        languageExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Create Account",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F5FF))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .background(Color(0xFFF3F4F6), RoundedCornerShape(12.dp))
+                            .clickable { languageExpanded = true }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .background(SwastikPrimary.copy(alpha = 0.12f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = SwastikPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = stringResource(R.string.what_happens_next),
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF312E81)
+                        Text(
+                            text = stringResource(com.example.swastik.util.LanguageConfig.labelResId(selectedTag)),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    }
+
+                    DropdownMenu(
+                        expanded = languageExpanded,
+                        onDismissRequest = { languageExpanded = false }
+                    ) {
+                        languageOptions.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(lang.labelResId)) },
+                                onClick = {
+                                    AppSettingsStore.updateLanguage(lang.tag)
+                                    languageExpanded = false
+                                }
                             )
                         }
-                        Text(
-                            text = stringResource(R.string.register_next_steps),
-                            fontSize = 13.sp,
-                            color = Color(0xFF4B5563),
-                            lineHeight = 19.sp
-                        )
                     }
                 }
+            }
 
                 AuthInlineCard(
                     text = uiState.errorMessage,
@@ -382,10 +324,12 @@ fun PatientRegisterScreen(
                         colors = authOutlinedTextFieldColors(),
                         shape = RoundedCornerShape(14.dp),
                         supportingText = {
-                            Text(
-                                text = passwordMessage ?: AUTH_PASSWORD_HINT,
-                                color = if (passwordMessage != null) MaterialTheme.colorScheme.error else Color(0xFF6B7280)
-                            )
+                            if (passwordMessage != null) {
+                                Text(
+                                    text = passwordMessage,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     )
                 }
@@ -467,28 +411,6 @@ fun PatientRegisterScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.or_separator), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                }
-
-                val context = androidx.compose.ui.platform.LocalContext.current
-                OutlinedButton(
-                    onClick = {
-                        android.widget.Toast.makeText(context, "Google Sign-Up coming soon", android.widget.Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text(stringResource(R.string.sign_up_google), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -499,7 +421,6 @@ fun PatientRegisterScreen(
                 }
             }
         }
-    }
 }
 
 @Composable

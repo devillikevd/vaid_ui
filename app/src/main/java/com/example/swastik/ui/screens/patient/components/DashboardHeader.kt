@@ -190,8 +190,7 @@ fun DashboardHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(homeBgColor)
-                .statusBarsPadding()
+                .background(Color.Transparent) // Changed to transparent so the gradient shows through
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween

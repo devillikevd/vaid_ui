@@ -60,7 +60,7 @@ fun PatientBottomNavigation(
             contentDescription = "Medicine"
         ),
         BottomNavItem(
-            label = stringResource(R.string.records),
+            label = stringResource(R.string.my_care),
             selectedIcon = Icons.Filled.Folder,
             unselectedIcon = Icons.Outlined.Folder,
             contentDescription = "Records"

@@ -30,6 +30,7 @@ import com.example.swastik.utils.NetworkObserver
 import com.example.swastik.data.local.TokenManager
 import com.example.swastik.navigation.Screen
 import com.example.swastik.ui.screens.auth.*
+import com.example.swastik.ui.screens.splash.SplashScreen
 import com.example.swastik.ui.screens.consultation.VideoConsultationFlow
 import com.example.swastik.ui.screens.patient.AppointmentHistoryScreen
 import com.example.swastik.ui.screens.patient.EmergencyScreen
@@ -51,6 +52,7 @@ import com.example.swastik.ui.screens.patient.diagnostic.BookingHistoryScreen
 import com.example.swastik.ui.screens.patient.diagnostic.DiagnosticBookingScreen
 import com.example.swastik.utils.navigateSafe
 
+import android.view.WindowManager
 import com.example.swastik.ui.theme.SwastikTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -62,7 +64,17 @@ class MainActivity : AppCompatActivity() {
     @Inject lateinit var networkObserver: NetworkObserver
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_Swastik) // Revert from Splash theme to normal theme
         super.onCreate(savedInstanceState)
+        
+        // Disable secure screen (screenshots & screen recording)
+        // Commented out to fix black screen in screenshots/mirroring during testing
+        /* window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        ) */
+
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false) // Enable edge-to-edge
         setContent {
             SwastikApp(tokenManager, networkObserver)
         }
@@ -113,13 +125,14 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
     }
 
     SwastikTheme {
-        val startDestination = remember(tokenManager) {
+        val nextDestination = remember(tokenManager) {
             if (tokenManager.isAuthenticated()) {
                 Screen.PatientDashboard.createRoute()
             } else {
                 Screen.Home.route
             }
         }
+        val startDestination = Screen.Splash.route
         val snackbarHostState = remember { SnackbarHostState() }
         val isNetworkAvailable by networkObserver.observe().collectAsState(initial = true)
 
@@ -141,7 +154,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(paddingValues),
+                // modifier = Modifier.padding(paddingValues), // Removed to allow edge-to-edge drawing
                 enterTransition = {
                     fadeIn(animationSpec = tween(200))
                 },
@@ -156,9 +169,16 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 }
             ) {
 
-        // ── Auth ──────────────────────────────────────────
-        composable(Screen.Home.route) {
-            HomeScreen(
+        // ── Splash & Auth ──────────────────────────────────────────
+        composable(Screen.Splash.route) {
+            val isAuthenticated = tokenManager.isAuthenticated()
+            SplashScreen(
+                isAuthenticated = isAuthenticated,
+                onAutoNavigate = {
+                    navController.navigateSafe(Screen.PatientDashboard.createRoute()) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
                 onPatientRegisterClick = { navController.navigateSafe(Screen.PatientRegister.route) },
                 onPatientLoginClick = { navController.navigateSafe(Screen.PatientLogin.route) }
             )
@@ -190,7 +210,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                 onBackClick = { navController.popBackStack() },
                 onLoginSuccess = {
                     navController.navigateSafe(Screen.PatientDashboard.createRoute()) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
+                        popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }
             )
