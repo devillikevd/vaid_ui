@@ -47,6 +47,7 @@ const outbreakRoutes = require('./routes/outbreak');
 const mapsRoutes = require('./routes/maps');
 const deliveryAgentRoutes = require('./routes/deliveryAgentRoutes');
 const dietRoutes = require('./routes/diet');
+const diseasesRoutes = require('./routes/diseases');
 
 const { startOutbreakCron } = require('./services/outbreakService');
 
@@ -351,8 +352,18 @@ app.get('/health', async (req, res) => {
   // Check Supabase (PostgreSQL)
   try {
     const { supabaseAdmin } = require('./config/supabase');
-    const { error } = await supabaseAdmin.from('users').select('id').limit(1);
-    checks.supabase = error ? 'degraded' : 'ok';
+    const url = process.env.SUPABASE_URL || '';
+    if (url.includes('your-project.supabase.co')) {
+      checks.supabase = 'not_configured';
+    } else {
+      const { error } = await supabaseAdmin.from('users').select('id').limit(1);
+      if (error) {
+        checks.supabase = 'degraded';
+        overallStatus = 'degraded';
+      } else {
+        checks.supabase = 'ok';
+      }
+    }
   } catch {
     checks.supabase = 'down';
     overallStatus = 'degraded';
@@ -435,6 +446,7 @@ app.use('/api/community', require('./routes/communityRoutes'));
 app.use('/api/maps', mapsRoutes);
 app.use('/api/delivery-agents', deliveryAgentRoutes);
 app.use('/api/diet', dietRoutes);
+app.use('/api/diseases', diseasesRoutes);
 
 
 // Error handling
@@ -447,6 +459,14 @@ const startServer = async () => {
     // Initialize infrastructure
     await connectMongoDB();
     await connectRedis();
+
+    // Initialize health library database
+    try {
+      const { bootstrapHealthDatabase } = require('./scripts/bootstrap-db');
+      await bootstrapHealthDatabase();
+    } catch (e) {
+      logger.error('⚠️ Could not bootstrap health database: ' + e.message);
+    }
 
     // Start Redis Monitor
     try {
