@@ -61,7 +61,7 @@ const storageUseSSL = parseBoolean(
 );
 const storagePort = parseInt(process.env.STORAGE_PORT || process.env.MINIO_PORT || (storageUseSSL ? '443' : '9000'), 10);
 const storageBucketName = process.env.S3_BUCKET_NAME || process.env.BUCKET_NAME || process.env.MINIO_BUCKET_NAME || 'swastik-healthcare';
-const storagePublicUrl = (
+let storagePublicUrl = (
   process.env.STORAGE_PUBLIC_URL
   || process.env.S3_PUBLIC_URL
   || process.env.MINIO_PUBLIC_URL
@@ -74,6 +74,24 @@ const storagePublicUrl = (
     useSSL: storageUseSSL,
   })
 ).replace(/\/$/, '');
+
+// Dynamically patch local IPs so changing WiFi doesn't break image URLs
+if (storagePublicUrl.includes('192.168.') || storagePublicUrl.includes('localhost') || storagePublicUrl.includes('127.0.0.1')) {
+  const os = require('os');
+  let localIp = '127.0.0.1';
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (!iface.internal && iface.family === 'IPv4' && !iface.address.startsWith('169.254.')) {
+        localIp = iface.address;
+        break;
+      }
+    }
+  }
+  storagePublicUrl = storagePublicUrl.replace(/192\.168\.\d+\.\d+/, localIp)
+                                   .replace('localhost', localIp)
+                                   .replace('127.0.0.1', localIp);
+}
 const storagePublicReadPrefixes = (
   process.env.STORAGE_PUBLIC_READ_PREFIXES
   || 'profiles/*,documents/*,reports/*,prescriptions/*,videos/*,licenses/*,entities/*,thumbnails/*,medium/*'

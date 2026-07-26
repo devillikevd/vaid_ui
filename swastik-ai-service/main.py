@@ -853,7 +853,7 @@ def parse_json_response(content: str) -> dict:
     json_match = re.search(r'\{[\s\S]*\}', content)
     if json_match:
         try:
-            return json.loads(json_match.group(0))
+            return json.loads(json_match.group(0).strip())
         except json.JSONDecodeError:
             pass
 
@@ -1655,7 +1655,7 @@ Rules:
                     return {
                         "success": True,
                         "data": {
-                            "detected_items": parsed.get("detected_items", []),
+                            "identified_items": parsed.get("detected_items", []),
                             "meal_type": parsed.get("meal_type", "unknown"),
                             "confidence": parsed.get("confidence", 0.7),
                             "provider": "groq_vision_fallback",

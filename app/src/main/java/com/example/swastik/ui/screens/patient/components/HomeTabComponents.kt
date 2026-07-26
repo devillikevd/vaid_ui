@@ -1,8 +1,10 @@
 package com.example.swastik.ui.screens.patient.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -20,6 +22,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.ui.res.painterResource
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.zIndex
@@ -60,41 +63,65 @@ fun EmergencySOSBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFB91C1C)), // Matched with EmergencyAlert in EmergencyScreen
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), // Added slight shadow
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDA4AF).copy(alpha = 0.5f)) // Subtle red border
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFFFFF0F0), Color(0xFFFFEAEA)) // Very soft pastel pink/red
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.sosicon),
-                contentDescription = "SOS",
-                modifier = Modifier
-                    .size(32.dp),
-                contentScale = ContentScale.Fit
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.emergency_sos_1),
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 14.sp,
-                    color = Color.White
-                )
-                Text(
-                    stringResource(R.string.tap_to_call_ambulance),
-                    fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ambulance_icon),
+                        contentDescription = "Ambulance",
+                        modifier = Modifier.size(24.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.emergency_sos_1),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = Color(0xFFD32F2F) // Calm but readable dark red
+                    )
+                    Text(
+                        stringResource(R.string.tap_to_call_ambulance),
+                        fontSize = 12.sp,
+                        color = Color(0xFFD32F2F).copy(alpha = 0.8f)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Call, 
+                        contentDescription = null, 
+                        tint = Color(0xFFD32F2F), 
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            Icon(
-                Icons.Filled.Call, 
-                contentDescription = null, 
-                tint = Color.White, 
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
@@ -105,53 +132,59 @@ fun SwastikAIBanner(modifier: Modifier = Modifier, onClick: () -> Unit) {
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = AssistantDarkGreen),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), // Added slight shadow
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC).copy(alpha = 0.5f)) // Subtle green border
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 10.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(Color(0xFFF0FDF4), Color(0xFFDCFCE7)) // Restored softer green to keep it light
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.SmartToy, null, tint = Color.White, modifier = Modifier.size(17.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.vaididea_ai_assistant),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = Color.White
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .height(36.dp)
-                    .background(HomeSoftSurface, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
+                    Text("V", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Color(0xFF15803D))
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.vaididea_ai_assistant),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF14532D) // Green 900
+                    )
                     Text(
                         stringResource(R.string.hi_how_are_you_feeling),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        fontSize = 12.sp,
+                        color = Color(0xFF166534).copy(alpha = 0.85f), // Green 800
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
                         Icons.Filled.Mic,
-                        null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(11.dp)
+                        contentDescription = null,
+                        tint = Color(0xFF15803D), // Green 700
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -163,64 +196,29 @@ private val HealthIdTeal = Color(0xFF00796B)
 
 @Composable
 private fun ConsultationTypeCard(
-    title: String,
-    subtitle: String,
     imageRes: Int,
+    bgColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    backgroundColor: Color
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
-            .height(190.dp) // Increased size
+            .fillMaxWidth()
+            .height(115.dp) // Slightly taller to prevent excessive cropping, while still keeping it compact
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Image Layer
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .fillMaxHeight(0.6f)
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 4.dp, bottom = 4.dp),
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomEnd
-            )
-
-            // Text Layer
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.Top
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp, // Reduced to prevent cut-off and wrap issues
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1E293B),
-                    lineHeight = 16.sp,
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B),
-                    lineHeight = 14.sp,
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop, // Fills the card perfectly
+            alignment = Alignment.TopCenter // Ensures the top of the image (where the text is) is NEVER cropped!
+        )
     }
 }
 
@@ -228,10 +226,8 @@ private fun ConsultationTypeCard(
 fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = stringResource(R.string.in_person_consultation_multiline),
-        subtitle = stringResource(R.string.visit_doctor_at_clinic),
-        imageRes = R.drawable.inpersoncons,
-        backgroundColor = Color(0xFFF1F8F7), // Light teal
+        imageRes = R.drawable.inpersonconsultation_new, // New webp image
+        bgColor = Color(0xFFDDF2FF),
         onClick = onClick
     )
 }
@@ -240,10 +236,8 @@ fun InPersonConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit)
 fun VideoConsultationCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ConsultationTypeCard(
         modifier = modifier,
-        title = stringResource(R.string.video_consultation_multiline),
-        subtitle = stringResource(R.string.consult_doctor_from_home),
-        imageRes = R.drawable.videocons,
-        backgroundColor = Color(0xFFF6F3FF), // Light purple
+        imageRes = R.drawable.videoconsultation_new, // New webp image
+        bgColor = Color(0xFFE2EEFF), // Assuming #2EEFF meant #E2EEFF
         onClick = onClick
     )
 }
@@ -255,7 +249,7 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEBF9F1)), // Mint green
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), // Matches My Activity cards
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -270,34 +264,44 @@ fun CompactHealthIdCard(modifier: Modifier = Modifier, profile: PatientProfile? 
                     .background(Color.White, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.QrCode2, null, tint = Color.Black, modifier = Modifier.size(24.dp))
+                Icon(Icons.Filled.QrCode2, null, tint = Color(0xFF0284C7), modifier = Modifier.size(24.dp)) // Sky 600
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.digital_health_id),
+                    text = "Smart Health Hub", // Modern title
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
-                Text(
-                    text = stringResource(R.string.view_your_vitals_history_more),
-                    fontSize = 11.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+                // Row of Chips
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
+                        Text("🛡️ Guardian", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold) // Sky 800
+                    }
+                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
+                        Text("🏃 Fitness", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold)
+                    }
+                    Box(modifier = Modifier.background(Color(0xFFE0F2FE), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 2.dp)) {
+                        Text("⌚ Sync", fontSize = 9.sp, color = Color(0xFF075985), fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.view_vitals),
+                    "Open Hub",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF00796B)
+                    color = Color(0xFF0284C7) // Sky 600
                 )
-                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF00796B), modifier = Modifier.size(14.dp))
+                Icon(Icons.Filled.ChevronRight, null, tint = Color(0xFF0284C7), modifier = Modifier.size(14.dp))
             }
         }
     }
@@ -893,6 +897,81 @@ private fun HealthcareServiceCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TopHealthcareServicesRow(
+    onHospitalsClick: () -> Unit,
+    onClinicsClick: () -> Unit,
+    onPharmacyClick: () -> Unit,
+    onDiagnosticsClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.find_hospital,
+            backgroundColor = Color(0xFFE3F2FD), // Light blue
+            imageAlignment = Alignment.TopCenter, // Anchor to top so it doesn't get cut off
+            onClick = onHospitalsClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.clinic_visit,
+            backgroundColor = Color(0xFFE8F5E9), // Light green
+            onClick = onClinicsClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.order_medicine,
+            backgroundColor = Color(0xFFFFF3E0), // Light orange
+            onClick = onPharmacyClick
+        )
+        TopServiceIconCard(
+            modifier = Modifier.weight(1f),
+            imageRes = R.drawable.book_test_lab,
+            backgroundColor = Color(0xFFF3E5F5), // Light purple
+            onClick = onDiagnosticsClick
+        )
+    }
+}
+
+@Composable
+fun TopServiceIconCard(
+    modifier: Modifier = Modifier,
+    imageRes: Int,
+    backgroundColor: Color = Color.White,
+    imageAlignment: Alignment = Alignment.Center,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .aspectRatio(1.3f)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                contentScale = ContentScale.Crop, // Kept Crop for full size as requested
+                alignment = imageAlignment,
+                colorFilter = ColorFilter.tint(backgroundColor, BlendMode.Multiply), 
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }

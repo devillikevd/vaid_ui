@@ -124,17 +124,17 @@ export default function AdminTestsPage() {
         try {
             const fields: Record<string, string> = {};
             if (editId) fields.testId = editId;
-            const res = (await uploadApi.uploadFile(file, 'master-test', fields)) as any;
-            const json: any = await res.json();
-            if (json.success && (json.data?.storageUrl || json.data?.url)) {
+            const res = await uploadApi.uploadFile(file, 'master-test', fields);
+            const data = res.data as any;
+            if (res.success && (data?.storageUrl || data?.url)) {
                 setForm(c => ({ 
                     ...c, 
-                    icon_url: json.data.url || json.data.resolvedUrl || json.data.storageUrl,
-                    icon_storage_url: json.data.storageUrl 
+                    icon_url: data.url || data.resolvedUrl || data.storageUrl,
+                    icon_storage_url: data.storageUrl 
                 }));
                 toast.success('Icon uploaded successfully');
             } else {
-                toast.error('Upload failed', json.error || 'Could not upload icon');
+                toast.error('Upload failed', res.error || 'Could not upload icon');
             }
         } catch {
             toast.error('Upload failed', 'Network error while uploading icon');

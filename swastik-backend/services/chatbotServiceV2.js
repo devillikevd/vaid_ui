@@ -361,7 +361,7 @@ async function sendMessage(userId, sessionId, message, options = {}) {
 
   // 6. Medical guardrails post-processing
   if (parsedResponse.summary) {
-    parsedResponse.summary = sanitizeResponse(parsedResponse.summary);
+    parsedResponse.summary = sanitizeResponse(parsedResponse.summary, language);
   }
 
   // Ensure required fields
@@ -596,7 +596,7 @@ GUIDELINES:
 
     // Sanitize response
     if (parsedResponse.summary) {
-      parsedResponse.summary = sanitizeResponse(parsedResponse.summary);
+      parsedResponse.summary = sanitizeResponse(parsedResponse.summary, language);
     }
 
     // Save to MongoDB
@@ -670,7 +670,9 @@ Respond with this JSON structure:
     });
 
     const analysis = result.parsedContent;
-    analysis.disclaimer = 'This is AI-generated analysis and NOT a medical diagnosis. Please consult a qualified healthcare professional.';
+    analysis.disclaimer = language === 'hi'
+      ? 'यह AI द्वारा उत्पन्न विश्लेषण है, कोई चिकित्सीय निदान नहीं। कृपया किसी योग्य स्वास्थ्य देखभाल पेशेवर से परामर्श लें।'
+      : 'This is AI-generated analysis and NOT a medical diagnosis. Please consult a qualified healthcare professional.';
 
     return analysis;
   } catch (err) {

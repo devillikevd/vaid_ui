@@ -68,7 +68,7 @@ data class ChatbotUiState(
     val emergencyTriggered: Boolean = false,
     val rateLimited: Boolean = false,
     val selectedLanguage: ChatLanguage = ChatLanguage.ENGLISH,
-    val ttsEnabled: Boolean = true,
+    val ttsEnabled: Boolean = false,
     val lastAiMessageToSpeak: String? = null
 )
 
@@ -114,7 +114,7 @@ class ChatbotViewModel @Inject constructor(
                     isLoading = false,
                     sessionStarted = true,
                     activeSessionId = result.data.sessionId,
-                    messages = listOf(buildWelcomeMessage(isConnected = true)),
+                    messages = emptyList(),
                     error = null,
                     rateLimited = false
                 )
@@ -205,7 +205,7 @@ class ChatbotViewModel @Inject constructor(
                         isLoading = false,
                         sessionStarted = true,
                         activeSessionId = sessionId,
-                        messages = if (restoredMessages.isEmpty()) listOf(buildWelcomeMessage(isConnected = true)) else restoredMessages,
+                        messages = restoredMessages,
                         rateLimited = false
                     )
                 }

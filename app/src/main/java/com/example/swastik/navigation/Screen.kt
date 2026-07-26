@@ -3,6 +3,7 @@ package com.example.swastik.navigation
 import com.example.swastik.data.model.FacilityType
 
 sealed class Screen(val route: String) {
+    object Splash : Screen("splash")
     // Auth Screens
     object Home : Screen("home")
     object PatientRegister : Screen("patient_register")
@@ -56,6 +57,7 @@ sealed class Screen(val route: String) {
         }
     }
     object MedicineFinder : Screen("medicine_finder")
+    object FavoriteMedicines : Screen("favorite_medicines")
     object MedicineDetail : Screen("medicine_detail/{medicineId}") {
         fun createRoute(medicineId: String): String = "medicine_detail/$medicineId"
     }
@@ -111,7 +113,10 @@ sealed class Screen(val route: String) {
     object HealthCard : Screen("health_card")
     object GuardianDashboard : Screen("guardian_dashboard")
     object HealthConnectSetup : Screen("health_connect_setup")
-    object MedicineCart : Screen("medicine_cart")
+    object HealthConnectDashboard : Screen("health_connect_dashboard")
+    object MedicineCart : Screen("medicine_cart/{type}") {
+        fun createRoute(type: String) = "medicine_cart/$type"
+    }
     object OrderHistory : Screen("order_history?tab={tab}") {
         fun createRoute(tab: Int) = "order_history?tab=$tab"
     }

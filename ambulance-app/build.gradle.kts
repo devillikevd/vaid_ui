@@ -1,5 +1,7 @@
 import java.util.Properties
 import org.gradle.api.GradleException
+import java.net.DatagramSocket
+import java.net.InetAddress
 
 val localBuildProperties = Properties().apply {
     val localPropsFile = rootProject.file("local.properties")
@@ -16,6 +18,17 @@ fun localOrEnvProperty(key: String): String? =
 
 fun localOrEnvBoolean(key: String, default: Boolean): Boolean =
     (localOrEnvProperty(key) ?: default.toString()).toBooleanStrictOrNull() ?: default
+
+fun getHostIpAddress(): String {
+    try {
+        DatagramSocket().use { socket ->
+            socket.connect(InetAddress.getByName("8.8.8.8"), 10002)
+            return socket.localAddress.hostAddress
+        }
+    } catch (e: Exception) {
+        return "10.0.2.2"
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -58,7 +71,8 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5001/api/\"")
+        val defaultIp = getHostIpAddress()
+        buildConfigField("String", "API_BASE_URL", "\"http://$defaultIp:5001/api/\"")
         buildConfigField("String", "DEVICE_API_BASE_URL", "\"\"")
         buildConfigField("String", "CERT_PINS", "\"\"")
 

@@ -296,10 +296,10 @@ fun PharmacyDetailScreen(
                     onInventorySearch = { query -> hospitalViewModel.loadPharmacyInventory(facility.id, query) },
                     onDismiss = { showPharmacyBookingDialog = false },
                     onConfirmOrder = { address, phone, items, isRx, bitmap ->
-                        medicineViewModel.clearCart()
-                        medicineViewModel.setPharmacy(facility.id, facility.name)
-                        medicineViewModel.setDeliveryAddress(address)
-                        medicineViewModel.setPatientPhone(phone)
+                        medicineViewModel.clearCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY)
+                        medicineViewModel.setPharmacy(com.example.swastik.ui.viewmodel.CartType.PHARMACY, facility.id, facility.name)
+                        medicineViewModel.setDeliveryAddress(com.example.swastik.ui.viewmodel.CartType.PHARMACY, address)
+                        medicineViewModel.setPatientPhone(com.example.swastik.ui.viewmodel.CartType.PHARMACY, phone)
                         
                         if (!isRx) {
                             items.forEach { (item, orderQuantity) ->
@@ -313,11 +313,11 @@ fun PharmacyDetailScreen(
                                     inStock = true,
                                     stockCount = item.quantity ?: 0
                                 )
-                                medicineViewModel.addToCart(medicine, facility.id, facility.name)
-                                medicineViewModel.updateCartQuantity(item.id, orderQuantity)
+                                medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, facility.id, facility.name)
+                                medicineViewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, item.id, orderQuantity)
                             }
                         }
-                        medicineViewModel.placeOrder(context, bitmap)
+                        medicineViewModel.placeOrder(com.example.swastik.ui.viewmodel.CartType.PHARMACY, context, bitmap)
                         showPharmacyBookingDialog = false
                         onNavigateToOrderHistory()
                     }

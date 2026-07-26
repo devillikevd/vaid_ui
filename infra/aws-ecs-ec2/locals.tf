@@ -40,6 +40,7 @@ locals {
     "UPSTASH_REDIS_REST_TOKEN",
     "MONGODB_URI",
     "GROQ_API_KEY",
+    "GEMINI_API_KEY",
     "HUGGINGFACE_API_KEY",
     "GMAIL_USER",
     "GMAIL_APP_PASSWORD",
@@ -107,6 +108,7 @@ locals {
     "JWT_ACCESS_SECRET",
     "MONGODB_URI",
     "GROQ_API_KEY",
+    "GEMINI_API_KEY",
     "HUGGINGFACE_API_KEY",
     "REDIS_PASSWORD"
   ])

@@ -48,7 +48,7 @@ fun MedicineDetailScreen(
     }
 
     val detailState by viewModel.detailState.collectAsState()
-    val cartState by viewModel.cartState.collectAsState()
+    val cartState by viewModel.globalCartState.collectAsState()
     val medicine = detailState.medicine
     val colorScheme = MaterialTheme.colorScheme
     var requestQuantity by remember { mutableIntStateOf(1) }
@@ -167,6 +167,7 @@ fun MedicineDetailScreen(
                     Button(
                         onClick = {
                             viewModel.addToCart(
+                                com.example.swastik.ui.viewmodel.CartType.GLOBAL,
                                 medicine = medicine,
                                 pharmacyId = "GLOBAL_REQUEST",
                                 pharmacyName = "Global Request",

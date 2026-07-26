@@ -5,4 +5,8 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/white</item>
     </style>
+
+    <style name="Theme.Splash" parent="Theme.Swastik">
+        <item name="android:windowBackground">@drawable/splash_bg_gradient</item>
+    </style>
 </resources>

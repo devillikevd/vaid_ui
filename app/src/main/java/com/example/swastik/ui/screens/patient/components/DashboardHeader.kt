@@ -62,7 +62,9 @@ fun DashboardHeader(
     onAddAddressClick: () -> Unit = {},
     isHomeTab: Boolean = false,
     cartItemCount: Int = 0,
-    onCartClick: (() -> Unit)? = null
+    onCartClick: (() -> Unit)? = null,
+    onEmergencyClick: () -> Unit = {},
+    onChatbotClick: () -> Unit = {}
 ) {
     var showLocationDialog by remember { mutableStateOf(false) }
     var locationInput by remember { mutableStateOf(profile?.location ?: "") }
@@ -182,15 +184,14 @@ fun DashboardHeader(
         val homeBgColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
             MaterialTheme.colorScheme.background
         } else {
-            Color(0xFFF4FBF9)
+            Color(0xFFF8FAFC)
         }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(homeBgColor)
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .background(Color.Transparent) // Changed to transparent so the gradient shows through
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -198,36 +199,8 @@ fun DashboardHeader(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile Picture
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onProfileClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (profile?.profileImageUrl?.isNotEmpty() == true) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(profile.profileImageUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Profile",
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Text(
-                            profile?.initials?.ifEmpty { "👤" } ?: "👤",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = SwastikPrimary
-                        )
-                    }
-                }
+                // Profile Picture removed as requested
 
-                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     val firstName = profile?.name?.split(" ")?.firstOrNull() ?: "User"
@@ -276,8 +249,37 @@ fun DashboardHeader(
                 }
             }
 
-            // Notification Bell
-            Box {
+            // Action Icons: SOS, AI, Notifications
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (isHomeTab) {
+                    // SOS Button
+                    Row(
+                        modifier = Modifier
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFE53935))
+                            .clickable { onEmergencyClick() }
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Call,
+                            contentDescription = "SOS Call",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("SOS", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                    }
+
+                }
+                
+                // Notification Bell
+                Box {
                 IconButton(onClick = onNotificationClick) {
                     Icon(
                         Icons.Outlined.Notifications,
@@ -301,9 +303,9 @@ fun DashboardHeader(
                             .border(1.5.dp, Color.White, CircleShape)
                     )
                 }
-            }
-        }
-// Close outer Row
+                }
+            } // Close Action Icons Row
+        } // Close Main Row
     } else {
         // Standard Header for other tabs (Includes Language & Notifications)
         val currentDate = remember {

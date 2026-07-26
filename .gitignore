@@ -74,3 +74,6 @@ Thumbs.db
 taskdef.json
 new_taskdef.json
 updated_taskdef.json
+
+# Local scripts
+generate_icon.py

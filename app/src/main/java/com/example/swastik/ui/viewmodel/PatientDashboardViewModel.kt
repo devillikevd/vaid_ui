@@ -53,7 +53,7 @@ data class PatientDashboardUiState(
     val dashboard: PatientDashboard? = null,
     val error: String? = null,
     val activeEmergency: EmergencyResponse? = null,
-    val searchSuggestions: List<String> = listOf("Fever", "Headache", "General Physician", "Dermatologist", "Dentist", "Gynecologist")
+    val searchSuggestions: List<String> = emptyList()
 )
 
 private fun isTerminalEmergencyStatus(status: String?): Boolean =

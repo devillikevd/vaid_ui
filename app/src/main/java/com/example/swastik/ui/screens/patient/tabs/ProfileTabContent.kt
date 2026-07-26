@@ -110,11 +110,10 @@ fun ProfileTabContent(
 
         Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 8.dp),
-            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+                .fillMaxSize(),
+            shape = androidx.compose.ui.graphics.RectangleShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             LazyColumn(
                 state = listState,
@@ -125,12 +124,8 @@ fun ProfileTabContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    val scrollOffset = if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 1000f
                     ProfileInfoCard(
-                        modifier = Modifier.graphicsLayer {
-                            translationY = scrollOffset * 0.4f
-                            alpha = 1f - (scrollOffset / 600f).coerceIn(0f, 1f)
-                        },
+                        modifier = Modifier,
                         profile = profile,
                         onEditClick = { showEditProfileDialog = true },
                         onShareClick = {

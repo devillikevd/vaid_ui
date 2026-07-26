@@ -1,129 +1,271 @@
 package com.example.swastik.ui.screens.patient.components
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
-import com.example.swastik.ui.theme.*
-import com.example.swastik.ui.theme.*
-import androidx.compose.ui.res.stringResource
-import com.example.swastik.utils.getTranslatedCategoryText
+import kotlin.math.cos
+import kotlin.math.sin
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FindDoctorsBySpecialitySection(
     onSpecialityClick: (String) -> Unit,
     showTitle: Boolean = true
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: General, 1: Advanced
-
-    val generalCare = listOf(
-        "General Physician", "Dentist", "Ear, Nose & Throat", "Eye Specialist",
-        "Skin Specialist", "Child Care", "Women's Health", "Mental Wellness"
+    // Page 0: General Care
+    val generalSpecialities = listOf(
+        Pair("General", R.drawable.generalphysician),
+        Pair("Dentist", R.drawable.dentists),
+        Pair("ENT", R.drawable.eatspecialist),
+        Pair("Eye", R.drawable.eyespecialist),
+        Pair("Skin", R.drawable.skinnspecialist),
+        Pair("Child Care", R.drawable.childspecialist),
+        Pair("Women's", R.drawable.womenhealth),
+        Pair("Mental", R.drawable.mentalwelnness)
     )
-    val advancedCare = listOf(
-        "Heart Specialist", "Brain & Nerves", "Bones & Joints", "Stomach & Digestion",
-        "Urinary Issues", "Diabetes Management", "Cancer Specialist", "Lungs & Breathing"
+
+    // Page 1: Advanced Care
+    val advancedSpecialities = listOf(
+        Pair("Heart", R.drawable.hearspecialist),
+        Pair("Brain", R.drawable.brainnerve),
+        Pair("Bones", R.drawable.bonesjoint),
+        Pair("Stomach", R.drawable.stomatchdigestion),
+        Pair("Urinary", R.drawable.urinanry),
+        Pair("Diabetes", R.drawable.diabites),
+        Pair("Cancer", R.drawable.cancer),
+        Pair("Lungs", R.drawable.lungs)
     )
 
-    val currentList = if (selectedTab == 0) generalCare else advancedCare
+    // Mapping short names to exact backend strings
+    val getFullName: (String) -> String = { shortName ->
+        when (shortName) {
+            "General" -> "General Physician"
+            "ENT" -> "Ear, Nose & Throat"
+            "Eye" -> "Eye Specialist"
+            "Skin" -> "Skin Specialist"
+            "Women's" -> "Women's Health"
+            "Mental" -> "Mental Wellness"
+            "Heart" -> "Heart Specialist"
+            "Brain" -> "Brain & Nerves"
+            "Bones" -> "Bones & Joints"
+            "Stomach" -> "Stomach & Digestion"
+            "Urinary" -> "Urinary Issues"
+            "Diabetes" -> "Diabetes Management"
+            "Cancer" -> "Cancer Specialist"
+            "Lungs" -> "Lungs & Breathing"
+            else -> shortName
+        }
+    }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = if (showTitle) 12.dp else 16.dp,
-                    bottom = 12.dp
-                )
-        ) {
-            if (showTitle) {
-                Text(
-                    stringResource(R.string.book_doctor_by_speciality),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .background(Color.Transparent),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (showTitle) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(20.dp))
-                    .padding(2.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf("General Care", "Advanced Care").forEachIndexed { index, title ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(if (selectedTab == index) Color(0xFF00796B) else Color.Transparent)
-                            .clickable { selectedTab = index },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = title,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (selectedTab == index) Color.White else Color(0xFF5F6B6A),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                Text(
+                    text = stringResource(R.string.book_doctor_by_speciality),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                // Page Indicator Text
+                Text(
+                    text = if (pagerState.currentPage == 0) "General Care 👉" else "👈 Advanced Care",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    color = Color(0xFF0284C7)
+                )
+            }
+        }
+
+        // Radial Solar System Hub with Pager
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(380.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            // Pulse Animation for central doctor (Stays fixed)
+            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+            val pulseScale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.15f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulseScale"
+            )
+            val pulseAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.5f,
+                targetValue = 0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulseAlpha"
+            )
+
+            val orbitRotationAngle by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(30000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "orbitRotationAngle"
+            )
+
+            // Glowing background behind Doctor
+            Box(
+                modifier = Modifier
+                    .size(160.dp)
+                    .scale(pulseScale)
+                    .clip(CircleShape)
+                    .background(Color(0xFFBAE6FD).copy(alpha = pulseAlpha)) // Sky Blue glow
+            )
+            Box(
+                modifier = Modifier
+                    .size(130.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE0F2FE))
+            )
+
+            // Central Doctor Image (Stays fixed while pager scrolls)
+            Image(
+                painter = painterResource(id = R.drawable.central_doctor), 
+                contentDescription = "Central Doctor",
+                modifier = Modifier
+                    .size(140.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+
+            // Horizontal Pager for Swiping Categories Orbit
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val currentList = if (page == 0) generalSpecialities else advancedSpecialities
+                
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    val radius = 135f // radius in dp
+                    currentList.forEachIndexed { index, pair ->
+                        // Start from -90 degrees (Top) and go clockwise, adding continuous rotation
+                        val angleInDegrees = -90f + (index * (360f / currentList.size)) + orbitRotationAngle
+                        val angleInRadians = angleInDegrees * (Math.PI / 180f)
+                        
+                        val offsetX = (cos(angleInRadians) * radius).dp
+                        val offsetY = (sin(angleInRadians) * radius).dp
+
+                        OrbitChip(
+                            text = pair.first,
+                            imageRes = pair.second,
+                            onClick = { onSpecialityClick(getFullName(pair.first)) },
+                            modifier = Modifier.offset(x = offsetX, y = offsetY)
                         )
                     }
                 }
             }
         }
-
-        androidx.compose.foundation.lazy.LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        
+        // Custom Page Indicators
+        Row(
+            modifier = Modifier.padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(currentList.chunked(2).size) { index ->
-                val pair = currentList.chunked(2)[index]
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SpecialityHomeCard(
-                        title = pair[0],
-                        modifier = Modifier.width(115.dp),
-                        onClick = { onSpecialityClick(pair[0]) }
-                    )
-                    if (pair.size > 1) {
-                        SpecialityHomeCard(
-                            title = pair[1],
-                            modifier = Modifier.width(115.dp),
-                            onClick = { onSpecialityClick(pair[1]) }
-                        )
-                    }
-                }
+            repeat(pagerState.pageCount) { iteration ->
+                val color = if (pagerState.currentPage == iteration) Color(0xFF0F172A) else Color(0xFFCBD5E1)
+                val width = if (pagerState.currentPage == iteration) 24.dp else 8.dp
+                Box(
+                    modifier = Modifier
+                        .height(8.dp)
+                        .width(width)
+                        .clip(CircleShape)
+                        .background(color)
+                )
             }
         }
     }
 }
 
+@Composable
+private fun OrbitChip(text: String, imageRes: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .width(70.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .size(54.dp),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1E293B),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// ---------------------------------------------------------
+// Kept for backward compatibility with AllSpecialitiesScreen
+// ---------------------------------------------------------
 @Composable
 fun SpecialityCard(
     name: String,
@@ -143,7 +285,6 @@ fun SpecialityCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Background Image or Icon
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -167,13 +308,12 @@ fun SpecialityCard(
                 }
             }
 
-            // Seamless Text Overlay at the bottom
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .background(
-                        Brush.verticalGradient(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
@@ -192,79 +332,6 @@ fun SpecialityCard(
                     maxLines = 2,
                     lineHeight = 13.sp,
                     color = MaterialTheme.colorScheme.onSurface,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpecialityHomeCard(
-    title: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val imageRes = when (title) {
-        "General Physician" -> R.drawable.generalphysician
-        "Women's Health" -> R.drawable.womenhealth
-        "Skin Specialist" -> R.drawable.skinnspecialist
-        "Child Care" -> R.drawable.childspecialist
-        "Dentist" -> R.drawable.dentists
-        "Eye Specialist" -> R.drawable.eyespecialist
-        "Ear, Nose & Throat" -> R.drawable.eatspecialist
-        "Mental Wellness" -> R.drawable.mentalwelnness
-        "Heart Specialist" -> R.drawable.hearspecialist
-        "Brain & Nerves" -> R.drawable.brainnerve
-        "Bones & Joints" -> R.drawable.bonesjoint
-        "Stomach & Digestion" -> R.drawable.stomatchdigestion
-        "Urinary Issues" -> R.drawable.urinanry
-        "Diabetes Management" -> R.drawable.diabites
-        "Cancer Specialist" -> R.drawable.cancer
-        "Lungs & Breathing" -> R.drawable.lungs
-        else -> null
-    }
-
-    Card(
-        modifier = modifier
-            .aspectRatio(0.92f)
-            .heightIn(min = 82.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (imageRes != null) {
-                Image(
-                    painter = painterResource(id = imageRes),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.9f), Color.White),
-                            startY = 0f
-                        )
-                    )
-                    .padding(bottom = 8.dp, top = 18.dp)
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E293B),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 10.sp,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

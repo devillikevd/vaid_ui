@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
@@ -132,7 +133,7 @@ fun PharmacyBookingFlow(
                         )
                         2 -> Step2Cart(selectedItems, onRemove = { item -> selectedItems = selectedItems.filter { it.first.id != item.id } })
                         3 -> Step3Location(deliveryAddress, patientPhone, onAddressChange = { deliveryAddress = it }, onPhoneChange = { patientPhone = it })
-                        4 -> Step4Confirmation(facility, selectedItems, localIsPrescriptionBased, deliveryAddress, patientPhone)
+                        4 -> Step4Confirmation(facility, selectedItems, localIsPrescriptionBased, deliveryAddress, patientPhone, capturedBitmap)
                     }
                 }
 
@@ -300,7 +301,7 @@ fun Step1Medicines(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text(prescription.diagnosis, fontWeight = FontWeight.Bold)
+                                Text(prescription.diagnosis.takeIf { it.isNotBlank() } ?: prescription.doctor?.name ?: "Prescription", fontWeight = FontWeight.Bold)
                                 Text(stringResource(R.string.date_format, prescription.createdAt), fontSize = 12.sp, color = Color.Gray)
                             }
                         }
@@ -499,10 +500,6 @@ fun Step1Medicines(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.uploaded_successfully), color = Color(0xFF4CAF50), fontWeight = FontWeight.SemiBold)
             }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(1000)
-                onPrescriptionUpload(null)
-            }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
@@ -637,7 +634,8 @@ fun Step4Confirmation(
     selected: List<Pair<PharmacyInventoryItemDto, Int>>, 
     isPrescription: Boolean, 
     address: String, 
-    phone: String
+    phone: String,
+    bitmap: android.graphics.Bitmap?
 ) {
     // qty is in units. Total price = unit price * qty
     val totalPrice = selected.sumOf { (item, qty) ->
@@ -669,6 +667,17 @@ fun Step4Confirmation(
                 Icon(Icons.Default.CheckCircle, tint = Color(0xFF4CAF50), contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.prescription_verified_for_processing))
+            }
+            if (bitmap != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Attached Prescription:", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(8.dp))
+                androidx.compose.foundation.Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Prescription",
+                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
             }
         }
     }

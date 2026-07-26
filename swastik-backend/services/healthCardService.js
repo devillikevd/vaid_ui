@@ -30,11 +30,16 @@ class HealthCardService {
    */
   async generateToken(userId, guardianAnalytics = null) {
     // Verify user is a patient
-    const { data: patient } = await supabaseAdmin
+    const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
       .select('id, name, user_id')
       .eq('user_id', userId)
       .single();
+
+    if (patientError) {
+      if (patientError.code === '503') throw new ApiError(503, 'Database is temporarily unavailable (might be paused).');
+      throw new ApiError(500, 'Database error: ' + patientError.message);
+    }
 
     if (!patient) {
       throw new ApiError(404, 'Patient profile not found');
@@ -66,8 +71,8 @@ class HealthCardService {
     // V-011 Fix: explicitly create a consent record for the health card
     await consentService.grantConsent({
       patientId: patient.id,
-      entityType: 'health_card_public',
-      entityId: 'public',
+      entityType: 'other', // Must be one of: hospital, pharmacy, diagnostic_center, doctor, research, family, other
+      entityId: '00000000-0000-0000-0000-000000000000', // Must be a valid UUID
       entityName: 'Public Health Card QR',
       purpose: 'Emergency medical access',
       durationDays: 1 // health card expires in 24 hours

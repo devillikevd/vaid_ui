@@ -1,5 +1,7 @@
 import java.util.Properties
 import org.gradle.api.GradleException
+import java.net.DatagramSocket
+import java.net.InetAddress
 
 val localBuildProperties = Properties().apply {
     val localPropsFile = rootProject.file("local.properties")
@@ -16,6 +18,17 @@ fun localOrEnvProperty(key: String): String? =
 
 fun localOrEnvBoolean(key: String, default: Boolean): Boolean =
     (localOrEnvProperty(key) ?: default.toString()).toBooleanStrictOrNull() ?: default
+
+fun getHostIpAddress(): String {
+    try {
+        DatagramSocket().use { socket ->
+            socket.connect(InetAddress.getByName("8.8.8.8"), 10002)
+            return socket.localAddress.hostAddress
+        }
+    } catch (e: Exception) {
+        return "10.0.2.2"
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -64,8 +77,9 @@ android {
             useSupportLibrary = true
         }
 
-        // Default API base URL (Android Emulator → host localhost)
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5001/api/\"")
+        // Default API base URL (dynamically uses LAN IP or Emulator host)
+        val defaultIp = getHostIpAddress()
+        buildConfigField("String", "API_BASE_URL", "\"http://$defaultIp:5001/api/\"")
         buildConfigField("String", "AI_WS_BASE_URL", "\"\"")
         buildConfigField("String", "TURN_URL", "\"\"")
         buildConfigField("String", "TURN_USERNAME", "\"\"")
@@ -101,7 +115,8 @@ android {
             signingConfig = signingConfigs.getByName("debug")
 
             // Production-like build with debug signing for easy local installs
-            val stagingApiUrl = localBuildProperty("API_BASE_URL") ?: "http://10.0.2.2:5001/api/"
+            val defaultIp = getHostIpAddress()
+            val stagingApiUrl = localBuildProperty("API_BASE_URL") ?: "http://$defaultIp:5001/api/"
             val stagingAiWsUrl = localBuildProperty("AI_WS_BASE_URL") ?: ""
             val stagingTurnUrl = localBuildProperty("TURN_URL") ?: ""
             val stagingTurnUsername = localBuildProperty("TURN_USERNAME") ?: ""

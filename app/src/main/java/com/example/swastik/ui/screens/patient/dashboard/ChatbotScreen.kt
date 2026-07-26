@@ -126,9 +126,9 @@ fun ChatbotScreen(
     }
 
     // Auto-speak AI responses when ttsEnabled
-    LaunchedEffect(uiState.lastAiMessageToSpeak) {
+    LaunchedEffect(uiState.lastAiMessageToSpeak, uiState.ttsEnabled) {
         val msgId = uiState.lastAiMessageToSpeak
-        if (msgId != null && ttsReady && tts != null) {
+        if (msgId != null && uiState.ttsEnabled && ttsReady && tts != null) {
             val msg = messages.find { it.id == msgId }
             if (msg != null && !msg.isUser) {
                 tts.stop()
@@ -159,6 +159,8 @@ fun ChatbotScreen(
     var showImagePreview by remember { mutableStateOf(false) }
     var imageDescription by remember { mutableStateOf("") }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    var painLevel by remember { mutableFloatStateOf(0f) }
+    var showBodyMap by remember { mutableStateOf(false) }
 
     // Gallery picker launcher
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -301,38 +303,72 @@ fun ChatbotScreen(
         }
     }
 
-    val quickActions = remember {
-        listOf(
-            ChatQuickAction(Icons.Outlined.Thermostat, "I have fever", "I'm experiencing fever symptoms"),
-            ChatQuickAction(Icons.Outlined.Favorite, "Chest pain", "I'm having chest pain"),
-            ChatQuickAction(Icons.Outlined.Event, "Book appointment", "I want to book an appointment"),
-            ChatQuickAction(Icons.Outlined.Medication, "Medicine info", "I need information about medicines"),
-            ChatQuickAction(Icons.Outlined.Description, "View reports", "I want to see my medical reports"),
-            ChatQuickAction(Icons.Outlined.LocalHospital, "Find hospital", "Help me find a nearby hospital")
-        )
+    val quickActions = remember(selectedLanguage) {
+        if (selectedLanguage == ChatLanguage.HINDI) {
+            listOf(
+                ChatQuickAction(Icons.Outlined.Thermostat, "मुझे बुखार है", "मुझे बुखार है"),
+                ChatQuickAction(Icons.Outlined.Favorite, "सीने में दर्द", "मुझे सीने में दर्द है"),
+                ChatQuickAction(Icons.Outlined.Event, "अपॉइंटमेंट बुक करें", "मैं अपॉइंटमेंट बुक करना चाहता हूँ"),
+                ChatQuickAction(Icons.Outlined.Medication, "दवा की जानकारी", "मुझे दवाओं के बारे में जानकारी चाहिए"),
+                ChatQuickAction(Icons.Outlined.Description, "रिपोर्ट देखें", "मैं अपनी मेडिकल रिपोर्ट देखना चाहता हूँ"),
+                ChatQuickAction(Icons.Outlined.LocalHospital, "अस्पताल खोजें", "मुझे पास का अस्पताल खोजने में मदद करें")
+            )
+        } else {
+            listOf(
+                ChatQuickAction(Icons.Outlined.Thermostat, "I have fever", "I'm experiencing fever symptoms"),
+                ChatQuickAction(Icons.Outlined.Favorite, "Chest pain", "I'm having chest pain"),
+                ChatQuickAction(Icons.Outlined.Event, "Book appointment", "I want to book an appointment"),
+                ChatQuickAction(Icons.Outlined.Medication, "Medicine info", "I need information about medicines"),
+                ChatQuickAction(Icons.Outlined.Description, "View reports", "I want to see my medical reports"),
+                ChatQuickAction(Icons.Outlined.LocalHospital, "Find hospital", "Help me find a nearby hospital")
+            )
+        }
     }
 
-    val featureActions = remember {
-        listOf(
-            ChatFeatureAction(
-                icon = Icons.Outlined.Thermostat,
-                label = "Symptom check",
-                helper = "Structured triage",
-                onClick = { showSymptomChecker = true }
-            ),
-            ChatFeatureAction(
-                icon = Icons.Outlined.Lightbulb,
-                label = "Health tips",
-                helper = "Daily guidance",
-                onClick = { showTipsSheet = true }
-            ),
-            ChatFeatureAction(
-                icon = Icons.Outlined.History,
-                label = "Chat history",
-                helper = "Resume older chat",
-                onClick = { showHistorySheet = true }
+    val featureActions = remember(selectedLanguage) {
+        if (selectedLanguage == ChatLanguage.HINDI) {
+            listOf(
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Thermostat,
+                    label = "लक्षण जांचें",
+                    helper = "संरचित ट्राइएज",
+                    onClick = { showSymptomChecker = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Lightbulb,
+                    label = "स्वास्थ्य सुझाव",
+                    helper = "दैनिक मार्गदर्शन",
+                    onClick = { showTipsSheet = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.History,
+                    label = "चैट इतिहास",
+                    helper = "पुरानी चैट देखें",
+                    onClick = { showHistorySheet = true }
+                )
             )
-        )
+        } else {
+            listOf(
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Thermostat,
+                    label = "Symptom check",
+                    helper = "Structured triage",
+                    onClick = { showSymptomChecker = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.Lightbulb,
+                    label = "Health tips",
+                    helper = "Daily guidance",
+                    onClick = { showTipsSheet = true }
+                ),
+                ChatFeatureAction(
+                    icon = Icons.Outlined.History,
+                    label = "Chat history",
+                    helper = "Resume older chat",
+                    onClick = { showHistorySheet = true }
+                )
+            )
+        }
     }
 
     fun sendMessage(text: String, messageType: String = "text") {
@@ -343,6 +379,7 @@ fun ChatbotScreen(
 
     Scaffold(
         modifier = Modifier.statusBarsPadding(),
+        containerColor = Color(0xFFF4FBF9), // Restore original mint green background
         topBar = {
             TopAppBar(
                 title = {
@@ -356,18 +393,18 @@ fun ChatbotScreen(
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
-                                        colors = listOf(SwastikPrimary, Color(0xFF9C27B0))
+                                        colors = listOf(Color(0xFF0EA5E9), Color(0xFF3B82F6))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
                         ) { Text(stringResource(R.string.ud83e_udd16), fontSize = 18.sp) }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(if (selectedLanguage == ChatLanguage.HINDI) "स्वास्थ्य सहायक" else stringResource(R.string.chatbot), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).background(Color(0xFF4CAF50), CircleShape))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
+                                Text(if (selectedLanguage == ChatLanguage.HINDI) "एआई • वॉइस • विजन" else stringResource(R.string.text_ai_u2022_voice_u2022_vision), fontSize = 10.sp, color = Color(0xFF4CAF50))
                             }
                         }
                     }
@@ -428,10 +465,17 @@ fun ChatbotScreen(
                     )
                 }
 
+                PainScaleSlider(painLevel = painLevel, onPainLevelChange = { painLevel = it })
+
                 ChatInputBar(
                     value = inputText,
                     onValueChange = { inputText = it },
-                    onSend = { sendMessage(inputText) },
+                    onSend = { 
+                        val finalMsg = if (painLevel > 0f) "(Pain Level: ${painLevel.toInt()}/10) $inputText" else inputText
+                        sendMessage(finalMsg)
+                        painLevel = 0f
+                    },
+                    onBodyMapClick = { showBodyMap = true },
                     onVoiceClick = {
                         if (isListening) {
                             speechRecognizer.stopListening()
@@ -549,7 +593,7 @@ fun ChatbotScreen(
                             }
                         )
                     }
-                    if (messages.size == 1) {
+                    if (messages.isEmpty()) {
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(stringResource(R.string.quick_actions), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
@@ -641,6 +685,17 @@ fun ChatbotScreen(
                     }
                 )
             }
+            if (showBodyMap) {
+                BodyMapSheet(
+                    onDismiss = { showBodyMap = false },
+                    onPartSelected = { part ->
+                        val finalMsg = if (painLevel > 0f) "(Pain Level: ${painLevel.toInt()}/10) I have pain in my $part" else "I have pain in my $part"
+                        sendMessage(finalMsg)
+                        painLevel = 0f
+                        showBodyMap = false
+                    }
+                )
+            }
         }
     }
 }
@@ -651,42 +706,49 @@ private fun SessionStatusCard(
     selectedLanguage: ChatLanguage,
     featureActions: List<ChatFeatureAction>
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFFE8F1EC)) // Exact soft mint green from image
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.smart_care_assistant), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = stringResource(R.string.smart_care_assistant), 
+                        fontWeight = FontWeight.Bold, 
+                        fontSize = 16.sp, 
+                        color = Color(0xFF1E293B)
+                    )
                     Text(
                         text = "Live chat, symptom triage, image analysis, and bilingual support in ${selectedLanguage.nativeLabel}",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 16.sp
+                        color = Color(0xFF64748B),
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
                 if (!sessionId.isNullOrBlank()) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = SwastikPrimary.copy(alpha = 0.08f)
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFD3E7DC) // Soft badge background
                     ) {
                         Text(
                             text = stringResource(R.string.status_active),
-                            color = SwastikPrimary,
+                            color = Color(0xFF00695C),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                         )
                     }
                 }
@@ -694,23 +756,44 @@ private fun SessionStatusCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 featureActions.forEach { action ->
-                    Card(
+                    Surface(
                         modifier = Modifier
                             .weight(1f)
+                            .height(110.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable { action.onClick() },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                        color = Color.White,
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            horizontalAlignment = Alignment.Start
                         ) {
-                            Icon(action.icon, contentDescription = action.label, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                            Text(action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                            Text(action.helper, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 14.sp)
+                            Icon(
+                                action.icon, 
+                                contentDescription = action.label, 
+                                tint = Color(0xFF00695C), 
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = action.label, 
+                                    fontSize = 13.sp, 
+                                    fontWeight = FontWeight.SemiBold, 
+                                    color = Color(0xFF1E293B),
+                                    lineHeight = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = action.helper, 
+                                    fontSize = 11.sp, 
+                                    color = Color(0xFF94A3B8),
+                                    lineHeight = 14.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -912,34 +995,25 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
 
             Card(
                 shape = RoundedCornerShape(
-                    topStart = 18.dp, topEnd = 18.dp,
-                    bottomStart = if (message.isUser) 18.dp else 4.dp,
-                    bottomEnd = if (message.isUser) 4.dp else 18.dp
+                    topStart = 20.dp, topEnd = 20.dp,
+                    bottomStart = if (message.isUser) 20.dp else 4.dp,
+                    bottomEnd = if (message.isUser) 4.dp else 20.dp
                 ),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
+                    containerColor = if (message.isUser) Color.Transparent else MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(0.dp),
+                elevation = CardDefaults.cardElevation(if (message.isUser) 0.dp else 1.dp),
                 modifier = (if (message.isEmergency) {
                     Modifier.border(1.dp, Color(0xFFD32F2F).copy(alpha = 0.3f),
-                        RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp))
+                        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp))
                 } else Modifier)
-                .background(
-                    brush = when {
-                        message.isUser -> Brush.linearGradient(listOf(SwastikPrimary, Color(0xFF5E35B1)))
-                        message.isEmergency -> Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.errorContainer,
-                                MaterialTheme.colorScheme.errorContainer
-                            )
+                .then(
+                    if (message.isUser) {
+                        Modifier.background(
+                            brush = Brush.linearGradient(listOf(Color(0xFF0EA5E9), Color(0xFF3B82F6))), // Sky Blue to Blue
+                            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
                         )
-                        else -> Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surfaceVariant))
-                    },
-                    shape = RoundedCornerShape(
-                        topStart = 18.dp, topEnd = 18.dp,
-                        bottomStart = if (message.isUser) 18.dp else 4.dp,
-                        bottomEnd = if (message.isUser) 4.dp else 18.dp
-                    )
+                    } else Modifier
                 )
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -982,6 +1056,48 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(text = message.followUpQuestion, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
                         }
+                        
+                        val hasMedicine = message.content.contains("medicine", ignoreCase = true) ||
+                                          message.content.contains("tablet", ignoreCase = true) ||
+                                          message.content.contains("syrup", ignoreCase = true) ||
+                                          (message.content.contains("take", ignoreCase = true) && message.content.contains("mg", ignoreCase = true))
+                        if (hasMedicine) {
+                            val ctx = LocalContext.current
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFFEF08A).copy(alpha = 0.3f), // Yellow 300
+                                modifier = Modifier.clickable {
+                                    try {
+                                        val intent = Intent(android.provider.AlarmClock.ACTION_SET_ALARM).apply {
+                                            putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "Time for Medicine")
+                                            putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false)
+                                        }
+                                        ctx.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_INSERT).apply {
+                                                data = android.provider.CalendarContract.Events.CONTENT_URI
+                                                putExtra(android.provider.CalendarContract.Events.TITLE, "Take Medicine")
+                                            }
+                                            ctx.startActivity(intent)
+                                        } catch (ex: Exception) {
+                                            Toast.makeText(ctx, "No alarm/calendar app found", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("⏰", fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Set Reminder", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF854D0E)) // Yellow 800
+                                }
+                            }
+                        }
+
                         // Speaker button on AI messages
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
@@ -1009,7 +1125,7 @@ private fun ChatBubble(message: ChatUiMessage, onSpeakClick: (String) -> Unit = 
 
             if (message.isUser) {
                 Spacer(modifier = Modifier.width(8.dp))
-                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0xFFE0F2FE)), contentAlignment = Alignment.Center) { // Sky 100
                     Text(stringResource(R.string.ud83d_udc64), fontSize = 16.sp)
                 }
             }
@@ -1288,18 +1404,18 @@ private fun QuickActionsGrid(actions: List<ChatQuickAction>, onActionClick: (Cha
 
 @Composable
 private fun QuickActionCard(action: ChatQuickAction, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
+    Surface(
         modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFEFF6FF), // Blue 50
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDBEAFE))
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(SwastikPrimary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                Icon(action.icon, contentDescription = null, tint = SwastikPrimary, modifier = Modifier.size(20.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFBFDBFE)), contentAlignment = Alignment.Center) {
+                Icon(action.icon, contentDescription = null, tint = Color(0xFF1D4ED8), modifier = Modifier.size(18.dp))
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = action.label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = action.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E3A8A))
         }
     }
 }
@@ -1348,73 +1464,191 @@ private fun TypingOrb(delay: Int) {
 }
 
 @Composable
+private fun PainScaleSlider(painLevel: Float, onPainLevelChange: (Float) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(12.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Pain Level: ${painLevel.toInt()}/10", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = when(painLevel.toInt()) {
+                    0 -> "😊 No Pain"
+                    in 1..3 -> "🙂 Mild"
+                    in 4..6 -> "😐 Moderate"
+                    in 7..9 -> "😨 Severe"
+                    else -> "😭 Unbearable"
+                },
+                fontSize = 12.sp, fontWeight = FontWeight.Bold, color = when(painLevel.toInt()) {
+                    0 -> Color(0xFF22C55E)
+                    in 1..3 -> Color(0xFFEAB308)
+                    in 4..6 -> Color(0xFFF97316)
+                    else -> Color(0xFFEF4444)
+                }
+            )
+        }
+        androidx.compose.material3.Slider(
+            value = painLevel,
+            onValueChange = onPainLevelChange,
+            valueRange = 0f..10f,
+            steps = 9,
+            modifier = Modifier.fillMaxWidth().height(24.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BodyMapSheet(onDismiss: () -> Unit, onPartSelected: (String) -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Select where it hurts", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Head
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFBFDBFE))
+                        .clickable { onPartSelected("Head") },
+                    contentAlignment = Alignment.Center
+                ) { Text("Head", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1E3A8A)) }
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Torso & Arms
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Left Arm
+                    Box(modifier = Modifier.width(44.dp).height(100.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFE0F2FE)).clickable { onPartSelected("Left Arm") }, contentAlignment = Alignment.Center) {
+                        Text("Arm", fontSize = 11.sp, color = Color(0xFF1E3A8A), modifier = Modifier.graphicsLayer { rotationZ = -90f })
+                    }
+                    // Chest / Stomach
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(modifier = Modifier.width(86.dp).height(60.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFBFDBFE)).clickable { onPartSelected("Chest") }, contentAlignment = Alignment.Center) {
+                            Text("Chest", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1E3A8A))
+                        }
+                        Box(modifier = Modifier.width(86.dp).height(60.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFBFDBFE)).clickable { onPartSelected("Stomach") }, contentAlignment = Alignment.Center) {
+                            Text("Stomach", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1E3A8A))
+                        }
+                    }
+                    // Right Arm
+                    Box(modifier = Modifier.width(44.dp).height(100.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFE0F2FE)).clickable { onPartSelected("Right Arm") }, contentAlignment = Alignment.Center) {
+                        Text("Arm", fontSize = 11.sp, color = Color(0xFF1E3A8A), modifier = Modifier.graphicsLayer { rotationZ = 90f })
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Legs
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(modifier = Modifier.width(40.dp).height(120.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFE0F2FE)).clickable { onPartSelected("Left Leg") }, contentAlignment = Alignment.Center) {
+                        Text("Leg", fontSize = 11.sp, color = Color(0xFF1E3A8A), modifier = Modifier.graphicsLayer { rotationZ = -90f })
+                    }
+                    Box(modifier = Modifier.width(40.dp).height(120.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFE0F2FE)).clickable { onPartSelected("Right Leg") }, contentAlignment = Alignment.Center) {
+                        Text("Leg", fontSize = 11.sp, color = Color(0xFF1E3A8A), modifier = Modifier.graphicsLayer { rotationZ = 90f })
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+    }
+}
+
+@Composable
 private fun ChatInputBar(
     value: String, onValueChange: (String) -> Unit,
-    onSend: () -> Unit, onVoiceClick: () -> Unit,
+    onSend: () -> Unit, onBodyMapClick: () -> Unit, onVoiceClick: () -> Unit,
     onAttachClick: () -> Unit, isLoading: Boolean, inputEnabled: Boolean, isListening: Boolean,
     language: ChatLanguage = ChatLanguage.ENGLISH
 ) {
-    Surface(modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp, color = MaterialTheme.colorScheme.surface) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Camera/attach button
-            IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
-            }
-            // Input field
-            Box(
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)).padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = { if (inputEnabled) onValueChange(it) },
-                    enabled = inputEnabled && !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
-                    decorationBox = { innerTextField ->
-                        if (value.isEmpty()) {
-                            Text(
-                                text = if (!inputEnabled) {
-                                    "Start a new chat to continue"
-                                } else if (language == ChatLanguage.HINDI) {
-                                    "टाइप करें, बोलें या फ़ोटो भेजें..."
-                                } else {
-                                    "Type, speak, or send a photo..."
-                                },
-                                fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        innerTextField()
-                    }
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            // Voice / Send button
-            if (value.isBlank()) {
-                IconButton(
-                    onClick = onVoiceClick, enabled = inputEnabled && !isLoading,
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(
-                        when {
-                            isListening -> Color(0xFFD32F2F)
-                            inputEnabled && !isLoading -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 6.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Camera/attach button
+                IconButton(onClick = onAttachClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.CameraAlt, contentDescription = "Attach image", tint = if (inputEnabled && !isLoading) Color(0xFF0EA5E9) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
+                }
+                // Body map button
+                IconButton(onClick = onBodyMapClick, enabled = inputEnabled && !isLoading, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Outlined.AccessibilityNew, contentDescription = "Body Map", tint = if (inputEnabled && !isLoading) Color(0xFF0EA5E9) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
+                }
+                // Input field
+                Box(
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
                 ) {
-                    Icon(
-                        if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
-                        contentDescription = if (isListening) "Stop listening" else "Voice input",
-                        tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp)
+                    BasicTextField(
+                        value = value,
+                        onValueChange = { if (inputEnabled) onValueChange(it) },
+                        enabled = inputEnabled && !isLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
+                        decorationBox = { innerTextField ->
+                            if (value.isEmpty()) {
+                                Text(
+                                    text = if (!inputEnabled) {
+                                        if (language == ChatLanguage.HINDI) "जारी रखने के लिए नई चैट शुरू करें" else "Start a new chat to continue"
+                                    } else if (language == ChatLanguage.HINDI) {
+                                        "टाइप करें, बोलें या फ़ोटो..."
+                                    } else {
+                                        "Type, speak, or add photo..."
+                                    },
+                                    fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            innerTextField()
+                        }
                     )
                 }
-            } else {
-                IconButton(
-                    onClick = onSend, enabled = inputEnabled && value.isNotBlank() && !isLoading,
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(
-                        if (inputEnabled && value.isNotBlank() && !isLoading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                // Voice / Send button
+                if (value.isBlank()) {
+                    IconButton(
+                        onClick = onVoiceClick, enabled = inputEnabled && !isLoading,
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(
+                            when {
+                                isListening -> Color(0xFFEF4444)
+                                inputEnabled && !isLoading -> Color(0xFF0EA5E9).copy(alpha = 0.1f)
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                    ) {
+                        Icon(
+                            if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
+                            contentDescription = if (isListening) "Stop listening" else "Voice input",
+                            tint = if (isListening) Color.White else if (inputEnabled) Color(0xFF0284C7) else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp)
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onSend, enabled = inputEnabled && value.isNotBlank() && !isLoading,
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(
+                            if (inputEnabled && value.isNotBlank() && !isLoading) Color(0xFF0EA5E9) else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (inputEnabled && value.isNotBlank() && !isLoading) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
@@ -1433,7 +1667,7 @@ private fun startVoiceRecognition(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, speechCode)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, speechCode)
-        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, speechCode)
+        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
     }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -132,89 +134,39 @@ fun PatientLoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(SwastikPrimary, SwastikPrimary.copy(alpha = 0.78f), Color(0xFF6A5AE0))
-                )
-            )
+            .background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, top = 40.dp, bottom = 24.dp),
-            horizontalAlignment = Alignment.Start,
-            verticalArrangement = Arrangement.Center
+        // Back Button
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp)
         ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.14f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Canvas(modifier = Modifier.size(42.dp)) {
-                    val strokeWidth = size.width * 0.12f
-                    val armLength = size.width * 0.35f
-                    val bendLength = size.width * 0.2f
-                    val center = Offset(size.width / 2, size.height / 2)
-
-                    drawLine(Color.White, Offset(center.x - armLength, center.y), Offset(center.x + armLength, center.y), strokeWidth, StrokeCap.Round)
-                    drawLine(Color.White, Offset(center.x, center.y - armLength), Offset(center.x, center.y + armLength), strokeWidth, StrokeCap.Round)
-                    drawLine(Color.White, Offset(center.x, center.y - armLength), Offset(center.x + bendLength, center.y - armLength), strokeWidth, StrokeCap.Round)
-                    drawLine(Color.White, Offset(center.x + armLength, center.y), Offset(center.x + armLength, center.y + bendLength), strokeWidth, StrokeCap.Round)
-                    drawLine(Color.White, Offset(center.x, center.y + armLength), Offset(center.x - bendLength, center.y + armLength), strokeWidth, StrokeCap.Round)
-                    drawLine(Color.White, Offset(center.x - armLength, center.y), Offset(center.x - armLength, center.y - bendLength), strokeWidth, StrokeCap.Round)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Text(
-                text = stringResource(R.string.welcome_back),
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.login_description),
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f),
-                fontSize = 14.sp,
-                lineHeight = 20.sp
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = MaterialTheme.colorScheme.onSurface
             )
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            color = MaterialTheme.colorScheme.surface
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.patient_login),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = stringResource(R.string.login_instruction),
-                    fontSize = 14.sp,
-                    color = Color(0xFF6B7280)
-                )
+            // Welcome Text
+            Text(
+                text = stringResource(R.string.welcome_back),
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
                 AuthFeedbackCard(
                     text = uiState.errorMessage,
@@ -247,6 +199,7 @@ fun PatientLoginScreen(
 
 
 
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.email_address_label), fontWeight = FontWeight.Medium)
                     OutlinedTextField(
@@ -317,19 +270,6 @@ fun PatientLoginScreen(
                     )
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAFB))
-                ) {
-                    Text(
-                        text = stringResource(R.string.first_time_sign_in_help),
-                        modifier = Modifier.padding(14.dp),
-                        color = Color(0xFF4B5563),
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    )
-                }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -346,9 +286,10 @@ fun PatientLoginScreen(
                         },
                         enabled = !uiState.isLoading
                     ) {
-                        Text(stringResource(R.string.forgot_password_question))
+                        Text(stringResource(R.string.forgot_password_question), fontWeight = FontWeight.Medium)
                     }
                 }
+            }
 
                 Button(
                     onClick = {
@@ -373,51 +314,25 @@ fun PatientLoginScreen(
                     }
                 }
 
-                Row(
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.or_separator), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-                    androidx.compose.material3.HorizontalDivider(modifier = Modifier.weight(1f))
-                }
-
-                val context = LocalContext.current
-                OutlinedButton(
-                    onClick = {
-                        Toast.makeText(context, "Google Sign-In coming soon", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Text(stringResource(R.string.continue_with_google), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(stringResource(R.string.new_to_vaididea), color = Color(0xFF6B7280))
-                    TextButton(onClick = onRegisterClick, enabled = !uiState.isLoading) {
-                        Text(stringResource(R.string.create_account), fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.new_to_vaididea), color = Color(0xFF6B7280))
+                        TextButton(onClick = onRegisterClick, enabled = !uiState.isLoading) {
+                            Text(stringResource(R.string.create_account), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
-                TextButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.back_to_home))
-                }
+
             }
         }
-    }
 
     if (showForgotPasswordDialog) {
         ForgotPasswordDialog(

@@ -38,6 +38,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 data class MedicineUiState(
     val medicines: List<Medicine> = emptyList(), // Popular/Global
@@ -45,7 +49,8 @@ data class MedicineUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
-    val selectedCategory: MedicineCategory? = null
+    val selectedCategory: MedicineCategory? = null,
+    val favoriteMedicineIds: Set<String> = emptySet()
 )
 
 data class MedicineDetailUiState(
@@ -90,14 +95,69 @@ data class OrderHistoryUiState(
     val requestsLoading: Boolean = false
 )
 
+enum class CartType {
+    GLOBAL, PHARMACY
+}
+
 @Singleton
 class MedicineCartStore @Inject constructor() {
-    private val _cartState = MutableStateFlow(CartUiState())
-    val cartState: StateFlow<CartUiState> = _cartState.asStateFlow()
-    val value: CartUiState get() = _cartState.value
+    private val _globalCartState = MutableStateFlow(CartUiState(selectedPharmacyId = "GLOBAL_REQUEST", selectedPharmacyName = "Nearby Pharmacies"))
+    val globalCartState: StateFlow<CartUiState> = _globalCartState.asStateFlow()
 
-    fun set(state: CartUiState) {
-        _cartState.value = state
+    private val _pharmacyCartState = MutableStateFlow(CartUiState())
+    val pharmacyCartState: StateFlow<CartUiState> = _pharmacyCartState.asStateFlow()
+
+    fun getCartState(type: CartType): StateFlow<CartUiState> = 
+        if (type == CartType.GLOBAL) globalCartState else pharmacyCartState
+
+    fun getValue(type: CartType): CartUiState = 
+        if (type == CartType.GLOBAL) _globalCartState.value else _pharmacyCartState.value
+
+    fun set(type: CartType, state: CartUiState) {
+        if (type == CartType.GLOBAL) {
+            _globalCartState.value = state
+        } else {
+            _pharmacyCartState.value = state
+        }
+    }
+}
+
+@Singleton
+class FavoriteMedicinesStore @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val prefs = context.getSharedPreferences("favorites_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    
+    private val _favorites = MutableStateFlow<Set<Medicine>>(loadFavorites())
+    val favorites: StateFlow<Set<Medicine>> = _favorites.asStateFlow()
+
+    private fun loadFavorites(): Set<Medicine> {
+        val json = prefs.getString("fav_list", null) ?: return emptySet()
+        val type = object : TypeToken<List<Medicine>>() {}.type
+        return try {
+            val list: List<Medicine> = gson.fromJson(json, type)
+            list.toSet()
+        } catch (e: Exception) {
+            emptySet()
+        }
+    }
+
+    private fun saveFavorites(favs: Set<Medicine>) {
+        val json = gson.toJson(favs.toList())
+        prefs.edit().putString("fav_list", json).apply()
+    }
+
+    fun toggleFavorite(medicine: Medicine) {
+        val current = _favorites.value.toMutableSet()
+        val existing = current.find { it.id == medicine.id }
+        if (existing != null) {
+            current.remove(existing)
+        } else {
+            current.add(medicine)
+        }
+        _favorites.value = current
+        saveFavorites(current)
     }
 }
 
@@ -107,7 +167,8 @@ class MedicineViewModel @Inject constructor(
     private val medicineRepository: MedicineRepository,
     private val locationHelper: LocationHelper,
     private val socketManager: SocketManager,
-    private val cartStore: MedicineCartStore
+    private val cartStore: MedicineCartStore,
+    private val favoriteStore: FavoriteMedicinesStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MedicineUiState())
@@ -116,7 +177,9 @@ class MedicineViewModel @Inject constructor(
     private val _detailState = MutableStateFlow(MedicineDetailUiState())
     val detailState: StateFlow<MedicineDetailUiState> = _detailState.asStateFlow()
 
-    val cartState: StateFlow<CartUiState> = cartStore.cartState
+    val globalCartState: StateFlow<CartUiState> = cartStore.globalCartState
+    val pharmacyCartState: StateFlow<CartUiState> = cartStore.pharmacyCartState
+    val favoriteMedicines: StateFlow<Set<Medicine>> = favoriteStore.favorites
 
     private val _orderHistoryState = MutableStateFlow(OrderHistoryUiState())
     val orderHistoryState: StateFlow<OrderHistoryUiState> = _orderHistoryState.asStateFlow()
@@ -170,20 +233,21 @@ class MedicineViewModel @Inject constructor(
     ).flow.cachedIn(viewModelScope)
 
     fun broadcastCartBundle() {
-        val cart = cartStore.value
+        val type = CartType.GLOBAL
+        val cart = cartStore.getValue(type)
         if (cart.items.isEmpty()) return
 
         if (cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
-            cartStore.set(cart.copy(orderError = "Please provide delivery address and phone number"))
+            cartStore.set(type, cart.copy(orderError = "Please provide delivery address and phone number"))
             return
         }
 
-        cartStore.set(cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
+        cartStore.set(type, cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
         
         viewModelScope.launch {
             val location = locationHelper.getLastLocation()
             if (location == null) {
-                cartStore.set(cart.copy(isOrdering = false, orderError = "Location required to broadcast request. Please enable GPS."))
+                cartStore.set(type, cart.copy(isOrdering = false, orderError = "Location required to broadcast request. Please enable GPS."))
                 return@launch
             }
             
@@ -204,13 +268,13 @@ class MedicineViewModel @Inject constructor(
             
             val result = medicineRepository.createCatalogRequest(request)
             if (result is Result.Success) {
-                cartStore.set(cartStore.value.copy(
+                cartStore.set(type, cartStore.getValue(type).copy(
                     isOrdering = false,
                     orderSuccess = true,
                     items = emptyList() // Clear cart after successful broadcast
                 ))
             } else {
-                cartStore.set(cartStore.value.copy(
+                cartStore.set(type, cartStore.getValue(type).copy(
                     isOrdering = false,
                     orderError = (result as? Result.Error)?.message ?: "Failed to broadcast request"
                 ))
@@ -258,6 +322,10 @@ class MedicineViewModel @Inject constructor(
                 loadAvailability(detailMedicineId)
             }
         }
+    }
+
+    fun toggleFavorite(medicine: Medicine) {
+        favoriteStore.toggleFavorite(medicine)
     }
 
     fun loadPopularMedicines(forceRefresh: Boolean = false) {
@@ -483,14 +551,15 @@ class MedicineViewModel @Inject constructor(
     private fun cartItemKey(medicine: Medicine): String = medicine.inventoryItemId ?: medicine.id
 
     fun addToCart(
+        type: CartType,
         medicine: Medicine,
         pharmacyId: String? = null,
         pharmacyName: String? = null,
         quantity: Int = 1
     ): Boolean {
-        val cart = cartStore.value
-        if (!cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
-            cartStore.set(cart.copy(
+        val cart = cartStore.getValue(type)
+        if (type == CartType.PHARMACY && !cart.selectedPharmacyId.isNullOrBlank() && pharmacyId != null && pharmacyId != cart.selectedPharmacyId) {
+            cartStore.set(type, cart.copy(
                 pharmacyConflict = PharmacyConflict(pharmacyId, pharmacyName, medicine)
             ))
             return false
@@ -506,7 +575,7 @@ class MedicineViewModel @Inject constructor(
         } else {
             currentItems.add(CartItem(medicine = medicine, quantity = quantity))
         }
-        cartStore.set(cart.copy(
+        cartStore.set(type, cart.copy(
             items = currentItems,
             selectedPharmacyId = pharmacyId ?: cart.selectedPharmacyId,
             selectedPharmacyName = pharmacyName ?: cart.selectedPharmacyName,
@@ -516,62 +585,68 @@ class MedicineViewModel @Inject constructor(
     }
 
     fun resolvePharmacyConflict(clearCartAndAdd: Boolean) {
-        val conflict = cartStore.value.pharmacyConflict ?: return
+        val cart = cartStore.getValue(CartType.PHARMACY)
+        val conflict = cart.pharmacyConflict ?: return
         if (clearCartAndAdd) {
-            cartStore.set(CartUiState(
+            cartStore.set(CartType.PHARMACY, CartUiState(
                 selectedPharmacyId = conflict.newPharmacyId,
                 selectedPharmacyName = conflict.newPharmacyName,
-                deliveryAddress = cartStore.value.deliveryAddress
+                deliveryAddress = cart.deliveryAddress
             ))
-            addToCart(conflict.medicine, conflict.newPharmacyId, conflict.newPharmacyName)
+            addToCart(CartType.PHARMACY, conflict.medicine, conflict.newPharmacyId, conflict.newPharmacyName)
         } else {
-            cartStore.set(cartStore.value.copy(pharmacyConflict = null))
+            cartStore.set(CartType.PHARMACY, cart.copy(pharmacyConflict = null))
         }
     }
 
-    fun removeFromCart(itemKey: String) {
-        cartStore.set(cartStore.value.copy(
-            items = cartStore.value.items.filter { cartItemKey(it.medicine) != itemKey }
+    fun removeFromCart(type: CartType, itemKey: String) {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(
+            items = cart.items.filter { cartItemKey(it.medicine) != itemKey }
         ))
     }
 
-    fun updateCartQuantity(itemKey: String, quantity: Int) {
+    fun updateCartQuantity(type: CartType, itemKey: String, quantity: Int) {
         if (quantity <= 0) {
-            removeFromCart(itemKey)
+            removeFromCart(type, itemKey)
             return
         }
-        cartStore.set(cartStore.value.copy(
-            items = cartStore.value.items.map {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(
+            items = cart.items.map {
                 if (cartItemKey(it.medicine) == itemKey) it.copy(quantity = quantity) else it
             }
         ))
     }
 
-    fun setDeliveryAddress(address: String) {
-        cartStore.set(cartStore.value.copy(deliveryAddress = address))
+    fun setDeliveryAddress(type: CartType, address: String) {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(deliveryAddress = address))
     }
 
-    fun setPatientPhone(phone: String) {
-        cartStore.set(cartStore.value.copy(patientPhone = phone))
+    fun setPatientPhone(type: CartType, phone: String) {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(patientPhone = phone))
     }
 
-    fun setPharmacy(pharmacyId: String, pharmacyName: String) {
-        cartStore.set(cartStore.value.copy(
+    fun setPharmacy(type: CartType, pharmacyId: String, pharmacyName: String) {
+        val cart = cartStore.getValue(type)
+        cartStore.set(type, cart.copy(
             selectedPharmacyId = pharmacyId,
             selectedPharmacyName = pharmacyName
         ))
     }
 
-    fun placeOrder(context: android.content.Context, prescriptionBitmap: android.graphics.Bitmap?) {
-        val cart = cartStore.value
+    fun placeOrder(type: CartType, context: android.content.Context, prescriptionBitmap: android.graphics.Bitmap?) {
+        val cart = cartStore.getValue(type)
         val isRxOrder = prescriptionBitmap != null
         
         if (cart.selectedPharmacyId.isNullOrBlank() || (!isRxOrder && cart.items.isEmpty()) || cart.deliveryAddress.isBlank() || cart.patientPhone.isBlank()) {
-            cartStore.set(cart.copy(orderError = "Please fill in all order details including phone number"))
+            cartStore.set(type, cart.copy(orderError = "Please fill in all order details including phone number"))
             return
         }
 
-        cartStore.set(cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
+        cartStore.set(type, cart.copy(isOrdering = true, orderError = null, orderSuccess = false))
         viewModelScope.launch {
             val request = MedicineOrderRequest(
                 pharmacyId = cart.selectedPharmacyId,
@@ -597,7 +672,7 @@ class MedicineViewModel @Inject constructor(
                     if (prescriptionBitmap != null) {
                         when (val uploadResult = medicineRepository.uploadPrescription(orderDto.id, prescriptionBitmap, context)) {
                             is Result.Success -> {
-                                cartStore.set(cartStore.value.copy(
+                                cartStore.set(type, cartStore.getValue(type).copy(
                                     isOrdering = false,
                                     orderResult = orderDto.copy(prescriptionUrl = uploadResult.data),
                                     orderSuccess = true,
@@ -605,7 +680,7 @@ class MedicineViewModel @Inject constructor(
                                 ))
                             }
                             is Result.Error -> {
-                                cartStore.set(cartStore.value.copy(
+                                cartStore.set(type, cartStore.getValue(type).copy(
                                     isOrdering = false,
                                     orderError = "Order created but failed to upload prescription: ${uploadResult.message}",
                                     orderResult = orderDto,
@@ -616,7 +691,7 @@ class MedicineViewModel @Inject constructor(
                             else -> {}
                         }
                     } else {
-                        cartStore.set(cartStore.value.copy(
+                        cartStore.set(type, cartStore.getValue(type).copy(
                             isOrdering = false,
                             orderResult = orderDto,
                             orderSuccess = true,
@@ -625,7 +700,7 @@ class MedicineViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
-                    cartStore.set(cartStore.value.copy(
+                    cartStore.set(type, cartStore.getValue(type).copy(
                         isOrdering = false,
                         orderError = result.message
                     ))
@@ -635,16 +710,17 @@ class MedicineViewModel @Inject constructor(
         }
     }
 
-    fun clearCart() {
-        cartStore.set(CartUiState())
+    fun clearCart(type: CartType) {
+        val defaultState = if (type == CartType.GLOBAL) CartUiState(selectedPharmacyId = "GLOBAL_REQUEST", selectedPharmacyName = "Nearby Pharmacies") else CartUiState()
+        cartStore.set(type, defaultState)
     }
 
-    fun clearOrderError() {
-        cartStore.set(cartStore.value.copy(orderError = null))
+    fun clearOrderError(type: CartType) {
+        cartStore.set(type, cartStore.getValue(type).copy(orderError = null))
     }
 
-    fun resetOrderSuccess() {
-        cartStore.set(cartStore.value.copy(orderSuccess = false, orderResult = null))
+    fun resetOrderSuccess(type: CartType) {
+        cartStore.set(type, cartStore.getValue(type).copy(orderSuccess = false, orderResult = null))
     }
 
     // ==================== ORDER HISTORY ====================
@@ -762,7 +838,7 @@ class MedicineViewModel @Inject constructor(
             val acceptedTotal = request.acceptedTotalPrice
             
             // Clear existing cart first to avoid conflicts
-            clearCart()
+            clearCart(CartType.PHARMACY)
             
             medicineItems.forEach { item ->
                 val mrp = item.mrp ?: 0.0
@@ -789,6 +865,7 @@ class MedicineViewModel @Inject constructor(
                 )
                 
                 addToCart(
+                    type = CartType.PHARMACY,
                     medicine = customMedicine, 
                     pharmacyId = request.acceptedPharmacyId, 
                     pharmacyName = request.pharmacy?.name ?: "Pharmacy",
