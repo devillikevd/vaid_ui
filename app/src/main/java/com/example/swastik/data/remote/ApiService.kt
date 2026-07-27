@@ -309,19 +309,6 @@ interface ApiService {
         @Query("longitude") longitude: Double
     ): Response<ApiResponse<List<Hospital>>>
 
-    @POST("hospitals/{id}/reviews")
-    suspend fun submitHospitalReview(
-        @Path("id") hospitalId: String,
-        @Body request: com.example.swastik.data.remote.dto.ReviewRequest
-    ): Response<ApiResponse<Review>>
-
-    @GET("hospitals/{id}/reviews")
-    suspend fun getHospitalReviews(
-        @Path("id") hospitalId: String,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
-    ): Response<ApiResponse<List<HospitalReviewDto>>>
-
     @GET("hospitals/search")
     suspend fun searchHospitals(
         @Query("q") query: String,
@@ -385,6 +372,7 @@ interface ApiService {
     @GET("medicines/search")
     suspend fun searchMedicines(
         @Query("q") query: String,
+        @Query("category") category: String? = null,
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<PaginatedResponse<Medicine>>

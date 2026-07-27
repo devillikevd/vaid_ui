@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast';
 import { downloadCSV } from '@/utils/export';
 import { parseCSV } from '@/utils/csvParser';
 import { MasterCatalogSearch } from '@/components/pharmacy/MasterCatalogSearch';
+import { medicineApi } from '@/lib/api';
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,7 @@ export default function PharmacyInventoryPage() {
         name: '',
         genericName: '',
         category: 'Tablet',
+        therapeuticCategory: '',
         quantity: '',
         packSize: '1',
         unitType: 'unit',
@@ -57,6 +59,8 @@ export default function PharmacyInventoryPage() {
     const toast = useToast();
 
     // CSV Import state
+    const [therapeuticCategories, setTherapeuticCategories] = useState<string[]>([]);
+    const [categoryDisplayNames, setCategoryDisplayNames] = useState<Record<string, string>>({});
     const [showCsvMapping, setShowCsvMapping] = useState(false);
     const [csvRawData, setCsvRawData] = useState<any[]>([]);
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -70,6 +74,9 @@ export default function PharmacyInventoryPage() {
         { key: 'mrp', label: 'MRP' },
         { key: 'batchNumber', label: 'Batch Number' },
         { key: 'expiryDate', label: 'Expiry Date' },
+        { key: 'category', label: 'Dosage Form (Tablet/Syrup/etc)' },
+        { key: 'manufacturer', label: 'Manufacturer' },
+        { key: 'requiresPrescription', label: 'Requires Prescription (true/false)' },
     ];
 
     const guessMapping = useCallback((headers: string[]): Record<string, string> => {
@@ -104,9 +111,26 @@ export default function PharmacyInventoryPage() {
         setPage(1);
     }, [deferredSearchQuery, tab]);
 
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await medicineApi.getCategories();
+                const data = res as any;
+                const cats = data?.data || data?.categories || data;
+                if (Array.isArray(cats) && cats.length > 0) {
+                    setTherapeuticCategories(cats.map((c: any) => c.name || c));
+                    setCategoryDisplayNames(cats.reduce((acc: Record<string, string>, c: any) => {
+                        acc[c.name] = c.display_name || c.name;
+                        return acc;
+                    }, {}));
+                }
+            } catch { /* ignore */ }
+        })();
+    }, []);
+
     const resetForm = () => {
         setForm({ 
-            name: '', genericName: '', category: 'Tablet', quantity: '', packSize: '1', unitType: 'unit', 
+            name: '', genericName: '', category: 'Tablet', therapeuticCategory: '', quantity: '', packSize: '1', unitType: 'unit', 
             price: '', mrp: '', batchNumber: '', manufacturer: '', expiryDate: '', minQuantity: '10', 
             requiresPrescription: false, medicine_id: ''
         });
@@ -121,6 +145,7 @@ export default function PharmacyInventoryPage() {
         const success = await addInventoryItem({
             name: form.name,
             generic_name: form.genericName,
+            medicine_id: form.medicine_id || undefined,
             category: form.category,
             quantity: parseInt(form.quantity, 10) || 0,
             pack_size: parseInt(form.packSize, 10) || 1,
@@ -244,6 +269,7 @@ export default function PharmacyInventoryPage() {
             name: item.name || '',
             genericName: item.genericName || '',
             category: item.category || 'Tablet',
+            therapeuticCategory: item.therapeuticCategory || item.therapeutic_category || '',
             quantity: String(item.quantity ?? 0),
             packSize: String(item.packSize ?? 1),
             unitType: item.unitType || 'unit',
@@ -256,7 +282,6 @@ export default function PharmacyInventoryPage() {
             requiresPrescription: item.requiresPrescription || false,
             medicine_id: item.medicine_id || '',
         });
-        setEditId(item.id);
         setShowAdd(true);
     };
 
@@ -343,26 +368,64 @@ export default function PharmacyInventoryPage() {
                             <button onClick={resetForm}><X className="h-5 w-5 text-gray-400" /></button>
                         </div>
                         <div className="space-y-4">
+                            {!editId && (
+                                <MasterCatalogSearch
+                                    onSelect={(med: any) => {
+                                        setForm(current => ({
+                                            ...current,
+                                            name: med.name || current.name,
+                                            genericName: med.generic_name || current.genericName,
+                                            manufacturer: med.manufacturer || current.manufacturer,
+                                            category: med.dosage_form || current.category,
+                                            therapeuticCategory: med.category || current.therapeuticCategory,
+                                            price: String(med.price ?? current.price),
+                                            mrp: String(med.mrp ?? current.mrp),
+                                            medicine_id: med.id || current.medicine_id,
+                                            requiresPrescription: med.requires_prescription ?? current.requiresPrescription,
+                                        }));
+                                        toast.success('Auto-filled from catalog', `${med.name} fields populated`);
+                                    }}
+                                />
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Input label="Medicine Name *" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))} placeholder="Enter medicine name" />
                                 <div className="space-y-1">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Dosage Form</label>
                                     <select
                                         value={form.category}
                                         onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                                     >
                                         <option value="Tablet">Tablet</option>
+                                        <option value="Capsule">Capsule</option>
                                         <option value="Syrup">Syrup</option>
                                         <option value="Injection">Injection</option>
-                                        <option value="Capsule">Capsule</option>
                                         <option value="Cream">Cream</option>
+                                        <option value="Ointment">Ointment</option>
                                         <option value="Drops">Drops</option>
+                                        <option value="Powder">Powder</option>
+                                        <option value="Gel">Gel</option>
+                                        <option value="Lotion">Lotion</option>
+                                        <option value="Inhaler">Inhaler</option>
+                                        <option value="Patch">Patch</option>
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Therapeutic Category</label>
+                                    {form.therapeuticCategory ? (
+                                        <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                            {categoryDisplayNames[form.therapeuticCategory] || form.therapeuticCategory}
+                                            <span className="ml-2 text-xs text-gray-400">(from catalog)</span>
+                                        </div>
+                                    ) : (
+                                        <div className="w-full rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-400 dark:border-gray-600 dark:bg-gray-800">
+                                            Search catalog above to auto-fill
+                                        </div>
+                                    )}
+                                </div>
                                 <Input label="Total Stock" type="number" value={form.quantity} onChange={(e) => setForm((current) => ({ ...current, quantity: e.target.value }))} placeholder="e.g. 50" />
                                 <Input label="Selling Price (₹)" type="number" value={form.price} onChange={(e) => setForm((current) => ({ ...current, price: e.target.value }))} placeholder="e.g. 150" />
                             </div>

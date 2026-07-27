@@ -14,6 +14,19 @@ const { supabaseAdmin } = require('../../config/supabase');
 const { signStorageUrlsInPayload } = require('../../config/minio');
 const eventEmitter = require('../../services/eventEmitter');
 
+// SOS rate limiter — 3 minute cooldown per user
+const sosCooldowns = new Map();
+const SOS_COOLDOWN_MS = 3 * 60 * 1000;
+function checkSosRateLimit(userId) {
+  const last = sosCooldowns.get(userId);
+  if (last && Date.now() - last < SOS_COOLDOWN_MS) {
+    const remaining = Math.ceil((SOS_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    return { allowed: false, remainingSeconds: remaining };
+  }
+  sosCooldowns.set(userId, Date.now());
+  return { allowed: true };
+}
+
 const router = express.Router();
 
 const normalizeOrderStatus = (status) => (status === 'out_for_delivery' ? 'dispatched' : status);
@@ -1040,6 +1053,13 @@ router.post('/emergency',
   ],
   validate,
   asyncHandler(async (req, res) => {
+    const rateCheck = checkSosRateLimit(req.user.id);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: `SOS cooldown active. Please wait ${rateCheck.remainingSeconds}s before sending another SOS.`
+      });
+    }
     const result = await dispatchService.requestSOS(req.user.id, req.body);
     res.status(result.alreadyActive ? 200 : 201).json({ success: true, data: result });
   })
@@ -1056,6 +1076,13 @@ router.post('/emergency/hospital',
   ],
   validate,
   asyncHandler(async (req, res) => {
+    const rateCheck = checkSosRateLimit(req.user.id);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: `SOS cooldown active. Please wait ${rateCheck.remainingSeconds}s before sending another SOS.`
+      });
+    }
     const result = await dispatchService.requestDirectHospitalSOS(req.user.id, req.body);
     res.status(result.alreadyActive ? 200 : 201).json({ success: true, data: result });
   })

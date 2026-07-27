@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="48dp"
+    android:viewportWidth="40"
+    android:viewportHeight="48">
+    <!-- Drop shadow -->
+    <path
+        android:pathData="M20,46C20,46 4,30 4,18C4,9.16 11.16,2 20,2C28.84,2 36,9.16 36,18C36,30 20,46 20,46Z"
+        android:fillColor="#1A000000"/>
+    <!-- Main bubble -->
+    <path
+        android:pathData="M20,44C20,44 4,28 4,17C4,9.82 9.82,4 17,4L23,4C30.18,4 36,9.82 36,17C36,28 20,44 20,44Z"
+        android:fillColor="#4CAF50"/>
+    <!-- White circle background -->
+    <path
+        android:pathData="M20,10m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.95"/>
+    <!-- Stethoscope icon (simplified) -->
+    <path
+        android:pathData="M16,7L16,12C16,13.66 17.34,15 19,15L21,15C22.66,15 24,13.66 24,12L24,7"
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M20,15L20,16"
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M20,17m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0"
+        android:fillColor="#4CAF50"/>
+</vector>

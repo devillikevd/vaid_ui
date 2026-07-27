@@ -145,6 +145,9 @@ export default function HospitalEmergencyPage() {
     const [emergencies, setEmergencies] = useState<DispatchEmergency[]>([]);
     const [isAlarmEnabled, setIsAlarmEnabled] = useState(false);
     const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+    const [erWaitTime, setErWaitTime] = useState<number>(0);
+    const [erLastUpdated, setErLastUpdated] = useState<string | null>(null);
+    const [isUpdatingEr, setIsUpdatingEr] = useState(false);
 
     const handleEnableAlarms = () => {
         setIsAlarmEnabled(true);
@@ -217,6 +220,10 @@ export default function HospitalEmergencyPage() {
                 const hLng = data.hospital.longitude || data.hospital.location?.coordinates?.[0];
                 if (hLat && hLng) {
                     setHospitalLocation({ lat: hLat, lng: hLng });
+                }
+                if (data.hospital.er_wait_time_minutes !== undefined) {
+                    setErWaitTime(data.hospital.er_wait_time_minutes || 0);
+                    setErLastUpdated(data.hospital.er_last_updated_at || null);
                 }
             }
         }).catch(() => {});
@@ -508,6 +515,53 @@ export default function HospitalEmergencyPage() {
                     </div>
                 </div>
             )}
+
+            {/* ER Wait Time Control */}
+            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 dark:from-blue-900/20 dark:to-indigo-900/20 dark:border-blue-800/30">
+                <CardContent className="py-4">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-sm">
+                                <Clock className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Live ER Wait Time</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    Last updated: {erLastUpdated ? formatTimeAgo(erLastUpdated) : 'Never'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="number"
+                                min="0"
+                                max="600"
+                                value={erWaitTime}
+                                onChange={(e) => setErWaitTime(parseInt(e.target.value) || 0)}
+                                className="w-24 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                placeholder="Mins"
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">minutes</span>
+                            <Button
+                                onClick={async () => {
+                                    setIsUpdatingEr(true);
+                                    try {
+                                        await hospitalApi.updateErWaitTime(erWaitTime);
+                                        setErLastUpdated(new Date().toISOString());
+                                    } catch (err) {
+                                        console.error('Failed to update ER wait time', err);
+                                    }
+                                    setIsUpdatingEr(false);
+                                }}
+                                isLoading={isUpdatingEr}
+                                className="ml-2 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Update Status
+                            </Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

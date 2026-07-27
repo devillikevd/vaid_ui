@@ -196,7 +196,17 @@ data class Hospital(
     @SerializedName("total_beds") val totalBeds: Int? = null,
     @SerializedName("beds_available") val bedsAvailable: Int? = null,
     val facilities: List<String>? = null,
-    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null
+    @SerializedName("gallery_urls") val galleryUrls: List<String>? = null,
+    val description: String? = null,
+    @SerializedName("opening_hours") val openingHours: String? = null,
+    val accreditations: List<String>? = null,
+    @SerializedName("website_url") val websiteUrl: String? = null,
+    @SerializedName("established_year") val establishedYear: Int? = null,
+    @SerializedName("insurance_accepted") val insuranceAccepted: List<String>? = null,
+    val reels: List<HospitalReel>? = null,
+    @SerializedName("er_wait_time_minutes") val erWaitTimeMinutes: Int? = null,
+    @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
+    @SerializedName("floor_guide") val floorGuideMapUrl: String? = null
 )
 
 data class HospitalDepartment(
@@ -219,7 +229,11 @@ data class HospitalDoctorSummary(
     val name: String,
     val specialization: String? = null,
     @SerializedName("profile_image_url") val profileImageUrl: String? = null,
-    @SerializedName("consultation_fee") val consultationFee: Int? = null
+    @SerializedName("consultation_fee") val consultationFee: Int? = null,
+    @SerializedName("experience_years") val experienceYears: Int? = null,
+    val rating: Float? = null,
+    @SerializedName("total_reviews") val totalReviews: Int? = null,
+    @SerializedName("intro_video_url") val introVideoUrl: String? = null
 )
 
 data class Clinic(
@@ -317,8 +331,11 @@ data class Medicine(
     @SerializedName("generic_name") val genericName: String? = null,
     val manufacturer: String?,
     val price: Float?,
+    val mrp: Float? = null,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean,
     val category: MedicineCategory = MedicineCategory.TABLET,
+    @SerializedName("therapeutic_category") val therapeuticCategory: String? = null,
+    @SerializedName("dosage_form") val dosageForm: String? = null,
     val description: String? = null,
     @SerializedName("in_stock") val inStock: Boolean = true,
     @SerializedName("stock_count") val stockCount: Int = 0,

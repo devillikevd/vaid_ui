@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.swastik.data.model.FacilityType
 import com.example.swastik.data.model.MedicalFacility
-import com.example.swastik.data.remote.dto.HospitalReviewDto
 import com.example.swastik.data.repository.HospitalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -158,11 +158,25 @@ const getDiagnosticCenterById = async (id) => {
     .eq('status', 'accepted')
     .maybeSingle();
 
+  const { data: reels } = await supabaseAdmin
+    .from('diagnostic_reels')
+    .select('*')
+    .eq('diagnostic_center_id', id)
+    .order('created_at', { ascending: false });
+
+  const { data: tests } = await supabaseAdmin
+    .from('diagnostic_tests')
+    .select('*')
+    .eq('center_id', id)
+    .eq('is_available', true);
+
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
   const center = recordWithPhone || data;
 
   return {
     ...center,
+    reels: reels || [],
+    tests: tests || [],
     hospital_id: assocs?.facility_type === 'hospital' ? assocs.facility_id : null,
     clinic_id: assocs?.facility_type === 'clinic' ? assocs.facility_id : null
   };
@@ -305,11 +319,12 @@ const updateDiagnosticCenter = async (centerId, userId, updates) => {
   }
 
   const ALLOWED_FIELDS = [
-    'name', 'description', 'phone', 'email', 'website', 'emergency_phone',
+    'name', 'description', 'phone', 'email', 'website', 'website_url', 'emergency_phone',
     'address', 'city', 'state', 'pincode', 'latitude', 'longitude',
     'opening_hours', 'test_categories', 'accreditations', 'image_url',
     'sample_collection_available', 'home_collection_available', 'home_collection_fee', 'is_24_hours',
     'registration_number', 'license_number', 'license_document_url', 'nabl_accreditation',
+    'established_year', 'virtual_tour_url', 'floor_guide_map_url'
   ];
   const safeUpdates = {};
   for (const key of ALLOWED_FIELDS) {
@@ -818,6 +833,26 @@ module.exports = {
   // Owner Registration
   registerDiagnosticCenter,
   // Owner Management
+  addReel: async (userId, data) => {
+    const { data: center } = await supabaseAdmin.from('diagnostic_centers').select('id').eq('owner_id', userId).single();
+    if (!center) throw new ApiError(404, 'Diagnostic center not found');
+    const { data: reel, error } = await supabaseAdmin.from('diagnostic_reels').insert({
+      diagnostic_center_id: center.id,
+      video_url: data.videoUrl,
+      thumbnail_url: data.thumbnailUrl,
+      title: data.title
+    }).select().single();
+    if (error) throw new ApiError(500, 'Failed to add reel');
+    return reel;
+  },
+  deleteReel: async (userId, reelId) => {
+    const { data: center } = await supabaseAdmin.from('diagnostic_centers').select('id').eq('owner_id', userId).single();
+    if (!center) throw new ApiError(404, 'Diagnostic center not found');
+    const { error } = await supabaseAdmin.from('diagnostic_reels').delete().eq('id', reelId).eq('diagnostic_center_id', center.id);
+    if (error) throw new ApiError(500, 'Failed to delete reel');
+    return true;
+  },
+
   getDiagnosticCenterByOwner,
   getDashboard,
   updateDiagnosticCenter,

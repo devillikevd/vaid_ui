@@ -42,11 +42,22 @@ router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
     body('license_number').optional().isString().trim(),
     body('license_document_url').optional().isString().trim(),
     body('accreditations').optional().isArray(),
+    body('description').optional().isString().trim().isLength({ max: 2000 }),
+    body('opening_hours').optional().isString().trim(),
+    body('facilities').optional().isArray(),
+    body('website_url').optional().isString().trim(),
+    body('established_year').optional().isInt({ min: 1800, max: new Date().getFullYear() }).withMessage('Invalid established year'),
+    body('insurance_accepted').optional().isArray(),
+    body('gallery_urls').optional().isArray(),
+    body('beds_available').optional().isInt({ min: 0 }).withMessage('Available beds must be a positive number'),
+    body('virtual_tour_url').optional().isString().trim(),
+    body('floor_guide').optional().isObject(),
     validate,
 ], asyncHandler(async (req, res) => {
     const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
     // Whitelist allowed fields
-    const allowed = ['name', 'phone', 'email', 'address', 'latitude', 'longitude', 'bed_capacity', 'total_beds', 'profile_image', 'profile_image_url', 'license_number', 'license_document_url', 'accreditations'];
+    const allowed = ['name', 'phone', 'email', 'address', 'latitude', 'longitude', 'bed_capacity', 'total_beds', 'profile_image', 'profile_image_url', 'license_number', 'license_document_url', 'accreditations',
+        'description', 'opening_hours', 'facilities', 'website_url', 'established_year', 'insurance_accepted', 'gallery_urls', 'beds_available', 'virtual_tour_url', 'floor_guide'];
     const safeUpdates = {};
     for (const key of allowed) {
         if (req.body[key] !== undefined) safeUpdates[key] = req.body[key];
@@ -56,6 +67,26 @@ router.put('/profile', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
     }
     const updated = await hospitalManagerService.updateHospital(hospital.id, req.user.id, safeUpdates);
     res.json({ success: true, hospital: updated });
+}));
+
+// Update ER Wait Time
+router.put('/er-wait-time', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('waitMinutes').isInt({ min: 0, max: 600 }).withMessage('Wait time must be between 0 and 600 minutes'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const { supabaseAdmin } = require('../config/supabase');
+    const { data, error } = await supabaseAdmin
+        .from('hospitals')
+        .update({
+            er_wait_time_minutes: req.body.waitMinutes,
+            er_last_updated_at: new Date().toISOString(),
+        })
+        .eq('id', hospital.id)
+        .select('id, er_wait_time_minutes, er_last_updated_at')
+        .single();
+    if (error) throw error;
+    res.json({ success: true, data });
 }));
 
 router.use(requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), requireApproval);
@@ -340,6 +371,27 @@ router.get('/reviews', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER)
     const reviewService = require('../services/reviewService');
     const result = await reviewService.getEntityReviews('hospital', hospital.id, parseInt(page), parseInt(limit));
     res.json({ success: true, ...result });
+}));
+
+// Reels (Hospital Videos)
+router.post('/reels', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    body('video_url').isString().trim().notEmpty().withMessage('Video URL is required'),
+    body('thumbnail_url').optional().isString().trim(),
+    body('title').optional().isString().trim(),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    const reel = await hospitalManagerService.addReel(hospital.id, req.user.id, req.body);
+    res.json({ success: true, reel });
+}));
+
+router.delete('/reels/:reelId', requireRole(ROLES.HOSPITAL_OWNER, ROLES.HOSPITAL_MANAGER), [
+    param('reelId').isUUID().withMessage('Invalid reel ID'),
+    validate,
+], asyncHandler(async (req, res) => {
+    const hospital = await hospitalManagerService.getHospitalByOwner(req.user.id);
+    await hospitalManagerService.deleteReel(hospital.id, req.user.id, req.params.reelId);
+    res.json({ success: true });
 }));
 
 module.exports = router;

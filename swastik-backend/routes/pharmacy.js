@@ -31,6 +31,23 @@ router.get('/search', asyncHandler(async (req, res) => {
     res.json({ success: true, ...result });
 }));
 
+// Find nearby pharmacies (general — no medicineId required)
+router.get('/nearby-general', asyncHandler(async (req, res) => {
+    const { latitude, longitude, radius = 5 } = req.query;
+
+    if (!latitude || !longitude) {
+        return res.status(400).json({ success: false, message: 'Location required' });
+    }
+
+    const pharmacies = await pharmacyService.findNearbyGeneral(
+        parseFloat(latitude),
+        parseFloat(longitude),
+        parseFloat(radius)
+    );
+
+    res.json({ success: true, data: pharmacies });
+}));
+
 // Find nearby pharmacies
 router.get('/nearby', asyncHandler(async (req, res) => {
     const { latitude, longitude, medicineId, radius = 10 } = req.query;
@@ -82,15 +99,15 @@ router.post('/register', requireRole(ROLES.PHARMACY_OWNER), [
 // Dashboard - aggregate data for pharmacy owner
 router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
-    
+
     // Get inventory with low stock filter
     const inventoryResult = await pharmacyService.getInventory(pharmacy.id, { lowStock: 'true' }, 1, 50);
     const lowStockItems = inventoryResult.items || inventoryResult.data || [];
-    
+
     // Get pending orders
     const ordersResult = await pharmacyService.getOrders(pharmacy.id, { status: 'pending' }, 1, 20);
     const pendingOrders = ordersResult.orders || ordersResult.data || [];
-    
+
     // Calculate today's revenue from delivered/completed orders
     let todaysRevenue = 0;
     try {
@@ -110,22 +127,8 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
         // Silently fallback to 0 if table/column doesn't exist yet
     }
 
-    // BUG-08 Fix: Count new prescriptions separately from pending orders
-    // New prescriptions = prescriptions assigned to this pharmacy that haven't been dispensed
+    // New prescriptions count (prescriptions table has no pharmacy_id column yet — use 0)
     let newPrescriptionsCount = 0;
-    try {
-        const { supabaseAdmin } = require('../config/supabase');
-        const { count: rxCount } = await supabaseAdmin
-            .from('prescriptions')
-            .select('id', { count: 'exact', head: true })
-            .eq('pharmacy_id', pharmacy.id)
-            .in('status', ['pending', 'new', 'created']);
-        newPrescriptionsCount = rxCount || 0;
-    } catch (e) {
-        // Fallback: if prescriptions table doesn't have pharmacy_id yet,
-        // use pending orders as proxy
-        newPrescriptionsCount = pendingOrders.length;
-    }
 
     // Build dashboard stats
     const stats = {
@@ -134,7 +137,7 @@ router.get('/dashboard', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asy
         lowStockItems: lowStockItems.length,
         todaysRevenue,
     };
-    
+
     res.json({
         success: true,
         stats,
@@ -250,7 +253,7 @@ router.post('/inventory', requireRole(ROLES.PHARMACY_OWNER), [
     // #13: Real-time inventory update
     const eventEmitter = require('../services/eventEmitter');
     eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item);
-    res.status(201).json({ success: true, item });
+    res.status(201).json({ success: true, data: item });
 }));
 
 router.post('/inventory/bulk', requireRole(ROLES.PHARMACY_OWNER), [
@@ -259,12 +262,12 @@ router.post('/inventory/bulk', requireRole(ROLES.PHARMACY_OWNER), [
 ], asyncHandler(async (req, res) => {
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
     const items = await pharmacyService.addBulkInventoryItems(pharmacy.id, req.user.id, req.body.items);
-    
+
     // #13: Real-time inventory update (we just emit a refresh signal or multiple items)
     const eventEmitter = require('../services/eventEmitter');
     items.forEach(item => eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item));
-    
-    res.status(201).json({ success: true, items });
+
+    res.status(201).json({ success: true, data: items });
 }));
 
 router.put('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
@@ -278,7 +281,7 @@ router.put('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler
     // #13: Real-time inventory update
     const eventEmitter = require('../services/eventEmitter');
     eventEmitter.emitInventoryUpdated(pharmacy.id, req.user.id, item);
-    res.json({ success: true, item });
+    res.json({ success: true, data: item });
 }));
 
 router.delete('/inventory/:itemId', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {
@@ -317,7 +320,7 @@ router.patch('/orders/:orderId/status', requireRole(ROLES.PHARMACY_OWNER), async
         notes
     );
 
-    res.json({ success: true, order });
+    res.json({ success: true, data: order });
 }));
 
 // Prescriptions routes
@@ -329,7 +332,7 @@ router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(asy
     const offset = (normalizedPage - 1) * normalizedLimit;
     const searchTerm = sanitizeSearch(search || '').toLowerCase();
 
-    // Get this owner's pharmacy to scope the query
+    // Get current user's pharmacy profile scope the query
     const pharmacy = await pharmacyService.getPharmacyByOwner(req.user.id);
 
     // Prescriptions don't have pharmacy_id directly — find prescriptions
@@ -420,6 +423,27 @@ router.get('/prescriptions', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(asy
             totalPages: Math.max(1, Math.ceil((count || 0) / normalizedLimit)),
         },
     });
+}));
+
+// Reels routes
+router.post('/reels', requireRole(ROLES.PHARMACY_OWNER), requireApproval, [
+    body('videoUrl').isURL().withMessage('Valid video URL required'),
+    body('thumbnailUrl').optional().isURL(),
+    body('title').optional().trim().isLength({ max: 200 }),
+    validate
+], asyncHandler(async (req, res) => {
+    const { videoUrl, thumbnailUrl, title } = req.body;
+    const result = await pharmacyService.addReel(req.user.id, {
+        video_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
+        title
+    });
+    res.status(201).json({ success: true, data: result });
+}));
+
+router.delete('/reels/:reelId', requireRole(ROLES.PHARMACY_OWNER), requireApproval, asyncHandler(async (req, res) => {
+    await pharmacyService.deleteReel(req.user.id, req.params.reelId);
+    res.json({ success: true, message: 'Reel deleted successfully' });
 }));
 
 router.patch('/prescriptions/:prescriptionId/dispense', requireRole(ROLES.PHARMACY_OWNER), asyncHandler(async (req, res) => {

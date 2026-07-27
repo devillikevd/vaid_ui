@@ -40,8 +40,18 @@ const enrichMissingPhonesFromOwners = async (rows = []) => {
   });
 };
 
-// Facility types
+// Facility types — fetched from DB with static fallback
 const getFacilityTypes = async () => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('facility_types')
+      .select('id, name, icon')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (!error && data && data.length > 0) return data;
+  } catch (_) { }
+
   return [
     { id: 'hospital', name: 'Hospital', icon: '🏥' },
     { id: 'clinic', name: 'Clinic', icon: '🩺' },
@@ -74,7 +84,7 @@ const getHospitals = async (filters = {}, page = 1, limit = 20) => {
   if (error) throw error;
 
   let results = data || [];
-  
+
   // SMART RANKING: Top suggested based on rating and reviews
   results = results.map(hosp => {
     const rating = parseFloat(hosp.rating) || 0;
@@ -264,7 +274,7 @@ const searchHospitals = async (query, latitude, longitude) => {
 const getHospitalById = async (id) => {
   const { data, error } = await supabaseAdmin
     .from('hospitals')
-    .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved))')
+    .select('*, departments:hospital_departments(*), doctors:hospital_doctors(*, doctor:doctors(id, name, specialization, profile_image_url, consultation_fee, is_approved)), reels:hospital_reels(*)')
     .eq('id', id)
     .eq('is_approved', true)
     .eq('is_active', true)
@@ -297,82 +307,6 @@ const getHospitalById = async (id) => {
   return data;
 };
 
-// Add review
-const addReview = async (userId, hospitalId, reviewData) => {
-  // Resolve patient_id from user_id (reviews FK references patients, not users)
-  const { data: patientRow } = await supabaseAdmin
-    .from('patients')
-    .select('id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  const patientId = patientRow?.id || userId; // fallback to userId if no patient profile
-
-  // Prevent duplicate reviews from the same user for the same hospital
-  const { data: existingReview } = await supabaseAdmin
-    .from('reviews')
-    .select('id')
-    .eq('patient_id', patientId)
-    .eq('reviewable_type', 'hospital')
-    .eq('reviewable_id', hospitalId)
-    .maybeSingle();
-
-  if (existingReview) {
-    throw new ApiError(409, 'You have already reviewed this hospital');
-  }
-
-  const { data: review, error } = await supabaseAdmin
-    .from('reviews')
-    .insert({
-      patient_id: patientId,
-      reviewable_type: 'hospital',
-      reviewable_id: hospitalId,
-      rating: reviewData.rating,
-      comment: reviewData.comment,
-    })
-    .select('*')
-    .single();
-
-  if (error) throw error;
-
-  // Atomic DB-level aggregate — avoids race condition with concurrent reviews.
-  // Try RPC first (stored procedure), fall back to query-based aggregate.
-  const { data: agg, error: aggErr } = await supabaseAdmin
-    .rpc('calculate_hospital_rating', { p_hospital_id: hospitalId })
-    .catch(() => ({ data: null, error: true }));
-
-  if (!aggErr && agg && agg.length > 0) {
-    await supabaseAdmin
-      .from('hospitals')
-      .update({
-        rating: Math.round(agg[0].avg_rating * 10) / 10,
-        total_reviews: agg[0].review_count,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', hospitalId);
-  } else {
-    // Fallback: SELECT aggregate then UPDATE (still re-reads ALL rows atomically)
-    const { data: allReviews } = await supabaseAdmin
-      .from('reviews')
-      .select('rating')
-      .eq('reviewable_type', 'hospital')
-      .eq('reviewable_id', hospitalId);
-
-    if (allReviews && allReviews.length > 0) {
-      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-      await supabaseAdmin
-        .from('hospitals')
-        .update({
-          rating: Math.round(avgRating * 10) / 10,
-          total_reviews: allReviews.length,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', hospitalId);
-    }
-  }
-
-  return review;
-};
 
 // Get reviews for a hospital (public)
 const getReviews = async (hospitalId, page = 1, limit = 20) => {
@@ -403,6 +337,22 @@ const getReviews = async (hospitalId, page = 1, limit = 20) => {
   };
 };
 
+// Update ER Wait Time (called by hospital admin from Emergency Dashboard)
+const updateErWaitTime = async (hospitalId, waitMinutes) => {
+  const { data, error } = await supabaseAdmin
+    .from('hospitals')
+    .update({
+      er_wait_time_minutes: waitMinutes,
+      er_last_updated_at: new Date().toISOString(),
+    })
+    .eq('id', hospitalId)
+    .select('id, er_wait_time_minutes, er_last_updated_at')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 module.exports = {
   getFacilityTypes,
   getHospitals,
@@ -413,6 +363,6 @@ module.exports = {
   getDiagnosticCenters,
   searchHospitals,
   getHospitalById,
-  addReview,
   getReviews,
+  updateErWaitTime,
 };

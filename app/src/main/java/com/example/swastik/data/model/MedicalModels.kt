@@ -46,14 +46,45 @@ data class MedicalFacility(
     val images: List<String> = emptyList(),
     // Affiliation fields
     @SerializedName("hospital_id") val hospitalId: String? = null,
-    @SerializedName("clinic_id") val clinicId: String? = null
+    @SerializedName("clinic_id") val clinicId: String? = null,
+    // Enhanced hospital detail fields
+    val description: String? = null,
+    @SerializedName("opening_hours") val openingHours: String? = null,
+    @SerializedName("website_url") val websiteUrl: String? = null,
+    @SerializedName("established_year") val establishedYear: Int? = null,
+    @SerializedName("insurance_accepted") val insuranceAccepted: List<String> = emptyList(),
+    @SerializedName("er_wait_time_minutes") val erWaitTimeMinutes: Int? = null,
+    @SerializedName("virtual_tour_url") val virtualTourUrl: String? = null,
+    @SerializedName("floor_guide_map_url") val floorGuideMapUrl: String? = null,
+    val reels: List<HospitalReel> = emptyList(),
+    val inventory: List<PharmacyMedicine> = emptyList(),
+    val tests: List<DiagnosticTest> = emptyList()
+)
+
+data class PharmacyMedicine(
+    val id: String,
+    val name: String,
+    @SerializedName("generic_name") val genericName: String? = null,
+    val price: Double,
+    val quantity: Int,
+    @SerializedName("pack_size") val packSize: String? = null,
+    @SerializedName("unit_type") val unitType: String? = null
+)
+
+data class HospitalReel(
+    val id: String,
+    @SerializedName("video_url") val videoUrl: String,
+    @SerializedName("thumbnail_url") val thumbnailUrl: String? = null,
+    val title: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null
 )
 
 enum class FacilityType {
     HOSPITAL,
     CLINIC,
     MEDICAL_STORE,
-    DIAGNOSTIC_CENTER;
+    DIAGNOSTIC_CENTER,
+    NURSING_HOME;
 
     fun getDisplayName(): String {
         return when (this) {
@@ -61,6 +92,7 @@ enum class FacilityType {
             CLINIC -> "Clinic"
             MEDICAL_STORE -> "Medical Store"
             DIAGNOSTIC_CENTER -> "Diagnostic Center"
+            NURSING_HOME -> "Nursing Home"
         }
     }
 
@@ -69,17 +101,29 @@ enum class FacilityType {
             HOSPITAL -> Icons.Default.LocalHospital
             CLINIC -> Icons.Default.MedicalServices
             MEDICAL_STORE -> Icons.Default.LocalPharmacy
-            DIAGNOSTIC_CENTER -> Icons.Default.Science // Biotech might be missing, Science is safe
+            DIAGNOSTIC_CENTER -> Icons.Default.Science
+            NURSING_HOME -> Icons.Default.LocalHospital
         }
     }
 
     fun getMarkerColor(): Color {
         return when (this) {
-            HOSPITAL -> Color(0xFFE53935) // Red
-            CLINIC -> Color(0xFF4CAF50) // Green
-            MEDICAL_STORE -> Color(0xFF2196F3) // Blue
-            DIAGNOSTIC_CENTER -> Color(0xFF7C3AED) // Purple
+            HOSPITAL -> Color(0xFFE53935)
+            CLINIC -> Color(0xFFD5EDDA)
+            MEDICAL_STORE -> Color(0xFFFFFDE7)
+            DIAGNOSTIC_CENTER -> Color(0xFFFCE4EC)
+            NURSING_HOME -> Color(0xFFE3F2FD)
         }
+    }
+
+    companion object {
+        val HOSPITAL_SUB_TYPES = listOf(
+            null to "All",
+            "Government" to "Government",
+            "Private" to "Private",
+            "Multi-Specialty" to "Multi-Specialty",
+            "General" to "General"
+        )
     }
 }
 
@@ -92,5 +136,6 @@ data class HospitalDoctor(
     @SerializedName("consultation_fee") val consultationFee: Int,
     @SerializedName("available_slots") val availableSlots: List<String> = emptyList(),
     @SerializedName("image_emoji") val imageEmoji: String = "👨‍⚕️",
-    @SerializedName("profile_image_url") val profileImageUrl: String? = null
+    @SerializedName("profile_image_url") val profileImageUrl: String? = null,
+    @SerializedName("intro_video_url") val introVideoUrl: String? = null
 )

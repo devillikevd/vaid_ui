@@ -12,6 +12,7 @@ import com.example.swastik.data.model.CartItem
 import com.example.swastik.data.remote.dto.MedicineAvailabilityDto
 import com.example.swastik.data.remote.dto.MedicineOrderRequest
 import com.example.swastik.data.remote.dto.MedicineOrderDto
+import com.example.swastik.data.remote.dto.MedicineCategoryDto
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
 import com.example.swastik.data.remote.dto.OrderItemRequest
 import com.example.swastik.data.repository.Result
@@ -49,8 +50,10 @@ data class MedicineUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
-    val selectedCategory: MedicineCategory? = null,
-    val favoriteMedicineIds: Set<String> = emptySet()
+    val selectedCategory: String? = null, // Therapeutic category name (lowercase), e.g. "antibiotic"
+    val favoriteMedicineIds: Set<String> = emptySet(),
+    val categories: List<MedicineCategoryDto> = emptyList(),
+    val categoriesLoading: Boolean = false
 )
 
 data class MedicineDetailUiState(
@@ -196,6 +199,7 @@ class MedicineViewModel @Inject constructor(
 
     init {
         loadPopularMedicines()
+        loadCategories()
         collectRealtimeOrderUpdates()
         collectProviderCatalogUpdates()
         observeSocketReconnects()
@@ -306,6 +310,26 @@ class MedicineViewModel @Inject constructor(
 
     fun refresh() {
         refreshMedicineDiscovery()
+        loadCategories()
+    }
+
+    fun loadCategories() {
+        if (_uiState.value.categories.isNotEmpty() && !_uiState.value.categoriesLoading) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(categoriesLoading = true)
+            when (val result = medicineRepository.getCategories()) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        categories = result.data ?: emptyList(),
+                        categoriesLoading = false
+                    )
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(categoriesLoading = false)
+                }
+                is Result.Loading -> {}
+            }
+        }
     }
 
     private fun refreshMedicineDiscovery() {
@@ -390,7 +414,7 @@ class MedicineViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(searchQuery = query)
         if (query.isBlank()) {
             searchJob?.cancel()
-            loadPopularMedicines()
+            triggerCategorySearch()
             return
         }
         // Cancel previous search and debounce by 350ms
@@ -398,7 +422,8 @@ class MedicineViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             kotlinx.coroutines.delay(350)
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            when (val result = medicineRepository.searchMedicines(query)) {
+            val category = _uiState.value.selectedCategory
+            when (val result = medicineRepository.searchMedicines(query, category = category)) {
                 is Result.Success -> {
                     _uiState.value = _uiState.value.copy(
                         medicines = result.data,
@@ -419,7 +444,61 @@ class MedicineViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     fun setCategory(category: MedicineCategory?) {
-        _uiState.value = _uiState.value.copy(selectedCategory = category)
+        // Legacy: accept MedicineCategory enum, convert to lowercase name
+        _uiState.value = _uiState.value.copy(selectedCategory = category?.name?.lowercase())
+        triggerCategorySearch()
+    }
+
+    fun setCategoryByName(categoryName: String?) {
+        if (categoryName == null) {
+            _uiState.value = _uiState.value.copy(selectedCategory = null)
+            triggerCategorySearch()
+            return
+        }
+        val nameLower = categoryName.lowercase(Locale.ROOT)
+        // Toggle: if already selected, deselect
+        if (_uiState.value.selectedCategory == nameLower) {
+            _uiState.value = _uiState.value.copy(selectedCategory = null)
+        } else {
+            _uiState.value = _uiState.value.copy(selectedCategory = nameLower)
+        }
+        triggerCategorySearch()
+    }
+
+    /**
+     * When category changes, re-fetch medicines from backend with category filter.
+     * If search query exists, search with both query + category.
+     * If no search query, search with just category.
+     * If no category, load popular medicines.
+     */
+    private fun triggerCategorySearch() {
+        val query = _uiState.value.searchQuery
+        val category = _uiState.value.selectedCategory
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            if (query.isBlank() && category.isNullOrBlank()) {
+                // No filter: load popular
+                loadPopularMedicines(forceRefresh = true)
+            } else {
+                // Search with category (and optional query)
+                when (val result = medicineRepository.searchMedicines(query.ifBlank { "" }, category = category)) {
+                    is Result.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            medicines = result.data,
+                            isLoading = false
+                        )
+                    }
+                    is Result.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.message
+                        )
+                    }
+                    is Result.Loading -> {}
+                }
+            }
+        }
     }
 
     fun loadMedicineDetail(medicineId: String) {
@@ -472,78 +551,37 @@ class MedicineViewModel @Inject constructor(
     }
 
     /**
-     * Get filtered medicines based on current state
+     * Get filtered medicines — backend handles therapeutic category filtering,
+     * so we just return the full list from the backend response.
      */
     fun getFilteredMedicines(): List<Medicine> {
-        val state = _uiState.value
-        return state.medicines.filter { medicine ->
-            state.selectedCategory == null || medicine.matchesSelectedCategory(state.selectedCategory)
-        }
+        return _uiState.value.medicines
     }
 
     fun getFilteredNearbyMedicines(): List<NearbyMedicineDto> {
         val state = _uiState.value
         return state.nearbyMedicines.filter { nearbyMedicine ->
             nearbyMedicine.inStock &&
-                (state.selectedCategory == null || nearbyMedicine.matchesSelectedCategory(state.selectedCategory)) &&
-                (state.searchQuery.isBlank() || nearbyMedicine.matchesSearchQuery(state.searchQuery))
+                (state.searchQuery.isBlank() || nearbyMedicine.matchesSearchQuery(state.searchQuery)) &&
+                (state.selectedCategory.isNullOrBlank() || matchesTherapeuticCategory(nearbyMedicine, state.selectedCategory))
         }
+    }
+
+    private fun matchesTherapeuticCategory(med: NearbyMedicineDto, categoryName: String): Boolean {
+        val cat = categoryName.lowercase(Locale.ROOT)
+        val therapeutic = med.therapeuticCategory?.lowercase(Locale.ROOT)
+        if (therapeutic == cat) return true
+        // Also check name/genericName for fallback
+        val nameText = "${med.name} ${med.genericName.orEmpty()}".lowercase(Locale.ROOT)
+        return cat in nameText
     }
 
     private fun NearbyMedicineDto.matchesSearchQuery(query: String): Boolean {
         val q = query.lowercase(Locale.ROOT).trim()
         if (q.isBlank()) return true
         return name.lowercase(Locale.ROOT).contains(q) ||
-               (category?.lowercase(Locale.ROOT)?.contains(q) == true) ||
+               (genericName?.lowercase(Locale.ROOT)?.contains(q) == true) ||
                (pharmacyName?.lowercase(Locale.ROOT)?.contains(q) == true)
-    }
-
-    private fun Medicine.matchesSelectedCategory(category: MedicineCategory): Boolean {
-        if (this.category == category) return true
-        return matchesCategoryTerms(
-            category = category,
-            fields = listOf(name, genericName, description, this.category.name)
-        )
-    }
-
-    private fun NearbyMedicineDto.matchesSelectedCategory(category: MedicineCategory): Boolean {
-        if (this.category.equals(category.name, ignoreCase = true)) return true
-        return matchesCategoryTerms(
-            category = category,
-            fields = listOf(name, this.category)
-        )
-    }
-
-    private fun matchesCategoryTerms(category: MedicineCategory, fields: List<String?>): Boolean {
-        val text = fields
-            .filterNotNull()
-            .joinToString(" ")
-            .lowercase(Locale.ROOT)
-
-        if (text.isBlank()) return false
-
-        if (category == MedicineCategory.OTHER) {
-            return MedicineCategory.entries
-                .filterNot { it == MedicineCategory.OTHER }
-                .none { otherCategory -> matchesCategoryTerms(otherCategory, fields) }
-        }
-
-        return categorySearchTerms(category).any { term ->
-            Regex("\\b${Regex.escape(term.lowercase(Locale.ROOT))}s?\\b").containsMatchIn(text)
-        }
-    }
-
-    private fun categorySearchTerms(category: MedicineCategory): List<String> {
-        return when (category) {
-            MedicineCategory.TABLET -> listOf("tablet", "tab", "caplet")
-            MedicineCategory.CAPSULE -> listOf("capsule", "cap")
-            MedicineCategory.SYRUP -> listOf("syrup", "suspension", "oral liquid")
-            MedicineCategory.OINTMENT -> listOf("ointment", "cream", "gel", "lotion")
-            MedicineCategory.DROPS -> listOf("drop", "drops")
-            MedicineCategory.POWDER -> listOf("powder", "sachet")
-            MedicineCategory.INJECTION -> listOf("injection", "inj", "vial")
-            MedicineCategory.OTHER -> emptyList()
-        }
     }
 
     // ==================== CART & ORDER ====================

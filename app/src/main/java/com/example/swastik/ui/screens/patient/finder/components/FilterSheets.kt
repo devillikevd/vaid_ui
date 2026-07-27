@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.swastik.R
+import com.example.swastik.data.model.FacilityType
 import com.example.swastik.ui.theme.SwastikPrimary
 
 const val DEFAULT_DISCOVERY_RADIUS_KM = 10f
@@ -199,11 +200,11 @@ fun FilterBottomSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
-                        listOf(null, "Government", "Private", "Multi-Specialty", "General").forEach { type ->
+                        FacilityType.HOSPITAL_SUB_TYPES.forEach { (type, label) ->
                             FilterChip(
                                 selected = hospitalTypeFilter == type,
                                 onClick = { onHospitalTypeChange(type) },
-                                label = { Text(type ?: "All", fontSize = 13.sp) },
+                                label = { Text(label, fontSize = 13.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = SwastikPrimary,
                                     selectedLabelColor = Color.White

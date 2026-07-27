@@ -13,7 +13,7 @@ const getHospitalByOwner = async (userId) => {
   // Try owner first
   let { data: hospital } = await supabaseAdmin
     .from('hospitals')
-    .select('*')
+    .select('*, reels:hospital_reels(*)')
     .eq('owner_id', userId)
     .single();
 
@@ -28,7 +28,7 @@ const getHospitalByOwner = async (userId) => {
     if (managerEntry) {
       const { data: h } = await supabaseAdmin
         .from('hospitals')
-        .select('*')
+        .select('*, reels:hospital_reels(*)')
         .eq('id', managerEntry.hospital_id)
         .single();
       hospital = h;
@@ -308,7 +308,8 @@ const updateHospital = async (hospitalId, userId, updates) => {
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'description', 'opening_hours', 'facilities',
     'profile_image_url', 'emergency_available', 'bed_count', 'total_beds', 'specializations',
-    'license_number', 'license_document_url', 'accreditations'];
+    'license_number', 'license_document_url', 'accreditations',
+    'website_url', 'established_year', 'insurance_accepted', 'gallery_urls', 'beds_available'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
@@ -981,6 +982,36 @@ const removeAffiliatedAmbulance = async (hospitalId, userId, ambulanceId) => {
   return { success: true, message: 'Ambulance association removed.' };
 };
 
+// Add Hospital Reel
+const addReel = async (hospitalId, userId, data) => {
+  const { video_url, thumbnail_url, title } = data;
+  const { data: reel, error } = await supabaseAdmin
+    .from('hospital_reels')
+    .insert({
+      hospital_id: hospitalId,
+      video_url,
+      thumbnail_url,
+      title
+    })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return reel;
+};
+
+// Delete Hospital Reel
+const deleteReel = async (hospitalId, userId, reelId) => {
+  const { error } = await supabaseAdmin
+    .from('hospital_reels')
+    .delete()
+    .eq('id', reelId)
+    .eq('hospital_id', hospitalId);
+
+  if (error) throw error;
+  return true;
+};
+
 module.exports = {
   getHospitalByOwner,
   getDashboard,
@@ -1000,4 +1031,6 @@ module.exports = {
   getAffiliatedAmbulances,
   inviteAmbulance,
   removeAffiliatedAmbulance,
+  addReel,
+  deleteReel,
 };

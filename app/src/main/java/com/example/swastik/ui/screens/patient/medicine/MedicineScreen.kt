@@ -21,7 +21,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -30,25 +29,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.painterResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.swastik.R
 import com.example.swastik.data.model.Medicine
+import com.example.swastik.data.remote.dto.MedicineCategoryDto
 import com.example.swastik.data.remote.dto.NearbyMedicineDto
-import com.example.swastik.data.model.MedicineCategory
 import com.example.swastik.ui.viewmodel.MedicineViewModel
 import com.example.swastik.ui.theme.SwastikPrimary
 import com.example.swastik.ui.theme.SwastikPrimaryLight
 import coil.compose.AsyncImage
-import java.util.Locale
 
-/**
- * Main Medicine Screen accessible from bottom navigation
- * Shows medicine finder with location-based pharmacy availability via ViewModel + API
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicineScreen(
@@ -63,7 +58,7 @@ fun MedicineScreen(
     viewModel: MedicineViewModel = hiltViewModel()
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableIntStateOf(1) } // Medicine tab selected
+    var selectedTab by remember { mutableIntStateOf(1) }
 
     val state by viewModel.uiState.collectAsState()
     val filteredMedicines = viewModel.getFilteredMedicines()
@@ -96,7 +91,7 @@ fun MedicineScreen(
                     selectedTab = tab
                     when (tab) {
                         0 -> onNavigateToHome()
-                        2 -> { /* FAB action */ }
+                        2 -> { }
                         3 -> onNavigateToRecords()
                         4 -> onNavigateToProfile()
                     }
@@ -111,10 +106,8 @@ fun MedicineScreen(
                 .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
             ) {
-                // Header with User Profile
                 MedicineScreenHeader(
                     userName = userName,
                     onBackClick = onBackClick,
@@ -122,7 +115,6 @@ fun MedicineScreen(
                     cartItemCount = viewModel.globalCartState.collectAsState().value.totalItems
                 )
 
-                // Main Content Card
                 Card(
                     modifier = Modifier
                         .fillMaxSize()
@@ -136,7 +128,6 @@ fun MedicineScreen(
                             .fillMaxSize()
                             .padding(top = 24.dp)
                     ) {
-                        // Title
                         Text(
                             text = stringResource(id = R.string.medicine_finder),
                             fontSize = 24.sp,
@@ -147,7 +138,6 @@ fun MedicineScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Voice search launcher
                         val speechLauncher = rememberLauncherForActivityResult(
                             contract = ActivityResultContracts.StartActivityForResult()
                         ) { result ->
@@ -162,7 +152,6 @@ fun MedicineScreen(
                             }
                         }
 
-                        // Search Bar
                         MedicineSearchBar(
                             searchQuery = searchQuery,
                             onSearchChange = {
@@ -172,7 +161,7 @@ fun MedicineScreen(
                             onVoiceSearch = {
                                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault())
                                     putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a medicine name...")
                                 }
                                 try { speechLauncher.launch(intent) } catch (_: Exception) { }
@@ -181,15 +170,14 @@ fun MedicineScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Category Filter
                         MedicineCategoryFilter(
+                            categories = state.categories,
                             selectedCategory = state.selectedCategory,
-                            onCategorySelected = { viewModel.setCategory(it) }
+                            onCategorySelectedByName = { viewModel.setCategoryByName(it) }
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Error State
                         if (state.error != null) {
                             Column(
                                 modifier = Modifier
@@ -237,83 +225,83 @@ fun MedicineScreen(
                             MedicineEmptyState(
                                 onResetFilters = {
                                     searchQuery = ""
-                                    viewModel.setCategory(null)
+                                    viewModel.setCategoryByName(null)
                                     viewModel.loadPopularMedicines()
                                 }
                             )
                         } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (searchQuery.isBlank() && filteredNearbyMedicines.isNotEmpty()) {
-                                item {
-                                    Text(
-                                        stringResource(id = R.string.available_near_you),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = SwastikPrimary,
-                                        modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
-                                    )
-                                }
-                                item {
-                                    LazyRow(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(bottom = 16.dp)
-                                    ) {
-                                        items(filteredNearbyMedicines) { nearbyMed ->
-                                            NearbyMedicineCard(
-                                                nearbyMed = nearbyMed,
-                                                onClick = { onMedicineClick(nearbyMed.medicineId ?: "") },
-                                                onPharmacyClick = {
-                                                    onPharmacyClick(nearbyMed.pharmacyId, nearbyMed.pharmacyName)
-                                                }
-                                            )
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (searchQuery.isBlank() && filteredNearbyMedicines.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            stringResource(id = R.string.available_near_you),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = SwastikPrimary,
+                                            modifier = Modifier.padding(bottom = 8.dp, top = 8.dp)
+                                        )
+                                    }
+                                    item {
+                                        LazyRow(
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            contentPadding = PaddingValues(bottom = 12.dp)
+                                        ) {
+                                            items(filteredNearbyMedicines) { nearbyMed ->
+                                                NearbyMedicineCard(
+                                                    nearbyMed = nearbyMed,
+                                                    onClick = { onMedicineClick(nearbyMed.medicineId ?: "") },
+                                                    onPharmacyClick = {
+                                                        onPharmacyClick(nearbyMed.pharmacyId, nearbyMed.pharmacyName)
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
+                                    item {
+                                        Text(
+                                            stringResource(id = R.string.global_catalog_popular),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                    }
                                 }
-                                item {
-                                    Text(
-                                        stringResource(id = R.string.global_catalog_popular),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        modifier = Modifier.padding(bottom = 8.dp)
+
+                                items(
+                                    items = filteredMedicines,
+                                    key = { it.id }
+                                ) { med ->
+                                    CompactMedicineListItem(
+                                        medicine = med,
+                                        onClick = { onMedicineClick(med.id) },
+                                        onPharmacyClick = {
+                                            onPharmacyClick(med.nearbyPharmacyId, med.nearbyPharmacy)
+                                        }
                                     )
                                 }
-                            }
 
-                            items(
-                                items = filteredMedicines,
-                                key = { it.id }
-                            ) { med ->
-                                MedicineListItem(
-                                    medicine = med,
-                                    onClick = { onMedicineClick(med.id) },
-                                    onPharmacyClick = {
-                                        onPharmacyClick(med.nearbyPharmacyId, med.nearbyPharmacy)
-                                    }
-                                )
-                            }
-
-                            item {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                item {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                             }
                         }
                     }
-                    }
                 }
-            } // closes Column (151)
-        } // closes Card (143)
-    } // closes Column (130)
+            }
 
-        PullToRefreshContainer(
-            state = pullToRefreshState,
-            modifier = Modifier,
-            containerColor = SwastikPrimaryLight,
-        contentColor = SwastikPrimary
-    )
-} // closes Box (124)
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier,
+                containerColor = SwastikPrimaryLight,
+                contentColor = SwastikPrimary
+            )
+        }
+    }
+}
 
 // ==================== HEADER ====================
 @Composable
@@ -339,7 +327,6 @@ private fun MedicineScreenHeader(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // User Avatar
         Box(
             modifier = Modifier
                 .size(45.dp)
@@ -368,7 +355,6 @@ private fun MedicineScreenHeader(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Cart Icon
         Box {
             IconButton(onClick = onCartClick) {
                 Icon(
@@ -396,7 +382,6 @@ private fun MedicineScreenHeader(
             }
         }
 
-        // Notification Icon
         Box {
             IconButton(onClick = onCartClick) {
                 Icon(
@@ -405,7 +390,6 @@ private fun MedicineScreenHeader(
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
-            // Only show badge when there are cart items (something actionable)
             if (cartItemCount > 0) {
                 Box(
                     modifier = Modifier
@@ -478,11 +462,12 @@ private fun MedicineSearchBar(
     )
 }
 
-// ==================== CATEGORY FILTER ====================
+// ==================== CATEGORY FILTER (Backend-powered) ====================
 @Composable
 private fun MedicineCategoryFilter(
-    selectedCategory: MedicineCategory?,
-    onCategorySelected: (MedicineCategory?) -> Unit
+    categories: List<MedicineCategoryDto>,
+    selectedCategory: String?,
+    onCategorySelectedByName: (String?) -> Unit
 ) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 20.dp),
@@ -490,8 +475,8 @@ private fun MedicineCategoryFilter(
     ) {
         item {
             FilterChip(
-                selected = selectedCategory == null,
-                onClick = { onCategorySelected(null) },
+                selected = selectedCategory.isNullOrBlank(),
+                onClick = { onCategorySelectedByName(null) },
                 label = { Text(stringResource(R.string.filter_all), fontSize = 12.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -499,152 +484,160 @@ private fun MedicineCategoryFilter(
                 )
             )
         }
-        items(MedicineCategory.entries.toTypedArray()) { category ->
-            FilterChip(
-                selected = selectedCategory == category,
-                onClick = { onCategorySelected(if (selectedCategory == category) null else category) },
-                label = {
-                    Text(
-                        category.name.lowercase().replaceFirstChar { it.uppercase() },
-                        fontSize = 12.sp
+        if (categories.isNotEmpty()) {
+            items(categories) { cat ->
+                val categoryName = cat.name.lowercase()
+                val displayName = cat.displayName ?: cat.name.replaceFirstChar { it.uppercase() }
+                FilterChip(
+                    selected = selectedCategory?.lowercase() == categoryName,
+                    onClick = { onCategorySelectedByName(categoryName) },
+                    leadingIcon = {
+                        Text(cat.icon.ifBlank { getMedicineEmoji(categoryName) }, fontSize = 14.sp)
+                    },
+                    label = {
+                        Text(displayName, fontSize = 12.sp)
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                     )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                 )
-            )
+            }
         }
     }
 }
 
-// ==================== MEDICINE LIST ITEM ====================
+// ==================== COMPACT MEDICINE LIST ITEM (Blinkit-style) ====================
 @Composable
-private fun MedicineListItem(
+private fun CompactMedicineListItem(
     medicine: Medicine,
     onClick: () -> Unit,
     onPharmacyClick: () -> Unit
 ) {
-    Column(
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 12.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left: Medicine image or emoji fallback
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!medicine.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = medicine.imageUrl,
+                        contentDescription = medicine.name,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Text(getMedicineEmoji(medicine.category.name), fontSize = 26.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Middle: Name, generic, manufacturer
             Column(modifier = Modifier.weight(1f)) {
-                // Medicine Name with Rx badge if needed
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = medicine.name,
-                        fontSize = 18.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     if (medicine.requiresPrescription) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
                                 .background(
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f),
-                                    RoundedCornerShape(4.dp)
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
+                                    RoundedCornerShape(3.dp)
                                 )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                stringResource(R.string.rx),
-                                fontSize = 10.sp,
+                                "Rx",
+                                fontSize = 8.sp,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
-
-                // Price
-                Text(
-                    text = "₹${medicine.price}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                // Manufacturer
-                Text(
-                    text = medicine.manufacturer ?: "",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Right side - Stock status and pharmacy
-            Column(horizontalAlignment = Alignment.End) {
-                // Stock Status
-                Text(
-                    text = if (medicine.inStock) "In stock" else "Out of stock",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (medicine.inStock) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Medical Store with Location
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onPharmacyClick() }
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = SwastikPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+                if (!medicine.genericName.isNullOrBlank()) {
                     Text(
-                        text = medicine.nearbyPharmacy ?: "",
-                        fontSize = 13.sp,
-                        color = SwastikPrimary,
-                        fontWeight = FontWeight.Medium
+                        text = medicine.genericName,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Text(
+                    text = medicine.manufacturer ?: "",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Right: Price
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "₹${medicine.price?.toInt() ?: 0}",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = SwastikPrimary
+                )
             }
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Divider
-        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant)
     }
 }
 
-// ==================== NEARBY MEDICINE CARD (HYBRID) ====================
+// ==================== NEARBY MEDICINE CARD (Compact) ====================
 @Composable
 private fun NearbyMedicineCard(
     nearbyMed: NearbyMedicineDto,
     onClick: () -> Unit,
     onPharmacyClick: () -> Unit
 ) {
-    val cardColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surface
+
     Card(
         modifier = Modifier
-            .width(260.dp)
+            .width(200.dp)
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Medicine Image
+        Column(modifier = Modifier.padding(10.dp)) {
+            // Medicine image
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(10.dp))
             ) {
                 if (!nearbyMed.imageUrl.isNullOrBlank()) {
                     AsyncImage(
@@ -657,70 +650,86 @@ private fun NearbyMedicineCard(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(getMedicineEmoji(nearbyMed.category ?: "tablet"), fontSize = 48.sp)
+                        Text(getMedicineEmoji(nearbyMed.category ?: "tablet"), fontSize = 36.sp)
                     }
                 }
+                // Discount badge removed — will be added later via admin panel business model
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
+            // Name
+            Text(
+                text = nearbyMed.name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Generic name
+            if (!nearbyMed.genericName.isNullOrBlank()) {
+                Text(
+                    text = nearbyMed.genericName,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Price row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = nearbyMed.name,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = "₹${nearbyMed.price}",
+                    text = "₹${nearbyMed.price.toInt()}",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     color = SwastikPrimary
                 )
+                if (nearbyMed.requiresPrescription) {
+                    Box(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text("Rx", fontSize = 8.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Pharmacy name
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable { onPharmacyClick() }
             ) {
-                Icon(Icons.Outlined.Store, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.width(4.dp))
+                Icon(Icons.Outlined.Store, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
                     text = nearbyMed.pharmacyName ?: "Local Pharmacy",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = "${nearbyMed.quantity} Left in Stock",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
             }
         }
     }
 }
+
 // ==================== EMPTY STATE ====================
 @Composable
 private fun MedicineEmptyState(
@@ -839,7 +848,6 @@ private fun MedicineBottomNavBar(
             )
         )
 
-        // Center FAB placeholder
         NavigationBarItem(
             selected = false,
             onClick = { onTabSelected(2) },

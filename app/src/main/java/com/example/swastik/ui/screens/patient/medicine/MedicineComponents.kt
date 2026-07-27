@@ -493,8 +493,7 @@ fun PriceDisplay(
  */
 fun getMedicineEmoji(category: String): String {
     return when (category.uppercase()) {
-        "TABLET" -> "💊"
-        "CAPSULE" -> "💊"
+        "TABLET", "CAPSULE" -> "💊"
         "SYRUP" -> "🧴"
         "INJECTION" -> "💉"
         "OINTMENT" -> "🧴"

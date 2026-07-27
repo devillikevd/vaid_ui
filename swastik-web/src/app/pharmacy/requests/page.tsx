@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Activity, AlertCircle, Loader2, RefreshCw, CheckCircle, Package, MapPin, Phone, Clock, DollarSign
+    Activity, AlertCircle, Loader2, RefreshCw, CheckCircle, Package, MapPin, Phone, Clock, DollarSign, X
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { pharmacyApi } from '@/lib/api';
 import { useCatalogRequestUpdates } from '@/hooks/useSocket';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { Input } from '@/components/ui/Input';
 
 const PAGE_SIZE = 10;
 
@@ -61,6 +62,23 @@ export default function PharmacyRequestsPage() {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
 
+    // Price input modal state
+    const [priceModal, setPriceModal] = useState<{
+        open: boolean;
+        requestId: string | null;
+        totalMrp: number;
+        price: string;
+        error: string;
+    }>({ open: false, requestId: null, totalMrp: 0, price: '', error: '' });
+
+    // Delivery info modal state
+    const [deliveryModal, setDeliveryModal] = useState<{
+        open: boolean;
+        phone: string;
+        address: string;
+        mapsLink: string;
+    }>({ open: false, phone: '', address: '', mapsLink: '' });
+
     const loadRequests = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -108,43 +126,53 @@ export default function PharmacyRequestsPage() {
         });
         if (!confirmed) return;
 
-        setActionLoading(request.id);
+        setPriceModal({ open: true, requestId: request.id, totalMrp, price: '', error: '' });
+    };
+
+    const handlePriceSubmit = async () => {
+        const { requestId, totalMrp, price: priceStr } = priceModal;
+        if (!requestId) return;
+
+        const price = parseFloat(priceStr);
+        if (isNaN(price) || price < 0) {
+            setPriceModal(p => ({ ...p, error: 'Please enter a valid number' }));
+            return;
+        }
+        if (price > totalMrp && totalMrp > 0) {
+            setPriceModal(p => ({ ...p, error: `Price cannot exceed MRP (₹${totalMrp.toFixed(0)})` }));
+            return;
+        }
+
+        setActionLoading(requestId);
+        setPriceModal(p => ({ ...p, open: false }));
         try {
-            const priceStr = prompt(`Enter your total price for this bundle (MRP: ₹${totalMrp.toFixed(0)}):`);
-            if (!priceStr) {
-                setActionLoading(null);
-                return;
-            }
-            const price = parseFloat(priceStr);
-            if (isNaN(price) || price < 0) {
-                alert("Invalid price — please enter a valid number");
-                setActionLoading(null);
-                return;
-            }
-            if (price > totalMrp && totalMrp > 0) {
-                alert(`Price cannot exceed MRP (₹${totalMrp.toFixed(0)})`);
-                setActionLoading(null);
-                return;
-            }
-            
-            const res = await pharmacyApi.acceptCatalogRequest(request.id, { price });
+            const res = await pharmacyApi.acceptCatalogRequest(requestId, { price });
             if (res.success) {
-                // Show delivery info if available
                 const deliveryInfo = (res.data as any)?.delivery_info;
                 if (deliveryInfo?.mapsLink) {
-                    const openMaps = confirm(
-                        `✅ Request accepted!\n\nPatient Phone: ${deliveryInfo.patientPhone || 'N/A'}\nDelivery: ${deliveryInfo.deliveryAddress || 'N/A'}\n\nOpen Google Maps for delivery location?`
-                    );
-                    if (openMaps) {
-                        window.open(deliveryInfo.mapsLink, '_blank');
-                    }
+                    setDeliveryModal({
+                        open: true,
+                        phone: deliveryInfo.patientPhone || 'N/A',
+                        address: deliveryInfo.deliveryAddress || 'N/A',
+                        mapsLink: deliveryInfo.mapsLink,
+                    });
                 }
                 loadRequests();
             } else {
-                alert(res.error || 'Failed to accept request');
+                setDeliveryModal({
+                    open: true,
+                    phone: '',
+                    address: res.error || 'Failed to accept request',
+                    mapsLink: '',
+                });
             }
         } catch (err: any) {
-            alert(err.message || 'Error accepting request');
+            setDeliveryModal({
+                open: true,
+                phone: '',
+                address: err.message || 'Error accepting request',
+                mapsLink: '',
+            });
         } finally {
             setActionLoading(null);
         }
@@ -301,6 +329,88 @@ export default function PharmacyRequestsPage() {
             )}
             
             <ConfirmDialog {...dialogProps} />
+
+            {/* Price Input Modal */}
+            {priceModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <Card padding="lg" className="w-full max-w-md">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Enter Your Price</h2>
+                            <button onClick={() => setPriceModal(p => ({ ...p, open: false }))}>
+                                <X className="h-5 w-5 text-gray-400" />
+                            </button>
+                        </div>
+                        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                            MRP: <span className="font-semibold text-gray-900 dark:text-gray-100">₹{priceModal.totalMrp.toFixed(0)}</span>
+                        </p>
+                        <Input
+                            label="Your Price (₹)"
+                            type="number"
+                            value={priceModal.price}
+                            onChange={(e) => setPriceModal(p => ({ ...p, price: e.target.value, error: '' }))}
+                            placeholder="Enter total price"
+                            autoFocus
+                        />
+                        {priceModal.error && (
+                            <p className="mt-2 text-sm text-red-600">{priceModal.error}</p>
+                        )}
+                        <div className="mt-4 flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setPriceModal(p => ({ ...p, open: false }))}>Cancel</Button>
+                            <Button
+                                onClick={handlePriceSubmit}
+                                disabled={!priceModal.price}
+                                leftIcon={<DollarSign className="h-4 w-4" />}
+                            >
+                                Submit Price
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            {/* Delivery Info / Error Modal */}
+            {deliveryModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <Card padding="lg" className="w-full max-w-md">
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                {deliveryModal.mapsLink ? 'Request Accepted!' : 'Notice'}
+                            </h2>
+                            <button onClick={() => setDeliveryModal(p => ({ ...p, open: false }))}>
+                                <X className="h-5 w-5 text-gray-400" />
+                            </button>
+                        </div>
+                        {deliveryModal.mapsLink ? (
+                            <div className="space-y-3">
+                                {deliveryModal.phone && (
+                                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <Phone className="h-4 w-4 text-blue-500" />
+                                        <span>Patient Phone: <strong>{deliveryModal.phone}</strong></span>
+                                    </div>
+                                )}
+                                {deliveryModal.address && (
+                                    <div className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+                                        <span>Delivery: <strong>{deliveryModal.address}</strong></span>
+                                    </div>
+                                )}
+                                <Button
+                                    onClick={() => { window.open(deliveryModal.mapsLink, '_blank'); setDeliveryModal(p => ({ ...p, open: false })); }}
+                                    leftIcon={<MapPin className="h-4 w-4" />}
+                                    className="w-full"
+                                >
+                                    Open Google Maps
+                                </Button>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-red-600">{deliveryModal.address}</p>
+                        )}
+                        <div className="mt-4 flex justify-end">
+                            <Button variant="outline" onClick={() => setDeliveryModal(p => ({ ...p, open: false }))}>Close</Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

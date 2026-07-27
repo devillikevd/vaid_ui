@@ -186,19 +186,6 @@ class ReviewService {
    * Recalculate and update the aggregate rating and total_reviews
    */
   async updateAggregateRating(reviewableType, reviewableId) {
-    const { data: allReviews, error } = await supabaseAdmin
-      .from('reviews')
-      .select('rating')
-      .eq('reviewable_type', reviewableType)
-      .eq('reviewable_id', reviewableId)
-      .eq('is_visible', true);
-
-    if (error || !allReviews || allReviews.length === 0) return;
-
-    const totalReviews = allReviews.length;
-    const avgRating = allReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews;
-    const roundedRating = Math.round(avgRating * 10) / 10;
-
     let tableName;
     switch (reviewableType) {
       case 'doctor': tableName = 'doctors'; break;
@@ -209,14 +196,46 @@ class ReviewService {
       default: return;
     }
 
-    await supabaseAdmin
-      .from(tableName)
-      .update({
-        rating: roundedRating,
-        total_reviews: totalReviews,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', reviewableId);
+    // Atomic DB-level aggregate — avoids race condition with concurrent reviews.
+    // Try RPC first (stored procedure), fall back to query-based aggregate.
+    const rpcName = `calculate_${reviewableType}_rating`;
+    const { data: agg, error: aggErr } = await supabaseAdmin
+      .rpc(rpcName, { [`p_${reviewableType}_id`]: reviewableId })
+      .catch(() => ({ data: null, error: true }));
+
+    if (!aggErr && agg && agg.length > 0) {
+      await supabaseAdmin
+        .from(tableName)
+        .update({
+          rating: Math.round(agg[0].avg_rating * 10) / 10,
+          total_reviews: agg[0].review_count,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reviewableId);
+    } else {
+      // Fallback: Use a single aggregate query to minimize race window.
+      const { data: allReviews, error } = await supabaseAdmin
+        .from('reviews')
+        .select('rating')
+        .eq('reviewable_type', reviewableType)
+        .eq('reviewable_id', reviewableId)
+        .eq('is_visible', true);
+
+      if (error || !allReviews || allReviews.length === 0) return;
+
+      const totalReviews = allReviews.length;
+      const avgRating = allReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews;
+      const roundedRating = Math.round(avgRating * 10) / 10;
+
+      await supabaseAdmin
+        .from(tableName)
+        .update({
+          rating: roundedRating,
+          total_reviews: totalReviews,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reviewableId);
+    }
   }
 }
 

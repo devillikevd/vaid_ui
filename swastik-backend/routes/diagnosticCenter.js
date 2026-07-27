@@ -189,11 +189,12 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHa
     const center = await diagnosticCenterService.getDiagnosticCenterByOwner(req.user.id);
     // Whitelist allowed fields to prevent arbitrary column writes
     const allowed = [
-        'name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
+        'name', 'phone', 'email', 'website', 'website_url', 'emergency_phone', 'address', 'city', 'state', 'pincode',
         'latitude', 'longitude', 'registration_number', 'license_number', 'license_document_url',
         'nabl_accreditation', 'accreditations',
         'sample_collection_available', 'home_collection_available',
         'home_collection_fee', 'is_24_hours', 'profile_image', 'profile_image_url', 'image_url',
+        'established_year', 'virtual_tour_url', 'floor_guide_map_url'
     ];
     const safeUpdates = {};
     for (const key of allowed) {
@@ -201,6 +202,18 @@ router.put('/owner/profile', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHa
     }
     const updated = await diagnosticCenterService.updateDiagnosticCenter(center.id, req.user.id, safeUpdates);
     res.json({ success: true, data: updated });
+}));
+
+// ==================== Reels ====================
+
+router.post('/owner/reels', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+    const data = await diagnosticCenterService.addReel(req.user.id, req.body);
+    res.json({ success: true, data });
+}));
+
+router.delete('/owner/reels/:id', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), asyncHandler(async (req, res) => {
+    await diagnosticCenterService.deleteReel(req.user.id, req.params.id);
+    res.json({ success: true, message: 'Reel deleted successfully' });
 }));
 
 router.get('/owner/associations/invites', requireRole(ROLES.DIAGNOSTIC_CENTER_OWNER), requireApproval, asyncHandler(async (req, res) => {

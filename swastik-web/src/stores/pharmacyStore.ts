@@ -29,6 +29,8 @@ export interface InventoryItem {
     name: string;
     genericName?: string;
     category?: string;
+    medicine_id?: string;
+    therapeuticCategory?: string;
     quantity: number;
     minQuantity: number;
     unit: string;
@@ -170,6 +172,8 @@ function normalizeInventoryItem(raw: Record<string, any>): InventoryItem {
         name: raw.name || raw.medicine_name || 'Medicine',
         genericName: raw.genericName || raw.generic_name || raw.medicine_name || undefined,
         category: raw.category || undefined,
+        medicine_id: raw.medicine_id || raw.medicineId || undefined,
+        therapeuticCategory: raw.therapeuticCategory || raw.therapeutic_category || undefined,
         quantity,
         minQuantity,
         unit: raw.unit || 'units',

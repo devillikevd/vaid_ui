@@ -118,7 +118,7 @@ export function MasterCatalogSearch({ onSelect }: MasterCatalogSearchProps) {
                             <div>
                                 <div className="font-medium text-slate-900 dark:text-white">{med.name}</div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                    {med.generic_name} • MRP: ₹{med.mrp}
+                                    {med.generic_name || 'No generic name'}{med.mrp ? ` • MRP: ₹${med.mrp}` : ''}
                                 </div>
                             </div>
                         </button>
@@ -150,7 +150,7 @@ export function MasterCatalogSearch({ onSelect }: MasterCatalogSearchProps) {
                             <Clock className="h-4 w-4 text-slate-400 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                                 <div className="font-medium text-slate-900 dark:text-white text-sm truncate">{med.name}</div>
-                                <div className="text-xs text-slate-500 truncate">{med.generic_name}</div>
+                                <div className="text-xs text-slate-500 truncate">{med.generic_name || 'No generic name'}</div>
                             </div>
                         </button>
                     ))}

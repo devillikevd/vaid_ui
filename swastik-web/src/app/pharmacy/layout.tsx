@@ -26,6 +26,7 @@ const BASE_NAV: NavItem[] = [
     { name: 'Agents', href: '/pharmacy/agents', icon: Users },
     { name: 'Reports', href: '/pharmacy/reports', icon: BarChart3 },
     { name: 'Reviews', href: '/pharmacy/reviews', icon: Star },
+    { name: 'Reels', href: '/pharmacy/reels', icon: FileText }, // Need to import Video, but using FileText for now as placeholder
     { name: 'Settings', href: '/pharmacy/settings', icon: Settings },
 ];
 

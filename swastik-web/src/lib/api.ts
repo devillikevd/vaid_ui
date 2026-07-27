@@ -660,6 +660,23 @@ export const hospitalApi = {
             body: JSON.stringify(data),
         }),
 
+    addReel: (video_url: string, title?: string) =>
+        fetchWithAuth('/hospital-manager/reels', {
+            method: 'POST',
+            body: JSON.stringify({ video_url, title }),
+        }),
+
+    deleteReel: (reelId: string) =>
+        fetchWithAuth(`/hospital-manager/reels/${reelId}`, {
+            method: 'DELETE',
+        }),
+
+    updateErWaitTime: (waitMinutes: number) =>
+        fetchWithAuth('/hospital-manager/er-wait-time', {
+            method: 'PUT',
+            body: JSON.stringify({ waitMinutes }),
+        }),
+
     getDoctors: (page: number = 1, search: string = '', limit: number = 20) => {
         const params = new URLSearchParams({
             page: page.toString(),
@@ -812,6 +829,17 @@ export const pharmacyApi = {
         fetchWithAuth('/pharmacy/profile', {
             method: 'PUT',
             body: JSON.stringify(data),
+        }),
+
+    addReel: (data: { videoUrl: string, thumbnailUrl?: string, title?: string }) =>
+        fetchWithAuth('/pharmacy/reels', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+        
+    deleteReel: (reelId: string) =>
+        fetchWithAuth(`/pharmacy/reels/${reelId}`, {
+            method: 'DELETE',
         }),
 
     getInventory: (params: { page?: number; limit?: number; search?: string; lowStock?: boolean; category?: string } = {}) => {
@@ -992,6 +1020,39 @@ export const clinicApi = {
             body: JSON.stringify(schedule),
         }),
 
+    // ── Reels ──
+    addReel: (video_url: string, title?: string) =>
+        fetchWithAuth('/clinics/owner/reels', {
+            method: 'POST',
+            body: JSON.stringify({ video_url, title }),
+        }),
+
+    deleteReel: (reelId: string) =>
+        fetchWithAuth(`/clinics/owner/reels/${reelId}`, {
+            method: 'DELETE',
+        }),
+
+    // ── Departments ──
+    getDepartments: () => fetchWithAuth('/clinics/owner/departments'),
+
+    addDepartment: (data: Record<string, unknown>) =>
+        fetchWithAuth('/clinics/owner/departments', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    updateDepartment: (departmentId: string, data: Record<string, unknown>) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+
+    deleteDepartment: (departmentId: string) =>
+        fetchWithAuth(`/clinics/owner/departments/${departmentId}`, { method: 'DELETE' }),
+
+    // ── Analytics ──
+    getAnalytics: (period: string = '30d') => fetchWithAuth(`/clinics/owner/analytics?period=${encodeURIComponent(period)}`),
+
     // ── Outbreak Alerts (read-only) ──
     getOutbreakAlerts: (city?: string) => {
         const params = new URLSearchParams();
@@ -1017,6 +1078,17 @@ export const diagnosticCenterApi = {
         fetchWithAuth('/diagnostic-centers/owner/profile', {
             method: 'PUT',
             body: JSON.stringify(data),
+        }),
+
+    addReel: (data: { videoUrl: string, thumbnailUrl?: string, title?: string }) =>
+        fetchWithAuth('/diagnostic-centers/owner/reels', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    deleteReel: (id: string) =>
+        fetchWithAuth(`/diagnostic-centers/owner/reels/${id}`, {
+            method: 'DELETE',
         }),
 
     getTests: (params: { page?: number; limit?: number; search?: string; category?: string } = {}) => {

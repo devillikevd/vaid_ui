@@ -352,6 +352,37 @@ const findNearbyWithMedicine = async (latitude, longitude, medicineId, radius = 
   return nearby;
 };
 
+// Find nearby pharmacies (general — no medicineId required)
+const findNearbyGeneral = async (latitude, longitude, radius = 5) => {
+  const bounds = getBoundingBox({ latitude, longitude }, radius);
+
+  const { data: pharmacies } = await supabaseAdmin
+    .from('pharmacies')
+    .select('id, name, address, phone, latitude, longitude, is_open, delivery_available, image_url, profile_image_url')
+    .eq('is_active', true)
+    .eq('is_approved', true)
+    .gte('latitude', bounds.minLat)
+    .lte('latitude', bounds.maxLat)
+    .gte('longitude', bounds.minLng)
+    .lte('longitude', bounds.maxLng);
+
+  if (!pharmacies || pharmacies.length === 0) return [];
+
+  return pharmacies
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      address: p.address,
+      distance: calculateDistance({ latitude, longitude }, { latitude: p.latitude, longitude: p.longitude }),
+      rating: null,
+      image: p.profile_image_url || p.image_url || null,
+      is_open: p.is_open ?? false,
+      delivery_available: p.delivery_available ?? false,
+    }))
+    .filter((p) => p.distance <= radius)
+    .sort((a, b) => a.distance - b.distance);
+};
+
 // Register pharmacy
 const registerPharmacy = async (userId, data) => {
   const { data: pharmacy, error } = await supabaseAdmin
@@ -403,7 +434,7 @@ const getPharmacyByOwner = async (userId) => {
 const getPharmacyById = async (id) => {
   const { data, error } = await supabaseAdmin
     .from('pharmacies')
-    .select('*')
+    .select('*, reels:pharmacy_reels(*)')
     .eq('id', id)
     .eq('is_active', true)
     .eq('is_approved', true)
@@ -421,6 +452,16 @@ const getPharmacyById = async (id) => {
     .eq('status', 'accepted')
     .maybeSingle();
 
+  // Fetch top inventory for public display
+  const { data: inventory } = await supabaseAdmin
+    .from('pharmacy_inventory')
+    .select('id, name, generic_name, price, quantity, pack_size, unit_type, is_active')
+    .eq('pharmacy_id', id)
+    .eq('is_active', true)
+    .gt('quantity', 0)
+    .order('quantity', { ascending: false })
+    .limit(10);
+
   const [recordWithPhone] = await enrichMissingPhonesFromOwners([data]);
   const pharmacy = recordWithPhone || data;
 
@@ -428,7 +469,8 @@ const getPharmacyById = async (id) => {
     ...pharmacy,
     profile_image_url: pharmacy.profile_image_url || pharmacy.image_url || null,
     hospital_id: assocs?.facility_type === 'hospital' ? assocs.facility_id : null,
-    clinic_id: assocs?.facility_type === 'clinic' ? assocs.facility_id : null
+    clinic_id: assocs?.facility_type === 'clinic' ? assocs.facility_id : null,
+    inventory: inventory || []
   };
 };
 
@@ -450,7 +492,9 @@ const updatePharmacy = async (pharmacyId, userId, updates) => {
   // Whitelist allowed update fields to prevent mass-assignment
   const allowedFields = ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode',
     'latitude', 'longitude', 'license_number', 'drug_license_number', 'license_document_url',
-    'is_24_hours', 'is_open', 'delivery_available', 'description', 'opening_hours', 'profile_image_url'];
+    'is_24_hours', 'is_open', 'delivery_available', 'description', 'opening_hours', 'profile_image_url',
+    'website_url', 'established_year', 'virtual_tour_url', 'accreditations', 'facilities',
+    'delivery_radius_km', 'min_order_delivery'];
   const safeUpdates = {};
   for (const key of allowedFields) {
     if (normalizedUpdates[key] !== undefined) safeUpdates[key] = normalizedUpdates[key];
@@ -668,10 +712,10 @@ const updateInventoryItem = async (itemId, pharmacyId, userId, updates) => {
 
   const catalogMedicine = searchFieldsChanged
     ? await resolveCatalogMedicine({
-        medicineId: normalizedUpdates.medicine_id,
-        name: normalizedUpdates.name ?? existingItem.name,
-        genericName: normalizedUpdates.generic_name ?? existingItem.generic_name,
-      })
+      medicineId: normalizedUpdates.medicine_id,
+      name: normalizedUpdates.name ?? existingItem.name,
+      genericName: normalizedUpdates.generic_name ?? existingItem.generic_name,
+    })
     : null;
 
   // Whitelist allowed fields
@@ -883,16 +927,26 @@ const updateOrderStatus = async (orderId, pharmacyId, userId, status, notes) => 
     if (Array.isArray(normalizedOrder.items)) {
       for (const item of normalizedOrder.items) {
         if (item.inventory_id && item.quantity > 0) {
-          const { data: inv } = await supabaseAdmin
-            .from('pharmacy_inventory')
-            .select('quantity')
-            .eq('id', item.inventory_id)
-            .single();
-          if (inv) {
-            await supabaseAdmin
+          let retries = 3;
+          while (retries > 0) {
+            const { data: inv } = await supabaseAdmin
               .from('pharmacy_inventory')
-              .update({ quantity: inv.quantity + item.quantity })
-              .eq('id', item.inventory_id);
+              .select('quantity')
+              .eq('id', item.inventory_id)
+              .single();
+            if (inv) {
+              const { data: updated, error } = await supabaseAdmin
+                .from('pharmacy_inventory')
+                .update({ quantity: inv.quantity + item.quantity })
+                .eq('id', item.inventory_id)
+                .eq('quantity', inv.quantity)
+                .select();
+              if (!error && updated && updated.length > 0) break;
+              retries--;
+              if (retries === 0) console.error(`Failed to restore inventory ${item.inventory_id} after retries`);
+            } else {
+              break;
+            }
           }
         }
       }
@@ -985,11 +1039,11 @@ const createOrder = async (patientUserId, orderData) => {
       .select('id, price, name, generic_name, medicine_id')
       .eq('pharmacy_id', orderData.pharmacyId)
       .or(`id.in.(${itemIds.join(',')}),medicine_id.in.(${itemIds.join(',')})`);
-      
-    inventoryMap = (invItems || []).reduce((m, item) => { 
-      m[item.id] = item; 
+
+    inventoryMap = (invItems || []).reduce((m, item) => {
+      m[item.id] = item;
       if (item.medicine_id) m[item.medicine_id] = item;
-      return m; 
+      return m;
     }, {});
   }
 
@@ -1049,18 +1103,28 @@ const createOrder = async (patientUserId, orderData) => {
   // Decrement inventory stock
   for (const item of enrichedItems) {
     if (item.inventory_id && item.quantity > 0) {
-      const { data: currentInv } = await supabaseAdmin
-        .from('pharmacy_inventory')
-        .select('quantity')
-        .eq('id', item.inventory_id)
-        .single();
-      
-      if (currentInv) {
-        const newQuantity = Math.max(0, currentInv.quantity - item.quantity);
-        await supabaseAdmin
+      let retries = 3;
+      while (retries > 0) {
+        const { data: currentInv } = await supabaseAdmin
           .from('pharmacy_inventory')
-          .update({ quantity: newQuantity })
-          .eq('id', item.inventory_id);
+          .select('quantity')
+          .eq('id', item.inventory_id)
+          .single();
+
+        if (currentInv) {
+          const newQuantity = Math.max(0, currentInv.quantity - item.quantity);
+          const { data: updated, error } = await supabaseAdmin
+            .from('pharmacy_inventory')
+            .update({ quantity: newQuantity })
+            .eq('id', item.inventory_id)
+            .eq('quantity', currentInv.quantity)
+            .select();
+          if (!error && updated && updated.length > 0) break;
+          retries--;
+          if (retries === 0) console.error(`Failed to decrement inventory ${item.inventory_id} after retries`);
+        } else {
+          break;
+        }
       }
     }
   }
@@ -1078,9 +1142,42 @@ const createOrder = async (patientUserId, orderData) => {
   return { ...order, total: totalAmount };
 };
 
+// Add reel
+const addReel = async (userId, reelData) => {
+  const pharmacy = await getPharmacyByOwner(userId);
+  if (!pharmacy) throw new ApiError(404, 'Pharmacy not found');
+
+  const { data, error } = await supabaseAdmin
+    .from('pharmacy_reels')
+    .insert([{ ...reelData, pharmacy_id: pharmacy.id }])
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+// Delete reel
+const deleteReel = async (userId, reelId) => {
+  const pharmacy = await getPharmacyByOwner(userId);
+  if (!pharmacy) throw new ApiError(404, 'Pharmacy not found');
+
+  const { error } = await supabaseAdmin
+    .from('pharmacy_reels')
+    .delete()
+    .eq('id', reelId)
+    .eq('pharmacy_id', pharmacy.id);
+
+  if (error) throw error;
+  return { success: true };
+};
+
 module.exports = {
+  addReel,
+  deleteReel,
   searchPharmacies,
   findNearbyWithMedicine,
+  findNearbyGeneral,
   getPharmacyById,
   registerPharmacy,
   getPharmacyByOwner,

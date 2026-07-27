@@ -5,6 +5,7 @@ import com.example.swastik.data.model.FacilityType
 import com.example.swastik.data.model.Hospital
 import com.example.swastik.data.model.HospitalDoctor
 import com.example.swastik.data.model.MedicalFacility
+import com.example.swastik.data.model.HospitalReel
 import com.example.swastik.data.model.Medicine
 import com.example.swastik.data.remote.ApiService
 import com.example.swastik.data.local.db.HospitalDao
@@ -654,10 +655,13 @@ class HospitalRepository @Inject constructor(
                     id = doctor.id,
                     name = doctor.name,
                     specialization = doctor.specialization?.takeIf { it.isNotBlank() } ?: "General Physician",
-                    experience = assignment.department?.takeIf { it.isNotBlank() } ?: "Hospital specialist",
-                    rating = 0f,
+                    experience = doctor.experienceYears?.takeIf { it > 0 }?.let { "$it yrs" }
+                        ?: assignment.department?.takeIf { it.isNotBlank() }
+                        ?: "Specialist",
+                    rating = doctor.rating ?: 0f,
                     consultationFee = doctor.consultationFee ?: 0,
-                    profileImageUrl = doctor.profileImageUrl
+                    profileImageUrl = doctor.profileImageUrl,
+                    introVideoUrl = doctor.introVideoUrl
                 )
             }
             .distinctBy { it.id }
@@ -683,31 +687,91 @@ class HospitalRepository @Inject constructor(
             specializations = resolvedSpecializations,
             doctors = resolvedDoctors,
             hospitalSubType = type,
-            departments = departmentNames
+            departments = departmentNames,
+            totalBeds = totalBeds,
+            bedsAvailable = bedsAvailable,
+            facilities = facilities.orEmpty(),
+            images = galleryUrls.orEmpty(),
+            accreditations = accreditations.orEmpty(),
+            description = description,
+            openingHours = openingHours,
+            websiteUrl = websiteUrl,
+            establishedYear = establishedYear,
+            insuranceAccepted = insuranceAccepted.orEmpty(),
+            reels = reels.orEmpty(),
+            erWaitTimeMinutes = erWaitTimeMinutes,
+            virtualTourUrl = virtualTourUrl,
+            floorGuideMapUrl = floorGuideMapUrl
         )
     }
 
-    private fun ClinicDto.toMedicalFacility(
-        userLatitude: Double? = null,
-        userLongitude: Double? = null
-    ): MedicalFacility {
-        val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
-        return MedicalFacility(
-            id = id,
-            name = name,
-            type = FacilityType.CLINIC,
-            address = address ?: "",
-            distance = formatDistanceLabel(distKm),
-            distanceKm = distKm,
-            rating = rating ?: 0f,
-            reviewCount = totalReviews ?: 0,
-            latitude = latitude ?: 0.0,
-            longitude = longitude ?: 0.0,
-            phone = phone ?: "",
-            isOpen = is24Hours ?: true,
-            specializations = specializations ?: emptyList()
-        )
-    }
+private fun ClinicDto.toMedicalFacility(
+    userLatitude: Double? = null,
+    userLongitude: Double? = null
+): MedicalFacility {
+    val distKm = resolvedDistanceKm(latitude, longitude, distance, userLatitude, userLongitude)
+    return MedicalFacility(
+        id = id,
+        name = name,
+        type = FacilityType.CLINIC,
+        address = buildString {
+            append(address ?: "")
+            city?.let { if (isNotEmpty()) append(", ") else append(it) }
+            state?.let { if (isNotEmpty()) append(", ") else append(it) }
+        },
+        distance = formatDistanceLabel(distKm),
+        distanceKm = distKm,
+        rating = rating ?: 0f,
+        reviewCount = totalReviews ?: 0,
+        latitude = latitude ?: 0.0,
+        longitude = longitude ?: 0.0,
+        phone = phone ?: "",
+        openTime = openTime,
+        closeTime = closeTime,
+        isOpen = is24Hours == true || run {
+            val now = java.time.LocalTime.now()
+            val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+            val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+            when {
+                open == null && close == null -> true
+                open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                open != null -> now.isAfter(open)
+                close != null -> now.isBefore(close)
+                else -> true
+            }
+        },
+        is24Hours = is24Hours ?: false,
+        specializations = specializations ?: emptyList(),
+        imageUrl = imageUrl,
+        facilities = facilities ?: emptyList(),
+        departments = departments?.map { it.name ?: "" }?.filter { it.isNotBlank() } ?: emptyList(),
+        images = buildList {
+            imageUrl?.let { add(it) }
+            galleryUrls?.let { addAll(it) }
+            images?.let { addAll(it) }
+        },
+        description = description,
+        accreditations = accreditations ?: emptyList(),
+        totalBeds = null,
+        bedsAvailable = null,
+        hospitalSubType = null,
+        insuranceAccepted = insuranceAccepted ?: emptyList(),
+        establishedYear = establishedYear,
+        websiteUrl = websiteUrl,
+        openingHours = openingHours,
+        virtualTourUrl = virtualTourUrl,
+        isEmergencyAvailable = isEmergencyAvailable ?: false,
+        reels = reels?.map { reel ->
+            HospitalReel(
+                id = reel.id ?: "",
+                videoUrl = reel.videoUrl ?: "",
+                thumbnailUrl = reel.thumbnailUrl,
+                title = reel.title,
+                createdAt = reel.createdAt
+            )
+        } ?: emptyList()
+    )
+}
 
     private fun ClinicDoctorDto.toHospitalDoctor(): HospitalDoctor {
         return HospitalDoctor(
@@ -781,7 +845,27 @@ class HospitalRepository @Inject constructor(
             accreditations = accreditations ?: emptyList(),
             images = images ?: emptyList(),
             hospitalId = hospitalId,
-            clinicId = clinicId
+            clinicId = clinicId,
+            reels = reels?.map { reel ->
+                HospitalReel(
+                    id = reel.id ?: "",
+                    videoUrl = reel.videoUrl ?: "",
+                    thumbnailUrl = reel.thumbnailUrl,
+                    title = reel.title,
+                    createdAt = reel.createdAt
+                )
+            } ?: emptyList(),
+            tests = tests?.map { test ->
+                com.example.swastik.data.model.DiagnosticTest(
+                    id = test.id ?: "",
+                    name = test.name ?: "",
+                    description = test.description,
+                    category = test.category,
+                    price = test.price,
+                    preparationInstructions = test.preparationInstructions,
+                    reportTime = test.reportTime
+                )
+            } ?: emptyList()
         )
     }
 

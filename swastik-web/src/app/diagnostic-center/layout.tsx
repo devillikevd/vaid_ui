@@ -35,6 +35,7 @@ const DC_CONFIG: DashboardConfig = {
         { name: 'Agents', href: '/diagnostic-center/agents', icon: Users },
         { name: 'Reports', href: '/diagnostic-center/reports', icon: BarChart3 },
         { name: 'Reviews', href: '/diagnostic-center/reviews', icon: Star },
+        { name: 'Reels', href: '/diagnostic-center/reels', icon: FileCheck },
         { name: 'Settings', href: '/diagnostic-center/settings', icon: Settings },
     ],
 };

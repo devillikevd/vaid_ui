@@ -23,9 +23,11 @@ class SwastikApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppSettingsStore.init(this)
-        // Initialize osmdroid map configuration
+        // Initialize osmdroid map configuration with valid User-Agent to prevent 403 errors
         Configuration.getInstance().apply {
-            userAgentValue = packageName
+            val validUserAgent = "$packageName/1.0.0 (Swastik Healthcare Telemedicine App; contact: support@swastik.com)"
+            userAgentValue = validUserAgent
+            additionalHttpRequestProperties.put("User-Agent", validUserAgent)
             osmdroidBasePath = cacheDir
             osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
         }

@@ -28,7 +28,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -912,13 +914,13 @@ fun TopHealthcareServicesRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         TopServiceIconCard(
             modifier = Modifier.weight(1f),
             imageRes = R.drawable.find_hospital,
-            backgroundColor = Color(0xFFE3F2FD), // Light blue
-            imageAlignment = Alignment.TopCenter, // Anchor to top so it doesn't get cut off
+            backgroundColor = Color(0xFFE8F1FC), // Light blue
+            imageAlignment = Alignment.TopCenter, // Shift hospital to top so the location icon is fully visible, cropping the bottom!
             onClick = onHospitalsClick
         )
         TopServiceIconCard(
@@ -930,13 +932,13 @@ fun TopHealthcareServicesRow(
         TopServiceIconCard(
             modifier = Modifier.weight(1f),
             imageRes = R.drawable.order_medicine,
-            backgroundColor = Color(0xFFFFF3E0), // Light orange
+            backgroundColor = Color(0xFFFFF0E6), // Light peach
             onClick = onPharmacyClick
         )
         TopServiceIconCard(
             modifier = Modifier.weight(1f),
             imageRes = R.drawable.book_test_lab,
-            backgroundColor = Color(0xFFF3E5F5), // Light purple
+            backgroundColor = Color(0xFFF4EBF7), // Light purple
             onClick = onDiagnosticsClick
         )
     }
@@ -946,33 +948,30 @@ fun TopHealthcareServicesRow(
 fun TopServiceIconCard(
     modifier: Modifier = Modifier,
     imageRes: Int,
-    backgroundColor: Color = Color.White,
+    backgroundColor: Color,
     imageAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
-            .aspectRatio(1.3f)
+            .aspectRatio(1.25f) // Wider rectangle makes the cards shorter! This automatically crops out the vertical margins!
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                contentScale = ContentScale.Crop, // Kept Crop for full size as requested
-                alignment = imageAlignment,
-                colorFilter = ColorFilter.tint(backgroundColor, BlendMode.Multiply), 
-                modifier = Modifier.fillMaxSize()
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = imageRes.toString(),
+            contentScale = ContentScale.Crop, // Magically zooms past the baked-in white margins
+            alignment = imageAlignment, // Allows shifting hospital to bottom
+            modifier = Modifier.fillMaxSize(), // No padding guarantees 0 borders!
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                color = backgroundColor,
+                blendMode = androidx.compose.ui.graphics.BlendMode.Multiply
             )
-        }
+        )
     }
 }
 
@@ -1263,7 +1262,12 @@ fun DoctorCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        Text(stringResource(R.string.string_2), fontSize = 28.sp)
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Doctor avatar",
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 Box(

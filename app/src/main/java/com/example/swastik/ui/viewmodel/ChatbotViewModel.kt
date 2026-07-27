@@ -370,7 +370,7 @@ class ChatbotViewModel @Inject constructor(
         longitude: Double
     ): List<MedicalFacility> {
         return when (facilityType) {
-            FacilityType.HOSPITAL -> hospitalRepository.getNearbyHospitals(latitude, longitude, radius = 25)
+            FacilityType.HOSPITAL, FacilityType.NURSING_HOME -> hospitalRepository.getNearbyHospitals(latitude, longitude, radius = 25)
             FacilityType.CLINIC -> hospitalRepository.getNearbyClinics(latitude, longitude, radius = 25)
             FacilityType.MEDICAL_STORE -> hospitalRepository.getNearbyPharmacies(latitude, longitude, radius = 25)
             FacilityType.DIAGNOSTIC_CENTER -> hospitalRepository.getNearbyDiagnosticCenters(latitude, longitude, radius = 25)

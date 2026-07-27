@@ -44,6 +44,7 @@ const HOSPITAL_CONFIG: DashboardConfig = {
         { name: 'Reports', href: '/hospital/reports', icon: BarChart3 },
         { name: 'Health Alerts', href: '/hospital/health-alerts', icon: Radar },
         { name: 'Reviews', href: '/hospital/reviews', icon: Star },
+        { name: 'Reels', href: '/hospital/reels', icon: Star },
         { name: 'Settings', href: '/hospital/settings', icon: Settings },
     ],
 };

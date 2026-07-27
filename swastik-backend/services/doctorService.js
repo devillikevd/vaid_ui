@@ -144,7 +144,7 @@ class DoctorService {
       .from('doctors')
       .select(`
         id, name, specialization, experience_years, qualifications, bio,
-        consultation_fee, video_consultation_fee, profile_image_url,
+        consultation_fee, video_consultation_fee, profile_image_url, intro_video_url,
         languages, awards, registration_number, license_number,
         consultation_types, education, certifications, rating, total_reviews,
         is_available, is_approved, approval_status,
@@ -225,6 +225,9 @@ class DoctorService {
     if (updateData.hospitalId !== undefined) updatePayload.hospital_id = updateData.hospitalId;
     if (updateData.profileImage !== undefined || updateData.profile_image !== undefined || updateData.profile_image_url !== undefined) {
       updatePayload.profile_image_url = updateData.profileImage ?? updateData.profile_image ?? updateData.profile_image_url;
+    }
+    if (updateData.intro_video_url !== undefined) {
+      updatePayload.intro_video_url = updateData.intro_video_url;
     }
     if (updateData.awards !== undefined) updatePayload.awards = updateData.awards;
     if (updateData.consultationTypes !== undefined || updateData.consultation_types !== undefined) {
@@ -411,7 +414,7 @@ class DoctorService {
       .select(`
         id, name, specialization, experience_years, rating, total_reviews,
         qualifications, consultation_fee, video_consultation_fee, bio,
-        profile_image_url, languages, is_available,
+        profile_image_url, intro_video_url, languages, is_available,
         hospital_id, clinic_doctors(clinic_id, clinic:clinics(latitude, longitude)),
         hospital:hospitals(id, name, city, address, latitude, longitude)
       `, { count: 'exact' })

@@ -10,15 +10,11 @@ import { downloadCSV } from '@/utils/export';
 import { parseCSV } from '@/utils/csvParser';
 import { uploadApi } from '@/lib/api';
 import { useAdminMedicinesStore, type Medicine } from '@/stores/adminMedicinesStore';
+import { adminApi, medicineApi } from '@/lib/api';
 import { ConfirmDialog, useConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 
 const PAGE_SIZE = 20;
-
-const CATEGORIES = [
-    'general', 'antibiotic', 'painkiller', 'vitamin', 'cardiac',
-    'diabetes', 'skin', 'respiratory', 'digestive', 'ayurvedic',
-];
 
 const FORM_OPTIONS = [
     'Tablet', 'Capsule', 'Syrup', 'Injection', 'Cream', 'Ointment',
@@ -58,6 +54,17 @@ export default function AdminMedicinesPage() {
     const { dialogProps, confirm: confirmAction } = useConfirmDialog();
     const toast = useToast();
 
+    // Fetch categories from backend
+    const [backendCategories, setBackendCategories] = useState<{id: string, name: string, display_name: string, icon: string}[]>([]);
+    useEffect(() => {
+        medicineApi.getCategories().then((res: any) => {
+            const cats = res?.data?.data || res?.data || [];
+            if (Array.isArray(cats) && cats.length > 0) {
+                setBackendCategories(cats);
+            }
+        }).catch(() => {});
+    }, []);
+
     // CSV Import state
     const [showCsvMapping, setShowCsvMapping] = useState(false);
     const [csvRawData, setCsvRawData] = useState<any[]>([]);
@@ -71,7 +78,9 @@ export default function AdminMedicinesPage() {
         { key: 'name', label: 'Medicine Name *', required: true },
         { key: 'generic_name', label: 'Generic Name' },
         { key: 'manufacturer', label: 'Manufacturer' },
-        { key: 'category', label: 'Category' },
+        { key: 'category', label: 'Category (antibiotic/painkiller/etc)' },
+        { key: 'dosage_form', label: 'Dosage Form (Tablet/Syrup/etc)' },
+        { key: 'strength', label: 'Strength (500mg/10ml)' },
         { key: 'price', label: 'Price' },
         { key: 'mrp', label: 'MRP' },
         { key: 'requires_prescription', label: 'Requires Prescription (true/false)' },
@@ -412,9 +421,14 @@ export default function AdminMedicinesPage() {
                                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                                     >
                                         <option value="">Select category</option>
-                                        {CATEGORIES.map(cat => (
-                                            <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                                        ))}
+                                        {backendCategories.length > 0
+                                            ? backendCategories.map(cat => (
+                                                <option key={cat.id} value={cat.name}>{cat.display_name}</option>
+                                            ))
+                                            : ['general', 'antibiotic', 'painkiller', 'vitamin', 'cardiac', 'diabetes', 'skin', 'respiratory', 'digestive', 'ayurvedic'].map(cat => (
+                                                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                                            ))
+                                        }
                                     </select>
                                 </div>
                             </div>
@@ -448,14 +462,29 @@ export default function AdminMedicinesPage() {
                                                     <option key={f} value={f}>{f}</option>
                                                 ))}
                                             </select>
-                                        </div>
+                                         </div>
                                         <Input label="Strength" value={form.strength} onChange={(e) => setForm(c => ({ ...c, strength: e.target.value }))} placeholder="e.g. 500mg" />
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <Input label="Subcategory" value={form.subcategory} onChange={(e) => setForm(c => ({ ...c, subcategory: e.target.value }))} placeholder="e.g. Antipyretic" />
+                                        <div className="space-y-1">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Form (Tablet/Capsule/etc)</label>
+                                            <select
+                                                value={form.form}
+                                                onChange={(e) => setForm(c => ({ ...c, form: e.target.value }))}
+                                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                            >
+                                                <option value="">Select form</option>
+                                                {FORM_OPTIONS.map(f => (
+                                                    <option key={f} value={f}>{f}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <Input label="Pack Size" value={form.pack_size} onChange={(e) => setForm(c => ({ ...c, pack_size: e.target.value }))} placeholder="e.g. 10 tablets" />
                                     </div>
-                                    <Input label="Description" value={form.description} onChange={(e) => setForm(c => ({ ...c, description: e.target.value }))} placeholder="Brief description of the medicine" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Input label="Subcategory" value={form.subcategory} onChange={(e) => setForm(c => ({ ...c, subcategory: e.target.value }))} placeholder="e.g. Antipyretic" />
+                                        <Input label="Description" value={form.description} onChange={(e) => setForm(c => ({ ...c, description: e.target.value }))} placeholder="Brief description of the medicine" />
+                                    </div>
                                     <div>
                                         <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Medicine Image</label>
                                         <div className="flex items-center gap-3">
