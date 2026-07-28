@@ -5,6 +5,7 @@ import ChoosePath from "@/components/landing/ChoosePath";
 import PatientApp from "@/components/landing/PatientApp";
 import ProviderEcosystem from "@/components/landing/ProviderEcosystem";
 import VisionSection from "@/components/landing/VisionSection";
+import HealthLibrarySection from "@/components/landing/HealthLibrarySection";
 import Footer from "@/components/landing/Footer";
 
 export default function HomePage() {
@@ -15,6 +16,7 @@ export default function HomePage() {
       <ChoosePath />
       <PatientApp />
       <ProviderEcosystem />
+      <HealthLibrarySection />
       <VisionSection />
       <Footer />
     </main>

@@ -1,0 +1,69 @@
+// VaidiDea Health Library — PostgreSQL schema (Prisma)
+// Field names are snake_case on purpose: the API returns rows as-is and the
+// existing frontend expects snake_case keys (body_system, first_letter, etc.).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One row per unique clinical concept (the deduplicated ~31,461 diseases).
+model Disease {
+  id                 Int     @id @default(autoincrement())
+  code               String  @unique
+  name               String
+  first_letter       String
+  chapter            String
+  body_system        String
+  severity           String  @default("General")
+  keywords           String  @default("")
+  source             String  @default("ICD-10-CM")
+  variant_count      Int     @default(1)
+
+  // AI-generated detail sections (filled on demand / by batch, cached here)
+  summary            String?
+  overview           String?
+  types              String?
+  symptoms           String?
+  causes             String?
+  risk_factors       String?
+  diagnosis          String?
+  medicines          String?
+  home_remedies      String?
+  complications      String?
+  prevention         String?
+  when_to_see_doctor String?
+  faqs               String?
+
+  @@index([first_letter])
+  @@index([chapter])
+  @@index([severity])
+  @@index([name])
+  @@map("diseases")
+}
+
+/// Category summary rows (one per ICD-10 chapter) used by the Categories grid.
+model Category {
+  id            Int    @id @default(autoincrement())
+  chapter       String @unique
+  body_system   String
+  disease_count Int    @default(0)
+  icon          String @default("")
+
+  @@map("categories")
+}
+
+/// Optional analytics: every search query is logged here.
+model SearchStat {
+  id           Int      @id @default(autoincrement())
+  query        String
+  result_count Int      @default(0)
+  searched_at  DateTime @default(now())
+
+  @@map("search_stats")
+}

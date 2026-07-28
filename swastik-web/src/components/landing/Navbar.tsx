@@ -37,10 +37,11 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   const navLinks = [
-    { href: "#ecosystem", label: "Ecosystem" },
-    { href: "#patient-app", label: "Patient App" },
-    { href: "#providers", label: "For Providers" },
-    { href: "#vision", label: "Our Vision" },
+    { href: "/#ecosystem", label: "Ecosystem" },
+    { href: "/#patient-app", label: "Patient App" },
+    { href: "/#providers", label: "For Providers" },
+    { href: "/#vision", label: "Our Vision" },
+    { href: "/#health-library-section", label: "Health Library" },
   ];
 
   return (
@@ -64,13 +65,13 @@ export default function Navbar() {
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-8">
             {navLinks.map(link => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="text-[15px] font-medium text-vd-muted hover:text-vd-forest transition-colors duration-200"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -98,7 +99,7 @@ export default function Navbar() {
       }`}>
         <div className="flex flex-col items-center justify-center flex-1 gap-8">
           {navLinks.map((link, i) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
@@ -106,7 +107,7 @@ export default function Navbar() {
               style={{ animationDelay: `${i * 80}ms` }}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
 
         </div>

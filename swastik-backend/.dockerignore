@@ -9,7 +9,6 @@ Dockerfile
 README.md
 __tests__
 coverage
-scripts
 *.test.js
 *.spec.js
 .DS_Store

@@ -2,17 +2,18 @@
 # Multi-stage build for minimal image size and attack surface
 
 # ── Stage 1: Install production dependencies ──
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Add tini for proper PID 1 signal handling in containers
 RUN apk add --no-cache tini
 
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY prisma ./prisma
+RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
 
 # ── Stage 2: Production runtime ──
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

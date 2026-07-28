@@ -29,6 +29,7 @@ services:
       - PORT=5001
       - AI_SERVICE_URL=http://ai-service:8000
       - REDIS_URL=redis://:${REDIS_PASSWORD:-supersecretredis123}@redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-vaididea}:${POSTGRES_PASSWORD:-vaididea}@postgres:5432/${POSTGRES_DB:-health_library}?schema=public
     env_file:
       - ./swastik-backend/.env
     depends_on:
@@ -38,11 +39,13 @@ services:
         condition: service_healthy
       ai-service:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks:
       - swastik-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5001/health"]
       interval: 30s
       timeout: 10s
       start_period: 15s
@@ -104,7 +107,7 @@ services:
       - swastik-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       start_period: 15s
@@ -188,6 +191,26 @@ services:
     restart: unless-stopped
     profiles:
       - production
+  # ==================== POSTGRESQL (Health Library DB) ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: swastik-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vaididea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaididea}
+      POSTGRES_DB: ${POSTGRES_DB:-health_library}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - swastik-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-vaididea} -d $${POSTGRES_DB:-health_library}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   swastik-network:
@@ -199,4 +222,6 @@ volumes:
   minio_data:
     driver: local
   mongodb_data:
+    driver: local
+  postgres_data:
     driver: local
