@@ -2,16 +2,18 @@
  * migrate-health-data.js
  * ──────────────────────
  * Reads the pre-exported JSON seed (gzipped) and bulk-inserts diseases +
- * categories into PostgreSQL via Prisma.
+ * categories into MongoDB via Mongoose.
  *
- * This version has ZERO native-module dependencies (no node:sqlite).
+ * This version has ZERO native-module dependencies (no node:sqlite, no pg).
  * It runs identically on macOS, Linux, Alpine Docker, AWS, etc.
  */
 
+require('dotenv').config();
 const path = require("node:path");
 const fs = require("node:fs");
 const zlib = require("node:zlib");
-const { PrismaClient } = require("@prisma/client");
+const { connectMongoDB, mongoose } = require("../config/mongodb");
+const { Disease, Category, HealthSearchStat } = require("../database/models");
 const logger = require("../utils/logger");
 
 const SEED_PATH = path.join(__dirname, "..", "database", "seeds", "health_library_seed.json.gz");
@@ -23,7 +25,13 @@ function chunk(arr, size) {
 }
 
 async function runMigration() {
-  const prisma = new PrismaClient();
+  let dbConnection;
+  try {
+    dbConnection = await connectMongoDB();
+  } catch (err) {
+    logger.error("Failed to connect to MongoDB for migration: " + err.message);
+    throw err;
+  }
 
   try {
     // ── Read seed file ──
@@ -42,32 +50,31 @@ async function runMigration() {
     logger.info(`📦 Seed loaded: ${diseases.length} diseases, ${categories.length} categories`);
 
     // ── Clear existing rows (idempotent re-runs) ──
-    await prisma.searchStat.deleteMany();
-    await prisma.disease.deleteMany();
-    await prisma.category.deleteMany();
+    await HealthSearchStat.deleteMany({});
+    await Disease.deleteMany({});
+    await Category.deleteMany({});
 
     // ── Insert diseases in batches ──
     let inserted = 0;
     for (const batch of chunk(diseases, 1000)) {
-      await prisma.disease.createMany({ data: batch, skipDuplicates: true });
+      await Disease.insertMany(batch, { ordered: false });
       inserted += batch.length;
       logger.info(`  inserted ${inserted} / ${diseases.length} diseases...`);
     }
 
     // ── Insert categories ──
-    await prisma.category.createMany({ data: categories, skipDuplicates: true });
+    await Category.insertMany(categories, { ordered: false });
 
     const [dCount, cCount] = await Promise.all([
-      prisma.disease.count(),
-      prisma.category.count(),
+      Disease.countDocuments(),
+      Category.countDocuments(),
     ]);
-    logger.info(`✅ Migration successful: ${dCount} diseases, ${cCount} categories in PostgreSQL`);
+    logger.info(`✅ Migration successful: ${dCount} diseases, ${cCount} categories in MongoDB`);
   } catch (err) {
     logger.error("❌ Migration failed: " + err.message);
     throw err;
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
 module.exports = runMigration;
+

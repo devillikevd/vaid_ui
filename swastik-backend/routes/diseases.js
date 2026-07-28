@@ -1,9 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const { Disease, Category, HealthSearchStat } = require('../database/models');
 const { generateDetailsViaGemini, generateMockDetails } = require('../utils/diseaseAI');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const VALID_SEVERITIES = new Set(["Critical", "Severe", "Moderate", "General"]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -16,7 +15,7 @@ function severityWhere(severity) {
 // ── CATEGORIES ──────────────────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {
-    const rows = await prisma.category.findMany({ orderBy: { disease_count: "desc" } });
+    const rows = await Category.find().sort({ disease_count: -1 });
     res.json(rows);
   } catch (e) { next(e); }
 });
@@ -33,8 +32,8 @@ router.get('/alphabet/:letter', async (req, res, next) => {
     const where = { first_letter: letter.toUpperCase(), ...severityWhere(req.query.severity) };
 
     const [total, results] = await Promise.all([
-      prisma.disease.count({ where }),
-      prisma.disease.findMany({ where, orderBy: { name: "asc" }, skip: (page - 1) * limit, take: limit }),
+      Disease.countDocuments(where),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
     ]);
     res.json({ total, page, limit, results });
   } catch (e) { next(e); }
@@ -48,24 +47,24 @@ router.get('/search', async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
 
-    const ci = { mode: "insensitive" };
+    const regex = new RegExp(q, "i");
     const where = {
-      OR: [
-        { name: { contains: q, ...ci } },
-        { code: { contains: q, ...ci } },
-        { keywords: { contains: q, ...ci } },
-        { chapter: { contains: q, ...ci } },
+      $or: [
+        { name: { $regex: regex } },
+        { code: { $regex: regex } },
+        { keywords: { $regex: regex } },
+        { chapter: { $regex: regex } },
       ],
       ...severityWhere(req.query.severity),
     };
 
     const [total, results] = await Promise.all([
-      prisma.disease.count({ where }),
-      prisma.disease.findMany({ where, orderBy: { name: "asc" }, skip: (page - 1) * limit, take: limit }),
+      Disease.countDocuments(where),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
     ]);
 
     // Log search stat (best-effort)
-    prisma.searchStat.create({ data: { query: q, result_count: total } }).catch(() => {});
+    HealthSearchStat.create({ query: q, result_count: total }).catch(() => {});
 
     res.json({ total, page, limit, results });
   } catch (e) { next(e); }
@@ -79,8 +78,8 @@ router.get('/category/:chapter', async (req, res, next) => {
     const where = { chapter: req.params.chapter, ...severityWhere(req.query.severity) };
 
     const [total, results] = await Promise.all([
-      prisma.disease.count({ where }),
-      prisma.disease.findMany({ where, orderBy: { name: "asc" }, skip: (page - 1) * limit, take: limit }),
+      Disease.countDocuments(where),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
     ]);
     res.json({ total, page, limit, results });
   } catch (e) { next(e); }
@@ -89,7 +88,7 @@ router.get('/category/:chapter', async (req, res, next) => {
 // ── SINGLE DISEASE ──────────────────────────────────────────────
 router.get('/disease/:code', async (req, res, next) => {
   try {
-    const row = await prisma.disease.findUnique({ where: { code: req.params.code } });
+    const row = await Disease.findOne({ code: req.params.code });
     if (!row) return res.status(404).json({ detail: "Disease not found." });
     res.json(row);
   } catch (e) { next(e); }
@@ -99,7 +98,7 @@ router.get('/disease/:code', async (req, res, next) => {
 router.get('/disease/:code/details', async (req, res, next) => {
   try {
     const code = req.params.code;
-    const row = await prisma.disease.findUnique({ where: { code } });
+    const row = await Disease.findOne({ code });
     if (!row) return res.status(404).json({ detail: "Disease not found." });
 
     // Return cached content if already fully generated.
@@ -120,12 +119,12 @@ router.get('/disease/:code/details', async (req, res, next) => {
 
     // Cache the results
     try {
-      await prisma.disease.update({ where: { code }, data: details });
+      await Disease.updateOne({ code }, { $set: details });
     } catch (e) {
       console.error("Failed to cache details:", e.message);
     }
 
-    res.json({ ...row, ...details });
+    res.json({ ...row.toObject(), ...details });
   } catch (e) { next(e); }
 });
 
@@ -133,17 +132,17 @@ router.get('/disease/:code/details', async (req, res, next) => {
 router.get('/stats', async (req, res, next) => {
   try {
     const [total_diseases, total_categories, sevGroups, letterGroups] = await Promise.all([
-      prisma.disease.count(),
-      prisma.category.count(),
-      prisma.disease.groupBy({ by: ["severity"], _count: { _all: true } }),
-      prisma.disease.groupBy({ by: ["first_letter"], _count: { _all: true } }),
+      Disease.countDocuments(),
+      Category.countDocuments(),
+      Disease.aggregate([{ $group: { _id: "$severity", cnt: { $sum: 1 } } }]),
+      Disease.aggregate([{ $group: { _id: "$first_letter", cnt: { $sum: 1 } } }]),
     ]);
 
     const severity = sevGroups
-      .map((g) => ({ severity: g.severity, cnt: g._count._all }))
+      .map((g) => ({ severity: g._id, cnt: g.cnt }))
       .sort((a, b) => b.cnt - a.cnt);
     const by_letter = letterGroups
-      .map((g) => ({ first_letter: g.first_letter, cnt: g._count._all }))
+      .map((g) => ({ first_letter: g._id, cnt: g.cnt }))
       .sort((a, b) => a.first_letter.localeCompare(b.first_letter));
 
     res.json({ total_diseases, total_categories, severity, by_letter });

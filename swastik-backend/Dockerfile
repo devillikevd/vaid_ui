@@ -9,8 +9,7 @@ WORKDIR /app
 RUN apk add --no-cache tini
 
 COPY package.json package-lock.json* ./
-COPY prisma ./prisma
-RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # ── Stage 2: Production runtime ──
 FROM node:22-alpine AS runner

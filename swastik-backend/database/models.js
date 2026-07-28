@@ -102,8 +102,50 @@ const mealLogSchema = new mongoose.Schema({
 });
 
 
+// Disease Schema - Health Library
+const diseaseSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true, index: true },
+    name: { type: String, required: true, index: true },
+    first_letter: { type: String, required: true, index: true },
+    chapter: { type: String, required: true, index: true },
+    body_system: { type: String, required: true },
+    severity: { type: String, default: 'General', index: true },
+    keywords: { type: String, default: '' },
+    source: { type: String, default: 'ICD-10-CM' },
+    variant_count: { type: Number, default: 1 },
+    summary: String,
+    overview: String,
+    types: String,
+    symptoms: String,
+    causes: String,
+    risk_factors: String,
+    diagnosis: String,
+    medicines: String,
+    home_remedies: String,
+    complications: String,
+    prevention: String,
+    when_to_see_doctor: String,
+    faqs: String,
+});
+
+// Category Schema - Health Library
+const categorySchema = new mongoose.Schema({
+    chapter: { type: String, required: true, unique: true, index: true },
+    body_system: { type: String, required: true },
+    disease_count: { type: Number, default: 0 },
+    icon: { type: String, default: '' },
+});
+
+// Health Search Stat Schema - Health Library
+const healthSearchStatSchema = new mongoose.Schema({
+    query: { type: String, required: true },
+    result_count: { type: Number, default: 0 },
+    searched_at: { type: Date, default: Date.now },
+});
+
+
 // Create models only if mongoose is connected
-let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog;
+let AuditLog, ChatMessage, AnalyticsEvent, AmbulanceLocation, SearchLog, MealLog, Disease, Category, HealthSearchStat;
 
 try {
     AuditLog = mongoose.model('AuditLog', auditLogSchema);
@@ -112,6 +154,9 @@ try {
     AmbulanceLocation = mongoose.model('AmbulanceLocation', ambulanceLocationSchema);
     SearchLog = mongoose.model('SearchLog', searchLogSchema);
     MealLog = mongoose.model('MealLog', mealLogSchema);
+    Disease = mongoose.model('Disease', diseaseSchema);
+    Category = mongoose.model('Category', categorySchema);
+    HealthSearchStat = mongoose.model('HealthSearchStat', healthSearchStatSchema);
 } catch (error) {
     // Models might already exist
     AuditLog = mongoose.models.AuditLog;
@@ -120,6 +165,9 @@ try {
     AmbulanceLocation = mongoose.models.AmbulanceLocation;
     SearchLog = mongoose.models.SearchLog;
     MealLog = mongoose.models.MealLog;
+    Disease = mongoose.models.Disease;
+    Category = mongoose.models.Category;
+    HealthSearchStat = mongoose.models.HealthSearchStat;
 }
 
 module.exports = {
@@ -129,4 +177,7 @@ module.exports = {
     AmbulanceLocation,
     SearchLog,
     MealLog,
+    Disease,
+    Category,
+    HealthSearchStat,
 };
