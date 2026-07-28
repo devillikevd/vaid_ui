@@ -15,6 +15,7 @@ import {
   HelpCircle,
   AlertTriangle
 } from "lucide-react";
+import { PUBLIC_API_URL } from "@/lib/env";
 
 // Types corresponding to backend Prisma models
 interface Disease {
@@ -131,11 +132,11 @@ export default function HealthLibraryPage() {
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const statsRes = await fetch("http://localhost:5001/api/diseases/stats");
+        const statsRes = await fetch(`${PUBLIC_API_URL}/diseases/stats`);
         const statsData = await statsRes.json();
         setStats(statsData);
 
-        const catsRes = await fetch("http://localhost:5001/api/diseases/categories");
+        const catsRes = await fetch(`${PUBLIC_API_URL}/diseases/categories`);
         const catsData = await catsRes.json();
         setCategories(catsData);
       } catch (e) {
@@ -154,11 +155,11 @@ export default function HealthLibraryPage() {
     const sevParam = selectedSeverity ? `&severity=${selectedSeverity}` : "";
     
     if (currentMode === "search") {
-      url = `http://localhost:5001/api/diseases/search?q=${encodeURIComponent(searchTriggeredQuery)}&page=${page}&limit=${LIMIT}${sevParam}`;
+      url = `${PUBLIC_API_URL}/diseases/search?q=${encodeURIComponent(searchTriggeredQuery)}&page=${page}&limit=${LIMIT}${sevParam}`;
     } else if (currentMode === "alphabet") {
-      url = `http://localhost:5001/api/diseases/alphabet/${activeLetter}?page=${page}&limit=${LIMIT}${sevParam}`;
+      url = `${PUBLIC_API_URL}/diseases/alphabet/${activeLetter}?page=${page}&limit=${LIMIT}${sevParam}`;
     } else if (currentMode === "category") {
-      url = `http://localhost:5001/api/diseases/category/${encodeURIComponent(activeCategory)}?page=${page}&limit=${LIMIT}${sevParam}`;
+      url = `${PUBLIC_API_URL}/diseases/category/${encodeURIComponent(activeCategory)}?page=${page}&limit=${LIMIT}${sevParam}`;
     }
 
     try {
@@ -227,7 +228,7 @@ export default function HealthLibraryPage() {
     document.body.style.overflow = "hidden";
 
     try {
-      const res = await fetch(`http://localhost:5001/api/diseases/disease/${disease.code}/details`);
+      const res = await fetch(`${PUBLIC_API_URL}/diseases/disease/${disease.code}/details`);
       const details = await res.json();
       setDiseaseDetails(details);
     } catch (e) {
