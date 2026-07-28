@@ -15,8 +15,8 @@ function severityWhere(severity) {
 // ── CATEGORIES ──────────────────────────────────────────────────
 router.get('/categories', async (req, res, next) => {
   try {
-    const rows = await Category.find().sort({ disease_count: -1 });
-    res.json(rows);
+    const rows = await Category.find().sort({ disease_count: -1 }).lean();
+    res.json(rows.map(r => ({ ...r, id: r._id })));
   } catch (e) { next(e); }
 });
 
@@ -33,9 +33,9 @@ router.get('/alphabet/:letter', async (req, res, next) => {
 
     const [total, results] = await Promise.all([
       Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
     ]);
-    res.json({ total, page, limit, results });
+    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id })) });
   } catch (e) { next(e); }
 });
 
@@ -60,13 +60,13 @@ router.get('/search', async (req, res, next) => {
 
     const [total, results] = await Promise.all([
       Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
     ]);
 
     // Log search stat (best-effort)
     HealthSearchStat.create({ query: q, result_count: total }).catch(() => {});
 
-    res.json({ total, page, limit, results });
+    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id })) });
   } catch (e) { next(e); }
 });
 
@@ -79,18 +79,18 @@ router.get('/category/:chapter', async (req, res, next) => {
 
     const [total, results] = await Promise.all([
       Disease.countDocuments(where),
-      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit),
+      Disease.find(where).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).lean(),
     ]);
-    res.json({ total, page, limit, results });
+    res.json({ total, page, limit, results: results.map(r => ({ ...r, id: r._id })) });
   } catch (e) { next(e); }
 });
 
 // ── SINGLE DISEASE ──────────────────────────────────────────────
 router.get('/disease/:code', async (req, res, next) => {
   try {
-    const row = await Disease.findOne({ code: req.params.code });
+    const row = await Disease.findOne({ code: req.params.code }).lean();
     if (!row) return res.status(404).json({ detail: "Disease not found." });
-    res.json(row);
+    res.json({ ...row, id: row._id });
   } catch (e) { next(e); }
 });
 
@@ -98,11 +98,11 @@ router.get('/disease/:code', async (req, res, next) => {
 router.get('/disease/:code/details', async (req, res, next) => {
   try {
     const code = req.params.code;
-    const row = await Disease.findOne({ code });
+    const row = await Disease.findOne({ code }).lean();
     if (!row) return res.status(404).json({ detail: "Disease not found." });
 
     // Return cached content if already fully generated.
-    if (row.overview && row.symptoms && row.faqs) return res.json(row);
+    if (row.overview && row.symptoms && row.faqs) return res.json({ ...row, id: row._id });
 
     let details;
     if (process.env.GEMINI_API_KEY) {
@@ -124,7 +124,7 @@ router.get('/disease/:code/details', async (req, res, next) => {
       console.error("Failed to cache details:", e.message);
     }
 
-    res.json({ ...row.toObject(), ...details });
+    res.json({ ...row, ...details, id: row._id });
   } catch (e) { next(e); }
 });
 
