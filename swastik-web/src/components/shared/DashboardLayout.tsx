@@ -402,7 +402,7 @@ export default function DashboardLayout({
             <div
                 ref={sidebarRef}
                 className={cn(
-                    'fixed top-0 left-0 z-50 h-full w-64 text-white transition-transform lg:translate-x-0',
+                    'fixed top-0 left-0 z-50 h-full w-64 text-white transition-transform lg:translate-x-0 flex flex-col',
                     colors.sidebar,
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
@@ -411,7 +411,7 @@ export default function DashboardLayout({
                 aria-label="Dashboard sidebar"
             >
                 {/* Logo */}
-                <div className={cn('flex items-center justify-between h-16 px-4 border-b', colors.border)}>
+                <div className={cn('flex-none flex items-center justify-between h-16 px-4 border-b', colors.border)}>
                     <div className="flex items-center gap-3">
                         <div className={cn('p-2 rounded-lg', colors.logoBg)}>
                             <PortalIcon className="h-5 w-5" />
@@ -431,7 +431,7 @@ export default function DashboardLayout({
                 </div>
 
                 {/* Navigation */}
-                <nav className="p-4 space-y-1">
+                <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-1">
                     {visibleNavItems.map((item) => {
                         const isActive = pathname === item.href ||
                             (item.href !== baseRoute && pathname.startsWith(item.href));
@@ -460,7 +460,7 @@ export default function DashboardLayout({
                 </nav>
 
                 {/* Sign Out at bottom */}
-                <div className={cn('absolute bottom-0 left-0 right-0 p-4 border-t', colors.border)}>
+                <div className={cn('flex-none p-4 border-t mt-auto', colors.border)}>
                     <button
                         onClick={handleLogout}
                         className={cn(
