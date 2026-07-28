@@ -13,3 +13,4 @@ coverage
 *.spec.js
 .DS_Store
 .vscode
+database/health_library.db
