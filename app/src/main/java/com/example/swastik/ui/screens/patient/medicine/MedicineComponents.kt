@@ -81,7 +81,7 @@ fun MedicineCard(
                                 .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(getMedicineEmoji(medicine.category.name), fontSize = 24.sp)
+                            Text(getMedicineEmoji(medicine.category?.name ?: "TABLET"), fontSize = 24.sp)
                         }
                     }
                 }
@@ -191,7 +191,7 @@ fun CompactMedicineItem(
                         .background(SwastikPrimary.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(getMedicineEmoji(medicine.category.name), fontSize = 20.sp)
+                    Text(getMedicineEmoji(medicine.category?.name ?: "TABLET"), fontSize = 20.sp)
                 }
             }
         }

@@ -37,11 +37,6 @@ import com.example.swastik.ui.screens.patient.healthcare.finder.MapEmptyStateCar
 import com.example.swastik.ui.screens.patient.healthcare.finder.SearchBarSection
 import com.example.swastik.ui.screens.patient.healthcare.finder.ShimmerFacilityCard
 import com.example.swastik.ui.screens.patient.healthcare.finder.hasValidMapCoordinates
-import com.example.swastik.ui.screens.patient.healthcare.hospital.HospitalSummarySheet
-import com.example.swastik.ui.screens.patient.healthcare.hospital.mergeFacilityDetails
-import com.example.swastik.ui.screens.patient.healthcare.clinic.ClinicDetailSheet
-import com.example.swastik.ui.screens.patient.healthcare.pharmacy.MedicalStoreDetailSheet
-import com.example.swastik.ui.screens.patient.healthcare.diagnostic.DiagnosticCenterDetailSheet
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyFacilityDetailSheet
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyModeContent
 import com.example.swastik.ui.screens.patient.healthcare.emergency.EmergencyTopBar
@@ -88,8 +83,7 @@ fun HospitalFinderScreen(
         mutableStateOf(false)
     }
 
-    var showPharmacyBookingDialog by remember { mutableStateOf(false) }
-    var pharmacyBookingIsPrescription by remember { mutableStateOf(false) }
+
 
     if (isMapView) {
         BackHandler {
@@ -108,6 +102,16 @@ fun HospitalFinderScreen(
     
     val selectedFacility = hospitalState.selectedFacilityForSheet
     val showBottomSheet = hospitalState.activeSheetType != null
+
+    val handleFacilityClick: (MedicalFacility) -> Unit = { facility ->
+        when (facility.type) {
+            FacilityType.HOSPITAL, FacilityType.NURSING_HOME -> onHospitalClick(facility.id)
+            FacilityType.CLINIC -> onClinicClick(facility.id)
+            FacilityType.MEDICAL_STORE -> onPharmacyDetailClick(facility.id)
+            FacilityType.DIAGNOSTIC_CENTER -> onDiagnosticDetailClick(facility.id)
+            else -> viewModel.openFacilitySheet(facility, facility.type.name)
+        }
+    }
     val facilities = hospitalState.facilities
     val selectedFacilityType = selectedFacilityTypeOverride
     val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -188,7 +192,7 @@ fun HospitalFinderScreen(
         }
 
         if (targetFacility != null) {
-            viewModel.openFacilitySheet(targetFacility, targetFacility.type.name)
+            handleFacilityClick(targetFacility)
             isMapView = true
             if (searchQuery != targetFacility.name) {
                 searchQuery = targetFacility.name
@@ -310,8 +314,8 @@ fun HospitalFinderScreen(
                 },
                 isLoading = hospitalState.isEmergencyLoading,
                 selectedFacilityType = selectedFacilityType,
-                onFacilityClick = { 
-                    viewModel.openFacilitySheet(it, it.type.name)
+                onFacilityClick = {
+                    handleFacilityClick(it)
                 },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -391,7 +395,7 @@ fun HospitalFinderScreen(
                             userLng = hospitalState.userLongitude,
                             focusedFacilityId = selectedFacility?.id ?: requestedFocusFacilityId,
                             onFacilityClick = { facility ->
-                                viewModel.openFacilitySheet(facility, facility.type.name)
+                                handleFacilityClick(facility)
                             }
                         )
 
@@ -422,7 +426,7 @@ fun HospitalFinderScreen(
                             FacilityListCard(
                                 facility = facility,
                                 onClick = {
-                                    viewModel.openFacilitySheet(facility, facility.type.name)
+                                    handleFacilityClick(facility)
                                 },
                                 isDarkMode = resolvedDarkMode
                             )
@@ -446,210 +450,17 @@ fun HospitalFinderScreen(
                 sheetState = sheetState,
                 containerColor = surfaceColor
             ) {
-                val sheetFacility = if (facility.type == FacilityType.HOSPITAL) {
-                    mergeFacilityDetails(
-                        baseFacility = facility,
-                        loadedDetails = hospitalState.selectedHospitalDetails?.takeIf { it.id == facility.id }
-                    )
-                } else {
-                    facility
-                }
                 val cartState by medicineViewModel.pharmacyCartState.collectAsState()
                 if (isEmergencyMode && facility.isEmergencyAvailable) {
                     EmergencyFacilityDetailSheet(
                         facility = facility,
                         isDarkMode = resolvedDarkMode
                     )
-                } else when (facility.type) {
-                    FacilityType.MEDICAL_STORE -> {
-                        LaunchedEffect(facility.id) {
-                            viewModel.loadPharmacyInventory(facility.id)
-                            medicineViewModel.setPharmacy(com.example.swastik.ui.viewmodel.CartType.PHARMACY, facility.id, facility.name)
-                        }
-                        val pharmacyCartState by medicineViewModel.pharmacyCartState.collectAsState()
-                        MedicalStoreDetailSheet(
-                            facility = facility,
-                            inventoryItems = hospitalState.pharmacyInventory,
-                            isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
-                            onInventorySearch = { query -> viewModel.loadPharmacyInventory(facility.id, query) },
-                            onAddInventoryToCart = { item ->
-                                val medicine = Medicine(
-                                    id = item.medicineId ?: item.id,
-                                    inventoryItemId = item.id,
-                                    name = item.displayName,
-                                    genericName = null,
-                                    manufacturer = item.manufacturer,
-                                    price = item.price,
-                                    requiresPrescription = item.requiresPrescription ?: false,
-                                    category = MedicineCategory.TABLET,
-                                    description = null,
-                                    inStock = item.inStock,
-                                    stockCount = item.quantity ?: 0,
-                                    nearbyPharmacy = facility.name,
-                                    pharmacyDistance = facility.distance
-                                )
-                                medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, facility.id, facility.name)
-                            },
-                            cartItemCount = pharmacyCartState.totalItems,
-                            onViewCart = {
-                                viewModel.closeFacilitySheet()
-                                onNavigateToCart()
-                            },
-                            onViewOrders = {
-                                viewModel.closeFacilitySheet()
-                                onNavigateToOrders()
-                            },
-                            onViewDetails = {
-                                viewModel.closeFacilitySheet()
-                                onPharmacyDetailClick(facility.id)
-                            },
-                            isDarkMode = resolvedDarkMode,
-                            onOpenBookingFlow = { isPrescription ->
-                                pharmacyBookingIsPrescription = isPrescription
-                                showPharmacyBookingDialog = true
-                            }
-                        )
-                    }
-                    FacilityType.HOSPITAL, FacilityType.NURSING_HOME -> {
-                        LaunchedEffect(facility.id) {
-                            viewModel.loadHospitalDetails(facility.id)
-                        }
-                        HospitalSummarySheet(
-                            facility = sheetFacility,
-                            isDetailsLoading = hospitalState.isHospitalDetailsLoading,
-                            detailsError = hospitalState.hospitalDetailsError,
-                            onDoctorBook = { doctor ->
-                                viewModel.closeFacilitySheet()
-                                onDoctorBookClick(doctor, sheetFacility)
-                            },
-                            onBookAppointment = {
-                                val preferredDoctor = sheetFacility.doctors.firstOrNull()
-                                when {
-                                    hospitalState.isHospitalDetailsLoading && preferredDoctor == null -> {
-                                        android.widget.Toast.makeText(
-                                            appContext,
-                                            "Loading hospital doctors...",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                    preferredDoctor != null -> {
-                                        viewModel.closeFacilitySheet()
-                                        onDoctorBookClick(preferredDoctor, sheetFacility)
-                                    }
-                                    else -> {
-                                        android.widget.Toast.makeText(
-                                            appContext,
-                                            "No doctors available for booking right now",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            },
-                            onViewDetails = {
-                                viewModel.closeFacilitySheet()
-                                onHospitalClick(facility.id)
-                            },
-                            isDarkMode = resolvedDarkMode,
-                            showBedBadge = true
-                        )
-                    }
-                    FacilityType.CLINIC -> {
-                        LaunchedEffect(facility.id) {
-                            viewModel.loadClinicDoctors(facility.id)
-                        }
-                        ClinicDetailSheet(
-                            facility = facility,
-                            clinicDoctors = hospitalState.clinicDoctors,
-                            isDoctorsLoading = hospitalState.isClinicDoctorsLoading,
-                            onDoctorBook = { doctor ->
-                                viewModel.closeFacilitySheet()
-                                onDoctorBookClick(doctor, facility)
-                            },
-                            onViewDetails = {
-                                viewModel.closeFacilitySheet()
-                                onClinicClick(facility.id)
-                            },
-                            onBookAppointment = {
-                                val preferredDoctor = hospitalState.clinicDoctors.firstOrNull()?.let { doc ->
-                                    HospitalDoctor(
-                                        id = doc.id,
-                                        name = doc.name,
-                                        specialization = doc.specialization ?: "Specialization not listed",
-                                        experience = doc.experienceYears?.takeIf { it > 0 }?.let { "$it yrs" } ?: "Experience not listed",
-                                        rating = doc.resolvedRating,
-                                        consultationFee = doc.consultationFee ?: 0
-                                    )
-                                } ?: facility.doctors.firstOrNull()
-
-                                if (preferredDoctor != null) {
-                                    viewModel.closeFacilitySheet()
-                                    onDoctorBookClick(preferredDoctor, facility)
-                                } else {
-                                    android.widget.Toast.makeText(
-                                        appContext,
-                                        "No doctors available for booking right now",
-                                        android.widget.Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            isDarkMode = resolvedDarkMode
-                        )
-                    }
-                    FacilityType.DIAGNOSTIC_CENTER -> {
-                        DiagnosticCenterDetailSheet(
-                            facility = facility,
-                            onBookTest = {
-                                viewModel.closeFacilitySheet()
-                                onNavigateToDiagnosticBooking(facility.id)
-                            },
-                            onViewDetails = {
-                                viewModel.closeFacilitySheet()
-                                onDiagnosticDetailClick(facility.id)
-                            },
-                            isDarkMode = resolvedDarkMode
-                        )
-                    }
+                } else {
+                    // All other facility types (HOSPITAL, CLINIC, MEDICAL_STORE, DIAGNOSTIC_CENTER)
+                    // now navigate directly to the full-screen FacilityDetailScreen via handleFacilityClick
                 }
             }
-        }
-
-        // Pharmacy Booking Full-Screen Flow
-        if (showPharmacyBookingDialog && selectedFacility != null && selectedFacility?.type == FacilityType.MEDICAL_STORE) {
-            com.example.swastik.ui.screens.patient.medicine.PharmacyBookingFlow(
-                facility = selectedFacility!!,
-                initialStep = if (pharmacyBookingIsPrescription) 3 else 1,
-                isPrescriptionBased = pharmacyBookingIsPrescription,
-                inventoryItems = hospitalState.pharmacyInventory,
-                isInventoryLoading = hospitalState.isPharmacyInventoryLoading,
-                onInventorySearch = { query -> viewModel.loadPharmacyInventory(selectedFacility!!.id, query) },
-                onDismiss = { showPharmacyBookingDialog = false },
-                onConfirmOrder = { address, phone, items, isRx, bitmap ->
-                    medicineViewModel.clearCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY)
-                    medicineViewModel.setPharmacy(com.example.swastik.ui.viewmodel.CartType.PHARMACY, selectedFacility!!.id, selectedFacility!!.name)
-                    medicineViewModel.setDeliveryAddress(com.example.swastik.ui.viewmodel.CartType.PHARMACY, address)
-                    medicineViewModel.setPatientPhone(com.example.swastik.ui.viewmodel.CartType.PHARMACY, phone)
-                    if (!isRx) {
-                        items.forEach { (item, orderQuantity) ->
-                            val medicine = Medicine(
-                                id = item.medicineId ?: item.id,
-                                inventoryItemId = item.id,
-                                name = item.displayName,
-                                manufacturer = item.manufacturer ?: "Unknown",
-                                price = item.price,
-                                requiresPrescription = item.requiresPrescription ?: false,
-                                inStock = true,
-                                stockCount = item.quantity ?: 0
-                            )
-                            medicineViewModel.addToCart(com.example.swastik.ui.viewmodel.CartType.PHARMACY, medicine, selectedFacility!!.id, selectedFacility!!.name)
-                            medicineViewModel.updateCartQuantity(com.example.swastik.ui.viewmodel.CartType.PHARMACY, item.id, orderQuantity)
-                        }
-                    }
-                    medicineViewModel.placeOrder(com.example.swastik.ui.viewmodel.CartType.PHARMACY, appContext, bitmap)
-                    showPharmacyBookingDialog = false
-                    viewModel.closeFacilitySheet()
-                    onNavigateToOrders()
-                }
-            )
         }
 
         // Filter Bottom Sheet

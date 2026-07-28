@@ -32,11 +32,13 @@ data class HospitalDetailUiState(
     val sosRequesting: Boolean = false,
     val sosSuccess: Boolean = false,
     val sosError: String? = null,
-    val sosCooldownRemaining: Long = 0L // Cooldown in seconds
+    val sosCooldownRemaining: Long = 0L, // Cooldown in seconds
+    val pharmacyInventory: List<com.example.swastik.data.remote.dto.PharmacyInventoryItemDto> = emptyList(),
+    val isPharmacyInventoryLoading: Boolean = false
 )
 
 @HiltViewModel
-class HospitalDetailViewModel @Inject constructor(
+class FacilityDetailViewModel @Inject constructor(
     private val hospitalRepository: HospitalRepository,
     private val emergencyRepository: EmergencyRepository,
     private val locationHelper: LocationHelper,
@@ -65,6 +67,8 @@ class HospitalDetailViewModel @Inject constructor(
             try {
                 val facility = when (facilityType) {
                     FacilityType.CLINIC -> hospitalRepository.getClinicDetails(facilityId)
+                    FacilityType.MEDICAL_STORE -> hospitalRepository.getPharmacyDetails(facilityId)
+                    FacilityType.DIAGNOSTIC_CENTER -> hospitalRepository.getDiagnosticCenterDetails(facilityId)
                     else -> hospitalRepository.getHospitalDetails(facilityId)
                 }
                 if (facility != null) {
@@ -74,14 +78,21 @@ class HospitalDetailViewModel @Inject constructor(
                     )
                     val typeStr = when (facilityType) {
                         FacilityType.CLINIC -> "clinic"
+                        FacilityType.MEDICAL_STORE -> "pharmacy"
+                        FacilityType.DIAGNOSTIC_CENTER -> "diagnostic_center"
                         else -> "hospital"
                     }
                     loadReviews(typeStr, facilityId)
+                    if (facilityType == FacilityType.MEDICAL_STORE) {
+                        loadPharmacyInventory(facilityId)
+                    }
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = when (facilityType) {
                             FacilityType.CLINIC -> "Clinic not found"
+                            FacilityType.MEDICAL_STORE -> "Pharmacy not found"
+                            FacilityType.DIAGNOSTIC_CENTER -> "Diagnostic center not found"
                             else -> "Hospital not found"
                         }
                     )
@@ -91,12 +102,32 @@ class HospitalDetailViewModel @Inject constructor(
                     isLoading = false,
                     error = e.message ?: when (facilityType) {
                         FacilityType.CLINIC -> "Failed to load clinic details"
+                        FacilityType.MEDICAL_STORE -> "Failed to load pharmacy details"
+                        FacilityType.DIAGNOSTIC_CENTER -> "Failed to load diagnostic center details"
                         else -> "Failed to load hospital details"
                     }
                 )
             }
         }
     }
+
+    fun loadPharmacyInventory(pharmacyId: String, search: String? = null, category: String? = null) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isPharmacyInventoryLoading = true)
+            try {
+                val inventory = hospitalRepository.getPharmacyInventory(pharmacyId, search, category)
+                _uiState.value = _uiState.value.copy(
+                    pharmacyInventory = inventory,
+                    isPharmacyInventoryLoading = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isPharmacyInventoryLoading = false
+                )
+            }
+        }
+    }
+
 
     fun loadReviews(facilityType: String, facilityId: String) {
         viewModelScope.launch {
@@ -127,6 +158,8 @@ class HospitalDetailViewModel @Inject constructor(
                 // Determine FacilityType enum from string to re-load
                 val enumType = when(facilityType) {
                     "clinic" -> FacilityType.CLINIC
+                    "pharmacy" -> FacilityType.MEDICAL_STORE
+                    "diagnostic_center" -> FacilityType.DIAGNOSTIC_CENTER
                     else -> FacilityType.HOSPITAL
                 }
                 loadFacilityDetails(facilityId, enumType)

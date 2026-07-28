@@ -708,7 +708,7 @@ fun GlobalMedicineCard(
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = getMedicineCategoryEmoji(medicine.category.name),
+                            text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
                             fontSize = 36.sp,
                             modifier = Modifier.alpha(alpha)
                         )
@@ -892,7 +892,7 @@ fun GlobalMedicineListCard(
                     )
                 } else {
                     Text(
-                        text = getMedicineCategoryEmoji(medicine.category.name),
+                        text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
                         fontSize = 28.sp,
                         modifier = Modifier.alpha(alpha)
                     )

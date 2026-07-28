@@ -94,7 +94,7 @@ fun HospitalReelsSection(reels: List<HospitalReel>, isDark: Boolean) {
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${reel.views} views",
+                            text = "2 mins ago",
                             color = Color.LightGray,
                             fontSize = 11.sp
                         )

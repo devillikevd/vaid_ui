@@ -35,7 +35,7 @@ import com.example.swastik.ui.screens.consultation.VideoConsultationFlow
 import com.example.swastik.ui.screens.patient.AppointmentHistoryScreen
 import com.example.swastik.ui.screens.patient.EmergencyScreen
 import com.example.swastik.ui.screens.patient.HospitalFinderScreen
-import com.example.swastik.ui.screens.patient.HospitalDetailScreen
+import com.example.swastik.ui.screens.patient.FacilityDetailScreen
 import com.example.swastik.ui.screens.patient.PatientDashboardScreen
 import com.example.swastik.ui.screens.patient.booking.AppointmentBookingScreen
 import com.example.swastik.ui.screens.patient.booking.FindDoctorsCategoriesScreen
@@ -660,7 +660,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
                 val hospitalId = backStackEntry.arguments?.getString("hospitalId") ?: return@AuthGuard
-                HospitalDetailScreen(
+                FacilityDetailScreen(
                     facilityId = hospitalId,
                     facilityType = FacilityType.HOSPITAL,
                     onBackClick = { navController.popBackStack() },
@@ -672,6 +672,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                                 hospitalId = facility.id.ifBlank { null }
                             )
                         )
+                    },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
+                    },
+                    onNavigateToDiagnosticBooking = { centerId ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
                     }
                 )
             }
@@ -687,7 +693,7 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
                 val clinicId = backStackEntry.arguments?.getString("clinicId") ?: return@AuthGuard
-                HospitalDetailScreen(
+                FacilityDetailScreen(
                     facilityId = clinicId,
                     facilityType = FacilityType.CLINIC,
                     onBackClick = { navController.popBackStack() },
@@ -699,6 +705,12 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
                                 clinicId = facility.id.ifBlank { null }
                             )
                         )
+                    },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
+                    },
+                    onNavigateToDiagnosticBooking = { centerId ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
                     }
                 )
             }
@@ -714,13 +726,18 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
                 val pharmacyId = backStackEntry.arguments?.getString("pharmacyId") ?: return@AuthGuard
-                com.example.swastik.ui.screens.patient.medicine.PharmacyDetailScreen(
-                    pharmacyId = pharmacyId,
+                FacilityDetailScreen(
+                    facilityId = pharmacyId,
+                    facilityType = FacilityType.MEDICAL_STORE,
                     onBackClick = { navController.popBackStack() },
-                    onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
-                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
-                    onNavigateToOrderHistory = { navController.navigateSafe(Screen.OrderHistory.createRoute(0)) },
-                    isLoggedIn = tokenManager.isAuthenticated()
+                    isLoggedIn = tokenManager.isAuthenticated(),
+                    onDoctorBookClick = { _, _ -> },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
+                    },
+                    onNavigateToDiagnosticBooking = { centerId ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
+                    }
                 )
             }
         }
@@ -735,15 +752,18 @@ fun SwastikApp(tokenManager: TokenManager, networkObserver: NetworkObserver) {
         ) { backStackEntry ->
             AuthGuard(navController, tokenManager) {
                 val centerId = backStackEntry.arguments?.getString("centerId") ?: return@AuthGuard
-                com.example.swastik.ui.screens.patient.diagnostic.DiagnosticDetailScreen(
-                    centerId = centerId,
+                FacilityDetailScreen(
+                    facilityId = centerId,
+                    facilityType = FacilityType.DIAGNOSTIC_CENTER,
                     onBackClick = { navController.popBackStack() },
-                    onBookTestsClick = { facility ->
-                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(facility.id))
+                    isLoggedIn = tokenManager.isAuthenticated(),
+                    onDoctorBookClick = { _, _ -> },
+                    onNavigateToOrders = {
+                        navController.navigateSafe(Screen.OrderHistory.createRoute(0))
                     },
-                    onNavigateToHospital = { hId -> navController.navigateSafe(Screen.HospitalDetail.createRoute(hId)) },
-                    onNavigateToClinic = { cId -> navController.navigateSafe(Screen.ClinicDetail.createRoute(cId)) },
-                    isLoggedIn = tokenManager.isAuthenticated()
+                    onNavigateToDiagnosticBooking = { centerId ->
+                        navController.navigateSafe(Screen.DiagnosticBooking.createRoute(centerId))
+                    }
                 )
             }
         }

@@ -140,7 +140,8 @@ data class Doctor(
     val bio: String? = null,
     val awards: List<String>? = null,
     @SerializedName("consultation_types") val consultationTypes: List<String>? = null,
-    @SerializedName("total_consultations") val totalConsultations: Int? = null
+    @SerializedName("total_consultations") val totalConsultations: Int? = null,
+    @SerializedName("intro_video_url") val introVideoUrl: String? = null
 )
 
 /** Lightweight hospital info embedded in doctor search results */
@@ -363,7 +364,7 @@ data class Medicine(
     val price: Float?,
     val mrp: Float? = null,
     @SerializedName("requires_prescription") val requiresPrescription: Boolean,
-    val category: MedicineCategory = MedicineCategory.TABLET,
+    val category: MedicineCategory? = MedicineCategory.TABLET,
     @SerializedName("therapeutic_category") val therapeuticCategory: String? = null,
     @SerializedName("dosage_form") val dosageForm: String? = null,
     val description: String? = null,

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import com.example.swastik.ui.screens.patient.components.shimmerEffect
+import com.example.swastik.ui.components.MedicineListShimmer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -206,21 +207,11 @@ fun MedicineScreen(
                                     Text(stringResource(R.string.retry))
                                 }
                             }
-                        } else if (state.isLoading) {
-                            Column(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                repeat(5) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(100.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .shimmerEffect()
-                                    )
-                                }
-                            }
+                            } else if (state.isLoading) {
+                            MedicineListShimmer(
+                                modifier = Modifier.fillMaxSize(),
+                                count = 5
+                            )
                         } else if (filteredMedicines.isEmpty() && filteredNearbyMedicines.isEmpty()) {
                             MedicineEmptyState(
                                 onResetFilters = {
@@ -545,7 +536,7 @@ private fun CompactMedicineListItem(
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
-                    Text(getMedicineEmoji(medicine.category.name), fontSize = 26.sp)
+                    Text(getMedicineEmoji(medicine.category?.name ?: "TABLET"), fontSize = 26.sp)
                 }
             }
 

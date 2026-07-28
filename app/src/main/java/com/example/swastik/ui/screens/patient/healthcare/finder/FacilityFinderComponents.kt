@@ -872,16 +872,15 @@ internal fun ShimmerFacilityCard(isDarkMode: Boolean) {
     }
 }
 
-// ==================== FACILITY LIST CARD ====================
+// ==================== FACILITY LIST CARD (MODERN) ====================
 @Composable
 internal fun FacilityListCard(
     facility: MedicalFacility,
     onClick: () -> Unit,
     isDarkMode: Boolean
 ) {
-    val colorScheme = MaterialTheme.colorScheme
     val accentColor = facility.type.getMarkerColor()
-    val cardBg = if (isDarkMode) colorScheme.surfaceVariant else Color(0xFFE2F0FC)
+    val cardBg = if (isDarkMode) Color(0xFF1E293B) else Color.White
     val titleColor = if (isDarkMode) Color(0xFFF1F5F9) else Color(0xFF0F172A)
     val subtitleColor = if (isDarkMode) Color(0xFF94A3B8) else Color(0xFF64748B)
     val facilityCardContext = LocalContext.current
@@ -892,23 +891,23 @@ internal fun FacilityListCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Box(
+        Column {
+            // Image + Info header row
+            Row(
                 modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(accentColor, RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
-            )
-
-            Column(modifier = Modifier.weight(1f).padding(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Thumbnail with corner accent
+                Box(modifier = Modifier.size(64.dp)) {
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(accentColor.copy(alpha = 0.08f)),
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(accentColor.copy(alpha = 0.1f)),
                         contentAlignment = Alignment.Center
                     ) {
                         if (!facility.imageUrl.isNullOrBlank()) {
@@ -919,188 +918,202 @@ internal fun FacilityListCard(
                                     .build(),
                                 contentDescription = facility.name,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
                             )
                         } else {
                             Icon(
                                 imageVector = facility.type.getMarkerIcon(),
                                 contentDescription = null,
                                 tint = accentColor,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(30.dp)
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = facility.name,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = titleColor
-                            )
-                            if (facility.type != FacilityType.DIAGNOSTIC_CENTER && facility.type != FacilityType.MEDICAL_STORE) {
-                                StatusBadge(facility = facility)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = facility.type.getDisplayName(),
-                                fontSize = 12.sp,
-                                color = subtitleColor
-                            )
-                            if (facility.hospitalSubType != null) {
-                                Text(" • ", fontSize = 12.sp, color = subtitleColor)
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = accentColor.copy(alpha = 0.1f)
-                                ) {
-                                    Text(
-                                        text = facility.hospitalSubType,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = accentColor,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                            Text(" ${facility.rating}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = titleColor)
-                            Text(" (${facility.reviewCount})", fontSize = 11.sp, color = subtitleColor)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = accentColor, modifier = Modifier.size(14.dp))
-                            Text(" ${facility.distance}", fontSize = 12.sp, color = subtitleColor)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Outlined.Place, contentDescription = null, tint = subtitleColor, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = facility.address,
-                        fontSize = 12.sp,
-                        color = subtitleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                    // Type color dot
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(accentColor)
+                            .align(Alignment.BottomEnd)
                     )
                 }
 
-                val badges = mutableListOf<Triple<String, Color, Color>>()
-                if (facility.isEmergencyAvailable) {
-                    badges.add(Triple("🔴 Emergency", Color(0xFFFEE2E2), Color(0xFFDC2626)))
-                    if (facility.erWaitTimeMinutes != null) {
-                        badges.add(Triple("🕒 ER Wait: ${facility.erWaitTimeMinutes}m", Color(0xFFFEF3C7), Color(0xFFD97706)))
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = facility.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = titleColor
+                        )
                     }
-                }
-                if (facility.bedsAvailable != null && facility.bedsAvailable > 0) {
-                    badges.add(Triple("🛏 ${facility.bedsAvailable} Beds", Color(0xFFDBEAFE), Color(0xFF2563EB)))
-                }
-                if (facility.is24Hours) {
-                    badges.add(Triple("24/7", Color(0xFFD1FAE5), Color(0xFF059669)))
-                }
-                if (badges.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        badges.forEach { (text, bg, fg) ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            facility.type.getMarkerIcon(),
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = facility.type.getDisplayName(),
+                            fontSize = 12.sp,
+                            color = subtitleColor
+                        )
+                        if (facility.hospitalSubType != null) {
+                            Text(" • ", fontSize = 12.sp, color = subtitleColor)
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (isDarkMode) fg.copy(alpha = 0.15f) else bg
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isDarkMode) accentColor.copy(alpha = 0.2f) else accentColor.copy(alpha = 0.1f)
                             ) {
                                 Text(
-                                    text = text,
+                                    text = facility.hospitalSubType,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = fg,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accentColor,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                            Text(" ${facility.rating}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = titleColor)
+                            Text(" (${facility.reviewCount})", fontSize = 11.sp, color = subtitleColor)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        StatusBadge(facility = facility, small = true)
+                    }
                 }
+            }
 
-                if (facility.specializations.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(facility.specializations.take(4)) { spec ->
+            // Address row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(Icons.Outlined.Place, contentDescription = null, tint = subtitleColor, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = facility.address,
+                    fontSize = 12.sp,
+                    color = subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = accentColor, modifier = Modifier.size(14.dp))
+                Text(" ${facility.distance}", fontSize = 12.sp, color = subtitleColor)
+            }
+
+            // Badges
+            val badges = mutableListOf<Pair<String, Color>>()
+            if (facility.isEmergencyAvailable) {
+                badges.add("Emergency" to Color(0xFFDC2626))
+            }
+            if (facility.bedsAvailable != null && facility.bedsAvailable > 0) {
+                badges.add("${facility.bedsAvailable} Beds" to Color(0xFF2563EB))
+            }
+            if (facility.is24Hours) {
+                badges.add("24/7" to Color(0xFF059669))
+            }
+            if (badges.isNotEmpty() || facility.specializations.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    badges.forEach { (text, color) ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isDarkMode) color.copy(alpha = 0.15f) else color.copy(alpha = 0.08f)
+                        ) {
+                            Text(
+                                text = text,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = color,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                    if (facility.specializations.isNotEmpty()) {
+                        facility.specializations.take(3).forEach { spec ->
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(6.dp),
                                 color = accentColor.copy(alpha = 0.08f)
                             ) {
                                 Text(
                                     text = spec,
                                     fontSize = 10.sp,
-                                    color = accentColor,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    color = accentColor,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Action buttons
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        if (facility.phone.isNotBlank()) {
+                            NavigationHelper.openDialer(facilityCardContext, facility.phone)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, Color(0xFF2563EB).copy(alpha = 0.3f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2563EB))
                 ) {
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                if (facility.phone.isNotBlank()) {
-                                    NavigationHelper.openDialer(facilityCardContext, facility.phone)
-                                }
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isDarkMode) Color(0xFF1E3A5F) else Color(0xFFEFF6FF),
-                        border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF334155) else Color(0xFFBFDBFE))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(stringResource(R.string.call), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF2563EB))
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                NavigationHelper.openDirections(facilityCardContext, facility.latitude, facility.longitude, facility.name)
-                            },
-                        shape = RoundedCornerShape(8.dp),
-                        color = accentColor
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(stringResource(R.string.directions), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                        }
-                    }
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Call", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = {
+                        NavigationHelper.openDirections(
+                            facilityCardContext,
+                            facility.latitude,
+                            facility.longitude,
+                            facility.name
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SwastikPrimary)
+                ) {
+                    Icon(Icons.Default.Directions, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Directions", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier.weight(0.7f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                ) {
+                    Text("More", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

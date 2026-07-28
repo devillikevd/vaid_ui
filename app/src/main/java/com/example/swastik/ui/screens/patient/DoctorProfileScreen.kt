@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -201,10 +202,59 @@ fun DoctorProfileContent(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            var showVideoDialog by remember { mutableStateOf(false) }
+            val hasVideo = !doctor.introVideoUrl.isNullOrBlank()
+
+            if (showVideoDialog && hasVideo) {
+                androidx.compose.ui.window.Dialog(
+                    onDismissRequest = { showVideoDialog = false },
+                    properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                        com.example.swastik.ui.components.VideoReelPlayer(
+                            videoUrl = doctor.introVideoUrl!!,
+                            playWhenReady = true,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        IconButton(
+                            onClick = { showVideoDialog = false },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    }
+                }
+            }
+
             // Rounded Image
+
             Box(
                 modifier = Modifier
                     .size(100.dp)
+                    .then(
+                        if (hasVideo) {
+                            Modifier
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(0xFFFEDA75),
+                                            Color(0xFFFA7E1E),
+                                            Color(0xFFD62976),
+                                            Color(0xFF962FBF),
+                                            Color(0xFF4F5BD5)
+                                        )
+                                    ),
+                                    RoundedCornerShape(26.dp)
+                                )
+                                .padding(3.dp)
+                                .clickable { showVideoDialog = true }
+                        } else {
+                            Modifier
+                        }
+                    )
                     .background(SwastikPrimaryLight, RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -256,11 +306,19 @@ fun DoctorProfileContent(
                 )
                 val exp = doctor.experienceYears
                 if (exp != null && exp > 0) {
-                    Text(
-                        text = stringResource(R.string.years_experience_fmt, exp),
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF2E7D32).copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "🌟 ${stringResource(R.string.years_experience_fmt, exp)}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 // Small Rating Pill
@@ -553,12 +611,34 @@ fun DoctorProfileContent(
                             Text(clinic.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { onClinicClick(clinic.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(stringResource(R.string.view_clinic_details))
+                        Spacer(Modifier.height(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { onClinicClick(clinic.id) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(stringResource(R.string.view_clinic_details))
+                            }
+                            
+                            if (clinic.latitude != null && clinic.longitude != null && clinic.latitude != 0.0) {
+                                val context = LocalContext.current
+                                IconButton(
+                                    onClick = {
+                                        val uri = android.net.Uri.parse("geo:${clinic.latitude},${clinic.longitude}?q=${clinic.latitude},${clinic.longitude}(${android.net.Uri.encode(clinic.name)})")
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                                        mapIntent.setPackage("com.google.android.apps.maps")
+                                        try {
+                                            context.startActivity(mapIntent)
+                                        } catch (e: Exception) {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                        }
+                                    },
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                ) {
+                                    Icon(Icons.Outlined.Map, contentDescription = "Open Maps", tint = SwastikPrimary)
+                                }
+                            }
                         }
                     }
                 }
@@ -586,12 +666,34 @@ fun DoctorProfileContent(
                             Text(hospital.address, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { onHospitalClick(hospital.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text(stringResource(R.string.view_hospital_details))
+                        Spacer(Modifier.height(12.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { onHospitalClick(hospital.id) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(stringResource(R.string.view_hospital_details))
+                            }
+                            
+                            if (hospital.latitude != null && hospital.longitude != null && hospital.latitude != 0.0) {
+                                val context = LocalContext.current
+                                IconButton(
+                                    onClick = {
+                                        val uri = android.net.Uri.parse("geo:${hospital.latitude},${hospital.longitude}?q=${hospital.latitude},${hospital.longitude}(${android.net.Uri.encode(hospital.name)})")
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, uri)
+                                        mapIntent.setPackage("com.google.android.apps.maps")
+                                        try {
+                                            context.startActivity(mapIntent)
+                                        } catch (e: Exception) {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                        }
+                                    },
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                ) {
+                                    Icon(Icons.Outlined.Map, contentDescription = "Open Maps", tint = SwastikPrimary)
+                                }
+                            }
                         }
                     }
                 }

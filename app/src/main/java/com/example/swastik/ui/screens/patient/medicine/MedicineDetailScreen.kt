@@ -161,14 +161,18 @@ fun MedicineDetailScreen(
 
                     Button(
                         onClick = {
-                            viewModel.addToCart(
-                                com.example.swastik.ui.viewmodel.CartType.GLOBAL,
-                                medicine = medicine,
-                                pharmacyId = "GLOBAL_REQUEST",
-                                pharmacyName = "Global Request",
-                                quantity = requestQuantity
-                            )
-                            addedToCart = true
+                            if (addedToCart || isInCart) {
+                                onNavigateToCart()
+                            } else {
+                                viewModel.addToCart(
+                                    com.example.swastik.ui.viewmodel.CartType.GLOBAL,
+                                    medicine = medicine,
+                                    pharmacyId = "GLOBAL_REQUEST",
+                                    pharmacyName = "Global Request",
+                                    quantity = requestQuantity
+                                )
+                                addedToCart = true
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -179,13 +183,13 @@ fun MedicineDetailScreen(
                         )
                     ) {
                         Icon(
-                            if (addedToCart || isInCart) Icons.Default.CheckCircle else Icons.Default.AddShoppingCart,
+                            if (addedToCart || isInCart) Icons.Default.ShoppingCart else Icons.Default.AddShoppingCart,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (addedToCart || isInCart) "Added to Cart" else "Add to Cart",
+                            if (addedToCart || isInCart) "Go to Cart" else "Add to Cart",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
                         )
@@ -220,7 +224,7 @@ fun MedicineDetailScreen(
                     )
                 } else {
                     Text(
-                        text = getMedicineCategoryEmoji(medicine.category.name),
+                        text = getMedicineCategoryEmoji(medicine.category?.name ?: "TABLET"),
                         fontSize = 72.sp
                     )
                 }
@@ -331,7 +335,7 @@ fun MedicineDetailScreen(
                     ) {
                         InfoChip(
                             icon = Icons.Outlined.Category,
-                            label = medicine.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                            label = medicine.category?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Tablet",
                             color = SwastikPrimary
                         )
                         InfoChip(
@@ -456,7 +460,7 @@ fun MedicineDetailScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         detailState.alternatives.forEach { alt ->
-                            AlternativeMedicineRow(alt, onClick = { onMedicineClick(alt.id) })
+                            AlternativeMedicineRow(alt, currentPrice = medicine.price, onClick = { onMedicineClick(alt.id) })
                             if (alt != detailState.alternatives.last()) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 6.dp),
@@ -614,7 +618,7 @@ private fun AvailabilityPharmacyRow(availability: MedicineAvailabilityDto) {
 
 // ==================== ALTERNATIVE MEDICINE ROW ====================
 @Composable
-private fun AlternativeMedicineRow(alternative: Medicine, onClick: () -> Unit) {
+private fun AlternativeMedicineRow(alternative: Medicine, currentPrice: Float?, onClick: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
 
     Row(
@@ -640,7 +644,7 @@ private fun AlternativeMedicineRow(alternative: Medicine, onClick: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Text(getMedicineCategoryEmoji(alternative.category.name), fontSize = 22.sp)
+                Text(getMedicineCategoryEmoji(alternative.category?.name ?: "TABLET"), fontSize = 22.sp)
             }
         }
 
@@ -681,13 +685,34 @@ private fun AlternativeMedicineRow(alternative: Medicine, onClick: () -> Unit) {
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Price
-        Text(
-            text = "₹${alternative.price?.toInt() ?: 0}",
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = SwastikPrimary
-        )
+        // Price and Savings
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "₹${alternative.price?.toInt() ?: 0}",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = SwastikPrimary
+            )
+            
+            if (currentPrice != null && alternative.price != null && alternative.price < currentPrice && currentPrice > 0) {
+                val savingsPercent = ((currentPrice - alternative.price) / currentPrice * 100).toInt()
+                if (savingsPercent > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF2E7D32).copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "$savingsPercent% Cheaper",
+                            fontSize = 10.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

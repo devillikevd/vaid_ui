@@ -680,7 +680,18 @@ class HospitalRepository @Inject constructor(
             phone = phone ?: "",
             openTime = openTime,
             closeTime = closeTime,
-            isOpen = is24Hours ?: false,
+            isOpen = is24Hours == true || run {
+                val now = java.time.LocalTime.now()
+                val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                when {
+                    open == null && close == null -> true
+                    open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                    open != null -> now.isAfter(open)
+                    close != null -> now.isBefore(close)
+                    else -> true
+                }
+            },
             is24Hours = is24Hours ?: false,
             imageUrl = imageUrl,
             isEmergencyAvailable = isEmergencyAvailable ?: false,
@@ -772,8 +783,8 @@ private fun ClinicDto.toMedicalFacility(
                 createdAt = reel.createdAt
             )
         } ?: emptyList(),
-        associatedPharmacies = associatedPharmacies ?: emptyList(),
-        associatedDiagnosticCenters = associatedDiagnosticCenters ?: emptyList()
+        associatedPharmacies = emptyList(),
+        associatedDiagnosticCenters = emptyList()
     )
 }
 
@@ -808,7 +819,18 @@ private fun ClinicDto.toMedicalFacility(
             phone = phone ?: "",
             openTime = openTime,
             closeTime = closeTime,
-            isOpen = isOpen ?: true,
+            isOpen = isOpen ?: is24Hours == true || run {
+                val now = java.time.LocalTime.now()
+                val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                when {
+                    open == null && close == null -> true
+                    open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                    open != null -> now.isAfter(open)
+                    close != null -> now.isBefore(close)
+                    else -> true
+                }
+            },
             is24Hours = is24Hours ?: false,
             imageUrl = imageUrl,
             images = galleryUrls ?: emptyList(),
@@ -848,7 +870,18 @@ private fun ClinicDto.toMedicalFacility(
             phone = phone ?: "",
             openTime = openTime,
             closeTime = closeTime,
-            isOpen = is24Hours ?: true,
+            isOpen = is24Hours == true || run {
+                val now = java.time.LocalTime.now()
+                val open = openTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                val close = closeTime?.let { try { java.time.LocalTime.parse(it) } catch (_: Exception) { null } }
+                when {
+                    open == null && close == null -> true
+                    open != null && close != null -> if (open.isBefore(close)) now.isAfter(open) && now.isBefore(close) else now.isAfter(open) || now.isBefore(close)
+                    open != null -> now.isAfter(open)
+                    close != null -> now.isBefore(close)
+                    else -> true
+                }
+            },
             is24Hours = is24Hours ?: false,
             imageUrl = imageUrl,
             isEmergencyAvailable = emergencyServices ?: false,

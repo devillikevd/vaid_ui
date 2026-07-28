@@ -62,6 +62,7 @@ fun DiagnosticBookingScreen(
     val patientProfile by patientDashboardViewModel.patientProfile.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var filterHomeCollection by remember { mutableStateOf(false) }
     var showBookingDialog by remember { mutableStateOf(false) }
     var isPrescriptionBooking by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -164,10 +165,24 @@ fun DiagnosticBookingScreen(
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
+            
+            // Filters
+            if (uiState.selectedCenter == null) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    FilterChip(
+                        selected = filterHomeCollection,
+                        onClick = { filterHomeCollection = !filterHomeCollection },
+                        label = { Text("Home Collection Available") },
+                        leadingIcon = if (filterHomeCollection) {
+                            { Icon(Icons.Default.Check, contentDescription = "Checked", modifier = Modifier.size(16.dp)) }
+                        } else null
+                    )
+                }
+            }
 
             if (uiState.isLoading) {
                 Column(
@@ -218,7 +233,13 @@ fun DiagnosticBookingScreen(
                 )
             } else {
                 // Show centers list
-                if (uiState.centers.isEmpty()) {
+                val displayCenters = if (filterHomeCollection) {
+                    uiState.centers.filter { it.homeCollectionAvailable == true }
+                } else {
+                    uiState.centers
+                }
+                
+                if (displayCenters.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.Biotech, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
@@ -231,7 +252,7 @@ fun DiagnosticBookingScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(uiState.centers) { center ->
+                        items(displayCenters) { center ->
                             CenterCard(center = center, onClick = { viewModel.selectCenter(center) })
                         }
                     }
