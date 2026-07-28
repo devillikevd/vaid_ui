@@ -367,7 +367,7 @@ export default function HealthLibraryPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-emerald-100 text-base md:text-lg max-w-2xl font-light mb-8 leading-relaxed"
           >
-            Access clinically verified, structured insights on <span className="font-semibold text-white">{stats?.total_diseases.toLocaleString() || "31,000+"}</span> medical conditions. Driven by official ICD-10 chapters.
+            Access clinically verified, structured insights on <span className="font-semibold text-white">{stats?.total_diseases?.toLocaleString() || "31,000+"}</span> medical conditions. Driven by official ICD-10 chapters.
           </motion.p>
 
           {/* Search form */}
@@ -448,13 +448,13 @@ export default function HealthLibraryPage() {
                 </div>
                 <div className="bg-red-50/50 rounded-xl p-3.5 text-center border border-red-50">
                   <div className="text-red-700 font-bold text-xl">
-                    {stats.severity.find(s => s.severity === "Critical")?.cnt.toLocaleString() || "0"}
+                    {stats.severity.find(s => s.severity === "Critical")?.cnt?.toLocaleString() || "0"}
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wider">Critical</div>
                 </div>
                 <div className="bg-orange-50/50 rounded-xl p-3.5 text-center border border-orange-50">
                   <div className="text-orange-700 font-bold text-xl">
-                    {stats.severity.find(s => s.severity === "Severe")?.cnt.toLocaleString() || "0"}
+                    {stats.severity.find(s => s.severity === "Severe")?.cnt?.toLocaleString() || "0"}
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wider">Severe</div>
                 </div>
