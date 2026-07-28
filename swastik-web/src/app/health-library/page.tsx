@@ -133,12 +133,16 @@ export default function HealthLibraryPage() {
     async function loadInitialData() {
       try {
         const statsRes = await fetch(`${PUBLIC_API_URL}/diseases/stats`);
-        const statsData = await statsRes.json();
-        setStats(statsData);
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(statsData);
+        }
 
         const catsRes = await fetch(`${PUBLIC_API_URL}/diseases/categories`);
-        const catsData = await catsRes.json();
-        setCategories(catsData);
+        if (catsRes.ok) {
+          const catsData = await catsRes.json();
+          setCategories(Array.isArray(catsData) ? catsData : []);
+        }
       } catch (e) {
         console.error("Failed to load health library stats or categories", e);
       }
